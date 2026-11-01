@@ -18,7 +18,8 @@ those as a single bit by default, so the three bits are combined:
   userFloat1/2 (raw bits)          hand jutsu level - 1
   userFloat3   (raw bit)           Kawarimi: hidden (slow, invisible to others)
   userVec1[0..2] (raw bits)        burning, wet, stuck in mud
-  userVec2[0..1] (raw bits)        trapped in a Water Prison, holding one
+  userVec2[0..2] (raw bits)        trapped in a Water Prison, holding one,
+                                   stunned right after one
 
 Timers live server-side in gclient_t; only these bits are sent.
 ===========================================================================
@@ -159,6 +160,7 @@ static QINLINE void Shinobi_SetRawBit( float *f, int on ) {
 #define SHINOBI_MUDDY(s)           ( Shinobi_RawBit( &(s)->userVec1[2] ) )
 #define SHINOBI_IMPRISONED(s)      ( Shinobi_RawBit( &(s)->userVec2[0] ) )
 #define SHINOBI_PRISON_CASTER(s)   ( Shinobi_RawBit( &(s)->userVec2[1] ) )
+#define SHINOBI_STUNNED(s)         ( Shinobi_RawBit( &(s)->userVec2[2] ) ) // just out of a Water Prison
 #define SHINOBI_SET_HIDDEN(s, on)  Shinobi_SetRawBit( &(s)->userFloat3, (on) )
 
 // Shift is the chakra modifier (it no longer walks): Shift + jump = Shunshin.
@@ -321,6 +323,10 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_PRISON_DRAIN       2     // chakra per tick (8/s)
 #define SHINOBI_PRISON_DAMAGE      2     // drowning per tick (8/s)
 #define SHINOBI_PRISON_RADIUS      42.0f // drawn water ball
+#define SHINOBI_PRISON_STUN_MS     500   // gasping for air after the prison bursts: free hit
+
+// Hand seals while a jutsu key is held (cycled torso gestures)
+#define SHINOBI_SEAL_MS            220
 
 // Non-player entities drawn by the cgame (entityState.generic1 on ET_GENERAL)
 #define SHINOBI_ENT_FIREBALL       201  // 201..203 = fireball level 1..3

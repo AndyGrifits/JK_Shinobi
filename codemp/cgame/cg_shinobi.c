@@ -672,7 +672,11 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		CG_DrawRect( x, y, barW, barH, 1, frame );
 	}
 
-	if ( chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) ) {
+	if ( held < Shinobi_BarEnd( shinobiCharge.jutsu, 0 ) ) {
+		label = va( "%s - forming seals...", shinobiJutsuTitles[shinobiCharge.jutsu] );
+		VectorSet( textColor, 0.8f, 0.8f, 0.8f );
+	}
+	else if ( chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) ) {
 		label = va( "%s - not enough chakra (%i)", shinobiJutsuTitles[shinobiCharge.jutsu], Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) );
 		VectorSet( textColor, 1, 0.4f, 0.4f );
 	}
@@ -772,7 +776,11 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( SHINOBI_IMPRISONED( ps ) ) {
+	if ( SHINOBI_STUNNED( ps ) ) {
+		text = "Gasping for air!";
+		VectorSet( color, 0.6f, 0.8f, 1.0f );
+	}
+	else if ( SHINOBI_IMPRISONED( ps ) ) {
 		text = "Water Prison! Kawarimi (X) to escape";
 		VectorSet( color, 0.5f, 0.75f, 1.0f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );

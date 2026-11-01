@@ -10300,13 +10300,20 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~BUTTON_WALKING;
 	}
 
-	if ( SHINOBI_IMPRISONED( ps ) )
-	{ // floating in a Water Prison: helpless
+	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) )
+	{ // floating in a Water Prison (or gasping just after): helpless, hands at the throat
 		pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
 			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
-		VectorClear( ps->velocity );
-		ps->gravity = 1; // (0 would trigger the zero-g jump code)
+		ps->velocity[0] = ps->velocity[1] = 0;
+		if ( SHINOBI_IMPRISONED( ps ) )
+		{
+			ps->velocity[2] = 0;
+			ps->gravity = 1; // (0 would trigger the zero-g jump code)
+		}
+		ps->forceHandExtend = HANDEXTEND_TAUNT;
+		ps->forceDodgeAnim = BOTH_CHOKE3;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
 	}
 	else if ( SHINOBI_PRISON_CASTER( ps ) )
 	{ // holding a Water Prison: hand out, standing still
@@ -10377,10 +10384,10 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.forwardmove = 0;
 		pm->cmd.rightmove = 0;
 		pm->cmd.upmove = 0;
-		if ( ps->torsoAnim != BOTH_FORCEPUSH )
-		{
-			PM_SetAnim( SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		}
+		// strike with the hand thrust forward for the whole dash (held through the
+		// hand-extend code so saber/fist animations can't take the torso back)
+		ps->forceHandExtend = HANDEXTEND_FORCEPUSH;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 100;
 	}
 }
 

@@ -830,6 +830,7 @@ struct gclient_s {
 		int		prisonTarget;	// holding this client (num + 1) in a Water Prison
 		int		prisonCaster;	// held by this client (num + 1)
 		int		prisonEnd, prisonTick;
+		int		stunEnd;		// stunned after a Water Prison until
 	} shinobi;
 };
 

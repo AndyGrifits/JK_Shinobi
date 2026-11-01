@@ -206,6 +206,8 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[1], 0 );
+	Shinobi_SetRawBit( &client->ps.userVec2[2], 0 );
+	client->shinobi.stunEnd = 0;
 }
 
 static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd );
@@ -243,12 +245,18 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 			client->shinobi.burnEnd = 0;
 		}
 	}
+	else if ( client->shinobi.stunEnd > level.time ) { // gasping for air: a free hit for the caster
+		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+	}
 
 	Shinobi_SetRawBit( &client->ps.userVec1[0], client->shinobi.burnEnd > level.time );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], client->shinobi.wetEnd > level.time );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], client->shinobi.mudEnd > level.time );
 	Shinobi_SetRawBit( &client->ps.userVec2[0], client->shinobi.prisonCaster != 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[1], client->shinobi.prisonTarget != 0 );
+	Shinobi_SetRawBit( &client->ps.userVec2[2], client->shinobi.stunEnd > level.time );
 }
 
 /*
@@ -850,6 +858,10 @@ void Shinobi_PrisonRelease( gentity_t *ent ) {
 	if ( target->client && target->client->shinobi.prisonCaster == caster->s.number + 1 ) {
 		target->client->shinobi.prisonCaster = 0;
 		Shinobi_SetRawBit( &target->client->ps.userVec2[0], 0 );
+		if ( target->health > 0 ) { // a moment to catch your breath (Kawarimi clears it)
+			target->client->shinobi.stunEnd = level.time + SHINOBI_PRISON_STUN_MS;
+			Shinobi_SetRawBit( &target->client->ps.userVec2[2], 1 );
+		}
 		if ( target->inuse ) {
 			G_PlayEffectID( shinobiMedia.fxWaterSplash[0], target->r.currentOrigin, up );
 			G_SoundAtLoc( target->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndSplash );

@@ -452,6 +452,11 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_PrisonRelease( ent );
 		return;
 	}
+	if ( level.time - client->shinobi.chargeStart < Shinobi_BarEnd( jutsu, 0 ) ) {
+		// let go before the first bar was full: the seals weren't finished
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		return;
+	}
 	if ( jutsu == SJ_SHUNSHIN ) // Shift + back + jump blinks backward
 		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
 	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelFor( jutsu, level.time - client->shinobi.chargeStart ) );
@@ -481,6 +486,16 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 
 	Shinobi_KawarimiThink( ent, ucmd );
+
+	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
+	if ( client->shinobi.chargeJutsu != SJ_NONE && client->shinobi.chargeJutsu != SJ_SHUNSHIN
+		&& !SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) ) {
+		static const int seals[] = { BOTH_FORCEHEAL_QUICK, BOTH_MINDTRICK2, BOTH_FORCEPULL, BOTH_MINDTRICK1 };
+		const int step = ( level.time - client->shinobi.chargeStart ) / SHINOBI_SEAL_MS;
+		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+		client->ps.forceDodgeAnim = seals[step % ARRAY_LEN( seals )];
+		client->ps.forceHandExtendTime = level.time + 150;
+	}
 
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
 
@@ -611,9 +626,10 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 		return qfalse;
 	}
 
-	// substitution is the way out of a Water Prison
+	// substitution is the way out of a Water Prison (no gasping afterwards)
 	if ( client->shinobi.prisonCaster )
 		Shinobi_PrisonRelease( ent );
+	client->shinobi.stunEnd = 0;
 
 	// drop whatever we were doing - the double carries on instead
 	if ( SHINOBI_HAND_ANY( &client->ps ) )

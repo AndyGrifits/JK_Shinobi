@@ -6,7 +6,8 @@ Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, buil
 
 Pick a jutsu with **Q / E** (the list is at the bottom of the screen), **hold F** to
 charge it: three bars (blue, yellow, red) fill up; releasing casts the jutsu at the
-level of the last full bar (a tap = level 1). Higher levels cost more chakra and are
+level of the last full bar. While the key is held your character forms hand seals; letting
+go before the first bar is full cancels the jutsu (no chakra spent). Higher levels cost more chakra and are
 bigger; if you can't afford a level the bar turns red and the cast drops to the best
 level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 
@@ -33,7 +34,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Kawarimi | an AI double with your looks takes your place and goes for the nearest enemy; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
 | Suiton | water bullet: 15/25/40 damage and a push; leaves a puddle (radius 70/100/140); puts out fire, cancels fireballs (the stronger one goes on, weakened) | 15/30/50 |
 | Futon | Daitoppa: wind gust in a cone (320/480/640 units), throws people back; fans burning ground (bigger, longer), levels up fireballs in flight, blows steam away | 15/25/40 |
-| Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out | 20 + 8/s |
+| Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 
 ### Elements
 
