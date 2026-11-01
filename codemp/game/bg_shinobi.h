@@ -56,6 +56,7 @@ typedef enum {
 	SJ_WATERCLONE,// water clone: casts the next jutsu of your build on its own
 	SJ_HIRAISHIN, // flying thunder god: teleport to your marked kunai
 	SJ_RAITRAP,   // lightning trap: your marked kunai discharge
+	SJ_MIST,      // hidden mist: a bank of fog around you
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -67,18 +68,18 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
+	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
 	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_HIRAISHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
@@ -104,6 +105,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 25, 25 }, // Water Clone (its own jutsu are paid by you too)
 	{ 25, 25, 25 }, // Hiraishin
 	{ 20, 20, 20 }, // Lightning Trap
+	{ 20, 30, 40 }, // Hidden Mist
 };
 
 // jutsu that cast on key press, without charging
@@ -306,6 +308,7 @@ typedef enum {
 	SZ_STEAM,     // thick cloud, puts out fire
 	SZ_ELECTRIC,  // electrified puddle: stuns and hurts, back to water later
 	SZ_ASH,       // ash cloud: blinds, chokes; any fire makes it explode
+	SZ_MIST,      // hidden mist: thick fog, puts out fire, only shapes show
 	SZ_COUNT
 } shinobiZone_t;
 
@@ -377,6 +380,9 @@ static const int shinobiBladePush[3]   = { 150, 250, 350 };
 // Ash Cloud: a cloud of hot ash in front; blinds and chokes, and any fire
 // (fireball, fire breath, burning ground, Chidori) blows it up.
 static const int shinobiAshRadius[3]  = { 110, 150, 190 };
+static const int shinobiMistRadius[3] = { 260, 340, 420 };
+static const int shinobiMistLife[3]   = { 10000, 13000, 16000 };
+#define SHINOBI_MIST_SHAPES        450    // inside the mist people show as shapes this far
 static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_ASH_LIFE           9000
 #define SHINOBI_ASH_DISTANCE       200
@@ -536,6 +542,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_CURSE           "shinobi/curse_aura"
 #define SHINOBI_FX_FLAME           "shinobi/fire_breath"
 #define SHINOBI_FX_ASH             "shinobi/ash"
+#define SHINOBI_FX_MIST            "shinobi/mist"
 #define SHINOBI_FX_HIRAISHIN       "shinobi/hiraishin"
 #define SHINOBI_FX_GATES           "shinobi/gates_aura"
 
@@ -585,6 +592,7 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_SUITON,  // Water Clone
 	SS_YINYANG, // Hiraishin
 	SS_RAITON,  // Lightning Trap
+	SS_SUITON,  // Hidden Mist
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -654,7 +662,8 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
 	"a clone of water that fights and casts the jutsu after it in your list (paid by you)",
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
-	"your marked kunai (Shift+Z) discharge: damage and a short stun around each"
+	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
+	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };

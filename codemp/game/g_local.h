@@ -1455,6 +1455,7 @@ void Cmd_WindBlade_f( gentity_t *ent );
 void Cmd_PushWall_f( gentity_t *ent );
 void Cmd_Flame_f( gentity_t *ent );
 void Cmd_Ash_f( gentity_t *ent );
+void Cmd_Kirigakure_f( gentity_t *ent );
 void Cmd_Kagemane_f( gentity_t *ent );
 void Cmd_MizuBunshin_f( gentity_t *ent );
 void Cmd_Kunai_f( gentity_t *ent );

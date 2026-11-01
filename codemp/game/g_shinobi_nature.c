@@ -326,6 +326,7 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 			p->client->shinobi.mudEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
 			break;
 		case SZ_STEAM:
+		case SZ_MIST:
 			p->client->shinobi.burnEnd = 0;
 			break;
 		case SZ_ASH:
@@ -371,7 +372,7 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 
 	if ( radius <= 0 || lifeMs <= 0 )
 		return NULL;
-	if ( radius > SHINOBI_ZONE_MAX_RADIUS )
+	if ( radius > SHINOBI_ZONE_MAX_RADIUS && type != SZ_MIST )
 		radius = SHINOBI_ZONE_MAX_RADIUS;
 
 	if ( type == SZ_FIRE ) {
@@ -1093,7 +1094,7 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 				ZONE_OWNER( e ) = ent->s.number + 1;
 				trap->LinkEntity( (sharedEntity_t *)e );
 			}
-			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH ) { // blown away
+			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH || ZONE_TYPE( e ) == SZ_MIST ) { // blown away
 				Shinobi_ZoneKill( e );
 			}
 		}
@@ -1358,6 +1359,38 @@ qboolean Shinobi_CastAsh( gentity_t *ent, int lvl ) {
 	client->ps.forceDodgeAnim = BOTH_FORCE_2HANDEDLIGHTNING_HOLD;
 	client->ps.forceHandExtendTime = level.time + 500;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndHiss );
+	return qtrue;
+}
+
+/*
+Hidden Mist: a wide bank of fog around the caster. Inside it everyone is
+reduced to vague shapes (cgame); it puts out burning people; Storm Wind
+blows it away.
+*/
+qboolean Shinobi_CastMist( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	vec3_t     floor;
+	gentity_t *z;
+
+	if ( client && SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	if ( !Shinobi_FloorBelow( ent->r.currentOrigin, 160, floor ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		return qfalse;
+	}
+	z = Shinobi_SpawnZone( SZ_MIST, floor, (float)shinobiMistRadius[lvl - 1], shinobiMistLife[lvl - 1], ent->s.number + 1 );
+	if ( !z )
+		return qfalse;
+	ZONE_LEVEL( z ) = lvl;
+	z->r.svFlags |= SVF_BROADCAST; // a big bank: visible from afar
+
+	if ( client ) {
+		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+		client->ps.forceDodgeAnim = BOTH_FORCEHEAL_QUICK;
+		client->ps.forceHandExtendTime = level.time + 500;
+	}
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndHiss );
+	G_SoundAtLoc( floor, CHAN_AUTO, shinobiMedia.sndWaterCast );
 	return qtrue;
 }
 

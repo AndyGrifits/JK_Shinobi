@@ -1,0 +1,35 @@
+repeatDelay				0
+
+// Hidden Mist: a slow, low, heavy bank of pale fog (the cgame keeps spawning puffs).
+
+Particle
+{
+	name				bank
+	flags				useAlpha
+	count				1
+	life				2600 3600
+	rotation			0 360
+	rotationDelta		-3 3
+	spawnFlags			orgOnSphere
+	radius				0 24
+	origin				0 0 20 0 0 60
+	vel					-14 -14 -4 14 14 10
+	size
+	{
+		start			70 100
+		end				120 160
+	}
+	rgb
+	{
+		start			0.8 0.84 0.88
+	}
+	alpha
+	{
+		start			0.5
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

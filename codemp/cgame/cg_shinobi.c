@@ -26,13 +26,13 @@ static struct {
 // thick smoke around the local player this frame (drawn over the screen)
 static struct {
 	int   time;
-	int   type;   // SZ_ASH or SZ_STEAM
+	int   type;   // SZ_ASH, SZ_STEAM or SZ_MIST
 	float amount; // 0..1
 } shinobiFog;
 
 // loose-particle effects for elements (one-shots come from the server)
 static struct {
-	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash;
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash, mist;
 } shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
@@ -147,6 +147,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.waveCrest  = CG_ShinobiRegisterFx( SHINOBI_FX_WAVE_CREST );
 	shinobiFx.flame      = CG_ShinobiRegisterFx( SHINOBI_FX_FLAME );
 	shinobiFx.ash        = CG_ShinobiRegisterFx( SHINOBI_FX_ASH );
+	shinobiFx.mist       = CG_ShinobiRegisterFx( SHINOBI_FX_MIST );
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
@@ -769,6 +770,10 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		fx = shinobiFx.steam;
 		interval = (int)( 110 / ( area < 0.4f ? 0.4f : area ) );
 		break;
+	case SZ_MIST:
+		fx = shinobiFx.mist;
+		interval = (int)( 400 / area );
+		break;
 	case SZ_ASH:
 		CG_ShinobiGroundDecal( org, R * 0.8f, rot, shinobiShaders.scorch, 1, 1, 1, 0.5f * a );
 		fx = shinobiFx.ash;
@@ -779,15 +784,15 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	}
 
 	// standing in ash or steam: you can hardly see
-	if ( type == SZ_ASH || type == SZ_STEAM ) {
+	if ( type == SZ_ASH || type == SZ_STEAM || type == SZ_MIST ) {
 		vec3_t d;
 		VectorSubtract( cg.refdef.vieworg, org, d );
-		if ( d[2] > -16 && d[2] < SHINOBI_ZONE_HEIGHT + 48 ) {
+		if ( d[2] > -16 && d[2] < SHINOBI_ZONE_HEIGHT + ( type == SZ_MIST ? 96 : 48 ) ) {
 			float dist;
 			d[2] = 0;
 			dist = VectorLength( d );
 			if ( dist < R ) {
-				const float amt = a * Com_Clamp( 0, 1, ( R - dist ) / 40.0f );
+				const float amt = a * Com_Clamp( 0, 1, ( R - dist ) / ( type == SZ_MIST ? 90.0f : 40.0f ) );
 				if ( shinobiFog.time != cg.time || amt > shinobiFog.amount ) {
 					shinobiFog.time = cg.time;
 					shinobiFog.type = type;
@@ -1168,6 +1173,53 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 	}
 }
 
+/*
+Inside the Hidden Mist the fog is drawn over the whole screen; people within
+reach (and not behind walls) show through it as dark shapes.
+*/
+static void CG_ShinobiMistShapes( float amount ) {
+	int i;
+
+	for ( i = 0; i < MAX_GENTITIES; i++ ) {
+		centity_t *cent = &cg_entities[i];
+		vec3_t     feet, head, d;
+		float      xf, yf, xh, yh, h, w, dist, a;
+		vec4_t     c;
+		trace_t    tr;
+
+		if ( !cent->currentValid || ( cent->currentState.eType != ET_PLAYER && cent->currentState.eType != ET_NPC ) )
+			continue;
+		if ( i == cg.snap->ps.clientNum || ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW ) ) )
+			continue;
+		if ( cent->currentState.eType == ET_PLAYER && SHINOBI_HIDDEN( &cent->currentState ) )
+			continue;
+		VectorSubtract( cent->lerpOrigin, cg.refdef.vieworg, d );
+		dist = VectorLength( d );
+		if ( dist > SHINOBI_MIST_SHAPES || dist < 1 )
+			continue;
+		CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, cent->lerpOrigin, cg.snap->ps.clientNum, CONTENTS_SOLID );
+		if ( tr.fraction < 1.0f )
+			continue;
+		VectorCopy( cent->lerpOrigin, feet );
+		feet[2] -= 24;
+		VectorCopy( cent->lerpOrigin, head );
+		head[2] += 36;
+		if ( !CG_WorldCoordToScreenCoordFloat( feet, &xf, &yf ) || !CG_WorldCoordToScreenCoordFloat( head, &xh, &yh ) )
+			continue;
+		h = yf - yh;
+		if ( h < 4 )
+			continue;
+		w = h * 0.32f;
+		a = 0.6f * amount * ( 1.0f - dist / SHINOBI_MIST_SHAPES );
+		if ( dist < 120 )
+			a = 0.6f * amount; // close up: clear shape
+		VectorSet4( c, 0.22f, 0.24f, 0.27f, a );
+		CG_FillRect( xh - w * 0.25f, yh, w * 0.5f, h * 0.17f, c );                 // head
+		CG_FillRect( xh - w * 0.5f, yh + h * 0.18f, w, h * 0.42f, c );            // body
+		CG_FillRect( xf - w * 0.4f, yh + h * 0.6f, w * 0.8f, h * 0.4f, c );       // legs
+	}
+}
+
 void CG_ShinobiDrawHUD( void ) {
 	playerState_t *ps = &cg.predictedPlayerState;
 	const char    *text = NULL;
@@ -1193,16 +1245,25 @@ void CG_ShinobiDrawHUD( void ) {
 		return;
 	}
 
-	CG_ShinobiDrawEyeInfo();
+	if ( CG_ShinobiMyEyes() != SP_BYAKUGAN )
+		CG_ShinobiDrawEyeInfo(); // under the fog: the Sharingan can't see through mist
 
 	if ( shinobiFog.time == cg.time && shinobiFog.amount > 0 ) {
 		vec4_t fog;
 		if ( shinobiFog.type == SZ_ASH )
 			VectorSet4( fog, 0.12f, 0.11f, 0.1f, 0.85f * shinobiFog.amount );
+		else if ( shinobiFog.type == SZ_MIST )
+			VectorSet4( fog, 0.8f, 0.83f, 0.86f, 0.9f * shinobiFog.amount
+				* ( CG_ShinobiMyEyes() == SP_BYAKUGAN ? 0.3f : 1.0f ) );
 		else
 			VectorSet4( fog, 0.85f, 0.88f, 0.9f, 0.7f * shinobiFog.amount );
 		CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, fog );
+		if ( shinobiFog.type == SZ_MIST )
+			CG_ShinobiMistShapes( shinobiFog.amount );
 	}
+
+	if ( CG_ShinobiMyEyes() == SP_BYAKUGAN )
+		CG_ShinobiDrawEyeInfo();
 
 	CG_ShinobiDrawJutsuList();
 

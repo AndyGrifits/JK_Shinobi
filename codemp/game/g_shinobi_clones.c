@@ -440,6 +440,7 @@ static float Shinobi_WaterCloneRange( int jutsu ) {
 	case SJ_BLADE:  return 550;
 	case SJ_KATON:  return 900;
 	case SJ_ASH:    return 300;
+	case SJ_MIST:   return 500;
 	case SJ_FLAME:  return SHINOBI_FLAME_RANGE - 30;
 	case SJ_SHADOW: return SHINOBI_SHADOW_RANGE - 100;
 	default:        return 0; // hand jutsu, clones, walls: it just fights

@@ -411,6 +411,7 @@ void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_BLADE:    cast = Shinobi_CastBlade( ent, lvl ); break;
 	case SJ_FLAME:    cast = Shinobi_CastFlame( ent ); break;
 	case SJ_ASH:      cast = Shinobi_CastAsh( ent, lvl ); break;
+	case SJ_MIST:     cast = Shinobi_CastMist( ent, lvl ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
 	case SJ_HIRAISHIN: cast = Shinobi_CastHiraishin( ent ); break;
@@ -454,6 +455,7 @@ void Cmd_Wave_f( gentity_t *ent )        { Shinobi_CastCommand( ent, SJ_WAVE ); 
 void Cmd_WindBlade_f( gentity_t *ent )   { Shinobi_CastCommand( ent, SJ_BLADE ); }
 void Cmd_Flame_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FLAME ); }
 void Cmd_Ash_f( gentity_t *ent )         { Shinobi_CastCommand( ent, SJ_ASH ); }
+void Cmd_Kirigakure_f( gentity_t *ent )  { Shinobi_CastCommand( ent, SJ_MIST ); }
 void Cmd_Kagemane_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHADOW ); }
 void Cmd_MizuBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_WATERCLONE ); }
 void Cmd_PushWall_f( gentity_t *ent ) {
