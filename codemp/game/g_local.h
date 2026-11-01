@@ -409,6 +409,7 @@ struct gentity_s {
 	int			shinobiCloneThink;	// next AI supervision tick
 	qboolean	shinobiCloneReady;	// overrides applied after NPC_Begin
 	qboolean	shinobiCloneDecoy;	// Kawarimi double (turns into a log, no chakra drain)
+	qboolean	shinobiCloneWater;	// Water Clone (casts a jutsu, bursts into a puddle)
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -853,6 +854,9 @@ struct gclient_s {
 		vec3_t	shadowStart, shadowDir;
 		float	shadowYaw;		// victim yaw minus binder yaw when caught
 		int		shadowDrain;
+		int		wcCastNext;		// Water Clone (on the clone's client): next cast
+		int		wcHoldJutsu, wcHoldEnd;
+		vec3_t	wcHoldPos;
 	} shinobi;
 };
 
@@ -1441,6 +1445,7 @@ void Cmd_PushWall_f( gentity_t *ent );
 void Cmd_Flame_f( gentity_t *ent );
 void Cmd_Ash_f( gentity_t *ent );
 void Cmd_Kagemane_f( gentity_t *ent );
+void Cmd_MizuBunshin_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );

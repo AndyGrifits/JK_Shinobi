@@ -96,7 +96,7 @@ static void Shinobi_RemoveClones( int ownerNum ) {
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *e = &g_entities[i];
-		if ( e->inuse && e->shinobiCloneOwner == ownerNum + 1 && !e->shinobiCloneDecoy )
+		if ( e->inuse && e->shinobiCloneOwner == ownerNum + 1 && !e->shinobiCloneDecoy && !e->shinobiCloneWater )
 			Shinobi_ClonePoof( e );
 	}
 }
@@ -386,6 +386,191 @@ static void Shinobi_DecoyTakeOver( gentity_t *decoy, gentity_t *owner ) {
 	trap->LinkEntity( (sharedEntity_t *)decoy );
 }
 
+/*
+===========================================================================
+Water Clone
+===========================================================================
+*/
+static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone );
+
+// one hit (or the end): a splash and a puddle; whatever it was holding lets go
+static void Shinobi_WaterClonePop( gentity_t *clone ) {
+	vec3_t up = { 0, 0, 1 }, floor;
+
+	if ( clone->client ) {
+		if ( clone->client->shinobi.prisonTarget )
+			Shinobi_PrisonRelease( clone );
+		if ( clone->client->shinobi.flameEnt )
+			Shinobi_FlameStop( clone );
+		if ( clone->client->shinobi.shadowEnt )
+			Shinobi_ShadowRelease( clone );
+	}
+	if ( clone->shinobiCloneReady ) {
+		Shinobi_EffectDir( shinobiMedia.fxWaterSplash[1], clone->r.currentOrigin, up );
+		G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndSplash );
+		if ( Shinobi_FloorBelow( clone->r.currentOrigin, 96, floor ) )
+			Shinobi_SpawnZone( SZ_WATER, floor, 70, 8000, clone->shinobiCloneOwner );
+	}
+	clone->shinobiCloneOwner = 0;
+	clone->shinobiCloneWater = qfalse;
+	G_FreeEntity( clone );
+}
+
+// the jutsu after Water Clone in the owner's build
+static int Shinobi_WaterCloneJutsu( gentity_t *owner ) {
+	const shinobiBuild_t *b = &owner->client->pers.shinobiBuild;
+	int i;
+
+	for ( i = 0; i < b->numJutsu; i++ ) {
+		if ( b->jutsu[i] == SJ_WATERCLONE ) {
+			const int next = b->jutsu[( i + 1 ) % b->numJutsu];
+			return next == SJ_WATERCLONE ? SJ_NONE : next;
+		}
+	}
+	return SJ_NONE;
+}
+
+// how close the clone must be to use a jutsu (0 = it can't use it)
+static float Shinobi_WaterCloneRange( int jutsu ) {
+	switch ( jutsu ) {
+	case SJ_SUIRO:  return SHINOBI_PRISON_RANGE - 10;
+	case SJ_SUITON: return 700;
+	case SJ_WAVE:   return 500;
+	case SJ_FUTON:  return 450;
+	case SJ_BLADE:  return 550;
+	case SJ_KATON:  return 900;
+	case SJ_ASH:    return 300;
+	case SJ_FLAME:  return SHINOBI_FLAME_RANGE - 30;
+	case SJ_SHADOW: return SHINOBI_SHADOW_RANGE - 100;
+	default:        return 0; // hand jutsu, clones, walls: it just fights
+	}
+}
+
+static void Shinobi_WaterCloneStopHold( gentity_t *clone ) {
+	gclient_t *c = clone->client;
+	if ( c->shinobi.prisonTarget )
+		Shinobi_PrisonRelease( clone );
+	if ( c->shinobi.flameEnt )
+		Shinobi_FlameStop( clone );
+	if ( c->shinobi.shadowEnt )
+		Shinobi_ShadowRelease( clone );
+	c->shinobi.wcHoldJutsu = SJ_NONE;
+}
+
+/*
+Every server frame for a ready Water Clone. Its chakra is the owner's: what
+the clone spends is taken from the owner. Returns qfalse if it burst.
+*/
+static qboolean Shinobi_WaterCloneThink( gentity_t *clone, gentity_t *owner ) {
+	gclient_t *c = clone->client;
+	const int  full = 200;
+	const int  spent = full - c->ps.fd.forcePower;
+
+	if ( c->ps.fd.forcePowerMax != full ) { // first frame: start the books
+		c->ps.fd.forcePowerMax = c->ps.fd.forcePower = full;
+		return qtrue;
+	}
+	if ( spent > 0 ) {
+		owner->client->ps.fd.forcePower -= spent;
+		if ( owner->client->ps.fd.forcePower < 0 )
+			owner->client->ps.fd.forcePower = 0;
+	}
+	c->ps.fd.forcePower = owner->client->ps.fd.forcePower > 0 ? full : 0; // dry owner: its drains fail
+	c->ps.fd.forcePowerMax = full;
+
+	// holding something: stand still with the hand out, up to a limit
+	if ( c->shinobi.wcHoldJutsu ) {
+		const qboolean still = ( c->shinobi.wcHoldJutsu == SJ_SUIRO && c->shinobi.prisonTarget )
+			|| ( c->shinobi.wcHoldJutsu == SJ_FLAME && c->shinobi.flameEnt )
+			|| ( c->shinobi.wcHoldJutsu == SJ_SHADOW && c->shinobi.shadowEnt );
+		if ( !still || level.time >= c->shinobi.wcHoldEnd ) {
+			Shinobi_WaterCloneStopHold( clone );
+		}
+		else if ( c->shinobi.wcHoldJutsu == SJ_SUIRO ) {
+			Shinobi_PrisonCasterThink( clone );
+			if ( c->shinobi.prisonTarget ) {
+				VectorCopy( c->shinobi.wcHoldPos, c->ps.origin );
+				G_SetOrigin( clone, c->shinobi.wcHoldPos );
+				VectorClear( c->ps.velocity );
+				c->ps.forceHandExtend = HANDEXTEND_TAUNT;
+				c->ps.forceDodgeAnim = BOTH_FORCEGRIP_HOLD;
+				c->ps.forceHandExtendTime = level.time + 150;
+				trap->LinkEntity( (sharedEntity_t *)clone );
+			}
+		}
+		return qtrue;
+	}
+
+	// ready to cast its jutsu at the enemy it is fighting
+	if ( c->shinobi.wcCastNext <= level.time && clone->enemy && clone->enemy->inuse && clone->enemy->health > 0 ) {
+		const int   jutsu = Shinobi_WaterCloneJutsu( owner );
+		const float range = Shinobi_WaterCloneRange( jutsu );
+		vec3_t      eye, d, angles;
+
+		VectorCopy( c->ps.origin, eye );
+		eye[2] += c->ps.viewheight;
+		VectorSubtract( clone->enemy->r.currentOrigin, eye, d );
+		if ( range > 0 && VectorLength( d ) <= range
+			&& owner->client->ps.fd.forcePower >= Shinobi_JutsuCost( jutsu, SHINOBI_JUTSU_MIN_LEVEL( jutsu ) > 2 ? 3 : 2 ) ) {
+			vectoangles( d, angles );
+			angles[ROLL] = 0;
+			SetClientViewAngle( clone, angles );
+			if ( clone->NPC ) {
+				clone->NPC->desiredYaw = angles[YAW];
+				clone->NPC->desiredPitch = angles[PITCH];
+			}
+			c->shinobi.wcCastNext = level.time + SHINOBI_WATERCLONE_CAST_MS;
+			Shinobi_Cast( clone, jutsu, 2 );
+
+			if ( SHINOBI_JUTSU_HOLD( jutsu ) ) {
+				c->shinobi.wcHoldJutsu = jutsu;
+				c->shinobi.wcHoldEnd = level.time + ( jutsu == SJ_FLAME ? SHINOBI_WATERCLONE_BREATH_MS : SHINOBI_WATERCLONE_HOLD_MS );
+				VectorCopy( c->ps.origin, c->shinobi.wcHoldPos );
+			}
+		}
+	}
+	return qtrue;
+}
+
+qboolean Shinobi_CastWaterClone( gentity_t *ent ) {
+	static const float yaws[] = { -60, 60, -120, 120, 180, 0 };
+	vec3_t     spot, up = { 0, 0, 1 };
+	gentity_t *clone;
+	int        i;
+
+	// one at a time: a new one replaces the old
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->shinobiCloneWater && e->shinobiCloneOwner == ent->s.number + 1 )
+			Shinobi_WaterClonePop( e );
+	}
+	for ( i = 0; i < (int)ARRAY_LEN( yaws ); i++ ) {
+		if ( Shinobi_CloneSpot( ent, yaws[i], NULL, 0, spot ) )
+			break;
+	}
+	if ( i == (int)ARRAY_LEN( yaws ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"No room for a water clone\"" );
+		return qfalse;
+	}
+	clone = Shinobi_SpawnClone( ent, spot );
+	if ( !clone )
+		return qfalse;
+	clone->shinobiCloneWater = qtrue;
+	clone->shinobiCloneExpire = level.time + SHINOBI_WATERCLONE_LIFE;
+	clone->client->shinobi.wcCastNext = level.time + 1200;
+	clone->client->shinobi.wcHoldJutsu = SJ_NONE;
+
+	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[2], spot, up );
+	G_SoundAtLoc( spot, CHAN_AUTO, shinobiMedia.sndWaterCast );
+	{
+		const int j = Shinobi_WaterCloneJutsu( ent );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Water Clone: %s\"",
+			j ? va( "will use %s", shinobiJutsuTitles[j] ) : "fights (put a jutsu after it in your build)" ) );
+	}
+	return qtrue;
+}
+
 static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 	gentity_t *best = NULL;
 	// a Kawarimi double goes for the nearest enemy anywhere, like the real
@@ -541,9 +726,15 @@ void Shinobi_RunFrame( void ) {
 			|| owner->client->sess.sessionTeam == TEAM_SPECTATOR
 			|| !clone->client || clone->health <= 0
 			|| level.time >= clone->shinobiCloneExpire ) {
-			Shinobi_ClonePoof( clone );
+			if ( clone->shinobiCloneWater )
+				Shinobi_WaterClonePop( clone );
+			else
+				Shinobi_ClonePoof( clone );
 			continue;
 		}
+
+		if ( clone->shinobiCloneWater && clone->shinobiCloneReady && !Shinobi_WaterCloneThink( clone, owner ) )
+			continue; // burst
 
 		if ( owner->s.number < MAX_CLIENTS )
 			clonesPerOwner[owner->s.number]++;

@@ -53,6 +53,7 @@ typedef enum {
 	SJ_FLAME,     // fire breath (held)
 	SJ_ASH,       // ash cloud
 	SJ_SHADOW,    // shadow bind (held)
+	SJ_WATERCLONE,// water clone: casts the next jutsu of your build on its own
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -64,18 +65,18 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
+	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
 	SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
@@ -98,10 +99,11 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 10, 10, 10 }, // Fire Breath (to start; then it drains while held)
 	{ 20, 30, 40 }, // Ash Cloud
 	{ 15, 15, 15 }, // Shadow Bind (to start; then it drains while held)
+	{ 25, 25, 25 }, // Water Clone (its own jutsu are paid by you too)
 };
 
 // jutsu that cast on key press, without charging
-#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI )
+#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE )
 // jutsu that last while the key is held, without levels
 #define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
@@ -387,6 +389,14 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_SHADOW_DRAIN       3      // chakra per drain tick (10/s)
 #define SHINOBI_BUTTON_MIRROR      (1<<14) // usercmd bit: moves set by the server (Shadow Bind)
 
+// Water Clone: one clone made of water that fights like a shadow clone and casts,
+// on its own, the jutsu that comes after Water Clone in your build (Water Prison:
+// it holds the prison for you). Its jutsu cost your chakra. One hit: a puddle.
+#define SHINOBI_WATERCLONE_LIFE    20000
+#define SHINOBI_WATERCLONE_CAST_MS 3000  // between its casts
+#define SHINOBI_WATERCLONE_HOLD_MS 6000  // longest it holds a prison / bind
+#define SHINOBI_WATERCLONE_BREATH_MS 2500
+
 // After any hard crowd control ends, a short immunity to the next one
 #define SHINOBI_CC_IMMUNE_MS       2500
 
@@ -505,6 +515,7 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_KATON,   // Fire Breath
 	SS_KATON,   // Ash Cloud
 	SS_YINYANG, // Shadow Bind
+	SS_SUITON,  // Water Clone
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -571,7 +582,8 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"wide arc of wind at chest height; jump over it",
 	"hold F: breathe a cone of fire, sets people and ground alight (12 chakra/s)",
 	"a cloud of hot ash ahead: blinds and chokes; any fire blows it up",
-	"hold F: a shadow crawls ahead; whoever it catches copies your moves"
+	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
+	"a clone of water that fights and casts the jutsu after it in your list (paid by you)"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qfalse, qfalse, qfalse };

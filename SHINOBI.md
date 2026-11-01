@@ -58,6 +58,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Storm Wind | Daitoppa: wind in a cone (320/480/640 units) throws people back; fans burning ground, levels up fireballs, blows steam away | 15/25/40 |
 | Wind Blade | a wide arc of wind (~110 degrees) sweeping out to 450/600/800 units at chest height: 20/30/45 damage; hard to sidestep, jump over it; walls stop it | 15/25/40 |
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
+| Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 
 ### Elements
@@ -91,7 +92,11 @@ Console: `rasengan 3`, `katon 2`, `shunshin 2 back`, `kawarimi`... cast instantl
 2. Copy `dist/shinobi/` to `GameData/shinobi/` and `dist/*.bat` to `GameData/`.
 3. `JK_Shinobi_Test.bat` starts a local FFA with bots; `JK_Shinobi.bat` starts the game with the mod
    (borderless window at desktop resolution; the console goes to `qconsole.log`).
-4. `JK_Shinobi_SelfTest.bat` casts every jutsu by script, saves screenshots to
+4. Two players on one PC: `JK_Shinobi_Host.bat` hosts a map (no bots, no cheats) in a
+   1280x720 window, then `JK_Shinobi_Client2.bat` joins it as "Dummy" in a second window with
+   its own settings folder (`Documents/My Games/OpenJK_Dummy`). Drag the windows apart and
+   switch with Alt+Tab - only the active window gets keyboard and mouse.
+5. `JK_Shinobi_SelfTest.bat` casts every jutsu by script, saves screenshots to
    `Documents/My Games/OpenJK/shinobi/screenshots/st*.jpg` and quits.
 
 ## Build

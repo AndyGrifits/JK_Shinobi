@@ -362,7 +362,7 @@ Casting with levels
 */
 
 // Casts 'jutsu' at the highest level up to 'wanted' that the caster can pay for.
-static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
+void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	gclient_t *client = ent->client;
 	int        lvl = wanted;
 	qboolean   cast = qfalse;
@@ -411,6 +411,7 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_FLAME:    cast = Shinobi_CastFlame( ent ); break;
 	case SJ_ASH:      cast = Shinobi_CastAsh( ent, lvl ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
+	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
 	default: break;
 	}
 
@@ -451,6 +452,7 @@ void Cmd_WindBlade_f( gentity_t *ent )   { Shinobi_CastCommand( ent, SJ_BLADE );
 void Cmd_Flame_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FLAME ); }
 void Cmd_Ash_f( gentity_t *ent )         { Shinobi_CastCommand( ent, SJ_ASH ); }
 void Cmd_Kagemane_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHADOW ); }
+void Cmd_MizuBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_WATERCLONE ); }
 void Cmd_PushWall_f( gentity_t *ent ) {
 	if ( Shinobi_CanAct( ent ) && !ent->client->shinobi.prisonCaster )
 		Shinobi_PushWall( ent );

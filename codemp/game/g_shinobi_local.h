@@ -43,6 +43,7 @@ int      Shinobi_LevelEffect( const char *base, int level );
 void     Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );
 void     Shinobi_EffectDir( int fx, vec3_t org, vec3_t dir ); // G_PlayEffectID wants angles, not a direction
 qboolean Shinobi_CastKawarimi( gentity_t *ent );
+void     Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ); // highest affordable level up to 'wanted'
 void     Shinobi_Hide( gentity_t *ent );
 
 // g_shinobi_elements.c
@@ -54,6 +55,7 @@ qboolean Shinobi_PushWall( gentity_t *ent ); // qtrue if a wall of ours was in f
 // g_shinobi_clones.c
 qboolean Shinobi_CastKageBunshin( gentity_t *ent, int level );
 gentity_t *Shinobi_SpawnDecoy( gentity_t *owner );
+qboolean  Shinobi_CastWaterClone( gentity_t *ent );
 gentity_t *Shinobi_Decoy( gentity_t *owner );
 void     Shinobi_DecoyToLog( gentity_t *decoy );
 
@@ -77,6 +79,7 @@ qboolean  Shinobi_CastBlade( gentity_t *ent, int lvl );
 void      Shinobi_SmotherFire( vec3_t pos, float radius, qboolean steam );
 qboolean  Shinobi_CastSuiro( gentity_t *ent, int lvl );
 void      Shinobi_PrisonRelease( gentity_t *ent );
+void      Shinobi_PrisonCasterThink( gentity_t *caster ); // for NPC casters (Water Clone)
 
 // g_shinobi.c (crowd control)
 qboolean  Shinobi_CCImmune( gentity_t *e );

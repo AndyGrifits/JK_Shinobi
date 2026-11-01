@@ -1234,6 +1234,12 @@ void Shinobi_PrisonRelease( gentity_t *ent ) {
 	client->shinobi.prisonCaster = 0;
 }
 
+void Shinobi_PrisonCasterThink( gentity_t *caster ) {
+	usercmd_t none;
+	memset( &none, 0, sizeof( none ) );
+	Shinobi_PrisonThink( caster, &none );
+}
+
 // the caster's side, every frame
 static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd ) {
 	gclient_t *client = caster->client;
