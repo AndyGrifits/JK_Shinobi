@@ -14,13 +14,13 @@ Press **B** for the build screen (it also opens by itself the first time):
   (12% faster).
 - **Special**: one ability. Ready: Gentle Fist (fists and kicks burn the target's chakra),
   Curse Seal (awakens at 0 chakra and stays awake until it has eaten your health down
-  to 10, ~3 health/s; meanwhile chakra returns 2.5x faster, dark chakra around you;
+  to 10, ~3 health/s; meanwhile chakra returns 5x faster, dark chakra around you and a darkened screen; at 10 health or less it only stirs (HUD says so);
   `/curseseal` or `C` toggles it).
-  - **Sharingan** (`C` on/off, 5 chakra + 2/s): health bars over enemies in sight
+  - **Sharingan** (`C` on/off, 5 chakra + 3/s, no natural regen while open): health bars over enemies in sight
     (2000 u), the name of the jutsu they are charging, Kawarimi-hidden enemies within
     1500 u show as ghosts. Clones look like perfect copies (owner's health). Red eyes,
     visible to everyone.
-  - **Byakugan** (`C` on/off, 5 chakra + 2/s): chakra bars and glowing shells of every
+  - **Byakugan** (`C` on/off, 5 chakra + 5/s, no natural regen while open): chakra bars and glowing shells of every
     ninja within 1400 u, through walls; clones are hollow grey shells marked "clone".
     Switching it on is heard map-wide. Pale eyes.
   - **Inner Gates** (`C`): 10 s at 1.35x speed and +50% taijutsu, then 15 s exhausted
@@ -84,7 +84,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Wind Blade | a wide arc of wind (~110 degrees) sweeping out to 450/600/800 units at chest height: 20/30/45 damage; hard to sidestep, jump over it; walls stop it | 15/25/40 |
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
-| Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, the screen is white and people within 450 u show only as dark shapes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
+| Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, a fog sheet covers the view and people within 450 u show only as dark silhouettes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |

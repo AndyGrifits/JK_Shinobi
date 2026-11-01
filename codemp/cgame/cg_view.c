@@ -2668,6 +2668,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	if ( !cg.hyperspace ) {
 		CG_AddLocalEntities();
 	}
+	CG_ShinobiSceneOverlay(); // JK_Shinobi: Hidden Mist fog sheet
 
 	cg.refdef.time = cg.time;
 	memcpy( cg.refdef.areamask, cg.snap->areamask, sizeof( cg.refdef.areamask ) );

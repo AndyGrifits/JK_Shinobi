@@ -427,7 +427,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 // Water Clone: one clone made of water that fights like a shadow clone and casts,
 // on its own, the jutsu that comes after Water Clone in your build (Water Prison:
 // it holds the prison for you). Its jutsu cost your chakra. One hit: a puddle.
-#define SHINOBI_WATERCLONE_LIFE    20000
+#define SHINOBI_WATERCLONE_LIFE    30000
 #define SHINOBI_WATERCLONE_CAST_MS 3000  // between its casts
 #define SHINOBI_WATERCLONE_HOLD_MS 6000  // longest it holds a prison / bind
 #define SHINOBI_WATERCLONE_BREATH_MS 2500
@@ -467,6 +467,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 #define SHINOBI_STAT_GATES         16    // Inner Gates open: faster, harder fists
 #define SHINOBI_STAT_TIRED         32    // after the Gates: slow, no chakra regen
 #define SHINOBI_STAT_STAGGER       64    // guard broken / parried: reeling, helpless
+#define SHINOBI_STAT_CURSEWEAK     128   // Curse Seal stirs but the body is too weak (health <= 10)
 
 // eye techniques, shown to everyone (the two spare eFlags2 bits)
 #define SHINOBI_EF2_SHARINGAN      (1<<8)
@@ -474,16 +475,17 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 
 /*
 Perks (perk command, key C):
-  Sharingan  toggle; 5 chakra, then 2/s. See health bars, the jutsu an
+  Sharingan  toggle; 5 chakra, then 3/s (no natural regen while open). See health bars, the jutsu an
              enemy is charging and Kawarimi-hidden enemies. Red eyes.
-  Byakugan   toggle; 5 chakra, then 2/s. See chakra bars and everyone
+  Byakugan   toggle; 5 chakra, then 5/s (no natural regen while open). See chakra bars and everyone
              within range through walls; clones show as hollow shells.
              Loud to switch on. Pale eyes.
   Inner Gates  10 s faster and +50% taijutsu, then 15 s exhausted
              (slow, weak, no chakra regen); once a minute.
 */
 #define SHINOBI_DOJUTSU_COST           5
-#define SHINOBI_DOJUTSU_DRAIN_MS       500     // 1 chakra per tick
+#define SHINOBI_SHARINGAN_DRAIN_MS     333     // 1 chakra per tick (3/s), and no natural regen meanwhile
+#define SHINOBI_BYAKUGAN_DRAIN_MS      200     // 5/s
 #define SHINOBI_SHARINGAN_RANGE        2000
 #define SHINOBI_SHARINGAN_HIDDEN_RANGE 1500
 #define SHINOBI_BYAKUGAN_RANGE         1400
@@ -663,9 +665,9 @@ static const char * const shinobiPerkTitles[SP_COUNT] = {
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
 	"your fists and kicks also burn the enemy's chakra",
-	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 2.5x faster; /curseseal off",
-	"C: toggle (2 chakra/s): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
-	"C: toggle (2 chakra/s): see chakra and everyone nearby through walls, clones look hollow; loud",
+	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster, your mind clouds; C: on/off",
+	"C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
+	"C: toggle (5 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; loud",
 	"C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
 };
 // one line per jutsu for the build screen
@@ -686,7 +688,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: breathe a cone of fire, sets people and ground alight (12 chakra/s)",
 	"a cloud of hot ash ahead: blinds and chokes; any fire blows it up",
 	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
-	"a clone of water that fights and casts the jutsu after it in your list (paid by you)",
+	"a water clone (30 s) that fights and uses the next water jutsu in your list (paid by you)",
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
 	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
 	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through"

@@ -108,7 +108,7 @@ float Shinobi_RegenScale( gentity_t *ent ) {
 		return 1.0f;
 	f = 1.0f - 0.12f * ent->client->pers.shinobiBuild.stats[SST_REGEN];
 	if ( ent->client->shinobi.curseAwake )
-		f *= 0.4f;
+		f *= 0.2f;
 	if ( ent->client->shinobi.gatesTiredEnd > level.time && ent->client->shinobi.gatesEnd <= level.time )
 		f = 1000.0f; // exhausted after the Gates: no chakra comes back
 	return f;
@@ -119,8 +119,12 @@ static void Shinobi_CurseThink( gentity_t *ent ) {
 	const qboolean hasSeal = client->pers.shinobiBuild.perk == SP_CURSE_SEAL && !client->pers.shinobiCurseOff;
 	vec3_t     up = { 0, 0, 1 };
 
+	client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_CURSEWEAK;
 	if ( !hasSeal || ent->health <= 0 ) {
 		client->shinobi.curseAwake = qfalse;
+	}
+	else if ( !client->shinobi.curseAwake && client->ps.fd.forcePower <= 1 && ent->health <= 10 ) {
+		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_CURSEWEAK; // it stirs, but there is nothing left to feed on
 	}
 	else if ( !client->shinobi.curseAwake && client->ps.fd.forcePower <= 1 ) {
 		client->shinobi.curseAwake = qtrue;
@@ -187,7 +191,7 @@ static void Shinobi_EyesOn( gentity_t *ent, int perk ) {
 	}
 	client->ps.fd.forcePower -= SHINOBI_DOJUTSU_COST;
 	client->shinobi.eyes = perk;
-	client->shinobi.eyesDrain = level.time + SHINOBI_DOJUTSU_DRAIN_MS;
+	client->shinobi.eyesDrain = level.time + ( perk == SP_BYAKUGAN ? SHINOBI_BYAKUGAN_DRAIN_MS : SHINOBI_SHARINGAN_DRAIN_MS );
 	client->shinobi.eyesInfo = level.time;
 	if ( perk == SP_BYAKUGAN ) {
 		// the veins bulge with an audible rush: everyone around hears it
@@ -296,9 +300,9 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 			flags = SHINOBI_SEEN_HEALTH | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
 		}
 		else {
-			if ( dist > SHINOBI_BYAKUGAN_RANGE || hidden )
+			if ( dist > SHINOBI_BYAKUGAN_RANGE )
 				continue;
-			flags = SHINOBI_SEEN_CHAKRA | ( clone ? SHINOBI_SEEN_CLONE : 0 );
+			flags = SHINOBI_SEEN_CHAKRA | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
 		}
 
 		// a clone is a perfect copy to the Sharingan: it shows its owner's health
@@ -348,10 +352,10 @@ void Shinobi_PerkBroadcasts( gentity_t *self ) {
 		if ( other == self || !other->inuse || !other->client || !other->client->shinobi.eyes
 			|| other->health <= 0 || other->client->pers.connected != CON_CONNECTED )
 			continue;
-		if ( hidden )
-			range = other->client->shinobi.eyes == SP_SHARINGAN ? SHINOBI_SHARINGAN_HIDDEN_RANGE : 0;
+		if ( other->client->shinobi.eyes == SP_BYAKUGAN )
+			range = SHINOBI_BYAKUGAN_RANGE; // through walls, and through Kawarimi too
 		else
-			range = other->client->shinobi.eyes == SP_BYAKUGAN ? SHINOBI_BYAKUGAN_RANGE : 0;
+			range = hidden ? SHINOBI_SHARINGAN_HIDDEN_RANGE : 0;
 		if ( range > 0 && DistanceSquared( other->client->ps.origin, self->r.currentOrigin ) < range * range )
 			Q_AddToBitflags( self->r.broadcastClients, i, 32 );
 	}
@@ -369,8 +373,9 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 	if ( client->shinobi.eyes && ( !alive || client->shinobi.eyes != perk ) )
 		Shinobi_EyesOff( ent, NULL );
 	if ( client->shinobi.eyes ) {
+		client->ps.fd.forcePowerRegenDebounceTime = level.time + 500; // open eyes: no natural regen
 		if ( client->shinobi.eyesDrain <= level.time ) {
-			client->shinobi.eyesDrain = level.time + SHINOBI_DOJUTSU_DRAIN_MS;
+			client->shinobi.eyesDrain = level.time + ( client->shinobi.eyes == SP_BYAKUGAN ? SHINOBI_BYAKUGAN_DRAIN_MS : SHINOBI_SHARINGAN_DRAIN_MS );
 			if ( client->ps.fd.forcePower < 1 )
 				Shinobi_EyesOff( ent, "Out of chakra - your eyes go dark" );
 			else

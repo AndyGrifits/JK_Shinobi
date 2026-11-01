@@ -91,12 +91,20 @@ static void Shinobi_ClonePoof( gentity_t *clone ) {
 	G_FreeEntity( clone );
 }
 
-static void Shinobi_RemoveClones( int ownerNum ) {
+static void Shinobi_WaterClonePop( gentity_t *clone );
+
+static void Shinobi_RemoveClones( int ownerNum, qboolean water ) {
 	int i;
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *e = &g_entities[i];
-		if ( e->inuse && e->shinobiCloneOwner == ownerNum + 1 && !e->shinobiCloneDecoy && !e->shinobiCloneWater )
+		if ( !e->inuse || e->shinobiCloneOwner != ownerNum + 1 || e->shinobiCloneDecoy )
+			continue;
+		if ( e->shinobiCloneWater ) {
+			if ( water )
+				Shinobi_WaterClonePop( e );
+		}
+		else
 			Shinobi_ClonePoof( e );
 	}
 }
@@ -219,7 +227,7 @@ qboolean Shinobi_CastKageBunshin( gentity_t *ent, int lvl ) {
 	int        i, found = 0, swap;
 	const int  wanted = lvl < 1 ? 1 : ( lvl > SHINOBI_CLONE_MAX ? SHINOBI_CLONE_MAX : lvl );
 
-	Shinobi_RemoveClones( ent->s.number ); // recast replaces the old ones
+	Shinobi_RemoveClones( ent->s.number, qfalse ); // recast replaces the old ones
 
 	for ( i = 0; i < (int)ARRAY_LEN( yaws ) && found < wanted; i++ ) {
 		if ( Shinobi_CloneSpot( ent, yaws[i], spots, found, spots[found] ) )
@@ -416,16 +424,23 @@ static void Shinobi_WaterClonePop( gentity_t *clone ) {
 	G_FreeEntity( clone );
 }
 
-// the jutsu after Water Clone in the owner's build
+// a water clone can only use water jutsu
+#define SHINOBI_WATERCLONE_CAN(j) ( (j) == SJ_SUITON || (j) == SJ_WAVE || (j) == SJ_SUIRO || (j) == SJ_MIST )
+
+// the first water jutsu after Water Clone in the owner's build (wrapping around)
 static int Shinobi_WaterCloneJutsu( gentity_t *owner ) {
 	const shinobiBuild_t *b = &owner->client->pers.shinobiBuild;
-	int i;
+	int i, k;
 
 	for ( i = 0; i < b->numJutsu; i++ ) {
-		if ( b->jutsu[i] == SJ_WATERCLONE ) {
-			const int next = b->jutsu[( i + 1 ) % b->numJutsu];
-			return next == SJ_WATERCLONE ? SJ_NONE : next;
+		if ( b->jutsu[i] != SJ_WATERCLONE )
+			continue;
+		for ( k = 1; k < b->numJutsu; k++ ) {
+			const int next = b->jutsu[( i + k ) % b->numJutsu];
+			if ( SHINOBI_WATERCLONE_CAN( next ) )
+				return next;
 		}
+		break;
 	}
 	return SJ_NONE;
 }
@@ -436,14 +451,8 @@ static float Shinobi_WaterCloneRange( int jutsu ) {
 	case SJ_SUIRO:  return SHINOBI_PRISON_RANGE + 30;
 	case SJ_SUITON: return 700;
 	case SJ_WAVE:   return 500;
-	case SJ_FUTON:  return 450;
-	case SJ_BLADE:  return 550;
-	case SJ_KATON:  return 900;
-	case SJ_ASH:    return 300;
 	case SJ_MIST:   return 500;
-	case SJ_FLAME:  return SHINOBI_FLAME_RANGE - 30;
-	case SJ_SHADOW: return SHINOBI_SHADOW_RANGE - 100;
-	default:        return 0; // hand jutsu, clones, walls: it just fights
+	default:        return 0; // not a water jutsu: it just fights
 	}
 }
 
@@ -475,6 +484,11 @@ static qboolean Shinobi_WaterCloneThink( gentity_t *clone, gentity_t *owner ) {
 		owner->client->ps.fd.forcePower -= spent;
 		if ( owner->client->ps.fd.forcePower < 0 )
 			owner->client->ps.fd.forcePower = 0;
+	}
+	if ( owner->client->ps.fd.forcePower <= 0 ) { // the owner is dry: the water falls apart
+		trap->SendServerCommand( owner - g_entities, "cp \"Out of chakra: the water clone bursts\"" );
+		Shinobi_WaterClonePop( clone );
+		return qfalse;
 	}
 	c->ps.fd.forcePower = owner->client->ps.fd.forcePower > 0 ? full : 0; // dry owner: its drains fail
 	c->ps.fd.forcePowerMax = full;
@@ -575,7 +589,7 @@ qboolean Shinobi_CastWaterClone( gentity_t *ent ) {
 	{
 		const int j = Shinobi_WaterCloneJutsu( ent );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"Water Clone: %s\"",
-			j ? va( "will use %s", shinobiJutsuTitles[j] ) : "fights (put a jutsu after it in your build)" ) );
+			j ? va( "will use %s", shinobiJutsuTitles[j] ) : "fights (it can only use a water jutsu from your build)" ) );
 	}
 	return qtrue;
 }
@@ -681,7 +695,7 @@ static void Shinobi_CloneDrain( const int clonesPerOwner[MAX_CLIENTS] ) {
 		client->ps.fd.forcePower -= clonesPerOwner[i];
 		if ( client->ps.fd.forcePower <= 0 ) {
 			client->ps.fd.forcePower = 0;
-			Shinobi_RemoveClones( i );
+			Shinobi_RemoveClones( i, qtrue );
 			trap->SendServerCommand( i, "cp \"Out of chakra: the clones vanish\"" );
 		}
 	}

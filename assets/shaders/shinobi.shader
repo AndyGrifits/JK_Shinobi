@@ -229,3 +229,32 @@ models/shinobi/kunai
 		tcGen environment
 	}
 }
+
+// Hidden Mist: a flat sheet of fog right in front of the camera (sprite)
+gfx/shinobi/fogscreen
+{
+	nopicmip
+	nomipmaps
+	cull none
+	sort nearest
+	{
+		map $whiteimage
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// dark shapes of people seen through the Hidden Mist (custom shader on the model)
+gfx/shinobi/mistshell
+{
+	nopicmip
+	nomipmaps
+	cull none
+	{
+		map $whiteimage
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen entity
+		alphaGen entity
+	}
+}

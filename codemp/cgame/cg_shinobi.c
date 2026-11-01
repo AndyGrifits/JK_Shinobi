@@ -20,8 +20,14 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
-	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand;
+	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
 } shinobiShaders;
+
+// standing in a Hidden Mist this frame (and the last)
+static struct {
+	int   time, lastTime;
+	float amount, lastAmount;
+} shinobiMist;
 
 // thick smoke around the local player this frame (drawn over the screen)
 static struct {
@@ -149,6 +155,8 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.ash        = CG_ShinobiRegisterFx( SHINOBI_FX_ASH );
 	shinobiFx.mist       = CG_ShinobiRegisterFx( SHINOBI_FX_MIST );
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
+	shinobiShaders.fogScreen  = trap->R_RegisterShader( "gfx/shinobi/fogscreen" );
+	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
@@ -793,7 +801,13 @@ static void CG_ShinobiZone( centity_t *cent ) {
 			dist = VectorLength( d );
 			if ( dist < R ) {
 				const float amt = a * Com_Clamp( 0, 1, ( R - dist ) / ( type == SZ_MIST ? 90.0f : 40.0f ) );
-				if ( shinobiFog.time != cg.time || amt > shinobiFog.amount ) {
+				if ( type == SZ_MIST ) { // drawn in the 3D scene (CG_ShinobiSceneOverlay), so shapes can show over it
+					if ( shinobiMist.time != cg.time || amt > shinobiMist.amount ) {
+						shinobiMist.time = cg.time;
+						shinobiMist.amount = amt;
+					}
+				}
+				else if ( shinobiFog.time != cg.time || amt > shinobiFog.amount ) {
 					shinobiFog.time = cg.time;
 					shinobiFog.type = type;
 					shinobiFog.amount = amt;
@@ -1055,19 +1069,67 @@ static int CG_ShinobiMyEyes( void ) {
 	return 0;
 }
 
-// called from CG_Player with the finished body: Byakugan sees it through walls
+// a fog sheet in front of the camera inside a Hidden Mist (3D, so shapes can be drawn over it)
+void CG_ShinobiSceneOverlay( void ) {
+	refEntity_t ent;
+	float       a;
+
+	shinobiMist.lastTime = shinobiMist.time;
+	shinobiMist.lastAmount = shinobiMist.time == cg.time ? shinobiMist.amount : 0;
+	if ( shinobiMist.time != cg.time || shinobiMist.amount <= 0 || !shinobiShaders.fogScreen )
+		return;
+	a = 0.93f * shinobiMist.amount * ( CG_ShinobiMyEyes() == SP_BYAKUGAN ? 0.3f : 1.0f );
+	memset( &ent, 0, sizeof( ent ) );
+	ent.reType = RT_SPRITE;
+	VectorMA( cg.refdef.vieworg, 12, cg.refdef.viewaxis[0], ent.origin );
+	ent.radius = 80;
+	ent.customShader = shinobiShaders.fogScreen;
+	ent.shaderRGBA[0] = 205; ent.shaderRGBA[1] = 212; ent.shaderRGBA[2] = 220;
+	ent.shaderRGBA[3] = (byte)( Com_Clamp( 0, 1, a ) * 255 );
+	ent.renderfx = RF_NOSHADOW | RF_FIRST_PERSON;
+	trap->R_AddRefEntityToScene( &ent );
+}
+
+// shapes of people inside the Hidden Mist: dark silhouettes over the fog
+static void CG_ShinobiMistShell( centity_t *cent, refEntity_t *body ) {
+	refEntity_t shell;
+	trace_t     tr;
+	float       dist, f;
+
+	if ( shinobiMist.lastTime < cg.time - 100 || shinobiMist.lastAmount <= 0.05f || !shinobiShaders.mistShell )
+		return;
+	if ( cent->currentState.eType == ET_PLAYER && SHINOBI_HIDDEN( &cent->currentState ) )
+		return;
+	dist = Distance( cent->lerpOrigin, cg.refdef.vieworg );
+	if ( dist > SHINOBI_MIST_SHAPES )
+		return;
+	CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, cent->lerpOrigin, cg.snap->ps.clientNum, CONTENTS_SOLID );
+	if ( tr.fraction < 1.0f )
+		return;
+	f = dist < 120 ? 1.0f : 1.0f - ( dist - 120 ) / ( SHINOBI_MIST_SHAPES - 120 );
+	shell = *body;
+	shell.shaderRGBA[0] = 60; shell.shaderRGBA[1] = 68; shell.shaderRGBA[2] = 82;
+	shell.shaderRGBA[3] = (byte)( 255 * Com_Clamp( 0, 1, 0.75f * f * shinobiMist.lastAmount ) );
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT );
+	shell.renderfx |= RF_NODEPTH | RF_FORCEPOST;
+	shell.customShader = shinobiShaders.mistShell;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
+// called from CG_Player with the finished body: Byakugan sees it through walls,
+// anyone sees shapes in the Hidden Mist
 void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
 	const shinobiSeen_t *seen;
 	refEntity_t shell;
 
-	if ( CG_ShinobiMyEyes() != SP_BYAKUGAN || cent->currentState.number == cg.snap->ps.clientNum
-		|| ( cent->currentState.eFlags & EF_DEAD ) || !cgs.media.sightShell )
+	if ( cent->currentState.number == cg.snap->ps.clientNum || ( cent->currentState.eFlags & EF_DEAD ) )
 		return;
-	if ( DistanceSquared( cent->lerpOrigin, cg.snap->ps.origin ) > Square( SHINOBI_BYAKUGAN_RANGE ) )
+	if ( CG_ShinobiMyEyes() != SP_BYAKUGAN || !cgs.media.sightShell
+		|| DistanceSquared( cent->lerpOrigin, cg.snap->ps.origin ) > Square( SHINOBI_BYAKUGAN_RANGE )
+		|| !( seen = CG_ShinobiSeen( cent->currentState.number ) ) ) {
+		CG_ShinobiMistShell( cent, body );
 		return;
-	seen = CG_ShinobiSeen( cent->currentState.number );
-	if ( !seen )
-		return; // not a ninja (or out of range on the server)
+	}
 
 	shell = *body;
 	if ( seen->flags & SHINOBI_SEEN_CLONE ) { // a hollow copy: barely any chakra inside
@@ -1078,7 +1140,7 @@ void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
 	}
 	shell.shaderRGBA[3] = 255;
 	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA );
-	shell.renderfx |= RF_MINLIGHT | RF_NODEPTH;
+	shell.renderfx |= RF_MINLIGHT | RF_NODEPTH | RF_FORCEPOST; // over walls and over the mist
 	shell.customShader = cgs.media.sightShell;
 	trap->R_AddRefEntityToScene( &shell );
 }
@@ -1127,6 +1189,8 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 
 	if ( !eyes )
 		return;
+	if ( eyes == SP_SHARINGAN && shinobiMist.lastTime >= cg.time - 100 && shinobiMist.lastAmount > 0.3f )
+		return; // the Sharingan can't see through the Hidden Mist
 	for ( i = 0; i < MAX_GENTITIES; i++ ) {
 		const shinobiSeen_t *s = CG_ShinobiSeen( i );
 		centity_t *cent;
@@ -1173,53 +1237,6 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 	}
 }
 
-/*
-Inside the Hidden Mist the fog is drawn over the whole screen; people within
-reach (and not behind walls) show through it as dark shapes.
-*/
-static void CG_ShinobiMistShapes( float amount ) {
-	int i;
-
-	for ( i = 0; i < MAX_GENTITIES; i++ ) {
-		centity_t *cent = &cg_entities[i];
-		vec3_t     feet, head, d;
-		float      xf, yf, xh, yh, h, w, dist, a;
-		vec4_t     c;
-		trace_t    tr;
-
-		if ( !cent->currentValid || ( cent->currentState.eType != ET_PLAYER && cent->currentState.eType != ET_NPC ) )
-			continue;
-		if ( i == cg.snap->ps.clientNum || ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW ) ) )
-			continue;
-		if ( cent->currentState.eType == ET_PLAYER && SHINOBI_HIDDEN( &cent->currentState ) )
-			continue;
-		VectorSubtract( cent->lerpOrigin, cg.refdef.vieworg, d );
-		dist = VectorLength( d );
-		if ( dist > SHINOBI_MIST_SHAPES || dist < 1 )
-			continue;
-		CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, cent->lerpOrigin, cg.snap->ps.clientNum, CONTENTS_SOLID );
-		if ( tr.fraction < 1.0f )
-			continue;
-		VectorCopy( cent->lerpOrigin, feet );
-		feet[2] -= 24;
-		VectorCopy( cent->lerpOrigin, head );
-		head[2] += 36;
-		if ( !CG_WorldCoordToScreenCoordFloat( feet, &xf, &yf ) || !CG_WorldCoordToScreenCoordFloat( head, &xh, &yh ) )
-			continue;
-		h = yf - yh;
-		if ( h < 4 )
-			continue;
-		w = h * 0.32f;
-		a = 0.6f * amount * ( 1.0f - dist / SHINOBI_MIST_SHAPES );
-		if ( dist < 120 )
-			a = 0.6f * amount; // close up: clear shape
-		VectorSet4( c, 0.22f, 0.24f, 0.27f, a );
-		CG_FillRect( xh - w * 0.25f, yh, w * 0.5f, h * 0.17f, c );                 // head
-		CG_FillRect( xh - w * 0.5f, yh + h * 0.18f, w, h * 0.42f, c );            // body
-		CG_FillRect( xf - w * 0.4f, yh + h * 0.6f, w * 0.8f, h * 0.4f, c );       // legs
-	}
-}
-
 void CG_ShinobiDrawHUD( void ) {
 	playerState_t *ps = &cg.predictedPlayerState;
 	const char    *text = NULL;
@@ -1252,14 +1269,15 @@ void CG_ShinobiDrawHUD( void ) {
 		vec4_t fog;
 		if ( shinobiFog.type == SZ_ASH )
 			VectorSet4( fog, 0.12f, 0.11f, 0.1f, 0.85f * shinobiFog.amount );
-		else if ( shinobiFog.type == SZ_MIST )
-			VectorSet4( fog, 0.8f, 0.83f, 0.86f, 0.9f * shinobiFog.amount
-				* ( CG_ShinobiMyEyes() == SP_BYAKUGAN ? 0.3f : 1.0f ) );
 		else
 			VectorSet4( fog, 0.85f, 0.88f, 0.9f, 0.7f * shinobiFog.amount );
 		CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, fog );
-		if ( shinobiFog.type == SZ_MIST )
-			CG_ShinobiMistShapes( shinobiFog.amount );
+	}
+
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) { // the seal clouds the mind
+		vec4_t dark = { 0.08f, 0.0f, 0.1f, 0.0f };
+		dark[3] = 0.28f + 0.08f * sinf( cg.time * 0.004f );
+		CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, dark );
 	}
 
 	if ( CG_ShinobiMyEyes() == SP_BYAKUGAN )
@@ -1296,6 +1314,11 @@ void CG_ShinobiDrawHUD( void ) {
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) {
 		text = "Staggered!";
 		VectorSet( color, 1.0f, 0.6f, 0.3f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSEWEAK ) {
+		text = "The Curse Seal stirs - too weak to awaken";
+		VectorSet( color, 0.55f, 0.35f, 0.65f );
+		color[3] = 0.8f;
 	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) {
 		text = "Curse Seal awakened - it feeds on your health";
