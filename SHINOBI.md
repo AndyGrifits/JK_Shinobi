@@ -33,7 +33,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Kawarimi | an AI double with your looks takes your place and keeps fighting; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
 
 Quick keys still work: hold **T** Chidori, **V** Doton, **G** Kage Bunshin.
-Everyone has Force Jump 2 (wall runs) and fists. No names are shown over enemies,
+Everyone has Force Jump 2 (wall runs) and fists. Extended melee is on (`g_debugMelee 1`): with fists, right click kicks (direction keys pick the kick, also in the air), both buttons grab; jump at a wall and hold Space to cling to it. No names are shown over enemies,
 so clones and doubles can't be told apart from the real ninja by name.
 Console: `rasengan 3`, `katon 2`, `shunshin 2 back`, `kawarimi`... cast instantly (used by the self-test).
 
