@@ -3520,6 +3520,11 @@ Ghoul2 Insert Start
 			//we put the $ in front to indicate a name and not a model
 			strcpy(playerModel, va("$%s", NPCName));
 		}
+		if ( g_shinobiCloneModel[0] )
+		{ // JK_Shinobi: shadow clones look like their owner
+			Q_strncpyz( playerModel, g_shinobiCloneModel, sizeof( playerModel ) );
+			Q_strncpyz( customSkin, g_shinobiCloneSkin, sizeof( customSkin ) );
+		}
 		SetupGameGhoul2Model(NPC, playerModel, customSkin);
 
 		if (!NPC->NPC_type)

@@ -1,0 +1,58 @@
+repeatDelay				0
+
+// Shadow clone appears / disappears: big white smoke burst.
+
+Particle
+{
+	name				burst
+	count				7 9
+	life				450 700
+	spawnFlags			orgOnSphere
+	radius				10 22
+	vel					-50 -50 0 50 50 70
+	rotation			0 360
+	rotationDelta		-6 6
+	size
+	{
+		start			22 30
+		end				50 64
+	}
+	rgb
+	{
+		start			0.95 0.95 0.95
+	}
+	alpha
+	{
+		start			0.85
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				core
+	count				1
+	life				180
+	size
+	{
+		start			30
+		end				60
+	}
+	rgb
+	{
+		start			1 1 1
+	}
+	alpha
+	{
+		start			0.5
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}

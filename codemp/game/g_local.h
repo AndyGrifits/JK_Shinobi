@@ -401,6 +401,12 @@ struct gentity_s {
 
 	// OpenJK add
 	int			useDebounceTime;	// for cultist_destroyer
+
+	// JK_Shinobi: shadow clone bookkeeping (0 = not a clone)
+	int			shinobiCloneOwner;	// owner client number + 1
+	int			shinobiCloneExpire;	// level.time when the clone vanishes
+	int			shinobiCloneThink;	// next AI supervision tick
+	qboolean	shinobiCloneReady;	// overrides applied after NPC_Begin
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -800,6 +806,7 @@ struct gclient_s {
 		int		formEnd;
 		int		armedEnd;
 		int		dashEnd;
+		int		shunshinNext;	// cooldown end
 	} shinobi;
 };
 
@@ -1371,6 +1378,14 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 void Shinobi_Init( void );
 void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd );
 void Cmd_Rasengan_f( gentity_t *ent );
+void Cmd_Shunshin_f( gentity_t *ent );
+void Cmd_KageBunshin_f( gentity_t *ent );
+void Shinobi_RunFrame( void );
+qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );
+qboolean Shinobi_DamageBlocked( gentity_t *targ, gentity_t *attacker );
+gentity_t *Shinobi_CreditAttacker( gentity_t *attacker );
+extern char g_shinobiCloneModel[MAX_QPATH];
+extern char g_shinobiCloneSkin[MAX_QPATH];
 void Team_CheckDroppedItem( gentity_t *dropped );
 
 //

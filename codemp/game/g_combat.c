@@ -2107,6 +2107,9 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		return;
 	}
 
+	// JK_Shinobi: kills made by a shadow clone are credited to its owner
+	attacker = Shinobi_CreditAttacker( attacker );
+
 	if ( !attacker )
 		return;
 
@@ -4460,6 +4463,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	}
 
 	if (!targ->takedamage) {
+		return;
+	}
+
+	if ( Shinobi_DamageBlocked( targ, attacker ) )
+	{ // JK_Shinobi: shadow clones never hurt their owner (and vice versa)
 		return;
 	}
 

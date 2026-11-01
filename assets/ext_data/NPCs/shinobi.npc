@@ -1,0 +1,42 @@
+// JK_Shinobi shadow clone (Kage Bunshin).
+// Model, skin, saber, health, teams and leader are overridden in code
+// (g_shinobi.c) to copy the player who cast the jutsu.
+
+shinobi_clone
+{
+	playerModel	kyle
+	customSkin	default
+	weapon		WP_SABER
+	saber		Kyle
+	saberColor	blue
+	saberStyle	2
+	class		CLASS_JEDI
+	rank		lt
+	health		1
+	reactions	4
+	aim			5
+	move		5
+	aggression	4
+	evasion		3
+	intelligence	5
+	hfov		120
+	vfov		120
+	visrange	1500
+	earshot		1024
+	vigilance	0.8
+	walkSpeed	55
+	runSpeed	230
+	yawSpeed	140
+	FP_LEVITATION	2
+	FP_SPEED	1
+	FP_PUSH		1
+	FP_SABER_OFFENSE	2
+	FP_SABER_DEFENSE	1
+	FP_SABERTHROW	1
+	forcePowerMax	100
+	dismemberProbHead	0
+	dismemberProbArms	0
+	dismemberProbHands	0
+	dismemberProbWaist	0
+	dismemberProbLegs	0
+}

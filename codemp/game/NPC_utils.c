@@ -1134,6 +1134,10 @@ qboolean NPC_ValidEnemy( gentity_t *ent )
 	if ( ent->flags & FL_NOTARGET )
 		return qfalse;
 
+	// JK_Shinobi: shadow clones choose sides by their owner, not by NPC teams
+	if ( NPCS.NPC->shinobiCloneOwner )
+		return Shinobi_CloneIsHostile( NPCS.NPC, ent );
+
 	//Must be an NPC
 	if ( ent->client == NULL )
 	{

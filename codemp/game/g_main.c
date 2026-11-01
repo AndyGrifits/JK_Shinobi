@@ -3445,6 +3445,8 @@ void G_RunFrame( int levelTime ) {
 		iTimer_Queues);
 #endif
 
+	Shinobi_RunFrame(); // JK_Shinobi: shadow clone supervision
+
 	g_LastFrameTime = level.time;
 }
 

@@ -38,7 +38,25 @@ Timers live server-side in gclient_t; only these booleans are sent.
 #define SHINOBI_RASENGAN_REACH     44   // hit box distance in front of the user
 #define SHINOBI_RASENGAN_HITBOX    28   // half-size of the hit box
 
+// Shunshin (body flicker): short teleport along the view direction
+#define SHINOBI_SHUNSHIN_COST      15
+#define SHINOBI_SHUNSHIN_DIST      320
+#define SHINOBI_SHUNSHIN_MIN_DIST  48   // don't bother if a wall is right in front
+#define SHINOBI_SHUNSHIN_COOLDOWN  600
+#define SHINOBI_SHUNSHIN_MAX_PITCH 35   // degrees up/down the blink may follow the view
+
+// Kage Bunshin (shadow clones): NPC copies with Jedi AI, one hit kills them
+#define SHINOBI_CLONE_COST         50
+#define SHINOBI_CLONE_COUNT        2
+#define SHINOBI_CLONE_LIFETIME     25000
+#define SHINOBI_CLONE_HEALTH       1
+#define SHINOBI_CLONE_SIGHT        1500  // enemy search radius
+#define SHINOBI_CLONE_THINK_MS     250   // how often clone targeting is supervised
+#define SHINOBI_CLONE_NPC_TYPE     "shinobi_clone" // ext_data/NPCs/shinobi.npc
+
 // Effect files (inside zz_shinobi.pk3)
+#define SHINOBI_FX_SHUNSHIN        "shinobi/shunshin"
+#define SHINOBI_FX_CLONE_POOF      "shinobi/clone_poof"
 #define SHINOBI_FX_RASENGAN_HAND   "shinobi/rasengan_hand"
 #define SHINOBI_FX_RASENGAN_FORM   "shinobi/rasengan_form"
 #define SHINOBI_FX_RASENGAN_HIT    "shinobi/rasengan_hit"

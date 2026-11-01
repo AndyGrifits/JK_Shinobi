@@ -1,0 +1,66 @@
+repeatDelay				0
+
+// Shunshin (body flicker): a quick puff of smoke and a scatter of leaves,
+// played where the ninja vanishes and where they reappear.
+
+Particle
+{
+	name				smoke
+	count				4 6
+	life				350 550
+	spawnFlags			orgOnSphere
+	radius				6 14
+	origin				0 0 8
+	vel					-30 -30 10 30 30 50
+	rotation			0 360
+	rotationDelta		-8 8
+	size
+	{
+		start			16 22
+		end				34 44
+	}
+	rgb
+	{
+		start			0.85 0.85 0.85
+	}
+	alpha
+	{
+		start			0.7
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				leaves
+	count				7 10
+	life				700 1100
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				8 16
+	origin				0 0 12
+	vel					60 0 30 140 0 90
+	gravity				-160
+	rotation			0 360
+	rotationDelta		-60 60
+	size
+	{
+		start			3 4.5
+	}
+	rgb
+	{
+		start			0.25 0.6 0.15 0.45 0.75 0.2
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/leaf
+	]
+}

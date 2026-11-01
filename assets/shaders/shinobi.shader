@@ -55,3 +55,26 @@ gfx/shinobi/spark
 		alphaGen vertex
 	}
 }
+
+// Alpha-blended (not additive): smoke and leaves must be able to darken/cover.
+gfx/shinobi/smoke
+{
+	cull none
+	{
+		map gfx/shinobi/smoke
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+gfx/shinobi/leaf
+{
+	cull none
+	{
+		map gfx/shinobi/leaf
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
