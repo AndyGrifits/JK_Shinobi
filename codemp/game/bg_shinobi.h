@@ -494,7 +494,7 @@ static const char * const shinobiPerkTitles[SP_COUNT] = {
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
 	"your fists and kicks also burn the enemy's chakra",
-	"at 0 chakra it awakens: eats 3 health/s (never below 10), chakra returns 2.5x faster until half full; /curseseal off",
+	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 2.5x faster; /curseseal off",
 	"coming soon: see health, hidden enemies and the jutsu being charged",
 	"coming soon: see chakra and enemies through walls",
 	"coming soon: a burst of speed and taijutsu, then exhaustion"

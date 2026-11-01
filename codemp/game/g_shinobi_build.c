@@ -87,9 +87,9 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 }
 
 /*
-Curse Seal: awakens when the chakra runs dry and stays awake until the
-chakra is back to half. While awake it eats health (never below 10) and
-pours chakra back 2.5x faster; dark chakra licks around the body.
+Curse Seal: awakens when the chakra runs dry and stays awake until it has
+eaten your health down to 10. While awake chakra pours back 2.5x faster;
+dark chakra licks around the body.
 */
 float Shinobi_RegenScale( gentity_t *ent ) {
 	float f;
@@ -116,8 +116,9 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 		G_PlayEffectID( shinobiMedia.fxCurse, ent->r.currentOrigin, up );
 		trap->SendServerCommand( ent - g_entities, "cp \"^6Curse Seal awakened\"" );
 	}
-	else if ( client->shinobi.curseAwake && client->ps.fd.forcePower >= client->ps.fd.forcePowerMax / 2 ) {
-		client->shinobi.curseAwake = qfalse;
+	else if ( client->shinobi.curseAwake && ent->health <= 10 ) {
+		client->shinobi.curseAwake = qfalse; // it has taken all it can: goes back to sleep
+		trap->SendServerCommand( ent - g_entities, "cp \"^6Curse Seal fades\"" );
 	}
 
 	if ( client->shinobi.curseAwake && client->shinobi.curseTick <= level.time ) {
