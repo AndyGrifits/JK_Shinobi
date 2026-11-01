@@ -807,7 +807,7 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 	}
 
 	client->shinobi.prisonTarget = target->s.number + 1;
-	client->shinobi.prisonEnd = level.time + shinobiPrisonMs[lvl - 1];
+	client->shinobi.prisonEnd = 0; // as long as the key is held and the chakra lasts
 	client->shinobi.prisonTick = level.time + SHINOBI_PRISON_TICK_MS;
 	client->shinobi.prisonNext = level.time + SHINOBI_PRISON_COOLDOWN;
 
@@ -866,7 +866,6 @@ static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd ) {
 
 	if ( !target->inuse || !target->client || target->health <= 0
 		|| target->client->shinobi.prisonCaster != caster->s.number + 1
-		|| level.time >= client->shinobi.prisonEnd
 		|| Distance( caster->r.currentOrigin, target->r.currentOrigin ) > SHINOBI_PRISON_RANGE * 1.6f
 		|| ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE ) ) || ucmd->upmove > 0 ) {
 		Shinobi_PrisonRelease( caster ); // let go (or it ran out)
@@ -876,8 +875,16 @@ static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd ) {
 	// hold still with the hand in the water
 	ucmd->forwardmove = ucmd->rightmove = 0;
 
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500; // no regen while holding
+
 	if ( client->shinobi.prisonTick <= level.time ) {
 		client->shinobi.prisonTick = level.time + SHINOBI_PRISON_TICK_MS;
+		if ( client->ps.fd.forcePower < SHINOBI_PRISON_DRAIN ) {
+			trap->SendServerCommand( caster - g_entities, "cp \"Out of chakra: the Water Prison bursts\"" );
+			Shinobi_PrisonRelease( caster );
+			return;
+		}
+		client->ps.fd.forcePower -= SHINOBI_PRISON_DRAIN;
 		shinobiHitElement = SE_WATER;
 		G_Damage( target, caster, caster, NULL, NULL, SHINOBI_PRISON_DAMAGE, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_WATER );
 		shinobiHitElement = SE_NONE;

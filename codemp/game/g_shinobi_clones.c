@@ -54,6 +54,8 @@ qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other ) {
 	if ( other->s.eType != ET_NPC ) {
 		if ( other->client->sess.sessionTeam == TEAM_SPECTATOR || other->client->tempSpectate >= level.time )
 			return qfalse;
+		if ( SHINOBI_HIDDEN( &other->client->ps ) )
+			return qfalse; // can't fight what you can't see (Kawarimi)
 	}
 
 	root = Shinobi_Root( other );
@@ -386,7 +388,9 @@ static void Shinobi_DecoyTakeOver( gentity_t *decoy, gentity_t *owner ) {
 
 static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 	gentity_t *best = NULL;
-	float      bestDist = (float)SHINOBI_CLONE_SIGHT * SHINOBI_CLONE_SIGHT;
+	// a Kawarimi double goes for the nearest enemy anywhere, like the real
+	// ninja would; clones only fight what they can see
+	float      bestDist = clone->shinobiCloneDecoy ? 1e12f : (float)SHINOBI_CLONE_SIGHT * SHINOBI_CLONE_SIGHT;
 	vec3_t     eye;
 	int        i;
 
@@ -404,14 +408,16 @@ static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 		d = DistanceSquared( clone->r.currentOrigin, e->r.currentOrigin );
 		if ( d >= bestDist )
 			continue;
-		if ( !trap->InPVS( eye, e->r.currentOrigin ) )
-			continue;
+		if ( !clone->shinobiCloneDecoy ) {
+			if ( !trap->InPVS( eye, e->r.currentOrigin ) )
+				continue;
 
-		VectorCopy( e->r.currentOrigin, target );
-		target[2] += 16;
-		trap->Trace( &tr, eye, NULL, NULL, target, clone->s.number, MASK_SOLID, qfalse, 0, 0 );
-		if ( tr.fraction < 1.0f && tr.entityNum != e->s.number )
-			continue;
+			VectorCopy( e->r.currentOrigin, target );
+			target[2] += 16;
+			trap->Trace( &tr, eye, NULL, NULL, target, clone->s.number, MASK_SOLID, qfalse, 0, 0 );
+			if ( tr.fraction < 1.0f && tr.entityNum != e->s.number )
+				continue;
+		}
 
 		best = e;
 		bestDist = d;
@@ -427,9 +433,9 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 			clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_DEFAULT;
 		if ( clone->enemy && !Shinobi_CloneIsHostile( clone, clone->enemy ) )
 			G_ClearEnemy( clone );
-		if ( !clone->enemy ) {
+		{
 			gentity_t *enemy = Shinobi_CloneFindEnemy( clone );
-			if ( enemy )
+			if ( enemy && enemy != clone->enemy )
 				G_SetEnemy( clone, enemy );
 		}
 		return;
@@ -516,6 +522,9 @@ void Shinobi_RunFrame( void ) {
 				clone->health = SHINOBI_CLONE_HEALTH;
 				clone->client->ps.stats[STAT_HEALTH] = SHINOBI_CLONE_HEALTH;
 				Shinobi_CloneApplyTeam( clone, owner );
+				clone->client->leader = NULL;
+				if ( clone->NPC )
+					clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_DEFAULT;
 				Shinobi_DecoyTakeOver( clone, owner );
 				clone->shinobiCloneReady = qtrue;
 				if ( owner->client->shinobi.kawarimiPending )

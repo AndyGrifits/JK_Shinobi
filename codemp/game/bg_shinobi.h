@@ -67,9 +67,9 @@ static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"Suiton", "Futon", "Water Prison"
 };
 
-// the jutsu the selection keys cycle through (Shunshin has its own keys)
+// the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_FUTON, SJ_DOTON, SJ_SUIRO, SJ_BUNSHIN, SJ_KAWARIMI
+	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_FUTON, SJ_DOTON, SJ_SUIRO, SJ_BUNSHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -85,11 +85,13 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 35, 35, 35 }, // Kawarimi
 	{ 15, 30, 50 }, // Suiton
 	{ 15, 25, 40 }, // Futon
-	{ 30, 40, 55 }, // Water Prison
+	{ 20, 20, 20 }, // Water Prison (to start; then it drains while held)
 };
 
 // jutsu that cast on key press, without charging
 #define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI )
+// jutsu that last while the key is held, without levels
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO )
 
 // when each bar is full; Shunshin charges faster than the big jutsu
 static QINLINE int Shinobi_BarEnd( int jutsu, int bar ) {
@@ -194,12 +196,12 @@ static const int shinobiChidoriStunMs[3]  = { 600, 900, 1300 }; // electrocuted
 static const int shinobiChidoriDashMs[3]  = { 330, 430,  540 }; // 380 / 495 / 620 units
 static const float shinobiChidoriRadius[3] = { 6.0f, 9.0f, 13.0f };
 
-// Shunshin (body flicker): Shift + jump teleports forward, Shift + back + jump
-// backward; holding jump charges the distance (about 2 / 5 / 9 metres)
-static const int shinobiShunshinDist[3]  = { 80, 180, 320 };
+// Shunshin (body flicker): Shift + jump teleports along the view (up and down
+// too), Shift + back + jump the opposite way; holding jump charges the
+// distance (about 4 / 10 / 18 metres)
+static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
 #define SHINOBI_SHUNSHIN_MIN_DIST  24   // don't bother if a wall is right there
 #define SHINOBI_SHUNSHIN_COOLDOWN  5000
-#define SHINOBI_SHUNSHIN_MAX_PITCH 35   // degrees up/down the blink may follow the view
 
 // Kawarimi (substitution): an AI double takes your place, you turn invisible
 // and creep away; any action but moving ends it and the double becomes a log
@@ -310,14 +312,15 @@ static const int shinobiWindRange[3]  = { 320,  480,  640 };
 static const int shinobiWindPush[3]   = { 450,  700, 1000 };
 static const int shinobiWindDamage[3] = {   4,    8,   12 };
 
-// Suiro: water prison. Hold out your hand: the victim floats in a ball of
-// water, helpless (only Kawarimi gets out); you can't move either.
+// Suiro: water prison. Lasts while you hold the key and pay chakra: the victim
+// floats in a ball of water, helpless (only Kawarimi gets out); you can't
+// move either.
 #define SHINOBI_PRISON_RANGE       150
 #define SHINOBI_PRISON_COOLDOWN    6000
-#define SHINOBI_PRISON_TICK_MS     500
-#define SHINOBI_PRISON_DAMAGE      3     // drowning, per tick
+#define SHINOBI_PRISON_TICK_MS     250
+#define SHINOBI_PRISON_DRAIN       2     // chakra per tick (8/s)
+#define SHINOBI_PRISON_DAMAGE      2     // drowning per tick (8/s)
 #define SHINOBI_PRISON_RADIUS      42.0f // drawn water ball
-static const int shinobiPrisonMs[3] = { 2500, 4000, 6000 };
 
 // Non-player entities drawn by the cgame (entityState.generic1 on ET_GENERAL)
 #define SHINOBI_ENT_FIREBALL       201  // 201..203 = fireball level 1..3

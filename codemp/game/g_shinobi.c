@@ -424,6 +424,12 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
 	}
+	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
+		Shinobi_Cast( ent, jutsu, 1 );
+		if ( client->shinobi.prisonTarget )
+			client->shinobi.chargeJutsu = jutsu;
+		return;
+	}
 
 	Shinobi_Reveal( ent );
 	client->shinobi.chargeJutsu = jutsu;
@@ -441,6 +447,11 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 	if ( jutsu == SJ_NONE )
 		return;
 	client->shinobi.chargeJutsu = SJ_NONE;
+	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) {
+		if ( client->shinobi.prisonTarget )
+			Shinobi_PrisonRelease( ent );
+		return;
+	}
 	if ( jutsu == SJ_SHUNSHIN ) // Shift + back + jump blinks backward
 		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
 	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelFor( jutsu, level.time - client->shinobi.chargeStart ) );
@@ -526,19 +537,13 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 	if ( SHINOBI_HAND_DASH( &client->ps ) )
 		return qfalse;
 
+	// straight along the view, up and down included (backward: the opposite way,
+	// still facing forward)
 	VectorCopy( client->ps.viewangles, angles );
 	angles[ROLL] = 0;
-	if ( angles[PITCH] > SHINOBI_SHUNSHIN_MAX_PITCH )
-		angles[PITCH] = SHINOBI_SHUNSHIN_MAX_PITCH;
-	else if ( angles[PITCH] < -SHINOBI_SHUNSHIN_MAX_PITCH )
-		angles[PITCH] = -SHINOBI_SHUNSHIN_MAX_PITCH;
-	if ( client->ps.groundEntityNum != ENTITYNUM_NONE && angles[PITCH] > 0 )
-		angles[PITCH] = 0; // on the ground looking down: blink straight ahead
-	if ( back ) {
-		angles[YAW] += 180; // keep facing the enemy, land behind
-		angles[PITCH] = 0;
-	}
 	AngleVectors( angles, dir, NULL, NULL );
+	if ( back )
+		VectorScale( dir, -1, dir );
 
 	VectorCopy( client->ps.origin, start );
 	start[2] += 1; // clear the floor

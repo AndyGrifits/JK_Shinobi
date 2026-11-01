@@ -729,6 +729,9 @@ static void CG_ShinobiDrawJutsuList( void ) {
 		const int   j = shinobiJutsuCycle[shinobiSel.index];
 		const char *info = SHINOBI_JUTSU_INSTANT( j )
 			? va( "%s: %i chakra", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ) )
+			: SHINOBI_JUTSU_HOLD( j )
+			? va( "%s: %i chakra, then %i/s while you hold the key", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ),
+				SHINOBI_PRISON_DRAIN * 1000 / SHINOBI_PRISON_TICK_MS )
 			: va( "%s: Lv1 %i / Lv2 %i / Lv3 %i chakra (hold to charge)", shinobiJutsuTitles[j],
 				Shinobi_JutsuCost( j, 1 ), Shinobi_JutsuCost( j, 2 ), Shinobi_JutsuCost( j, 3 ) );
 		const float w = CG_Text_Width( info, 0.45f, FONT_MEDIUM );
@@ -765,7 +768,7 @@ void CG_ShinobiDrawHUD( void ) {
 
 	CG_ShinobiDrawJutsuList();
 
-	if ( shinobiCharge.jutsu ) {
+	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
 		CG_ShinobiDrawChargeBars();
 	}
 

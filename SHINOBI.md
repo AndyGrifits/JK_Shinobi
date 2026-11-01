@@ -15,9 +15,9 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Q / E** | previous / next jutsu |
 | hold **F** | charge and cast the selected jutsu |
 | hold **R** (stand still) | gather chakra: meditate, +40 chakra/s |
-| **Shift + Space** | Shunshin forward; hold Space longer = farther (about 2 / 5 / 9 m, 20/30/40 chakra, 5 s cooldown) |
-| **Shift + S + Space** | Shunshin backward |
-| **X** | Kawarimi (substitution) |
+| **Shift + Space** | Shunshin where you look (up and down too); hold Space longer = farther (160 / 360 / 640 units, about 4 / 10 / 18 m; 20/30/40 chakra, 5 s cooldown) |
+| **Shift + S + Space** | Shunshin the opposite way |
+| **X** | Kawarimi (substitution; not in the Q/E list) |
 | **2** | fists / saber |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
 
@@ -30,10 +30,10 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Katon | great fireball blasted with both hands: bigger/slower/stronger per level (25+40 / 45+65 / 70+100 dmg, blast radius 130/180/250), loud explosion and camera shake | 15/30/50 |
 | Doton | earth wall: 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
 | Kage Bunshin | 1/2/3 clones in a big smoke cloud, the original lands in a random spot; each clone drains 3 chakra/s | 25/45/70 |
-| Kawarimi | an AI double with your looks takes your place and keeps fighting; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
+| Kawarimi | an AI double with your looks takes your place and goes for the nearest enemy; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
 | Suiton | water bullet: 15/25/40 damage and a push; leaves a puddle (radius 70/100/140); puts out fire, cancels fireballs (the stronger one goes on, weakened) | 15/30/50 |
 | Futon | Daitoppa: wind gust in a cone (320/480/640 units), throws people back; fans burning ground (bigger, longer), levels up fireballs in flight, blows steam away | 15/25/40 |
-| Water Prison | the enemy within reach in front floats in a ball of water for 2.5/4/6 s: no moving, no attacking, slowly drowns. You must hold still; attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out | 30/40/55 |
+| Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out | 20 + 8/s |
 
 ### Elements
 
