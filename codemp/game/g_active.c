@@ -1166,6 +1166,7 @@ void G_UpdateClientBroadcasts( gentity_t *self ) {
 		}
 	}
 
+	Shinobi_PerkBroadcasts( self ); // JK_Shinobi: Byakugan sees through walls, Kawarimi hides
 	trap->LinkEntity( (sharedEntity_t *)self );
 }
 

@@ -25,7 +25,7 @@ extern void G_SetEnemy( gentity_t *self, gentity_t *enemy );
 extern void G_ClearEnemy( gentity_t *self );
 extern qboolean WP_SaberParseParms( const char *saberName, saberInfo_t *saber );
 
-static gentity_t *Shinobi_CloneOwner( gentity_t *ent ) {
+gentity_t *Shinobi_CloneOwner( gentity_t *ent ) {
 	gentity_t *owner;
 
 	if ( !ent || !ent->shinobiCloneOwner )
@@ -691,6 +691,7 @@ void Shinobi_RunFrame( void ) {
 		if ( !clone->inuse || !clone->shinobiCloneOwner )
 			continue;
 
+		Shinobi_PerkBroadcasts( clone ); // Byakugan eyes see clones through walls
 		owner = Shinobi_CloneOwner( clone );
 
 		if ( clone->shinobiCloneDecoy ) {

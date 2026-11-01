@@ -1799,6 +1799,8 @@ void CG_ShinobiFrame( void );
 void CG_ShinobiSetBuild_f( void );
 void CG_ShinobiMenu_f( void );
 void CG_ShinobiDrawMenu( void );
+void CG_ShinobiEyeInfo_f( void );
+void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body );
 void CG_ShinobiMenuAuto( void );
 qboolean CG_ShinobiMenuKey( int key, qboolean down );
 qboolean CG_ShinobiMenuMouse( int dx, int dy );

@@ -3429,6 +3429,7 @@ command_t commands[] = {
 	{ "noclip",				Cmd_Noclip_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "notarget",			Cmd_Notarget_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "npc",				Cmd_NPC_f,					CMD_CHEAT|CMD_ALIVE },
+	{ "perk",				Cmd_Perk_f,					CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "pushwall",			Cmd_PushWall_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "rasengan",			Cmd_Rasengan_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "say",				Cmd_Say_f,					0 },

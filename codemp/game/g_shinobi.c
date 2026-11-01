@@ -545,6 +545,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_StatusClear( ent );
 	else
 		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
+	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
 
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );
@@ -554,7 +555,6 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 
 	Shinobi_KawarimiThink( ent, ucmd );
-	Shinobi_PerkThink( ent );
 	Shinobi_InfuseThink( ent, ucmd );
 
 	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
@@ -663,7 +663,7 @@ Kawarimi no Jutsu (substitution)
 Cast: you turn non-solid and an NPC double with your looks spawns exactly
 where you stand. Once it is in place (next frame) it takes over - same spot,
 pose and speed - and you are hidden: your entity is only sent to your own
-client (SVF_SINGLECLIENT), so nobody else can see, hear or target you. You
+client (and to Sharingan eyes nearby), so nobody else can see, hear or target you. You
 creep slowly. Attacking, jumping, using, any jutsu, taking damage or running
 out of time reveals you, and the double turns into a log in a puff of smoke.
 Hitting the double also turns it into a log (you stay hidden).
@@ -729,8 +729,9 @@ void Shinobi_Hide( gentity_t *ent ) {
 	client->shinobi.kawarimiPending = qfalse;
 	client->shinobi.kawarimiEnd = level.time + SHINOBI_KAWARIMI_MAX_MS;
 	SHINOBI_SET_HIDDEN( &client->ps, 1 );
-	ent->r.svFlags |= SVF_SINGLECLIENT;
-	ent->r.singleClient = ent->s.number;
+	ent->r.svFlags |= SVF_BROADCASTCLIENTS; // only to us and Sharingan eyes (Shinobi_PerkBroadcasts)
+	ent->r.broadcastClients[0] = ent->r.broadcastClients[1] = 0;
+	trap->LinkEntity( (sharedEntity_t *)ent );
 	if ( client->ps.weapon == WP_SABER )
 		client->ps.saberHolstered = 2; // quietly, a humming blade would give us away
 	Shinobi_SetSolid( ent, qfalse );
@@ -747,7 +748,7 @@ void Shinobi_Reveal( gentity_t *ent ) {
 	client->shinobi.kawarimiPending = qfalse;
 	client->shinobi.kawarimiEnd = 0;
 	SHINOBI_SET_HIDDEN( &client->ps, 0 );
-	ent->r.svFlags &= ~SVF_SINGLECLIENT;
+	ent->r.svFlags &= ~SVF_BROADCASTCLIENTS;
 
 	decoy = Shinobi_Decoy( ent );
 	if ( decoy )

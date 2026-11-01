@@ -8399,6 +8399,15 @@ void BG_AdjustClientSpeed(playerState_t *ps, usercmd_t *cmd, int svTime)
 		ps->speed *= 0.75f;
 	}
 
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_GATES )
+	{ // JK_Shinobi: Inner Gates open
+		ps->speed *= SHINOBI_GATES_SPEED;
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_TIRED )
+	{ // exhausted after the Gates
+		ps->speed *= SHINOBI_GATES_TIRED_SPEED;
+	}
+
 	if (pm->ps->weapon == WP_DISRUPTOR &&
 		pm->ps->zoomMode == 1 && pm->ps->zoomLockTime < pm->cmd.serverTime)
 	{

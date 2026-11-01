@@ -433,6 +433,42 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed
 #define SHINOBI_STAT_BOUND         8     // caught by a Shadow Bind (moves come from the server)
+#define SHINOBI_STAT_GATES         16    // Inner Gates open: faster, harder fists
+#define SHINOBI_STAT_TIRED         32    // after the Gates: slow, no chakra regen
+
+// eye techniques, shown to everyone (the two spare eFlags2 bits)
+#define SHINOBI_EF2_SHARINGAN      (1<<8)
+#define SHINOBI_EF2_BYAKUGAN       (1<<9)
+
+/*
+Perks (perk command, C):
+  Sharingan  toggle; 5 chakra, then 2/s. See health bars, the jutsu an
+             enemy is charging and Kawarimi-hidden enemies. Red eyes.
+  Byakugan   toggle; 5 chakra, then 2/s. See chakra bars and everyone
+             within range through walls; clones show as hollow shells.
+             Loud to switch on. Pale eyes.
+  Inner Gates  10 s faster and +50% taijutsu, then 15 s exhausted
+             (slow, weak, no chakra regen); once a minute.
+*/
+#define SHINOBI_DOJUTSU_COST           5
+#define SHINOBI_DOJUTSU_DRAIN_MS       500     // 1 chakra per tick
+#define SHINOBI_SHARINGAN_RANGE        2000
+#define SHINOBI_SHARINGAN_HIDDEN_RANGE 1500
+#define SHINOBI_BYAKUGAN_RANGE         1400
+#define SHINOBI_PERK_INFO_MS           200     // sinfo updates to the eye user
+#define SHINOBI_GATES_MS               10000
+#define SHINOBI_GATES_TIRED_MS         15000
+#define SHINOBI_GATES_COOLDOWN         60000
+#define SHINOBI_GATES_SPEED            1.35f
+#define SHINOBI_GATES_TIRED_SPEED      0.75f
+#define SHINOBI_GATES_TAIJUTSU         1.5f
+#define SHINOBI_GATES_TIRED_TAIJUTSU   0.7f
+
+// "sinfo" entry flags
+#define SHINOBI_SEEN_HEALTH   1
+#define SHINOBI_SEEN_CHAKRA   2
+#define SHINOBI_SEEN_CLONE    4
+#define SHINOBI_SEEN_HIDDEN   8
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
@@ -501,6 +537,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_FLAME           "shinobi/fire_breath"
 #define SHINOBI_FX_ASH             "shinobi/ash"
 #define SHINOBI_FX_HIRAISHIN       "shinobi/hiraishin"
+#define SHINOBI_FX_GATES           "shinobi/gates_aura"
 
 /*
 ---------------------------------------------------------------------------
@@ -593,9 +630,9 @@ static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
 	"your fists and kicks also burn the enemy's chakra",
 	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 2.5x faster; /curseseal off",
-	"coming soon: see health, hidden enemies and the jutsu being charged",
-	"coming soon: see chakra and enemies through walls",
-	"coming soon: a burst of speed and taijutsu, then exhaustion"
+	"C: toggle (2 chakra/s): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
+	"C: toggle (2 chakra/s): see chakra and everyone nearby through walls, clones look hollow; loud",
+	"C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
 };
 // one line per jutsu for the build screen
 static const char * const shinobiJutsuInfo[SJ_COUNT] = {
@@ -620,7 +657,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"your marked kunai (Shift+Z) discharge: damage and a short stun around each"
 };
 
-static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qfalse, qfalse, qfalse };
+static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };
 
 typedef struct {
 	int numJutsu;

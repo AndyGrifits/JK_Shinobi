@@ -51,6 +51,9 @@ void Shinobi_NatureInit( void ) {
 	m->sndCurse       = G_SoundIndex( "sound/weapons/force/rage.wav" );
 	m->sndShadow      = G_SoundIndex( "sound/weapons/force/grip.mp3" );
 	m->fxCurse        = G_EffectIndex( SHINOBI_FX_CURSE );
+	m->fxGates        = G_EffectIndex( SHINOBI_FX_GATES );
+	m->sndEyes        = G_SoundIndex( "sound/weapons/force/see.wav" );
+	m->sndGates       = G_SoundIndex( "sound/weapons/force/speed.wav" );
 }
 
 /*

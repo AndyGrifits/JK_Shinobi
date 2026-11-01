@@ -11065,6 +11065,8 @@ stillDoSaber:
 		trap->R_AddRefEntityToScene( &legs );
 	}
 
+	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
+
 	// Electricity
 	//------------------------------------------------
 	if ( cent->currentState.emplacedOwner > cg.time )

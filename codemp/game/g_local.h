@@ -843,6 +843,13 @@ struct gclient_s {
 		int		bladeNext;		// Wind Blade cooldown end
 		int		curseTick;		// Curse Seal health drain
 		qboolean curseAwake;	// Curse Seal active (until chakra is back to half)
+		int		eyes;			// SP_SHARINGAN / SP_BYAKUGAN while switched on (0 = off)
+		int		eyesDrain;		// next chakra tick of the eyes
+		int		eyesInfo;		// next "sinfo" update
+		int		gatesEnd;		// Inner Gates open until
+		int		gatesTiredEnd;	// exhausted until
+		int		gatesNext;		// Inner Gates cooldown end
+		int		gatesFx;		// next aura puff
 		int		ccImmuneEnd;	// immune to hard crowd control until
 		int		flameEnt;		// Fire Breath stream entity num + 1 (0 = not breathing)
 		vec3_t	flameAngles;	// where the stream points (turns slowly toward the view)
@@ -1460,6 +1467,8 @@ void  Shinobi_ApplyBuild( gentity_t *ent );
 int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod );
 float Shinobi_RegenScale( gentity_t *ent );
 void  Cmd_CurseSeal_f( gentity_t *ent );
+void  Cmd_Perk_f( gentity_t *ent );
+void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );
 qboolean Shinobi_DamageBlocked( gentity_t *targ, gentity_t *attacker );

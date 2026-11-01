@@ -300,6 +300,9 @@ void CG_ShinobiFrame( void ) {
 Sprite helpers
 ===========================================================================
 */
+static void CG_ShinobiDrawEyes( centity_t *cent, clientInfo_t *ci );
+qboolean CG_WorldCoordToScreenCoordFloat( vec3_t worldCoord, float *x, float *y );
+
 static void CG_ShinobiSpriteA( const vec3_t org, float radius, float rotation, qhandle_t shader, float r, float g, float b, float a ) {
 	refEntity_t ent;
 
@@ -455,6 +458,8 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 		cent->shinobiTrailTime = 0;
 		return;
 	}
+
+	CG_ShinobiDrawEyes( cent, ci );
 
 	if ( SHINOBI_HAND_ANY( s ) ) {
 		const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( s );
@@ -984,6 +989,185 @@ static void CG_ShinobiDrawJutsuList( void ) {
 	}
 }
 
+/*
+===========================================================================
+Sharingan / Byakugan: what the server tells our eyes ("sinfo"), bars over
+heads, Byakugan shells through walls, glowing eyes on whoever uses them.
+===========================================================================
+*/
+typedef struct {
+	int   time;     // cg.time of the update (0 = never)
+	short hp, maxhp, chakra, chakraMax;
+	byte  jutsu, flags;
+} shinobiSeen_t;
+static shinobiSeen_t shinobiSeen[MAX_GENTITIES];
+static int           shinobiSeenTime;
+
+void CG_ShinobiEyeInfo_f( void ) {
+	const int argc = trap->Cmd_Argc();
+	int i;
+
+	shinobiSeenTime = cg.time;
+	for ( i = 0; i < MAX_GENTITIES; i++ )
+		shinobiSeen[i].time = 0;
+	for ( i = 1; i + 6 < argc; i += 7 ) {
+		char arg[16];
+		int  num;
+		shinobiSeen_t *s;
+
+		trap->Cmd_Argv( i, arg, sizeof( arg ) );
+		num = atoi( arg );
+		if ( num < 0 || num >= MAX_GENTITIES )
+			continue;
+		s = &shinobiSeen[num];
+		s->time = cg.time;
+		trap->Cmd_Argv( i + 1, arg, sizeof( arg ) ); s->hp = atoi( arg );
+		trap->Cmd_Argv( i + 2, arg, sizeof( arg ) ); s->maxhp = atoi( arg );
+		trap->Cmd_Argv( i + 3, arg, sizeof( arg ) ); s->chakra = atoi( arg );
+		trap->Cmd_Argv( i + 4, arg, sizeof( arg ) ); s->chakraMax = atoi( arg );
+		trap->Cmd_Argv( i + 5, arg, sizeof( arg ) ); s->jutsu = (byte)atoi( arg );
+		trap->Cmd_Argv( i + 6, arg, sizeof( arg ) ); s->flags = (byte)atoi( arg );
+	}
+}
+
+static const shinobiSeen_t *CG_ShinobiSeen( int num ) {
+	const shinobiSeen_t *s;
+	if ( num < 0 || num >= MAX_GENTITIES )
+		return NULL;
+	s = &shinobiSeen[num];
+	if ( !s->time || cg.time - s->time > SHINOBI_PERK_INFO_MS * 3 || cg.time < s->time )
+		return NULL;
+	return s;
+}
+
+static int CG_ShinobiMyEyes( void ) {
+	if ( !cg.snap || cg.snap->ps.pm_type == PM_SPECTATOR || ( cg.snap->ps.pm_flags & PMF_FOLLOW ) )
+		return 0;
+	if ( cg.snap->ps.eFlags2 & SHINOBI_EF2_SHARINGAN )
+		return SP_SHARINGAN;
+	if ( cg.snap->ps.eFlags2 & SHINOBI_EF2_BYAKUGAN )
+		return SP_BYAKUGAN;
+	return 0;
+}
+
+// called from CG_Player with the finished body: Byakugan sees it through walls
+void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
+	const shinobiSeen_t *seen;
+	refEntity_t shell;
+
+	if ( CG_ShinobiMyEyes() != SP_BYAKUGAN || cent->currentState.number == cg.snap->ps.clientNum
+		|| ( cent->currentState.eFlags & EF_DEAD ) || !cgs.media.sightShell )
+		return;
+	if ( DistanceSquared( cent->lerpOrigin, cg.snap->ps.origin ) > Square( SHINOBI_BYAKUGAN_RANGE ) )
+		return;
+	seen = CG_ShinobiSeen( cent->currentState.number );
+	if ( !seen )
+		return; // not a ninja (or out of range on the server)
+
+	shell = *body;
+	if ( seen->flags & SHINOBI_SEEN_CLONE ) { // a hollow copy: barely any chakra inside
+		shell.shaderRGBA[0] = 70; shell.shaderRGBA[1] = 70; shell.shaderRGBA[2] = 90;
+	}
+	else {
+		shell.shaderRGBA[0] = 170; shell.shaderRGBA[1] = 215; shell.shaderRGBA[2] = 255;
+	}
+	shell.shaderRGBA[3] = 255;
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA );
+	shell.renderfx |= RF_MINLIGHT | RF_NODEPTH;
+	shell.customShader = cgs.media.sightShell;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
+// Sharingan red / Byakugan pale glints at the eyes, seen by everyone
+static void CG_ShinobiDrawEyes( centity_t *cent, clientInfo_t *ci ) {
+	const int   f = cent->currentState.eFlags2;
+	const qboolean red = ( f & SHINOBI_EF2_SHARINGAN ) != 0;
+	vec3_t      head, fwd, right, ang;
+	mdxaBone_t  m;
+	int         side;
+
+	if ( !( f & ( SHINOBI_EF2_SHARINGAN | SHINOBI_EF2_BYAKUGAN ) ) )
+		return;
+	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )
+		return;
+
+	VectorSet( ang, 0, cent->lerpAngles[YAW], 0 );
+	AngleVectors( ang, fwd, right, NULL );
+	if ( cent->ghoul2 && ci && ci->bolt_head
+		&& trap->G2API_GetBoltMatrix( cent->ghoul2, 0, ci->bolt_head, &m, cent->turAngles, cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale ) ) {
+		VectorSet( head, m.matrix[0][3], m.matrix[1][3], m.matrix[2][3] );
+		head[2] -= 5;
+	}
+	else {
+		VectorCopy( cent->lerpOrigin, head );
+		head[2] += 30;
+	}
+	VectorMA( head, 4, fwd, head );
+
+	for ( side = -1; side <= 1; side += 2 ) {
+		vec3_t eye;
+		VectorMA( head, 1.6f * side, right, eye );
+		if ( red )
+			CG_ShinobiSpriteA( eye, 1.6f, 0, shinobiShaders.glow, 1.0f, 0.1f, 0.05f, 1.0f );
+		else
+			CG_ShinobiSpriteA( eye, 1.5f, 0, shinobiShaders.glow, 0.85f, 0.9f, 1.0f, 0.9f );
+	}
+	trap->R_AddLightToScene( head, 24, red ? 1.0f : 0.7f, red ? 0.1f : 0.8f, red ? 0.05f : 1.0f );
+}
+
+// bars over the heads of whoever our eyes see
+static void CG_ShinobiDrawEyeInfo( void ) {
+	const int eyes = CG_ShinobiMyEyes();
+	int i;
+
+	if ( !eyes )
+		return;
+	for ( i = 0; i < MAX_GENTITIES; i++ ) {
+		const shinobiSeen_t *s = CG_ShinobiSeen( i );
+		centity_t *cent;
+		vec3_t     top;
+		float      x, y, y0, frac;
+		vec4_t     back = { 0, 0, 0, 0.55f };
+
+		if ( !s )
+			continue;
+		cent = &cg_entities[i];
+		if ( !cent->currentValid || ( cent->currentState.eFlags & EF_DEAD ) )
+			continue;
+		VectorCopy( cent->lerpOrigin, top );
+		top[2] += 48;
+		if ( !CG_WorldCoordToScreenCoordFloat( top, &x, &y ) )
+			continue;
+		y0 = y;
+
+		if ( s->flags & SHINOBI_SEEN_HEALTH ) {
+			vec4_t c = { 0.9f, 0.15f, 0.1f, 0.9f };
+			frac = s->maxhp > 0 ? Com_Clamp( 0, 1, (float)s->hp / s->maxhp ) : 0;
+			CG_FillRect( x - 26, y, 52, 6, back );
+			CG_FillRect( x - 25, y + 1, 50 * frac, 4, c );
+			y += 7;
+		}
+		if ( s->flags & SHINOBI_SEEN_CHAKRA ) {
+			vec4_t c = { 0.3f, 0.6f, 1.0f, 0.9f };
+			frac = ( s->flags & SHINOBI_SEEN_CLONE ) ? 0.04f
+				: ( s->chakraMax > 0 ? Com_Clamp( 0, 1, (float)s->chakra / s->chakraMax ) : 0 );
+			CG_FillRect( x - 26, y, 52, 6, back );
+			CG_FillRect( x - 25, y + 1, 50 * frac, 4, c );
+			if ( s->flags & SHINOBI_SEEN_CLONE ) {
+				vec4_t g = { 0.6f, 0.6f, 0.7f, 0.9f };
+				const float w = CG_Text_Width( "clone", 0.35f, FONT_SMALL );
+				CG_Text_Paint( x - w * 0.5f, y + 7, 0.35f, g, "clone", 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
+			}
+		}
+		if ( ( s->flags & SHINOBI_SEEN_HEALTH ) && s->jutsu > SJ_NONE && s->jutsu < SJ_COUNT ) {
+			vec4_t      c = { 1.0f, 0.3f, 0.25f, 1.0f };
+			const char *t = shinobiJutsuTitles[s->jutsu];
+			const float w = CG_Text_Width( t, 0.45f, FONT_MEDIUM );
+			CG_Text_Paint( x - w * 0.5f, y0 - 18, 0.45f, c, t, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+		}
+	}
+}
+
 void CG_ShinobiDrawHUD( void ) {
 	playerState_t *ps = &cg.predictedPlayerState;
 	const char    *text = NULL;
@@ -1008,6 +1192,8 @@ void CG_ShinobiDrawHUD( void ) {
 		shinobiCharge.jutsu = SJ_NONE;
 		return;
 	}
+
+	CG_ShinobiDrawEyeInfo();
 
 	if ( shinobiFog.time == cg.time && shinobiFog.amount > 0 ) {
 		vec4_t fog;
@@ -1036,7 +1222,12 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) {
+	if ( ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_GATES ) && !( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) ) {
+		text = "Inner Gates open - strike now!";
+		VectorSet( color, 0.4f, 1.0f, 0.5f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.012f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) {
 		text = "Shadow Bind! You copy his moves - Kawarimi (X) to escape";
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
@@ -1063,6 +1254,10 @@ void CG_ShinobiDrawHUD( void ) {
 		text = "Burning! Water puts it out";
 		VectorSet( color, 1.0f, 0.55f, 0.2f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.015f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_TIRED ) {
+		text = "Exhausted after the Gates - no chakra regen";
+		VectorSet( color, 0.7f, 0.7f, 0.5f );
 	}
 	else if ( SHINOBI_HIDDEN( ps ) ) {
 		text = "Hidden - move slowly, any action reveals you";

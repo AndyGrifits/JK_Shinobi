@@ -25,7 +25,8 @@ typedef struct {
 	int sndLog;
 	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
 	int sndFireLoop, sndCrackleLoop, sndCurse, sndShadow;
-	int fxCurse;
+	int fxCurse, fxGates;
+	int sndEyes, sndGates;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
@@ -110,3 +111,4 @@ extern int shinobiJutsuDamage; // set while a jutsu deals damage (no taijutsu bo
 qboolean  Shinobi_HasJutsu( gentity_t *ent, int jutsu );
 int       Shinobi_CastStat( gentity_t *ent );
 void      Shinobi_PerkThink( gentity_t *ent );
+gentity_t *Shinobi_CloneOwner( gentity_t *ent );
