@@ -26,7 +26,10 @@ void Shinobi_ElementsInit( void ) {
 	m->fxWallBreak = G_EffectIndex( SHINOBI_FX_WALL_BREAK );
 
 	m->sndFireballCast = G_SoundIndex( "sound/effects/combustfire.mp3" );
-	m->sndFireballBoom = G_SoundIndex( "sound/weapons/explosions/explode5.wav" );
+	m->sndFireballBoom = G_SoundIndex( "sound/weapons/explosions/cargoexplode.wav" );
+	m->sndFireballBoom2 = G_SoundIndex( "sound/weapons/explosions/explode5.wav" );
+	m->sndLog          = G_SoundIndex( "sound/weapons/force/distract.wav" );
+	m->logModel        = G_ModelIndex( SHINOBI_LOG_MODEL );
 	m->sndWallRise     = G_SoundIndex( "sound/effects/wall_smash" );
 	m->sndWallBreak    = G_SoundIndex( "sound/effects/stone_bounce" );
 
@@ -63,7 +66,11 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 	G_RadiusDamage( pos, owner, shinobiFireballSplash[li], shinobiFireballRadius[li], owner, ball, MOD_ROCKET_SPLASH );
 
 	G_PlayEffectID( shinobiMedia.fxFireballBoom[li], pos, normal );
+	// a deep blast plus the crackle of fire, and the ground shakes nearby
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom );
+	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom2 );
+	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballCast );
+	G_ScreenShake( pos, NULL, 1.5f + 1.5f * li, 350 + 150 * li, qfalse );
 	G_FreeEntity( ball );
 }
 
@@ -145,9 +152,11 @@ qboolean Shinobi_CastKaton( gentity_t *ent, int lvl ) {
 	ball->nextthink = level.time + FRAMETIME;
 	trap->LinkEntity( (sharedEntity_t *)ball );
 
-	// throw it with the off hand
-	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
-	client->ps.forceHandExtendTime = level.time + 500;
+	// blast it out with both hands (the pose plays on the torso while moving,
+	// full body when standing still)
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCE_2HANDEDLIGHTNING_HOLD;
+	client->ps.forceHandExtendTime = level.time + 450 + 100 * li;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFireballCast );
 	return qtrue;
 }

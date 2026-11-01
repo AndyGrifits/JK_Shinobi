@@ -19,10 +19,13 @@ typedef struct {
 	int sndChargeStart, sndFizzle, sndPoof, sndJutsuCharge;
 	int sndRasenganForm, sndRasenganDash, sndRasenganHit;
 	int sndChidoriForm, sndChidoriDash, sndChidoriHit;
-	int sndFireballCast, sndFireballBoom;
+	int sndFireballCast, sndFireballBoom, sndFireballBoom2;
 	int sndWallRise, sndWallBreak;
 
+	int sndLog;
+
 	int wallModels[SHINOBI_WALL_MODELS];
+	int logModel;
 } shinobiMedia_t;
 
 extern shinobiMedia_t shinobiMedia;
@@ -34,6 +37,8 @@ qboolean Shinobi_SpendChakra( gentity_t *ent, int cost );
 void     Shinobi_NoChakra( gentity_t *ent, int cost );
 int      Shinobi_LevelEffect( const char *base, int level );
 void     Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );
+qboolean Shinobi_CastKawarimi( gentity_t *ent );
+void     Shinobi_Hide( gentity_t *ent );
 
 // g_shinobi_elements.c
 void     Shinobi_ElementsInit( void );
@@ -42,3 +47,6 @@ qboolean Shinobi_CastDoton( gentity_t *ent, int level );
 
 // g_shinobi_clones.c
 qboolean Shinobi_CastKageBunshin( gentity_t *ent, int level );
+gentity_t *Shinobi_SpawnDecoy( gentity_t *owner );
+gentity_t *Shinobi_Decoy( gentity_t *owner );
+void     Shinobi_DecoyToLog( gentity_t *decoy );

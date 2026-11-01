@@ -3518,6 +3518,9 @@ void ClientSpawn(gentity_t *ent) {
 		{
 			client->ps.weapon = WP_MELEE;
 		}
+
+		// JK_Shinobi: everyone can fight hand to hand (taijutsu)
+		client->ps.stats[STAT_WEAPONS] |= (1 << WP_MELEE);
 	}
 
 	/*

@@ -118,3 +118,13 @@ gfx/shinobi/fire
 		rgbGen vertex
 	}
 }
+
+// Kawarimi log (models/shinobi/log.md3)
+models/shinobi/log
+{
+	cull none
+	{
+		map models/shinobi/log
+		rgbGen lightingDiffuse
+	}
+}

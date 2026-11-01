@@ -407,6 +407,7 @@ struct gentity_s {
 	int			shinobiCloneExpire;	// level.time when the clone vanishes
 	int			shinobiCloneThink;	// next AI supervision tick
 	qboolean	shinobiCloneReady;	// overrides applied after NPC_Begin
+	qboolean	shinobiCloneDecoy;	// Kawarimi double (turns into a log, no chakra drain)
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -813,6 +814,12 @@ struct gclient_s {
 		int		chargeJutsu;	// shinobiJutsu_t being held (SJ_NONE = 0)
 		int		chargeStart;	// level.time the jutsu key went down
 		int		cloneDrainNext;	// next chakra drain tick for living shadow clones
+		int		kawarimiNext;	// cooldown end
+		int		kawarimiEnd;	// hidden until (0 = not substituted)
+		int		kawarimiDecoy;	// the double's entity number + 1
+		qboolean kawarimiPending; // waiting for the double to appear before hiding
+		qboolean kawarimiPhase;	// non-solid until clear of other bodies
+		int		shunshinBack;	// Shunshin charge goes backward
 	} shinobi;
 };
 
@@ -1391,7 +1398,10 @@ void Cmd_JutsuBegin_f( gentity_t *ent );
 void Cmd_JutsuRelease_f( gentity_t *ent );
 void Cmd_Shunshin_f( gentity_t *ent );
 void Cmd_KageBunshin_f( gentity_t *ent );
+void Cmd_Kawarimi_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
+void Shinobi_Reveal( gentity_t *ent );
+void Shinobi_Damaged( gentity_t *targ );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );
 qboolean Shinobi_DamageBlocked( gentity_t *targ, gentity_t *attacker );
 gentity_t *Shinobi_CreditAttacker( gentity_t *attacker );

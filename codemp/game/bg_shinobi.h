@@ -15,6 +15,9 @@ those as a single bit by default, so the three bits are combined:
   userInt1 alone (no hand jutsu)   chakra charging
   userInt1 with a hand jutsu       the hand jutsu is Chidori (else Rasengan)
 
+  userFloat1/2 (raw bits)          hand jutsu level - 1
+  userFloat3   (raw bit)           Kawarimi: hidden (slow, invisible to others)
+
 Timers live server-side in gclient_t; only these bits are sent.
 ===========================================================================
 */
@@ -37,6 +40,8 @@ typedef enum {
 	SJ_KATON,
 	SJ_DOTON,
 	SJ_BUNSHIN,
+	SJ_SHUNSHIN,  // Shift + jump (charged by holding jump), not in the selection list
+	SJ_KAWARIMI,  // instant, no levels
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -47,8 +52,19 @@ typedef enum {
 
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
-	"", "rasengan", "chidori", "katon", "doton", "kagebunshin"
+	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi"
 };
+
+// names shown in the HUD
+static const char * const shinobiJutsuTitles[SJ_COUNT] = {
+	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi"
+};
+
+// the jutsu the selection keys cycle through (Shunshin has its own keys)
+static const int shinobiJutsuCycle[] = {
+	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_DOTON, SJ_BUNSHIN, SJ_KAWARIMI
+};
+#define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
 // chakra cost per level (index 0 = level 1)
 static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
@@ -58,12 +74,30 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 15, 30, 50 }, // Katon
 	{ 15, 30, 50 }, // Doton
 	{ 25, 45, 70 }, // Kage Bunshin
+	{ 20, 30, 40 }, // Shunshin
+	{ 35, 35, 35 }, // Kawarimi
 };
 
-static QINLINE int Shinobi_ChargeLevel( int heldMs ) {
-	if ( heldMs >= SHINOBI_BAR3_MS ) return 3;
-	if ( heldMs >= SHINOBI_BAR2_MS ) return 2;
+// jutsu that cast on key press, without charging
+#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI )
+
+// when each bar is full; Shunshin charges faster than the big jutsu
+static QINLINE int Shinobi_BarEnd( int jutsu, int bar ) {
+	static const int normal[SHINOBI_MAX_LEVEL]   = { SHINOBI_BAR1_MS, SHINOBI_BAR2_MS, SHINOBI_BAR3_MS };
+	static const int shunshin[SHINOBI_MAX_LEVEL] = { 200, 500, 900 };
+	if ( bar < 0 ) bar = 0;
+	if ( bar >= SHINOBI_MAX_LEVEL ) bar = SHINOBI_MAX_LEVEL - 1;
+	return jutsu == SJ_SHUNSHIN ? shunshin[bar] : normal[bar];
+}
+
+static QINLINE int Shinobi_ChargeLevelFor( int jutsu, int heldMs ) {
+	if ( heldMs >= Shinobi_BarEnd( jutsu, 2 ) ) return 3;
+	if ( heldMs >= Shinobi_BarEnd( jutsu, 1 ) ) return 2;
 	return 1;
+}
+
+static QINLINE int Shinobi_ChargeLevel( int heldMs ) {
+	return Shinobi_ChargeLevelFor( SJ_NONE, heldMs );
 }
 
 static QINLINE int Shinobi_JutsuCost( int jutsu, int level ) {
@@ -107,6 +141,17 @@ static QINLINE void Shinobi_SetRawBit( float *f, int on ) {
 #define SHINOBI_HAND_DASH(s)       ((s)->userInt2 && (s)->userInt3)
 #define SHINOBI_HAND_IS_CHIDORI(s) ((s)->userInt1 && SHINOBI_HAND_ANY(s))
 #define SHINOBI_CHARGING(s)        ((s)->userInt1 && !SHINOBI_HAND_ANY(s))
+#define SHINOBI_HIDDEN(s)          ( Shinobi_RawBit( &(s)->userFloat3 ) )
+#define SHINOBI_SET_HIDDEN(s, on)  Shinobi_SetRawBit( &(s)->userFloat3, (on) )
+
+// Shift is the chakra modifier (it no longer walks): Shift + jump = Shunshin.
+// The engine reports a held Shift as BUTTON_WALKING (with cl_run 1).
+#define SHINOBI_MODIFIER(cmd)      ( ( (cmd)->buttons & BUTTON_WALKING ) != 0 )
+
+// Wall run: also from the air, from a little further away, and kept going
+// while holding forward (paid with chakra)
+#define SHINOBI_WALLRUN_REACH      40   // how far to the side a wall may be
+#define SHINOBI_WALLRUN_EXTEND_COST 6   // chakra per extension (~every 0.5 s)
 
 // Chakra (the force pool, fd.forcePower)
 #define SHINOBI_CHARGE_TICK_MS     50   // chakra gained every tick while charging
@@ -134,12 +179,20 @@ static const int shinobiChidoriStunMs[3]  = { 600, 900, 1300 }; // electrocuted
 static const int shinobiChidoriDashMs[3]  = { 330, 430,  540 }; // 380 / 495 / 620 units
 static const float shinobiChidoriRadius[3] = { 6.0f, 9.0f, 13.0f };
 
-// Shunshin (body flicker): short teleport along the view direction
-#define SHINOBI_SHUNSHIN_COST      15
-#define SHINOBI_SHUNSHIN_DIST      320
-#define SHINOBI_SHUNSHIN_MIN_DIST  48   // don't bother if a wall is right in front
-#define SHINOBI_SHUNSHIN_COOLDOWN  600
+// Shunshin (body flicker): Shift + jump teleports forward, Shift + back + jump
+// backward; holding jump charges the distance (about 2 / 5 / 9 metres)
+static const int shinobiShunshinDist[3]  = { 80, 180, 320 };
+#define SHINOBI_SHUNSHIN_MIN_DIST  24   // don't bother if a wall is right there
+#define SHINOBI_SHUNSHIN_COOLDOWN  5000
 #define SHINOBI_SHUNSHIN_MAX_PITCH 35   // degrees up/down the blink may follow the view
+
+// Kawarimi (substitution): an AI double takes your place, you turn invisible
+// and creep away; any action but moving ends it and the double becomes a log
+#define SHINOBI_KAWARIMI_COOLDOWN  10000
+#define SHINOBI_KAWARIMI_MAX_MS    12000 // hidden at most this long
+#define SHINOBI_KAWARIMI_DECOY_MS  15000
+#define SHINOBI_KAWARIMI_MOVE      40    // movement while hidden (127 = run, 46 = walk)
+#define SHINOBI_LOG_LIFETIME       8000
 
 // Kage Bunshin (shadow clones): NPC copies with Jedi AI, one hit kills them
 // number of clones = level (1-3); each clone drains the owner's chakra
@@ -165,7 +218,7 @@ static const float shinobiFireballVisual[3] = { 14.0f, 22.0f, 34.0f }; // drawn 
 #define SHINOBI_WALL_COOLDOWN      3000
 #define SHINOBI_WALL_MAX_PILLARS   7
 static const int shinobiWallPillars[3]   = {   3,   5,   7 };      // width
-static const int shinobiWallHealth[3]    = { 250, 450, 700 };      // shared by the whole wall
+static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by the whole wall (Lv1 Rasengan = 70% of Lv2)
 #define SHINOBI_WALL_DISTANCE      96   // in front of the caster
 #define SHINOBI_WALL_SPACING       34
 #define SHINOBI_WALL_HALF_WIDTH    18   // pillar collision half-size
@@ -177,6 +230,7 @@ static const int shinobiWallHealth[3]    = { 250, 450, 700 };      // shared by 
 
 // Non-player entities drawn by the cgame (entityState.generic1 on ET_GENERAL)
 #define SHINOBI_ENT_FIREBALL       201  // 201..203 = fireball level 1..3
+#define SHINOBI_LOG_MODEL          "models/shinobi/log.md3"
 
 // Effect files (inside zz_shinobi.pk3, under effects/)
 #define SHINOBI_FX_RASENGAN_HAND   "shinobi/rasengan_hand"

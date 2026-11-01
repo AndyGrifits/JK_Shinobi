@@ -219,6 +219,33 @@ def fire(n=128):
     return np.clip(data, 0, 1)
 
 
+def log_texture(n=256):
+    """Bark (top half) and end grain with growth rings (bottom-left quarter)."""
+    img = np.zeros((n, n, 3))
+    h = n // 2
+    # bark: vertical-ish furrows (u runs around the log, v along it)
+    yy, xx = np.mgrid[0:h, 0:n].astype(np.float32)
+    furrow = 0.5 + 0.5 * np.sin(xx / n * 2 * math.pi * 14 + 2.5 * value_noise(n, 6, 31)[:h, :] * 6)
+    grain = value_noise(n, 24, 32)[:h, :] * 0.5 + value_noise(n, 48, 33)[:h, :] * 0.5
+    v = 0.35 + 0.35 * furrow ** 2 + 0.3 * grain
+    bark = np.array([0.36, 0.25, 0.15])
+    img[:h] = v[..., None] * bark[None, None, :] * 1.3
+    # end grain: pale wood with dark rings, a dark bark rim
+    q = h
+    gy, gx = np.mgrid[0:q, 0:q].astype(np.float32)
+    c = (q - 1) / 2
+    r = np.sqrt((gx - c) ** 2 + (gy - c) ** 2) / c
+    wobble = 0.03 * value_noise(q, 5, 34)
+    rings = 0.5 + 0.5 * np.cos((r + wobble) * math.pi * 18)
+    wood = np.array([0.78, 0.62, 0.40])
+    tone = (0.85 - 0.25 * rings ** 3)[..., None] * wood[None, None, :]
+    rim = np.clip((r - 0.9) / 0.06, 0, 1)[..., None]
+    tone = tone * (1 - rim) + rim * bark[None, None, :] * 0.8
+    img[h:, :q] = tone
+    img[h:, q:] = tone  # unused, keep it wood coloured
+    return np.clip(img, 0, 1)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
@@ -235,6 +262,7 @@ def main():
     models = os.path.join(ROOT, "assets", "models", "shinobi")
     os.makedirs(models, exist_ok=True)
     Image.fromarray((rock() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(models, "earth_rock.tga"))
+    Image.fromarray((log_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "log.tga"))
     print("textures written to", OUT, "and", models)
 
 

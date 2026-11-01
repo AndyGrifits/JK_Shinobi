@@ -6339,6 +6339,14 @@ static void CG_DrawCrosshairNames( void ) {
 		return;
 	}
 
+	// JK_Shinobi: no names over enemies - a shadow clone or a Kawarimi double
+	// (NPCs, nameless) must not be told apart from the real ninja that way
+	if ( cgs.gametype < GT_TEAM
+		|| cgs.clientinfo[cg.crosshairClientNum].team != cg.predictedPlayerState.persistant[PERS_TEAM] )
+	{
+		return;
+	}
+
 	// draw the name of the player being looked at
 	color = CG_FadeColor( cg.crosshairClientTime, 1000 );
 	if ( !color ) {

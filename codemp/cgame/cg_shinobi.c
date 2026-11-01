@@ -23,9 +23,17 @@ static struct {
 
 // the jutsu key being held on this client (for the charge bars)
 static struct {
-	int jutsu;
-	int start;
+	int      jutsu;
+	int      start;
+	qboolean fromJump; // Shunshin charged with Shift + jump
 } shinobiCharge;
+
+// jutsu selection (cycled with jutsu_next / jutsu_prev, cast with +jutsu)
+static struct {
+	int      index;       // into shinobiJutsuCycle
+	int      changeTime;
+	qboolean jumpHeld;    // jump was down last frame
+} shinobiSel;
 
 /*
 ===========================================================================
@@ -98,6 +106,10 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.spark = trap->R_RegisterShader( "gfx/shinobi/spark" );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
+	shinobiSel.jumpHeld = qfalse;
+	shinobiSel.changeTime = 0;
+	if ( shinobiSel.index < 0 || shinobiSel.index >= SHINOBI_CYCLE_COUNT )
+		shinobiSel.index = 0;
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
@@ -121,11 +133,16 @@ static qboolean CG_ShinobiCanCharge( void ) {
 static void CG_ShinobiJutsuDown( int jutsu ) {
 	if ( shinobiCharge.jutsu || !CG_ShinobiCanCharge() )
 		return;
+	if ( SHINOBI_JUTSU_INSTANT( jutsu ) ) { // the server casts it on the spot
+		trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
+		return;
+	}
 	if ( ( jutsu == SJ_RASENGAN || jutsu == SJ_CHIDORI || jutsu == SJ_KATON )
 		&& SHINOBI_HAND_ANY( &cg.predictedPlayerState ) )
 		return; // hands busy
 	shinobiCharge.jutsu = jutsu;
 	shinobiCharge.start = cg.time;
+	shinobiCharge.fromJump = qfalse;
 	trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
 }
 
@@ -146,6 +163,74 @@ void CG_ShinobiDotonDown_f( void )       { CG_ShinobiJutsuDown( SJ_DOTON ); }
 void CG_ShinobiDotonUp_f( void )         { CG_ShinobiJutsuUp( SJ_DOTON ); }
 void CG_ShinobiKageBunshinDown_f( void ) { CG_ShinobiJutsuDown( SJ_BUNSHIN ); }
 void CG_ShinobiKageBunshinUp_f( void )   { CG_ShinobiJutsuUp( SJ_BUNSHIN ); }
+
+/*
+===========================================================================
+Jutsu selection: one cast key ("+jutsu") for the jutsu picked with
+"jutsu_next" / "jutsu_prev", like force powers in the base game.
+===========================================================================
+*/
+void CG_ShinobiCastDown_f( void ) {
+	CG_ShinobiJutsuDown( shinobiJutsuCycle[shinobiSel.index] );
+}
+
+void CG_ShinobiCastUp_f( void ) {
+	if ( shinobiCharge.jutsu && !shinobiCharge.fromJump )
+		CG_ShinobiJutsuUp( shinobiCharge.jutsu ); // whatever this key started, even if the selection moved
+}
+
+static void CG_ShinobiSelect( int step ) {
+	shinobiSel.index = ( shinobiSel.index + step + SHINOBI_CYCLE_COUNT ) % SHINOBI_CYCLE_COUNT;
+	shinobiSel.changeTime = cg.time;
+	trap->S_StartLocalSound( cgs.media.selectSound, CHAN_LOCAL_SOUND );
+}
+
+void CG_ShinobiNext_f( void ) { CG_ShinobiSelect( 1 ); }
+void CG_ShinobiPrev_f( void ) { CG_ShinobiSelect( -1 ); }
+
+// "shinobi_melee": switch between fists and the saber
+void CG_ShinobiMelee_f( void ) {
+	int want;
+
+	if ( !cg.snap || cg.snap->ps.pm_type == PM_SPECTATOR )
+		return;
+	want = ( cg.snap->ps.weapon == WP_MELEE ) ? WP_SABER : WP_MELEE;
+	if ( !( cg.snap->ps.stats[STAT_WEAPONS] & ( 1 << want ) ) )
+		return;
+	cg.weaponSelectTime = cg.time;
+	cg.weaponSelect = want;
+}
+
+/*
+==================
+CG_ShinobiFrame
+
+Every frame: Shift (the chakra modifier) + jump charges Shunshin; letting go
+of jump blinks (backward if back is held - the server checks that).
+==================
+*/
+void CG_ShinobiFrame( void ) {
+	usercmd_t cmd;
+	qboolean  jump;
+
+	if ( !CG_ShinobiCanCharge() ) {
+		shinobiSel.jumpHeld = qfalse;
+		return;
+	}
+	if ( !trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) )
+		return;
+	jump = cmd.upmove > 0;
+
+	if ( shinobiCharge.jutsu == SJ_SHUNSHIN && shinobiCharge.fromJump ) {
+		if ( !jump )
+			CG_ShinobiJutsuUp( SJ_SHUNSHIN );
+	}
+	else if ( jump && !shinobiSel.jumpHeld && SHINOBI_MODIFIER( &cmd ) && !shinobiCharge.jutsu ) {
+		CG_ShinobiJutsuDown( SJ_SHUNSHIN );
+		shinobiCharge.fromJump = qtrue;
+	}
+	shinobiSel.jumpHeld = jump;
+}
 
 /*
 ===========================================================================
@@ -363,7 +448,6 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		{ 1.00f, 0.85f, 0.25f, 0.95f },  // level 2: yellow
 		{ 1.00f, 0.35f, 0.15f, 0.95f },  // level 3: red
 	};
-	static const int barEnd[SHINOBI_MAX_LEVEL] = { SHINOBI_BAR1_MS, SHINOBI_BAR2_MS, SHINOBI_BAR3_MS };
 	const vec4_t back = { 0.0f, 0.0f, 0.0f, 0.55f };
 	const vec4_t locked = { 0.45f, 0.12f, 0.12f, 0.8f };
 	const vec4_t frame = { 1.0f, 1.0f, 1.0f, 0.35f };
@@ -371,7 +455,7 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	const float  x0 = ( SCREEN_WIDTH - ( barW * 3 + gap * 2 ) ) * 0.5f;
 	const int    chakra = cg.predictedPlayerState.fd.forcePower;
 	const int    held = cg.time - shinobiCharge.start;
-	const int    lvl = Shinobi_ChargeLevel( held );
+	const int    lvl = Shinobi_ChargeLevelFor( shinobiCharge.jutsu, held );
 	int          shown = lvl, i;
 	const char  *label;
 	vec4_t       textColor = { 1, 1, 1, 1 };
@@ -380,8 +464,8 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		shown--;
 
 	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
-		const int   begin = i ? barEnd[i - 1] : 0;
-		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( barEnd[i] - begin ) );
+		const int   begin = i ? Shinobi_BarEnd( shinobiCharge.jutsu, i - 1 ) : 0;
+		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( Shinobi_BarEnd( shinobiCharge.jutsu, i ) - begin ) );
 		const float x = x0 + i * ( barW + gap );
 		const qboolean affordable = chakra >= Shinobi_JutsuCost( shinobiCharge.jutsu, i + 1 );
 
@@ -392,17 +476,68 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	}
 
 	if ( chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) ) {
-		label = va( "%s - not enough chakra (%i)", shinobiJutsuNames[shinobiCharge.jutsu], Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) );
+		label = va( "%s - not enough chakra (%i)", shinobiJutsuTitles[shinobiCharge.jutsu], Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) );
 		VectorSet( textColor, 1, 0.4f, 0.4f );
 	}
 	else {
-		label = va( "%s  Lv %i  (%i chakra)", shinobiJutsuNames[shinobiCharge.jutsu], shown, Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) );
+		label = va( "%s  Lv %i  (%i chakra)", shinobiJutsuTitles[shinobiCharge.jutsu], shown, Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) );
 		VectorCopy( barColor[shown - 1], textColor );
 	}
 	{
 		const float scale = 0.6f;
 		const int w = CG_Text_Width( label, scale, FONT_MEDIUM );
 		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, y - 18, scale, textColor, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	}
+}
+
+// the row of selectable jutsu at the bottom of the screen
+static void CG_ShinobiDrawJutsuList( void ) {
+	const float scale = 0.5f, gap = 14, y = 446;
+	const int   chakra = cg.predictedPlayerState.fd.forcePower;
+	const float recent = Com_Clamp( 0, 1, 1.0f - ( cg.time - shinobiSel.changeTime - 1500 ) / 500.0f );
+	float       total = 0, x;
+	int         i;
+
+	for ( i = 0; i < SHINOBI_CYCLE_COUNT; i++ )
+		total += CG_Text_Width( shinobiJutsuTitles[shinobiJutsuCycle[i]], scale, FONT_MEDIUM ) + ( i ? gap : 0 );
+	x = ( SCREEN_WIDTH - total ) * 0.5f;
+
+	for ( i = 0; i < SHINOBI_CYCLE_COUNT; i++ ) {
+		const int    j = shinobiJutsuCycle[i];
+		const char  *title = shinobiJutsuTitles[j];
+		const float  w = CG_Text_Width( title, scale, FONT_MEDIUM );
+		const qboolean selected = ( i == shinobiSel.index );
+		const qboolean affordable = chakra >= Shinobi_JutsuCost( j, 1 );
+		vec4_t       color;
+
+		if ( selected ) {
+			const vec4_t back = { 0.1f, 0.35f, 0.6f, 0.55f + 0.3f * recent };
+			CG_FillRect( x - 4, y - 1, w + 8, 14, back );
+			VectorSet( color, 1.0f, 1.0f, 1.0f );
+			color[3] = 1.0f;
+		}
+		else {
+			VectorSet( color, 0.75f, 0.75f, 0.75f );
+			color[3] = 0.55f;
+		}
+		if ( !affordable ) {
+			color[1] *= 0.5f;
+			color[2] *= 0.5f;
+		}
+		CG_Text_Paint( x, y, scale, color, title, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+		x += w + gap;
+	}
+
+	if ( recent > 0 ) { // just picked: show what the levels cost
+		const int   j = shinobiJutsuCycle[shinobiSel.index];
+		const char *info = SHINOBI_JUTSU_INSTANT( j )
+			? va( "%s: %i chakra", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ) )
+			: va( "%s: Lv1 %i / Lv2 %i / Lv3 %i chakra (hold to charge)", shinobiJutsuTitles[j],
+				Shinobi_JutsuCost( j, 1 ), Shinobi_JutsuCost( j, 2 ), Shinobi_JutsuCost( j, 3 ) );
+		const float w = CG_Text_Width( info, 0.45f, FONT_MEDIUM );
+		vec4_t      c = { 0.8f, 0.9f, 1.0f, 1.0f };
+		c[3] = recent;
+		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, y - 16, 0.45f, c, info, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 	}
 }
 
@@ -431,11 +566,18 @@ void CG_ShinobiDrawHUD( void ) {
 		return;
 	}
 
+	CG_ShinobiDrawJutsuList();
+
 	if ( shinobiCharge.jutsu ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( SHINOBI_CHARGING( ps ) ) {
+	if ( SHINOBI_HIDDEN( ps ) ) {
+		text = "Hidden - move slowly, any action reveals you";
+		color[0] = 0.7f; color[1] = 0.7f; color[2] = 0.7f;
+		color[3] = 0.6f + 0.25f * sinf( cg.time * 0.004f );
+	}
+	else if ( SHINOBI_CHARGING( ps ) ) {
 		text = va( "Gathering chakra... %i", ps->fd.forcePower );
 	}
 	else if ( SHINOBI_HAND_FORMING( ps ) ) {

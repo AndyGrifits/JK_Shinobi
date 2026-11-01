@@ -16,6 +16,9 @@ extern void G_Knockdown( gentity_t *victim ); // g_combat.c (AnimalNPC.c has an 
 
 shinobiMedia_t shinobiMedia;
 
+static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back );
+static void     Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd );
+
 int Shinobi_LevelEffect( const char *base, int level ) {
 	return G_EffectIndex( va( "%s_%i", base, level ) );
 }
@@ -195,6 +198,26 @@ static gentity_t *Shinobi_FindDashTarget( gentity_t *ent, vec3_t fwd, vec3_t hit
 	return best;
 }
 
+// something solid but not a body right in front of the dash: an earth wall
+// pillar, a breakable... it takes the hit too
+static gentity_t *Shinobi_FindDashObstacle( gentity_t *ent, vec3_t fwd, vec3_t hitPoint ) {
+	vec3_t    start, end, mins = { -8, -8, -8 }, maxs = { 8, 8, 8 };
+	trace_t   tr;
+	gentity_t *other;
+
+	VectorCopy( ent->client->ps.origin, start );
+	start[2] += 8;
+	VectorMA( start, SHINOBI_HAND_REACH + SHINOBI_HAND_HITBOX, fwd, end );
+	trap->Trace( &tr, start, mins, maxs, end, ent->s.number, MASK_SHOT, qfalse, 0, 0 );
+	if ( tr.fraction >= 1.0f || tr.entityNum >= ENTITYNUM_WORLD )
+		return NULL;
+	other = &g_entities[tr.entityNum];
+	if ( !other->inuse || other->client || !other->takedamage )
+		return NULL;
+	VectorCopy( tr.endpos, hitPoint );
+	return other;
+}
+
 static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3_t point ) {
 	gclient_t     *client = ent->client;
 	const qboolean chidori = Shinobi_HandIsChidori( client );
@@ -283,6 +306,8 @@ static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
 		AngleVectors( yaw, fwd, NULL, NULL );
 
 		victim = Shinobi_FindDashTarget( ent, fwd, point );
+		if ( !victim )
+			victim = Shinobi_FindDashObstacle( ent, fwd, point );
 		if ( victim ) {
 			Shinobi_HandHit( ent, victim, fwd, point );
 		}
@@ -306,6 +331,8 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 
 	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return;
+	if ( jutsu != SJ_KAWARIMI )
+		Shinobi_Reveal( ent ); // any jutsu ends a substitution
 
 	if ( lvl < 1 )
 		lvl = 1;
@@ -324,6 +351,8 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_KATON:    cast = Shinobi_CastKaton( ent, lvl ); break;
 	case SJ_DOTON:    cast = Shinobi_CastDoton( ent, lvl ); break;
 	case SJ_BUNSHIN:  cast = Shinobi_CastKageBunshin( ent, lvl ); break;
+	case SJ_SHUNSHIN: cast = Shinobi_CastShunshin( ent, lvl, client->shinobi.shunshinBack ); break;
+	case SJ_KAWARIMI: cast = Shinobi_CastKawarimi( ent ); break;
 	default: break;
 	}
 
@@ -342,6 +371,10 @@ static void Shinobi_CastCommand( gentity_t *ent, int jutsu ) {
 		trap->Argv( 1, arg, sizeof( arg ) );
 		lvl = atoi( arg );
 	}
+	if ( jutsu == SJ_SHUNSHIN ) { // "shunshin [level] [back]"
+		trap->Argv( 2, arg, sizeof( arg ) );
+		ent->client->shinobi.shunshinBack = !Q_stricmp( arg, "back" );
+	}
 	Shinobi_Cast( ent, jutsu, lvl );
 }
 
@@ -350,6 +383,8 @@ void Cmd_Chidori_f( gentity_t *ent )     { Shinobi_CastCommand( ent, SJ_CHIDORI 
 void Cmd_Katon_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_KATON ); }
 void Cmd_Doton_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_DOTON ); }
 void Cmd_KageBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_BUNSHIN ); }
+void Cmd_Shunshin_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHUNSHIN ); }
+void Cmd_Kawarimi_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_KAWARIMI ); }
 
 // "jutsu_begin <name>": key pressed, start timing the hold
 void Cmd_JutsuBegin_f( gentity_t *ent ) {
@@ -364,10 +399,17 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 	if ( jutsu == SJ_NONE )
 		return;
 
+	if ( SHINOBI_JUTSU_INSTANT( jutsu ) ) {
+		Shinobi_Cast( ent, jutsu, 1 );
+		return;
+	}
+
+	Shinobi_Reveal( ent );
 	client->shinobi.chargeJutsu = jutsu;
 	client->shinobi.chargeStart = level.time;
 	Shinobi_StopCharging( client );
-	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
+	if ( jutsu != SJ_SHUNSHIN ) // a quiet blink, no wind-up noise
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
 }
 
 // "jutsu_release": key released, cast at the level the hold reached
@@ -378,7 +420,9 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 	if ( jutsu == SJ_NONE )
 		return;
 	client->shinobi.chargeJutsu = SJ_NONE;
-	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevel( level.time - client->shinobi.chargeStart ) );
+	if ( jutsu == SJ_SHUNSHIN ) // Shift + back + jump blinks backward
+		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
+	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelFor( jutsu, level.time - client->shinobi.chargeStart ) );
 }
 
 /*
@@ -395,8 +439,11 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );
 		client->shinobi.chargeJutsu = SJ_NONE;
+		Shinobi_Reveal( ent );
 		return;
 	}
+
+	Shinobi_KawarimiThink( ent, ucmd );
 
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
 
@@ -433,21 +480,25 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 /*
 ===========================================================================
-Shunshin no Jutsu (body flicker): short teleport along the view direction.
+Shunshin no Jutsu (body flicker): Shift + jump blinks forward along the view,
+Shift + back + jump blinks backward. Holding jump charges the distance.
 ===========================================================================
 */
-void Cmd_Shunshin_f( gentity_t *ent ) {
-	gclient_t *client = ent->client;
-	vec3_t     angles, dir, start, end;
-	trace_t    tr;
-	float      dist;
+static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
+	gclient_t   *client = ent->client;
+	const float  range = (float)shinobiShunshinDist[lvl - 1];
+	vec3_t       angles, dir, start, end;
+	trace_t      tr;
+	float        dist;
 
-	if ( !Shinobi_CanAct( ent ) )
-		return;
-	if ( client->shinobi.shunshinNext > level.time )
-		return;
+	if ( client->shinobi.shunshinNext > level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Shunshin ready in %.1f s\"",
+			( client->shinobi.shunshinNext - level.time ) / 1000.0f ) );
+		return qfalse;
+	}
 	if ( SHINOBI_HAND_DASH( &client->ps ) )
-		return;
+		return qfalse;
 
 	VectorCopy( client->ps.viewangles, angles );
 	angles[ROLL] = 0;
@@ -457,22 +508,24 @@ void Cmd_Shunshin_f( gentity_t *ent ) {
 		angles[PITCH] = -SHINOBI_SHUNSHIN_MAX_PITCH;
 	if ( client->ps.groundEntityNum != ENTITYNUM_NONE && angles[PITCH] > 0 )
 		angles[PITCH] = 0; // on the ground looking down: blink straight ahead
+	if ( back ) {
+		angles[YAW] += 180; // keep facing the enemy, land behind
+		angles[PITCH] = 0;
+	}
 	AngleVectors( angles, dir, NULL, NULL );
 
 	VectorCopy( client->ps.origin, start );
 	start[2] += 1; // clear the floor
-	VectorMA( start, SHINOBI_SHUNSHIN_DIST, dir, end );
+	VectorMA( start, range, dir, end );
 
 	trap->Trace( &tr, start, ent->r.mins, ent->r.maxs, end, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
 	if ( tr.startsolid || tr.allsolid )
-		return;
-	dist = tr.fraction * SHINOBI_SHUNSHIN_DIST;
+		return qfalse;
+	dist = tr.fraction * range;
 	if ( dist < SHINOBI_SHUNSHIN_MIN_DIST ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		return;
+		return qfalse;
 	}
-	if ( !Shinobi_SpendChakra( ent, SHINOBI_SHUNSHIN_COST ) )
-		return;
 
 	client->shinobi.shunshinNext = level.time + SHINOBI_SHUNSHIN_COOLDOWN;
 	Shinobi_StopCharging( client );
@@ -484,6 +537,142 @@ void Cmd_Shunshin_f( gentity_t *ent ) {
 	Shinobi_TeleportClient( ent, tr.endpos );
 
 	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
+	return qtrue;
+}
+
+/*
+===========================================================================
+Kawarimi no Jutsu (substitution)
+
+Cast: you turn non-solid and an NPC double with your looks spawns exactly
+where you stand. Once it is in place (next frame) it takes over - same spot,
+pose and speed - and you are hidden: your entity is only sent to your own
+client (SVF_SINGLECLIENT), so nobody else can see, hear or target you. You
+creep slowly. Attacking, jumping, using, any jutsu, taking damage or running
+out of time reveals you, and the double turns into a log in a puff of smoke.
+Hitting the double also turns it into a log (you stay hidden).
+===========================================================================
+*/
+static void Shinobi_SetSolid( gentity_t *ent, qboolean solid ) {
+	ent->r.contents = solid ? CONTENTS_BODY : 0;
+	trap->LinkEntity( (sharedEntity_t *)ent );
+}
+
+// standing inside someone (player, NPC, our double)?
+static qboolean Shinobi_InsideBody( gentity_t *ent ) {
+	trace_t tr;
+
+	trap->Trace( &tr, ent->client->ps.origin, ent->r.mins, ent->r.maxs, ent->client->ps.origin,
+		ent->s.number, CONTENTS_BODY, qfalse, 0, 0 );
+	return ( tr.startsolid || tr.allsolid ) ? qtrue : qfalse;
+}
+
+qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	gentity_t *decoy;
+
+	if ( client->shinobi.kawarimiEnd || client->shinobi.kawarimiPending )
+		return qfalse; // already substituted
+	if ( client->shinobi.kawarimiNext > level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Kawarimi ready in %.1f s\"",
+			( client->shinobi.kawarimiNext - level.time ) / 1000.0f ) );
+		return qfalse;
+	}
+
+	// drop whatever we were doing - the double carries on instead
+	if ( SHINOBI_HAND_ANY( &client->ps ) )
+		Shinobi_ClearHand( client );
+	client->shinobi.chargeJutsu = SJ_NONE;
+
+	Shinobi_SetSolid( ent, qfalse ); // the double spawns inside us
+	decoy = Shinobi_SpawnDecoy( ent );
+	if ( !decoy ) {
+		Shinobi_SetSolid( ent, qtrue );
+		return qfalse;
+	}
+
+	client->shinobi.kawarimiDecoy = decoy->s.number + 1;
+	client->shinobi.kawarimiPending = qtrue;
+	client->shinobi.kawarimiPhase = qtrue;
+	client->shinobi.kawarimiNext = level.time + SHINOBI_KAWARIMI_COOLDOWN;
+	return qtrue;
+}
+
+// the double is in place: vanish
+void Shinobi_Hide( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	client->shinobi.kawarimiPending = qfalse;
+	client->shinobi.kawarimiEnd = level.time + SHINOBI_KAWARIMI_MAX_MS;
+	SHINOBI_SET_HIDDEN( &client->ps, 1 );
+	ent->r.svFlags |= SVF_SINGLECLIENT;
+	ent->r.singleClient = ent->s.number;
+	if ( client->ps.weapon == WP_SABER )
+		client->ps.saberHolstered = 2; // quietly, a humming blade would give us away
+	Shinobi_SetSolid( ent, qfalse );
+	trap->SendServerCommand( ent - g_entities, "cp \"^5Kawarimi^7: hidden - move slowly\nany action reveals you\"" );
+}
+
+void Shinobi_Reveal( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	gentity_t *decoy;
+
+	if ( !client || ( !client->shinobi.kawarimiPending && !client->shinobi.kawarimiEnd ) )
+		return;
+
+	client->shinobi.kawarimiPending = qfalse;
+	client->shinobi.kawarimiEnd = 0;
+	SHINOBI_SET_HIDDEN( &client->ps, 0 );
+	ent->r.svFlags &= ~SVF_SINGLECLIENT;
+
+	decoy = Shinobi_Decoy( ent );
+	if ( decoy )
+		Shinobi_DecoyToLog( decoy );
+	client->shinobi.kawarimiDecoy = 0;
+
+	if ( ent->health > 0 ) {
+		// solid again as soon as we are not standing inside someone
+		client->shinobi.kawarimiPhase = Shinobi_InsideBody( ent );
+		Shinobi_SetSolid( ent, !client->shinobi.kawarimiPhase );
+	}
+	else {
+		client->shinobi.kawarimiPhase = qfalse;
+		trap->LinkEntity( (sharedEntity_t *)ent ); // svFlags changed
+	}
+}
+
+void Shinobi_Damaged( gentity_t *targ ) {
+	if ( targ && targ->client && targ->s.number < MAX_CLIENTS )
+		Shinobi_Reveal( targ );
+}
+
+static void Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	const int  actions = BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_USE_HOLDABLE
+		| BUTTON_FORCEPOWER | BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_GESTURE;
+
+	if ( client->shinobi.kawarimiPhase && !client->shinobi.kawarimiEnd && !client->shinobi.kawarimiPending
+		&& !Shinobi_InsideBody( ent ) ) {
+		client->shinobi.kawarimiPhase = qfalse;
+		Shinobi_SetSolid( ent, qtrue );
+	}
+
+	if ( client->shinobi.kawarimiPending && !Shinobi_Decoy( ent ) ) {
+		Shinobi_Reveal( ent ); // the double never made it
+		return;
+	}
+
+	if ( !client->shinobi.kawarimiEnd && !client->shinobi.kawarimiPending ) {
+		if ( SHINOBI_HIDDEN( &client->ps ) )
+			SHINOBI_SET_HIDDEN( &client->ps, 0 ); // stale bit (respawn)
+		return;
+	}
+
+	if ( ( ucmd->buttons & actions ) || ucmd->upmove > 0
+		|| ( client->shinobi.kawarimiEnd && level.time >= client->shinobi.kawarimiEnd ) ) {
+		Shinobi_Reveal( ent );
+	}
 }
 
 // move a client instantly (no telefrag, no teleporter effects)

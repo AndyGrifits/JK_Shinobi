@@ -94,7 +94,7 @@ static void Shinobi_RemoveClones( int ownerNum ) {
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *e = &g_entities[i];
-		if ( e->inuse && e->shinobiCloneOwner == ownerNum + 1 )
+		if ( e->inuse && e->shinobiCloneOwner == ownerNum + 1 && !e->shinobiCloneDecoy )
 			Shinobi_ClonePoof( e );
 	}
 }
@@ -250,6 +250,140 @@ qboolean Shinobi_CastKageBunshin( gentity_t *ent, int lvl ) {
 	return qtrue;
 }
 
+/*
+===========================================================================
+Kawarimi double and the log it turns into (the jutsu itself: g_shinobi.c)
+===========================================================================
+*/
+gentity_t *Shinobi_SpawnDecoy( gentity_t *owner ) {
+	gentity_t *decoy = Shinobi_SpawnClone( owner, owner->client->ps.origin );
+
+	if ( !decoy )
+		return NULL;
+	decoy->shinobiCloneDecoy = qtrue;
+	decoy->shinobiCloneExpire = level.time + SHINOBI_KAWARIMI_DECOY_MS;
+	return decoy;
+}
+
+gentity_t *Shinobi_Decoy( gentity_t *owner ) {
+	gentity_t *decoy;
+	int        num;
+
+	if ( !owner->client || !owner->client->shinobi.kawarimiDecoy )
+		return NULL;
+	num = owner->client->shinobi.kawarimiDecoy - 1;
+	decoy = &g_entities[num];
+	if ( !decoy->inuse || !decoy->shinobiCloneDecoy || decoy->shinobiCloneOwner != owner->s.number + 1 )
+		return NULL;
+	return decoy;
+}
+
+static void Shinobi_LogThink( gentity_t *log ) {
+	vec3_t up = { 0, 0, 1 };
+
+	if ( level.time >= log->genericValue1 ) { // gone in a puff
+		G_PlayEffectID( shinobiMedia.fxClonePoof, log->r.currentOrigin, up );
+		G_FreeEntity( log );
+		return;
+	}
+
+	if ( log->s.pos.trType == TR_GRAVITY ) {
+		vec3_t  newPos, mins = { -6, -6, -6 }, maxs = { 6, 6, 6 };
+		trace_t tr;
+
+		BG_EvaluateTrajectory( &log->s.pos, level.time, newPos );
+		trap->Trace( &tr, log->r.currentOrigin, mins, maxs, newPos, log->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.startsolid || tr.allsolid || tr.fraction < 1.0f ) {
+			// landed: lie still on the ground
+			G_SetOrigin( log, ( tr.startsolid || tr.allsolid ) ? log->r.currentOrigin : tr.endpos );
+			log->s.apos.trType = TR_STATIONARY;
+			log->s.apos.trTime = level.time;
+			VectorSet( log->s.apos.trBase, 0, log->s.apos.trBase[YAW], flrand( 0, 360 ) );
+			VectorClear( log->s.apos.trDelta );
+			VectorCopy( log->s.apos.trBase, log->r.currentAngles );
+			log->nextthink = log->genericValue1;
+		}
+		else {
+			VectorCopy( newPos, log->r.currentOrigin );
+			log->nextthink = level.time + FRAMETIME;
+		}
+		trap->LinkEntity( (sharedEntity_t *)log );
+		return;
+	}
+	log->nextthink = log->genericValue1;
+}
+
+static void Shinobi_SpawnLog( vec3_t org, float yaw ) {
+	gentity_t *log = G_Spawn();
+
+	if ( !log )
+		return;
+	log->classname = "shinobi_log";
+	log->s.eType = ET_GENERAL;
+	log->s.modelindex = shinobiMedia.logModel;
+	log->r.contents = 0;
+	VectorSet( log->r.mins, -26, -26, -8 );
+	VectorSet( log->r.maxs, 26, 26, 8 );
+
+	log->s.pos.trType = TR_GRAVITY;
+	log->s.pos.trTime = level.time;
+	VectorCopy( org, log->s.pos.trBase );
+	VectorSet( log->s.pos.trDelta, flrand( -60, 60 ), flrand( -60, 60 ), 160 );
+	VectorCopy( org, log->r.currentOrigin );
+	VectorCopy( org, log->s.origin );
+
+	// tumble end over end while it drops
+	log->s.apos.trType = TR_LINEAR;
+	log->s.apos.trTime = level.time;
+	VectorSet( log->s.apos.trBase, 0, yaw + 90, 0 );
+	VectorSet( log->s.apos.trDelta, 420, 0, 0 );
+	VectorCopy( log->s.apos.trBase, log->r.currentAngles );
+
+	log->genericValue1 = level.time + SHINOBI_LOG_LIFETIME;
+	log->think = Shinobi_LogThink;
+	log->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)log );
+}
+
+// the double is found out (or no longer needed): it was only a log all along
+void Shinobi_DecoyToLog( gentity_t *decoy ) {
+	gentity_t *owner = Shinobi_CloneOwner( decoy );
+	vec3_t     org, up = { 0, 0, 1 };
+
+	if ( owner && owner->client->shinobi.kawarimiDecoy == decoy->s.number + 1 )
+		owner->client->shinobi.kawarimiDecoy = 0;
+
+	if ( decoy->shinobiCloneReady ) { // was visible
+		VectorCopy( decoy->r.currentOrigin, org );
+		G_PlayEffectID( shinobiMedia.fxClonePoof, org, up );
+		G_SoundAtLoc( org, CHAN_AUTO, shinobiMedia.sndLog );
+		Shinobi_SpawnLog( org, decoy->client ? decoy->client->ps.viewangles[YAW] : 0 );
+	}
+	decoy->shinobiCloneOwner = 0;
+	decoy->shinobiCloneDecoy = qfalse;
+	G_FreeEntity( decoy );
+}
+
+// first frame the double is drawn: it steps into the caster's place and pose
+static void Shinobi_DecoyTakeOver( gentity_t *decoy, gentity_t *owner ) {
+	gclient_t *oc = owner->client, *dc = decoy->client;
+
+	G_SetOrigin( decoy, oc->ps.origin );
+	VectorCopy( oc->ps.origin, dc->ps.origin );
+	VectorCopy( oc->ps.velocity, dc->ps.velocity );
+	SetClientViewAngle( decoy, oc->ps.viewangles );
+	if ( decoy->NPC ) {
+		decoy->NPC->desiredYaw = oc->ps.viewangles[YAW];
+		decoy->NPC->desiredPitch = 0;
+	}
+	dc->ps.legsAnim = oc->ps.legsAnim;
+	dc->ps.torsoAnim = oc->ps.torsoAnim;
+	dc->ps.legsTimer = oc->ps.legsTimer;
+	dc->ps.torsoTimer = oc->ps.torsoTimer;
+	dc->ps.saberHolstered = oc->ps.saberHolstered;
+	trap->LinkEntity( (sharedEntity_t *)decoy );
+}
+
 static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 	gentity_t *best = NULL;
 	float      bestDist = (float)SHINOBI_CLONE_SIGHT * SHINOBI_CLONE_SIGHT;
@@ -286,6 +420,21 @@ static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 }
 
 static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
+	if ( clone->shinobiCloneDecoy ) {
+		// a double fights on its own and never leads anyone to the hidden caster
+		clone->client->leader = NULL;
+		if ( clone->NPC && clone->NPC->behaviorState == BS_FOLLOW_LEADER )
+			clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_DEFAULT;
+		if ( clone->enemy && !Shinobi_CloneIsHostile( clone, clone->enemy ) )
+			G_ClearEnemy( clone );
+		if ( !clone->enemy ) {
+			gentity_t *enemy = Shinobi_CloneFindEnemy( clone );
+			if ( enemy )
+				G_SetEnemy( clone, enemy );
+		}
+		return;
+	}
+
 	if ( !clone->shinobiCloneReady ) {
 		if ( clone->think != NPC_Think )
 			return; // still in NPC_Begin
@@ -352,6 +501,33 @@ void Shinobi_RunFrame( void ) {
 			continue;
 
 		owner = Shinobi_CloneOwner( clone );
+
+		if ( clone->shinobiCloneDecoy ) {
+			if ( !owner || owner->health <= 0 || !clone->client || clone->health <= 0
+				|| owner->client->sess.sessionTeam == TEAM_SPECTATOR
+				|| owner->client->shinobi.kawarimiDecoy != clone->s.number + 1
+				|| level.time >= clone->shinobiCloneExpire ) {
+				Shinobi_DecoyToLog( clone ); // hit, or its time is up: a log
+				continue;
+			}
+			if ( !clone->shinobiCloneReady ) {
+				if ( clone->think != NPC_Think || ( clone->s.eFlags & EF_NODRAW ) )
+					continue; // still in NPC_Begin
+				clone->health = SHINOBI_CLONE_HEALTH;
+				clone->client->ps.stats[STAT_HEALTH] = SHINOBI_CLONE_HEALTH;
+				Shinobi_CloneApplyTeam( clone, owner );
+				Shinobi_DecoyTakeOver( clone, owner );
+				clone->shinobiCloneReady = qtrue;
+				if ( owner->client->shinobi.kawarimiPending )
+					Shinobi_Hide( owner );
+			}
+			if ( clone->shinobiCloneThink <= level.time ) {
+				clone->shinobiCloneThink = level.time + SHINOBI_CLONE_THINK_MS;
+				Shinobi_CloneSupervise( clone, owner );
+			}
+			continue;
+		}
+
 		if ( !owner || owner->health <= 0 || !owner->client
 			|| owner->client->sess.sessionTeam == TEAM_SPECTATOR
 			|| !clone->client || clone->health <= 0

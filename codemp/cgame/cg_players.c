@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // cg_players.c -- handle the media and animation for player entities
 #include "cg_local.h"
+#include "game/bg_shinobi.h"
 #include "ghoul2/G2.h"
 #include "game/bg_saga.h"
 
@@ -10779,6 +10780,11 @@ stillDoSaber:
 	if (!(cent->currentState.powerups & (1 << PW_CLOAKED)))
 	{ //don't add the normal model if cloaked
 		CG_CheckThirdPersonAlpha( cent, &legs );
+		if ( SHINOBI_HIDDEN( &cent->currentState ) )
+		{ // JK_Shinobi: hidden by Kawarimi - only we receive our entity; show a faint ghost
+			legs.renderfx |= RF_FORCE_ENT_ALPHA;
+			legs.shaderRGBA[3] = 70;
+		}
 		trap->R_AddRefEntityToScene(&legs);
 	}
 

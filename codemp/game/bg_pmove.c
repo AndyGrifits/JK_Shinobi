@@ -2219,14 +2219,14 @@ static qboolean PM_CheckJump( void )
 					//NOTE: purposely falls through to next case!
 				case BOTH_WALL_RUN_LEFT:
 					doTrace = qtrue;
-					VectorMA( pm->ps->origin, -16, right, traceto );
+					VectorMA( pm->ps->origin, anim == BOTH_WALL_RUN_LEFT ? -SHINOBI_WALLRUN_REACH : -16, right, traceto ); // JK_Shinobi: wider reach
 					break;
 
 				case BOTH_WALL_FLIP_RIGHT:
 					//NOTE: purposely falls through to next case!
 				case BOTH_WALL_RUN_RIGHT:
 					doTrace = qtrue;
-					VectorMA( pm->ps->origin, 16, right, traceto );
+					VectorMA( pm->ps->origin, anim == BOTH_WALL_RUN_RIGHT ? SHINOBI_WALLRUN_REACH : 16, right, traceto );
 					break;
 
 				case BOTH_WALL_FLIP_BACK1:
@@ -10173,6 +10173,99 @@ JK_Shinobi: applies jutsu flags to movement. Runs on both server and client
 (prediction), so it may only read predicted state (ps->userInt*).
 ================
 */
+static qboolean PM_ShinobiInWallRun( int anim )
+{
+	return ( anim == BOTH_WALL_RUN_LEFT || anim == BOTH_WALL_RUN_RIGHT
+		|| anim == BOTH_WALL_RUN_LEFT_STOP || anim == BOTH_WALL_RUN_RIGHT_STOP
+		|| anim == BOTH_WALL_RUN_LEFT_FLIP || anim == BOTH_WALL_RUN_RIGHT_FLIP ) ? qtrue : qfalse;
+}
+
+// Is there a wall to run along within reach on the strafe side?
+static qboolean PM_ShinobiWallBeside( float side )
+{
+	vec3_t  fwdAngles, right, traceto, mins, maxs, idealNormal;
+	trace_t trace;
+
+	VectorSet( mins, pm->mins[0], pm->mins[1], 0 );
+	VectorSet( maxs, pm->maxs[0], pm->maxs[1], 24 );
+	VectorSet( fwdAngles, 0, pm->ps->viewangles[YAW], 0 );
+	AngleVectors( fwdAngles, NULL, right, NULL );
+	VectorMA( pm->ps->origin, side * SHINOBI_WALLRUN_REACH, right, traceto );
+
+	pm->trace( &trace, pm->ps->origin, mins, maxs, traceto, pm->ps->clientNum, MASK_SOLID );
+	if ( trace.fraction >= 1.0f || trace.startsolid || trace.allsolid )
+	{
+		return qfalse;
+	}
+	VectorSubtract( pm->ps->origin, traceto, idealNormal );
+	VectorNormalize( idealNormal );
+	return ( DotProduct( trace.plane.normal, idealNormal ) > 0.7f
+		&& trace.plane.normal[2] >= 0.0f && trace.plane.normal[2] <= 0.4f ) ? qtrue : qfalse;
+}
+
+/*
+JK_Shinobi wall running: the stock run only starts from the ground with the
+wall right next to you. Here it also starts in the air (forward + strafe
+toward a wall while holding jump, costs a little chakra), and holding forward
+keeps a run going for as long as the chakra lasts.
+*/
+static void PM_ShinobiWallRun( void )
+{
+	playerState_t *ps = pm->ps;
+	const int      legs = ps->legsAnim;
+
+	if ( ps->fd.forcePowerLevel[FP_LEVITATION] <= FORCE_LEVEL_1
+		|| ( ps->weapon != WP_SABER && ps->weapon != WP_MELEE )
+		|| SHINOBI_HAND_ANY( ps ) || SHINOBI_HIDDEN( ps ) || SHINOBI_CHARGING( ps )
+		|| pm->waterlevel >= 2 || ps->gravity <= 0
+		|| ps->forceHandExtend == HANDEXTEND_KNOCKDOWN
+		|| PM_InKnockDown( ps ) )
+	{
+		return;
+	}
+
+	// keep running: restart the run animation just before it would end
+	if ( ( legs == BOTH_WALL_RUN_LEFT || legs == BOTH_WALL_RUN_RIGHT )
+		&& ps->legsTimer > 500 && ps->legsTimer <= 620
+		&& pm->cmd.forwardmove > 0
+		&& ps->fd.forcePower >= SHINOBI_WALLRUN_EXTEND_COST
+		&& PM_ShinobiWallBeside( legs == BOTH_WALL_RUN_RIGHT ? 1.0f : -1.0f ) )
+	{
+		PM_SetAnim( ps->weaponTime ? SETANIM_LEGS : SETANIM_BOTH, legs,
+			SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
+		ps->fd.forcePower -= SHINOBI_WALLRUN_EXTEND_COST;
+		if ( ps->velocity[2] < 180 )
+		{
+			ps->velocity[2] = 180;
+		}
+		return;
+	}
+
+	// start a run in mid-air
+	if ( ps->groundEntityNum == ENTITYNUM_NONE
+		&& pm->cmd.forwardmove > 0 && pm->cmd.rightmove && pm->cmd.upmove > 0
+		&& !PM_ShinobiInWallRun( legs )
+		&& ps->fd.forcePower >= SHINOBI_WALLRUN_EXTEND_COST )
+	{
+		const float side = pm->cmd.rightmove > 0 ? 1.0f : -1.0f;
+		const int   anim = side > 0 ? BOTH_WALL_RUN_RIGHT : BOTH_WALL_RUN_LEFT;
+
+		if ( !PM_ShinobiWallBeside( side ) )
+		{
+			return;
+		}
+		ps->fd.forcePower -= SHINOBI_WALLRUN_EXTEND_COST;
+		if ( ps->velocity[2] < 300 )
+		{
+			ps->velocity[2] = 300;
+		}
+		ps->fd.forcePowersActive |= ( 1 << FP_LEVITATION );
+		PM_SetAnim( ps->weaponTime ? SETANIM_LEGS : SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		PM_SetForceJumpZStart( ps->origin[2] ); // no fall damage landing at the same height
+		ps->pm_flags |= PMF_JUMP_HELD;
+	}
+}
+
 static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
@@ -10181,6 +10274,32 @@ static void PM_ShinobiPreMove( void )
 	{
 		return;
 	}
+
+	if ( SHINOBI_HIDDEN( ps ) )
+	{ // Kawarimi: creep silently (the walking flag also mutes footsteps)
+		const int m = SHINOBI_KAWARIMI_MOVE;
+		pm->cmd.forwardmove = pm->cmd.forwardmove > 0 ? m : ( pm->cmd.forwardmove < 0 ? -m : 0 );
+		pm->cmd.rightmove = pm->cmd.rightmove > 0 ? m : ( pm->cmd.rightmove < 0 ? -m : 0 );
+		pm->cmd.buttons |= BUTTON_WALKING;
+	}
+	else if ( SHINOBI_MODIFIER( &pm->cmd ) )
+	{ // Shift is the chakra modifier, not walk: full speed, and jump charges Shunshin
+		if ( pm->cmd.forwardmove )
+		{
+			pm->cmd.forwardmove = pm->cmd.forwardmove > 0 ? 127 : -127;
+		}
+		if ( pm->cmd.rightmove )
+		{
+			pm->cmd.rightmove = pm->cmd.rightmove > 0 ? 127 : -127;
+		}
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~BUTTON_WALKING;
+	}
+
+	PM_ShinobiWallRun();
 
 	if ( SHINOBI_CHARGING( ps ) )
 	{ // gathering chakra: sit still in meditation.

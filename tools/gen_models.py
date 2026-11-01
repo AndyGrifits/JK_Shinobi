@@ -146,7 +146,7 @@ def build_pillar(seed, sides=7, height=104.0, radius=19.0):
     return verts, uvs, normals, tris
 
 
-def write_md3(path, name, verts, uvs, normals, tris):
+def write_md3(path, name, verts, uvs, normals, tris, shader=SHADER):
     num_verts, num_tris = len(verts), len(tris)
     mins = [min(v[i] for v in verts) for i in range(3)]
     maxs = [max(v[i] for v in verts) for i in range(3)]
@@ -154,7 +154,7 @@ def write_md3(path, name, verts, uvs, normals, tris):
 
     # --- surface ---
     surf_header_size = 4 + MAX_QPATH + 4 * 10
-    shaders = pad(SHADER) + struct.pack("<i", 0)
+    shaders = pad(shader) + struct.pack("<i", 0)
     tri_data = b"".join(struct.pack("<3i", *t) for t in tris)
     st_data = b"".join(struct.pack("<2f", u, v) for u, v in uvs)
     xyz_data = b"".join(
@@ -188,8 +188,88 @@ def write_md3(path, name, verts, uvs, normals, tris):
         f.write(header + frame + surface)
 
 
+LOG_SHADER = "models/shinobi/log"
+
+
+def build_log(seed=7, sides=10, length=52.0, radius=7.0, segments=4):
+    """A sawn-off log lying along X, centred on the origin (the Kawarimi decoy).
+
+    Texture layout (models/shinobi/log.tga): bark in the top half, the end
+    grain disc in the bottom-left quarter.
+    """
+    rng = random.Random(seed)
+    verts, uvs, tris, outward_hint = [], [], [], []
+    half = length / 2
+    bumps = [radius * rng.uniform(0.9, 1.08) for _ in range(sides)]
+    rings = []
+    for s_i in range(segments + 1):
+        x = -half + length * s_i / segments
+        taper = 1.0 - 0.06 * (s_i / segments)
+        ring = []
+        for i in range(sides + 1):  # duplicate seam vertex for clean UVs
+            a = 2 * math.pi * (i % sides) / sides
+            r = bumps[i % sides] * taper * rng.uniform(0.97, 1.03) if i < sides else None
+            ring.append((a, r))
+        rings.append((x, ring))
+    # fix the seam radius to match vertex 0 of the same ring
+    side_idx = []
+    for s_i, (x, ring) in enumerate(rings):
+        row = []
+        r0 = ring[0][1]
+        for i, (a, r) in enumerate(ring):
+            r = r0 if r is None else r
+            row.append(len(verts))
+            verts.append((x, math.cos(a) * r, math.sin(a) * r))
+            uvs.append((i / sides, 0.5 * s_i / segments))
+        side_idx.append(row)
+    for s_i in range(segments):
+        for i in range(sides):
+            a, b = side_idx[s_i][i], side_idx[s_i][i + 1]
+            c, d = side_idx[s_i + 1][i], side_idx[s_i + 1][i + 1]
+            tris.append((a, c, b))
+            tris.append((b, c, d))
+            outward_hint += [None, None]
+    # end caps: their own vertices so the normals stay flat
+    for end, sign in ((0, -1.0), (segments, 1.0)):
+        x = rings[end][0]
+        centre = len(verts)
+        verts.append((x, 0.0, 0.0))
+        uvs.append((0.25, 0.75))
+        ring_start = len(verts)
+        for i in range(sides):
+            vx, vy, vz = verts[side_idx[end][i]]
+            verts.append((vx, vy, vz))
+            a = 2 * math.pi * i / sides
+            uvs.append((0.25 + 0.24 * math.cos(a), 0.75 + 0.24 * math.sin(a)))
+        for i in range(sides):
+            tris.append((centre, ring_start + i, ring_start + (i + 1) % sides))
+            outward_hint.append((sign, 0.0, 0.0))
+
+    def orient(tri, hint):
+        a, b, c = tri
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        if hint is None:
+            cen = [(verts[a][k] + verts[b][k] + verts[c][k]) / 3.0 for k in range(3)]
+            hint = (0.0, cen[1], cen[2])
+        return tri if n[0] * hint[0] + n[1] * hint[1] + n[2] * hint[2] >= 0 else (a, c, b)
+    tris = [orient(t, h) for t, h in zip(tris, outward_hint)]
+
+    acc = [[0.0, 0.0, 0.0] for _ in verts]
+    for a, b, c in tris:
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        ln = math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2) or 1.0
+        for idx in (a, b, c):
+            for k in range(3):
+                acc[idx][k] += n[k] / ln
+    normals = [tuple(v) for v in acc]
+    return verts, uvs, normals, tris
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    verts, uvs, normals, tris = build_log()
+    write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
+    print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")
     for i in range(1, 4):
         verts, uvs, normals, tris = build_pillar(seed=100 + i, sides=6 + i % 3)
         name = "models/shinobi/earth_pillar%d.md3" % i

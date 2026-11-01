@@ -4470,6 +4470,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	{ // JK_Shinobi: shadow clones never hurt their owner (and vice versa)
 		return;
 	}
+	if ( damage > 0 )
+	{ // JK_Shinobi: getting hurt ends Kawarimi
+		Shinobi_Damaged( targ );
+	}
 
 	if ( (targ->flags&FL_SHIELDED) && mod != MOD_SABER  && !targ->client)
 	{//magnetically protected, this thing can only be damaged by lightsabers

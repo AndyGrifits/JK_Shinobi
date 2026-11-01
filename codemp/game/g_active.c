@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "bg_shinobi.h"
 #include "bg_saga.h"
 
 extern void Jedi_Cloak( gentity_t *self );
@@ -2834,6 +2835,9 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 	else {
 		pmove.tracemask = MASK_PLAYERSOLID;
+	}
+	if ( SHINOBI_HIDDEN( &client->ps ) ) {
+		pmove.tracemask &= ~CONTENTS_BODY; // JK_Shinobi: Kawarimi slips past bodies (and the double)
 	}
 	pmove.trace = SV_PMTrace;
 	pmove.pointcontents = trap->PointContents;

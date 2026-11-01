@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // It also handles local physics interaction, like fragments bouncing off walls
 
 #include "cg_local.h"
+#include "game/bg_shinobi.h"
 
 static	pmove_t		cg_pmove;
 
@@ -1006,6 +1007,9 @@ void CG_PredictPlayerState( void ) {
 	}
 	if ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR || cg.snap->ps.pm_type == PM_SPECTATOR ) {
 		cg_pmove.tracemask &= ~CONTENTS_BODY;	// spectators can fly through bodies
+	}
+	if ( SHINOBI_HIDDEN( &cg.predictedPlayerState ) ) {
+		cg_pmove.tracemask &= ~CONTENTS_BODY; // JK_Shinobi: hidden by Kawarimi (must match the server)
 	}
 	cg_pmove.noFootsteps = ( cgs.dmflags & DF_NO_FOOTSTEPS ) > 0;
 
