@@ -234,6 +234,10 @@ void Cmd_Perk_f( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	const int  perk = client->pers.shinobiBuild.perk;
 
+	if ( ( client->shinobi.shadowBy || client->shinobi.prisonCaster ) && !client->shinobi.eyes ) {
+		trap->SendServerCommand( ent - g_entities, "cp \"You can't - only Kawarimi (X) works now\"" );
+		return; // bound or imprisoned (switching the eyes off still works)
+	}
 	switch ( perk ) {
 	case SP_SHARINGAN:
 	case SP_BYAKUGAN:

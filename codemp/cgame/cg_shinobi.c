@@ -25,8 +25,9 @@ static struct {
 
 // standing in a Hidden Mist this frame (and the last)
 static struct {
-	int   time, lastTime;
-	float amount, lastAmount;
+	int      time, lastTime;
+	float    amount, lastAmount;
+	qboolean mine, lastMine; // inside our own mist: only its maker sees the shapes
 } shinobiMist;
 
 // thick smoke around the local player this frame (drawn over the screen)
@@ -802,10 +803,16 @@ static void CG_ShinobiZone( centity_t *cent ) {
 			if ( dist < R ) {
 				const float amt = a * Com_Clamp( 0, 1, ( R - dist ) / ( type == SZ_MIST ? 90.0f : 40.0f ) );
 				if ( type == SZ_MIST ) { // drawn in the 3D scene (CG_ShinobiSceneOverlay), so shapes can show over it
-					if ( shinobiMist.time != cg.time || amt > shinobiMist.amount ) {
-						shinobiMist.time = cg.time;
-						shinobiMist.amount = amt;
+					const qboolean mine = s->otherEntityNum == cg.snap->ps.clientNum;
+					if ( shinobiMist.time != cg.time ) {
+						shinobiMist.mine = qfalse;
+						shinobiMist.amount = 0;
 					}
+					shinobiMist.time = cg.time;
+					if ( amt > shinobiMist.amount )
+						shinobiMist.amount = amt;
+					if ( mine )
+						shinobiMist.mine = qtrue;
 				}
 				else if ( shinobiFog.time != cg.time || amt > shinobiFog.amount ) {
 					shinobiFog.time = cg.time;
@@ -1076,6 +1083,7 @@ void CG_ShinobiSceneOverlay( void ) {
 
 	shinobiMist.lastTime = shinobiMist.time;
 	shinobiMist.lastAmount = shinobiMist.time == cg.time ? shinobiMist.amount : 0;
+	shinobiMist.lastMine = shinobiMist.time == cg.time && shinobiMist.mine;
 	if ( shinobiMist.time != cg.time || shinobiMist.amount <= 0 || !shinobiShaders.fogScreen )
 		return;
 	a = 0.93f * shinobiMist.amount * ( CG_ShinobiMyEyes() == SP_BYAKUGAN ? 0.3f : 1.0f );
@@ -1096,7 +1104,8 @@ static void CG_ShinobiMistShell( centity_t *cent, refEntity_t *body ) {
 	trace_t     tr;
 	float       dist, f;
 
-	if ( shinobiMist.lastTime < cg.time - 100 || shinobiMist.lastAmount <= 0.05f || !shinobiShaders.mistShell )
+	if ( shinobiMist.lastTime < cg.time - 100 || shinobiMist.lastAmount <= 0.05f || !shinobiShaders.mistShell
+		|| !shinobiMist.lastMine )
 		return;
 	if ( cent->currentState.eType == ET_PLAYER && SHINOBI_HIDDEN( &cent->currentState ) )
 		return;

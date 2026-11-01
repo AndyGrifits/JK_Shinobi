@@ -228,7 +228,7 @@ static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
 
 // Kawarimi (substitution): an AI double takes your place, you turn invisible
 // and creep away; any action but moving ends it and the double becomes a log
-#define SHINOBI_KAWARIMI_COOLDOWN  10000
+#define SHINOBI_KAWARIMI_COOLDOWN  30000
 #define SHINOBI_KAWARIMI_MAX_MS    12000 // hidden at most this long
 #define SHINOBI_KAWARIMI_DECOY_MS  15000
 #define SHINOBI_KAWARIMI_MOVE      40    // movement while hidden (127 = run, 46 = walk)
@@ -437,7 +437,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 // hits for 12 s. Hiraishin teleports to it, Lightning Trap discharges it.
 #define SHINOBI_KUNAI_SPEED        1800
 #define SHINOBI_KUNAI_DAMAGE       10
-#define SHINOBI_KUNAI_COOLDOWN     450
+#define SHINOBI_KUNAI_COOLDOWN     2500
 #define SHINOBI_KUNAI_LIFE         8000   // stuck in a wall
 #define SHINOBI_MARK_COST          10
 #define SHINOBI_MARK_LIFE          30000

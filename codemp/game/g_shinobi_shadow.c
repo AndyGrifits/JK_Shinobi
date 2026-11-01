@@ -230,7 +230,7 @@ void Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 	ucmd->generic_cmd = 0; // no force powers, saber style changes... of his own
 	ucmd->forwardmove = binder->client->pers.cmd.forwardmove;
 	ucmd->rightmove = binder->client->pers.cmd.rightmove;
-	ucmd->upmove = binder->client->pers.cmd.upmove;
+	ucmd->upmove = binder->client->pers.cmd.upmove < 0 ? binder->client->pers.cmd.upmove : 0; // crouches with him, never jumps
 	ucmd->buttons = ( ucmd->buttons & ~( mirrored | BUTTON_USE | BUTTON_FORCEPOWER | BUTTON_FORCEGRIP
 		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | BUTTON_WALKING ) )
 		| ( binder->client->pers.cmd.buttons & ( mirrored | BUTTON_WALKING ) ) | SHINOBI_BUTTON_MIRROR;

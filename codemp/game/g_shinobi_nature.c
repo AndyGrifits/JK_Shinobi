@@ -1404,6 +1404,12 @@ qboolean Shinobi_CastMist( gentity_t *ent, int lvl ) {
 		return qfalse;
 	ZONE_LEVEL( z ) = lvl;
 	z->r.svFlags |= SVF_BROADCAST; // a big bank: visible from afar
+	{ // only its maker sees the shapes inside (a Water Clone works for its owner)
+		gentity_t *maker = ent;
+		if ( ent->s.number >= MAX_CLIENTS && ent->shinobiCloneOwner )
+			maker = &g_entities[ent->shinobiCloneOwner - 1];
+		z->s.otherEntityNum = maker->s.number;
+	}
 
 	if ( client ) {
 		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
