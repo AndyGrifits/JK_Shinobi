@@ -1343,6 +1343,14 @@ static void CG_NewForceRank_f( void ) {
 
 	trap->Cvar_Set( "ui_myteam", va( "%i", setTeam ) );
 
+	// JK_Shinobi: the automatic self-test must not be stopped by the profile menu
+	{
+		char buf[16];
+		trap->Cvar_VariableStringBuffer( "shinobi_noForceMenu", buf, sizeof( buf ) );
+		if ( atoi( buf ) )
+			doMenu = 0;
+	}
+
 	if ( !( trap->Key_GetCatcher() & KEYCATCH_UI ) && doMenu && !cg.demoPlayback )
 		trap->OpenUIMenu( UIMENU_PLAYERCONFIG );
 }
