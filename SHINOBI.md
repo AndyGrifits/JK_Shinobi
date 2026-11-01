@@ -15,15 +15,15 @@ Press **B** for the build screen (it also opens by itself the first time):
 - **Special**: one ability. Ready: Gentle Fist (fists and kicks burn the target's chakra),
   Curse Seal (awakens at 0 chakra and stays awake until it has eaten your health down
   to 10, ~3 health/s; meanwhile chakra returns 2.5x faster, dark chakra around you;
-  `/curseseal` or `3` toggles it).
-  - **Sharingan** (`3` on/off, 5 chakra + 2/s): health bars over enemies in sight
+  `/curseseal` or `C` toggles it).
+  - **Sharingan** (`C` on/off, 5 chakra + 2/s): health bars over enemies in sight
     (2000 u), the name of the jutsu they are charging, Kawarimi-hidden enemies within
     1500 u show as ghosts. Clones look like perfect copies (owner's health). Red eyes,
     visible to everyone.
-  - **Byakugan** (`3` on/off, 5 chakra + 2/s): chakra bars and glowing shells of every
+  - **Byakugan** (`C` on/off, 5 chakra + 2/s): chakra bars and glowing shells of every
     ninja within 1400 u, through walls; clones are hollow grey shells marked "clone".
     Switching it on is heard map-wide. Pale eyes.
-  - **Inner Gates** (`3`): 10 s at 1.35x speed and +50% taijutsu, then 15 s exhausted
+  - **Inner Gates** (`C`): 10 s at 1.35x speed and +50% taijutsu, then 15 s exhausted
     (0.75x speed, -30% taijutsu, no chakra regen). Once a minute. Green aura.
 
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.

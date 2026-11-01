@@ -473,7 +473,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 #define SHINOBI_EF2_BYAKUGAN       (1<<9)
 
 /*
-Perks (perk command, C):
+Perks (perk command, key C):
   Sharingan  toggle; 5 chakra, then 2/s. See health bars, the jutsu an
              enemy is charging and Kawarimi-hidden enemies. Red eyes.
   Byakugan   toggle; 5 chakra, then 2/s. See chakra bars and everyone

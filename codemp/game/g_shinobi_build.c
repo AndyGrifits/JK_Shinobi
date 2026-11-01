@@ -279,13 +279,14 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 		gentity_t *e = &g_entities[i];
 		gentity_t *who;
 		const qboolean clone = ( i >= MAX_CLIENTS );
-		const qboolean hidden = !clone && SHINOBI_HIDDEN( &e->client->ps );
+		qboolean hidden;
 		int   hp, maxhp, chakra = 0, chakraMax = 0, jutsu = 0, flags = 0;
 		float dist;
 		char  entry[64];
 
 		if ( !Shinobi_EyeTarget( ent, e ) )
 			continue;
+		hidden = !clone && SHINOBI_HIDDEN( &e->client->ps ); // (only now: empty slots have no client)
 		dist = Distance( client->ps.origin, e->r.currentOrigin );
 
 		if ( eyes == SP_SHARINGAN ) {
