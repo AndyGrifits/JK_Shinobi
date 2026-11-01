@@ -3411,6 +3411,8 @@ command_t commands[] = {
 	{ "god",				Cmd_God_f,					CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kill",				Cmd_Kill_f,					CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kagebunshin",		Cmd_KageBunshin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "jutsu_begin",		Cmd_JutsuBegin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "jutsu_release",		Cmd_JutsuRelease_f,			CMD_NOINTERMISSION },
 	{ "katon",				Cmd_Katon_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "killother",			Cmd_KillOther_f,			CMD_CHEAT|CMD_NOINTERMISSION },
 //	{ "kylesmash",			TryGrapple,					0 },

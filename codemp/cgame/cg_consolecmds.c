@@ -293,7 +293,17 @@ int cmdcmp( const void *a, const void *b ) {
 }
 
 static consoleCommand_t	commands[] = {
+	{ "+chidori",					CG_ShinobiChidoriDown_f },
+	{ "+doton",						CG_ShinobiDotonDown_f },
+	{ "+kagebunshin",				CG_ShinobiKageBunshinDown_f },
+	{ "+katon",						CG_ShinobiKatonDown_f },
+	{ "+rasengan",					CG_ShinobiRasenganDown_f },
 	{ "+scores",					CG_ScoresDown_f },
+	{ "-chidori",					CG_ShinobiChidoriUp_f },
+	{ "-doton",						CG_ShinobiDotonUp_f },
+	{ "-kagebunshin",				CG_ShinobiKageBunshinUp_f },
+	{ "-katon",						CG_ShinobiKatonUp_f },
+	{ "-rasengan",					CG_ShinobiRasenganUp_f },
 	{ "-scores",					CG_ScoresUp_f },
 	{ "briefing",					CG_SiegeBriefing_f },
 	{ "clientlist",					CG_ClientList_f },

@@ -195,8 +195,33 @@ def rock(n=256):
     return data
 
 
+def fire(n=128):
+    """Churning ball of flame for the great fireball (full colour, additive).
+
+    Turbulent noise warped around the centre: white-yellow core, orange body,
+    ragged red edges fading into black. Several copies are drawn spinning
+    against each other, so it must look good at any rotation.
+    """
+    x, y, r, a = grid(n)
+    turb = (0.5 * value_noise(n, 4, 21) + 0.3 * value_noise(n, 8, 22) + 0.2 * value_noise(n, 16, 23))
+    # swirl the noise lookup so flames curl around the centre
+    swirl_t = (0.5 * value_noise(n, 6, 24) + 0.5 * value_noise(n, 12, 25))
+    edge = 0.62 + 0.30 * (turb - 0.5) * 2 + 0.08 * np.sin(a * 5 + swirl_t * 6)
+    body = np.clip((edge - r) / 0.28, 0, 1)            # 1 inside, ragged falloff at the rim
+    heat = np.clip(1.0 - r / np.maximum(edge, 1e-3), 0, 1) ** 0.8 * (0.75 + 0.5 * swirl_t)
+    heat = np.clip(heat, 0, 1)
+    # colour ramp by heat: dark red -> red -> orange -> yellow -> white
+    stops = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+    cols = np.array([[0.25, 0.02, 0.0], [0.85, 0.12, 0.02], [1.0, 0.45, 0.05], [1.0, 0.8, 0.25], [1.0, 1.0, 0.85]])
+    rgb = np.stack([np.interp(heat, stops, cols[:, c]) for c in range(3)], axis=-1)
+    rgb *= body[..., None]
+    data = np.dstack([rgb, np.ones((n, n))])
+    return np.clip(data, 0, 1)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
     save("glow", glow())
     save("swirl", swirl())
     save("ring", ring())

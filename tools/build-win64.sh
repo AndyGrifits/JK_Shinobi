@@ -19,6 +19,9 @@ for m in jampgame cgame ui; do
   cp "$BUILD/${m}x86_64.dll" "$DIST/"
 done
 
+# Per-level effect copies are generated from tools/effect_templates.
+python3 "$ROOT/tools/gen_effect_levels.py" >/dev/null
+
 # Assets (effects, shaders, menus) live in assets/ and are zipped into a pk3.
 if [ -d "$ROOT/assets" ] && [ -n "$(ls -A "$ROOT/assets")" ]; then
   rm -f "$DIST/zz_shinobi.pk3"

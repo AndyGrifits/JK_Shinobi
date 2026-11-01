@@ -459,6 +459,8 @@ typedef struct centity_s {
 
 	int				shinobiHandFxTime;	// JK_Shinobi: next time to emit hand effect
 	int				shinobiAuraFxTime;	// JK_Shinobi: next time to emit chakra aura
+	vec3_t			shinobiTrailPrev;	// JK_Shinobi: last hand position of a Chidori dash
+	int				shinobiTrailTime;	// JK_Shinobi: when shinobiTrailPrev was taken (0 = none)
 } centity_t;
 
 
@@ -1467,7 +1469,7 @@ typedef struct cgEffects_s {
 	fxHandle_t shinobiChakraAura;
 	fxHandle_t shinobiChidoriHand;
 	fxHandle_t shinobiChidoriForm;
-	fxHandle_t shinobiFireball;
+	fxHandle_t shinobiFireballTrail;
 	fxHandle_t forceDrainWide;
 	fxHandle_t forceDrained;
 
@@ -1778,6 +1780,16 @@ void CG_ShinobiRegisterMedia( void );
 void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci );
 void CG_ShinobiDrawHUD( void );
 void CG_ShinobiDiag_f( void );
+void CG_ShinobiRasenganDown_f( void );
+void CG_ShinobiRasenganUp_f( void );
+void CG_ShinobiChidoriDown_f( void );
+void CG_ShinobiChidoriUp_f( void );
+void CG_ShinobiKatonDown_f( void );
+void CG_ShinobiKatonUp_f( void );
+void CG_ShinobiDotonDown_f( void );
+void CG_ShinobiDotonUp_f( void );
+void CG_ShinobiKageBunshinDown_f( void );
+void CG_ShinobiKageBunshinUp_f( void );
 qboolean CG_ShinobiEntity( centity_t *cent );
 int CG_Text_Width(const char *text, float scale, int iMenuFont);
 int CG_Text_Height(const char *text, float scale, int iMenuFont);

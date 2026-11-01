@@ -1,78 +1,29 @@
 repeatDelay				0
 
-// Held Chidori: crackling ball of lightning in the left hand. Played every
-// ~40ms; short-lived bolts at random angles make it flicker.
+// Held Chidori: the crackling ball is drawn every frame by the cgame; this
+// effect (every ~60ms) throws arcs and sparks off it in every direction.
 
 Particle
 {
-	name				core
-	count				1
-	life				60
+	name				arcs
+	count				2 3
+	life				50 90
 	rotation			0 360
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				6 12
+	vel					40 0 0 120 0 0
 	size
 	{
-		start			5 7
+		start			10 20
 	}
 	rgb
 	{
-		start			0.9 0.95 1
+		start			0.55 0.75 1 0.9 0.95 1
 	}
 	alpha
 	{
 		start			1
-		end				0.6
-	}
-	shaders
-	[
-		gfx/shinobi/glow
-	]
-}
-
-Particle
-{
-	name				halo
-	count				1
-	life				60
-	rotation			0 360
-	size
-	{
-		start			12 18
-	}
-	rgb
-	{
-		start			0.35 0.55 1
-	}
-	alpha
-	{
-		start			0.5
-		end				0.1
-	}
-	shaders
-	[
-		gfx/shinobi/glow
-	]
-}
-
-Particle
-{
-	name				bolts
-	count				2 4
-	life				40 70
-	rotation			0 360
-	spawnFlags			orgOnSphere
-	radius				2 6
-	size
-	{
-		start			10 18
-	}
-	rgb
-	{
-		start			0.6 0.8 1 0.9 0.95 1
-	}
-	alpha
-	{
-		start			1
-		end				0.3
+		end				0.2
 	}
 	shaders
 	[
@@ -83,15 +34,15 @@ Particle
 Particle
 {
 	name				sparks
-	count				1 2
-	life				100 180
+	count				2 4
+	life				120 250
 	spawnFlags			orgOnSphere axisFromSphere
-	radius				4 7
-	vel					80 0 0 180 0 0
-	gravity				-200
+	radius				4 8
+	vel					120 0 0 260 0 0
+	gravity				-250
 	size
 	{
-		start			1 2
+		start			1 2.2
 		end				0
 	}
 	rgb
@@ -101,5 +52,27 @@ Particle
 	shaders
 	[
 		gfx/shinobi/spark
+	]
+}
+
+Particle
+{
+	name				ground
+	count				0 1
+	life				60 100
+	rotation			0 360
+	spawnFlags			orgOnSphere
+	radius				14 26
+	size
+	{
+		start			8 14
+	}
+	rgb
+	{
+		start			0.5 0.7 1
+	}
+	shaders
+	[
+		gfx/shinobi/bolt
 	]
 }

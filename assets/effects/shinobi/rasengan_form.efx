@@ -1,32 +1,6 @@
 repeatDelay				0
 
-// Rasengan forming: chakra converges into a small, growing ball.
-
-Particle
-{
-	name				core
-	count				1
-	life				90
-	rotation			0 360
-	size
-	{
-		start			2 4
-		end				4 5
-	}
-	rgb
-	{
-		start			0.8 0.95 1
-	}
-	alpha
-	{
-		start			0.9
-		end				0.4
-	}
-	shaders
-	[
-		gfx/shinobi/glow
-	]
-}
+// Rasengan forming: chakra converges into the (cgame-drawn) growing ball.
 
 Particle
 {
@@ -34,8 +8,8 @@ Particle
 	count				2 3
 	life				180 240
 	spawnFlags			orgOnSphere axisFromSphere
-	radius				16 22
-	vel					-90 0 0 -110 0 0
+	radius				16 24
+	vel					-90 0 0 -120 0 0
 	size
 	{
 		start			2.5 3.5
@@ -54,18 +28,4 @@ Particle
 	[
 		gfx/shinobi/glow
 	]
-}
-
-Light
-{
-	name				light
-	life				90
-	size
-	{
-		start			40 60
-	}
-	rgb
-	{
-		start			0.2 0.45 1
-	}
 }

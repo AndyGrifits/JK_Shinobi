@@ -1,7 +1,7 @@
 /*
 ===========================================================================
-JK_Shinobi - server-side jutsu core: media, chakra charging, hand jutsu
-(Rasengan / Chidori) and Shunshin.
+JK_Shinobi - server-side jutsu core: media, chakra charging, hold-to-charge
+jutsu levels, hand jutsu (Rasengan / Chidori) and Shunshin.
 
 Flags that the client predicts or renders live in playerState user fields
 (see bg_shinobi.h). Timers live in gclient_t->shinobi.
@@ -16,18 +16,27 @@ extern void G_Knockdown( gentity_t *victim ); // g_combat.c (AnimalNPC.c has an 
 
 shinobiMedia_t shinobiMedia;
 
+int Shinobi_LevelEffect( const char *base, int level ) {
+	return G_EffectIndex( va( "%s_%i", base, level ) );
+}
+
 void Shinobi_Init( void ) {
 	shinobiMedia_t *m = &shinobiMedia;
+	int lvl;
 
-	m->fxRasenganHit    = G_EffectIndex( SHINOBI_FX_RASENGAN_HIT );
+	for ( lvl = 1; lvl <= SHINOBI_MAX_LEVEL; lvl++ ) {
+		m->fxRasenganHit[lvl - 1] = Shinobi_LevelEffect( SHINOBI_FX_RASENGAN_HIT, lvl );
+		m->fxChidoriHit[lvl - 1]  = Shinobi_LevelEffect( SHINOBI_FX_CHIDORI_HIT, lvl );
+	}
 	m->fxRasenganFizzle = G_EffectIndex( SHINOBI_FX_RASENGAN_FIZZLE );
-	m->fxChidoriHit     = G_EffectIndex( SHINOBI_FX_CHIDORI_HIT );
 	m->fxChidoriFizzle  = G_EffectIndex( SHINOBI_FX_CHIDORI_FIZZLE );
 	m->fxShunshin       = G_EffectIndex( SHINOBI_FX_SHUNSHIN );
 	m->fxClonePoof      = G_EffectIndex( SHINOBI_FX_CLONE_POOF );
+	m->fxCloneSmoke     = G_EffectIndex( SHINOBI_FX_CLONE_SMOKE );
 
 	// Sounds from the base game, reused until we have our own.
 	m->sndChargeStart  = G_SoundIndex( "sound/weapons/force/jumpbuild.wav" );
+	m->sndJutsuCharge  = G_SoundIndex( "sound/weapons/force/jumpbuild.wav" );
 	m->sndFizzle       = G_SoundIndex( "sound/weapons/force/noforce.wav" );
 	m->sndPoof         = G_SoundIndex( "sound/weapons/force/distract.wav" );
 	m->sndRasenganForm = G_SoundIndex( "sound/weapons/force/drain.wav" );
@@ -39,8 +48,9 @@ void Shinobi_Init( void ) {
 
 	Shinobi_ElementsInit();
 
-	trap->Print( "[shinobi] game module built " __DATE__ " " __TIME__ ": fx rasenganHit %i chidoriHit %i shunshin %i clonePoof %i fireballBoom %i wallRise %i, wall models %i %i %i\n",
-		m->fxRasenganHit, m->fxChidoriHit, m->fxShunshin, m->fxClonePoof, m->fxFireballBoom, m->fxWallRise,
+	trap->Print( "[shinobi] game module built " __DATE__ " " __TIME__ ": fx rasenganHit %i/%i/%i fireballBoom %i/%i/%i cloneSmoke %i, wall models %i %i %i\n",
+		m->fxRasenganHit[0], m->fxRasenganHit[1], m->fxRasenganHit[2],
+		m->fxFireballBoom[0], m->fxFireballBoom[1], m->fxFireballBoom[2], m->fxCloneSmoke,
 		m->wallModels[0], m->wallModels[1], m->wallModels[2] );
 }
 
@@ -71,12 +81,16 @@ void Shinobi_StopCharging( gclient_t *client ) {
 		client->ps.userInt1 = 0;
 }
 
+void Shinobi_NoChakra( gentity_t *ent, int cost ) {
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+	trap->SendServerCommand( ent - g_entities, va( "cp \"Not enough chakra (%i/%i)\"", ent->client->ps.fd.forcePower, cost ) );
+}
+
 qboolean Shinobi_SpendChakra( gentity_t *ent, int cost ) {
 	gclient_t *client = ent->client;
 
 	if ( client->ps.fd.forcePower < cost ) {
-		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		trap->SendServerCommand( ent - g_entities, va( "cp \"Not enough chakra (%i/%i)\"", client->ps.fd.forcePower, cost ) );
+		Shinobi_NoChakra( ent, cost );
 		return qfalse;
 	}
 	client->ps.fd.forcePower -= cost;
@@ -86,45 +100,23 @@ qboolean Shinobi_SpendChakra( gentity_t *ent, int cost ) {
 /*
 ===========================================================================
 Hand jutsu: Rasengan and Chidori share one state machine (form -> armed ->
-dash strike), they differ only in numbers and effects.
+dash strike); they differ in numbers and effects, and both scale by level.
 ===========================================================================
 */
-typedef enum {
-	HAND_RASENGAN,
-	HAND_CHIDORI
-} handJutsuType_t;
+static qboolean Shinobi_HandIsChidori( gclient_t *client ) {
+	return SHINOBI_HAND_IS_CHIDORI( &client->ps ) ? qtrue : qfalse;
+}
 
-typedef struct {
-	int      cost, formMs, holdMs, dashMs;
-	int      damage, throwSpeed, stunMs;
-	qboolean knockdown;
-	int     *fxHit, *fxFizzle;
-	int     *sndForm, *sndDash, *sndHit;
-} handJutsu_t;
-
-static const handJutsu_t handJutsu[] = {
-	{ // HAND_RASENGAN: heavy knockback and knockdown
-		SHINOBI_RASENGAN_COST, SHINOBI_RASENGAN_FORM_MS, SHINOBI_RASENGAN_HOLD_MS, SHINOBI_RASENGAN_DASH_MS,
-		SHINOBI_RASENGAN_DAMAGE, SHINOBI_RASENGAN_THROW, 0, qtrue,
-		&shinobiMedia.fxRasenganHit, &shinobiMedia.fxRasenganFizzle,
-		&shinobiMedia.sndRasenganForm, &shinobiMedia.sndRasenganDash, &shinobiMedia.sndRasenganHit
-	},
-	{ // HAND_CHIDORI: faster dash, more damage, electrocutes instead of knocking down
-		SHINOBI_CHIDORI_COST, SHINOBI_CHIDORI_FORM_MS, SHINOBI_CHIDORI_HOLD_MS, SHINOBI_CHIDORI_DASH_MS,
-		SHINOBI_CHIDORI_DAMAGE, SHINOBI_CHIDORI_THROW, SHINOBI_CHIDORI_STUN_MS, qfalse,
-		&shinobiMedia.fxChidoriHit, &shinobiMedia.fxChidoriFizzle,
-		&shinobiMedia.sndChidoriForm, &shinobiMedia.sndChidoriDash, &shinobiMedia.sndChidoriHit
-	},
-};
-
-static const handJutsu_t *Shinobi_HandJutsu( playerState_t *ps ) {
-	return &handJutsu[SHINOBI_HAND_IS_CHIDORI( ps ) ? HAND_CHIDORI : HAND_RASENGAN];
+static int Shinobi_HandLevel( gclient_t *client ) {
+	int lvl = SHINOBI_HAND_LEVEL( &client->ps );
+	return lvl < 1 ? 1 : ( lvl > SHINOBI_MAX_LEVEL ? SHINOBI_MAX_LEVEL : lvl );
 }
 
 static void Shinobi_ClearHand( gclient_t *client ) {
 	client->ps.userInt1 = 0; // also clears the Chidori marker
 	client->ps.userInt2 = 0;
 	client->ps.userInt3 = 0;
+	SHINOBI_SET_HAND_LEVEL( &client->ps, 1 );
 	client->shinobi.formEnd = 0;
 	client->shinobi.armedEnd = 0;
 	client->shinobi.dashEnd = 0;
@@ -132,41 +124,29 @@ static void Shinobi_ClearHand( gclient_t *client ) {
 }
 
 static void Shinobi_HandFizzle( gentity_t *ent ) {
-	const handJutsu_t *hj = Shinobi_HandJutsu( &ent->client->ps );
 	vec3_t up = { 0, 0, 1 };
 	vec3_t org;
 
 	VectorCopy( ent->client->ps.origin, org );
 	org[2] += 16;
-	G_PlayEffectID( *hj->fxFizzle, org, up );
+	G_PlayEffectID( Shinobi_HandIsChidori( ent->client ) ? shinobiMedia.fxChidoriFizzle : shinobiMedia.fxRasenganFizzle, org, up );
 	Shinobi_ClearHand( ent->client );
 }
 
-static void Shinobi_StartHandJutsu( gentity_t *ent, handJutsuType_t type ) {
-	gclient_t         *client = ent->client;
-	const handJutsu_t *hj = &handJutsu[type];
+static qboolean Shinobi_CastHandJutsu( gentity_t *ent, qboolean chidori, int lvl ) {
+	gclient_t *client = ent->client;
 
-	if ( !Shinobi_CanAct( ent ) )
-		return;
 	if ( SHINOBI_HAND_ANY( &client->ps ) )
-		return;
-	if ( !Shinobi_SpendChakra( ent, hj->cost ) )
-		return;
+		return qfalse;
 
-	client->ps.userInt1 = ( type == HAND_CHIDORI ) ? 1 : 0; // charging stops, marker set
+	client->ps.userInt1 = chidori ? 1 : 0; // charging stops, Chidori marker set
 	client->ps.userInt2 = 0;
 	client->ps.userInt3 = 1; // forming
-	client->shinobi.formEnd = level.time + hj->formMs;
+	SHINOBI_SET_HAND_LEVEL( &client->ps, lvl );
+	client->shinobi.formEnd = level.time + SHINOBI_HAND_FORM_MS;
 	client->shinobi.handSoundNext = level.time + 900;
-	G_Sound( ent, CHAN_AUTO, *hj->sndForm );
-}
-
-void Cmd_Rasengan_f( gentity_t *ent ) {
-	Shinobi_StartHandJutsu( ent, HAND_RASENGAN );
-}
-
-void Cmd_Chidori_f( gentity_t *ent ) {
-	Shinobi_StartHandJutsu( ent, HAND_CHIDORI );
+	G_Sound( ent, CHAN_AUTO, chidori ? shinobiMedia.sndChidoriForm : shinobiMedia.sndRasenganForm );
+	return qtrue;
 }
 
 static gentity_t *Shinobi_FindDashTarget( gentity_t *ent, vec3_t fwd, vec3_t hitPoint ) {
@@ -216,54 +196,61 @@ static gentity_t *Shinobi_FindDashTarget( gentity_t *ent, vec3_t fwd, vec3_t hit
 }
 
 static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3_t point ) {
-	const handJutsu_t *hj = Shinobi_HandJutsu( &ent->client->ps );
-	vec3_t dir;
+	gclient_t     *client = ent->client;
+	const qboolean chidori = Shinobi_HandIsChidori( client );
+	const int      li = Shinobi_HandLevel( client ) - 1;
+	const int      damage = chidori ? shinobiChidoriDamage[li] : shinobiRasenganDamage[li];
+	const int      throwSpeed = chidori ? shinobiChidoriThrow[li] : shinobiRasenganThrow[li];
+	vec3_t         dir;
 
 	VectorCopy( fwd, dir );
 	dir[2] = 0.35f;
 	VectorNormalize( dir );
 
-	G_Damage( victim, ent, ent, dir, point, hj->damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	G_Damage( victim, ent, ent, dir, point, damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 
 	if ( victim->inuse && victim->client && victim->health > 0 ) {
 		gclient_t *vc = victim->client;
 
-		VectorScale( dir, hj->throwSpeed, vc->ps.velocity );
+		VectorScale( dir, throwSpeed, vc->ps.velocity );
 		vc->ps.groundEntityNum = ENTITYNUM_NONE;
 		// credit the kill if they hit a wall or fall off a ledge
 		vc->ps.otherKiller = ent->s.number;
 		vc->ps.otherKillerTime = level.time + 5000;
 		vc->ps.otherKillerDebounceTime = level.time + 100;
 
-		if ( hj->knockdown ) {
+		if ( !chidori ) {
 			G_Knockdown( victim );
 		}
-		if ( hj->stunMs ) {
+		else {
 			// electrocuted: electric shell on the model, no attacks, no control for a moment
-			vc->ps.electrifyTime = level.time + hj->stunMs;
-			if ( vc->ps.weaponTime < hj->stunMs )
-				vc->ps.weaponTime = hj->stunMs;
+			const int stun = shinobiChidoriStunMs[li];
+			vc->ps.electrifyTime = level.time + stun;
+			if ( vc->ps.weaponTime < stun )
+				vc->ps.weaponTime = stun;
 			vc->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-			vc->ps.pm_time = hj->stunMs / 2;
+			vc->ps.pm_time = stun / 2;
 		}
 	}
 
-	G_PlayEffectID( *hj->fxHit, point, dir );
-	G_SoundAtLoc( point, CHAN_AUTO, *hj->sndHit );
-	Shinobi_ClearHand( ent->client );
+	G_PlayEffectID( chidori ? shinobiMedia.fxChidoriHit[li] : shinobiMedia.fxRasenganHit[li], point, dir );
+	G_SoundAtLoc( point, CHAN_AUTO, chidori ? shinobiMedia.sndChidoriHit : shinobiMedia.sndRasenganHit );
+	Shinobi_ClearHand( client );
 }
 
 static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
-	gclient_t         *client = ent->client;
-	const handJutsu_t *hj;
+	gclient_t     *client = ent->client;
+	qboolean       chidori;
+	int            li;
 
 	if ( !SHINOBI_HAND_ANY( &client->ps ) )
 		return;
-	hj = Shinobi_HandJutsu( &client->ps );
+	chidori = Shinobi_HandIsChidori( client );
+	li = Shinobi_HandLevel( client ) - 1;
 
 	// Chidori keeps chirping while it exists
-	if ( SHINOBI_HAND_IS_CHIDORI( &client->ps ) && client->shinobi.handSoundNext <= level.time ) {
-		G_Sound( ent, CHAN_AUTO, *hj->sndForm );
+	if ( chidori && client->shinobi.handSoundNext <= level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndChidoriForm );
 		client->shinobi.handSoundNext = level.time + 900;
 	}
 
@@ -271,7 +258,7 @@ static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
 		if ( level.time >= client->shinobi.formEnd ) {
 			client->ps.userInt3 = 0;
 			client->ps.userInt2 = 1; // armed
-			client->shinobi.armedEnd = level.time + hj->holdMs;
+			client->shinobi.armedEnd = level.time + ( chidori ? SHINOBI_CHIDORI_HOLD_MS : SHINOBI_RASENGAN_HOLD_MS );
 		}
 		return;
 	}
@@ -279,8 +266,8 @@ static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
 	if ( SHINOBI_HAND_ARMED( &client->ps ) ) {
 		if ( attackPressed ) {
 			client->ps.userInt3 = 1; // armed + forming bits = dash
-			client->shinobi.dashEnd = level.time + hj->dashMs;
-			G_Sound( ent, CHAN_BODY, *hj->sndDash );
+			client->shinobi.dashEnd = level.time + ( chidori ? shinobiChidoriDashMs[li] : shinobiRasenganDashMs[li] );
+			G_Sound( ent, CHAN_BODY, chidori ? shinobiMedia.sndChidoriDash : shinobiMedia.sndRasenganDash );
 		}
 		else if ( level.time >= client->shinobi.armedEnd ) {
 			Shinobi_HandFizzle( ent );
@@ -306,6 +293,95 @@ static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
 }
 
 /*
+===========================================================================
+Casting with levels
+===========================================================================
+*/
+
+// Casts 'jutsu' at the highest level up to 'wanted' that the caster can pay for.
+static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
+	gclient_t *client = ent->client;
+	int        lvl = wanted;
+	qboolean   cast = qfalse;
+
+	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
+		return;
+
+	if ( lvl < 1 )
+		lvl = 1;
+	if ( lvl > SHINOBI_MAX_LEVEL )
+		lvl = SHINOBI_MAX_LEVEL;
+	while ( lvl > 1 && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
+		lvl--;
+	if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
+		Shinobi_NoChakra( ent, Shinobi_JutsuCost( jutsu, lvl ) );
+		return;
+	}
+
+	switch ( jutsu ) {
+	case SJ_RASENGAN: cast = Shinobi_CastHandJutsu( ent, qfalse, lvl ); break;
+	case SJ_CHIDORI:  cast = Shinobi_CastHandJutsu( ent, qtrue, lvl ); break;
+	case SJ_KATON:    cast = Shinobi_CastKaton( ent, lvl ); break;
+	case SJ_DOTON:    cast = Shinobi_CastDoton( ent, lvl ); break;
+	case SJ_BUNSHIN:  cast = Shinobi_CastKageBunshin( ent, lvl ); break;
+	default: break;
+	}
+
+	if ( cast ) {
+		client->ps.fd.forcePower -= Shinobi_JutsuCost( jutsu, lvl );
+		Shinobi_StopCharging( client );
+	}
+}
+
+// "<jutsu> [level]": cast right away (binds use +jutsu/-jutsu, scripts and bots this)
+static void Shinobi_CastCommand( gentity_t *ent, int jutsu ) {
+	char arg[8];
+	int  lvl = 1;
+
+	if ( trap->Argc() > 1 ) {
+		trap->Argv( 1, arg, sizeof( arg ) );
+		lvl = atoi( arg );
+	}
+	Shinobi_Cast( ent, jutsu, lvl );
+}
+
+void Cmd_Rasengan_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_RASENGAN ); }
+void Cmd_Chidori_f( gentity_t *ent )     { Shinobi_CastCommand( ent, SJ_CHIDORI ); }
+void Cmd_Katon_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_KATON ); }
+void Cmd_Doton_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_DOTON ); }
+void Cmd_KageBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_BUNSHIN ); }
+
+// "jutsu_begin <name>": key pressed, start timing the hold
+void Cmd_JutsuBegin_f( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	char       name[32];
+	int        jutsu;
+
+	if ( !Shinobi_CanAct( ent ) )
+		return;
+	trap->Argv( 1, name, sizeof( name ) );
+	jutsu = Shinobi_JutsuForName( name );
+	if ( jutsu == SJ_NONE )
+		return;
+
+	client->shinobi.chargeJutsu = jutsu;
+	client->shinobi.chargeStart = level.time;
+	Shinobi_StopCharging( client );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
+}
+
+// "jutsu_release": key released, cast at the level the hold reached
+void Cmd_JutsuRelease_f( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	int        jutsu = client->shinobi.chargeJutsu;
+
+	if ( jutsu == SJ_NONE )
+		return;
+	client->shinobi.chargeJutsu = SJ_NONE;
+	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevel( level.time - client->shinobi.chargeStart ) );
+}
+
+/*
 ==================
 Shinobi_ClientThink
 
@@ -318,6 +394,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );
+		client->shinobi.chargeJutsu = SJ_NONE;
 		return;
 	}
 
@@ -328,6 +405,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 		&& !ucmd->forwardmove && !ucmd->rightmove && ucmd->upmove <= 0
 		&& client->ps.groundEntityNum != ENTITYNUM_NONE
 		&& !SHINOBI_HAND_ANY( &client->ps )
+		&& client->shinobi.chargeJutsu == SJ_NONE
 		&& client->ps.weaponTime <= 0 ) {
 		if ( !client->ps.userInt1 ) {
 			client->ps.userInt1 = 1;
@@ -403,14 +481,21 @@ void Cmd_Shunshin_f( gentity_t *ent ) {
 	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
 	G_SoundAtLoc( client->ps.origin, CHAN_AUTO, shinobiMedia.sndPoof );
 
+	Shinobi_TeleportClient( ent, tr.endpos );
+
+	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
+}
+
+// move a client instantly (no telefrag, no teleporter effects)
+void Shinobi_TeleportClient( gentity_t *ent, vec3_t origin ) {
+	gclient_t *client = ent->client;
+
 	trap->UnlinkEntity( (sharedEntity_t *)ent );
-	VectorCopy( tr.endpos, client->ps.origin );
+	VectorCopy( origin, client->ps.origin );
 	if ( client->ps.velocity[2] < 0 )
 		client->ps.velocity[2] = 0; // don't arrive mid-fall at full speed
 	client->ps.eFlags ^= EF_TELEPORT_BIT; // tell clients not to lerp
 	BG_PlayerStateToEntityState( &client->ps, &ent->s, qtrue );
 	VectorCopy( client->ps.origin, ent->r.currentOrigin );
 	trap->LinkEntity( (sharedEntity_t *)ent );
-
-	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
 }

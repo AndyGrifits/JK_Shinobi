@@ -1,0 +1,98 @@
+repeatDelay				0
+
+// Kage Bunshin: one big, thick cloud that hides the caster and every clone
+// for about a second, then thins out. Played at the caster's feet with the
+// axis pointing up (local X = up).
+
+Particle
+{
+	name				cloud
+	flags				useAlpha
+	count				26 32
+	life				1300 1900
+	rotation			0 360
+	rotationDelta		-4 4
+	spawnFlags			orgOnCylinder
+	radius				10 90
+	height				60
+	origin				36 0 0
+	vel					0 -30 -30 30 30 30
+	size
+	{
+		start			55 75
+		end				95 130
+	}
+	rgb
+	{
+		start			0.82 0.82 0.84 0.95 0.95 0.97
+	}
+	alpha
+	{
+		start			0.95
+		end				0
+		flags			nonlinear
+		parm			60
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				low
+	flags				useAlpha
+	count				10 12
+	life				1100 1500
+	rotation			0 360
+	spawnFlags			orgOnCylinder
+	radius				40 120
+	height				8
+	origin				6 0 0
+	vel					0 -60 -60 10 60 60
+	size
+	{
+		start			45 60
+		end				80 100
+	}
+	rgb
+	{
+		start			0.8 0.8 0.82
+	}
+	alpha
+	{
+		start			0.85
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				flash
+	count				1
+	life				160
+	origin				36 0 0
+	size
+	{
+		start			40
+		end				110
+	}
+	rgb
+	{
+		start			0.9 0.9 1
+	}
+	alpha
+	{
+		start			0.6
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}

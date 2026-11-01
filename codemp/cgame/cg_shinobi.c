@@ -1,27 +1,37 @@
 /*
 ===========================================================================
-JK_Shinobi - client-side jutsu visuals and HUD.
+JK_Shinobi - client side: jutsu hold input and charge bars, per-frame
+jutsu visuals, HUD text and diagnostics.
 
-Reads the jutsu flags that the server puts in entityState/playerState user
-fields (see game/bg_shinobi.h) and plays the matching effects. Also draws
-the fireball entity, which has no model of its own.
+Visuals that must stay glued to something (the ball in a hand, the flying
+fireball) are drawn as sprites every frame; effect files (.efx) are only
+used for loose particles (sparks, smoke, embers) and one-shot bursts.
 ===========================================================================
 */
 #include "cg_local.h"
 #include "game/bg_shinobi.h"
 #include "ui/menudef.h"
+#include "fx_local.h"
 
-#define SHINOBI_HAND_FX_INTERVAL  40   // ms between hand effect spawns (effects live ~80ms)
+#define SHINOBI_HAND_FX_INTERVAL  60   // ms between hand spark effects
 #define SHINOBI_AURA_FX_INTERVAL  70
-#define SHINOBI_BALL_FX_INTERVAL  25
+#define SHINOBI_BALL_FX_INTERVAL  40
+
+static struct {
+	qhandle_t glow, swirl, bolt, fire, spark;
+} shinobiShaders;
+
+// the jutsu key being held on this client (for the charge bars)
+static struct {
+	int jutsu;
+	int start;
+} shinobiCharge;
 
 /*
 ===========================================================================
-Diagnostics: everything is printed with a "[shinobi]" prefix so it can be
-pulled out of qconsole.log (launchers set logfile 2).
+Diagnostics: "[shinobi]" lines in qconsole.log; "shinobi_debug 1" for more.
 ===========================================================================
 */
-// "shinobi_debug 1" prints state changes and asset checks (the self-test sets it)
 static qboolean CG_ShinobiDebug( void ) {
 	char buf[16];
 	trap->Cvar_VariableStringBuffer( "shinobi_debug", buf, sizeof( buf ) );
@@ -58,33 +68,107 @@ void CG_ShinobiDiag_f( void ) {
 	trap->Print( "[shinobi] cgame module built " __DATE__ " " __TIME__ ", fs_game '%s', renderer '%s'\n", fsGame, renderer );
 
 	CG_ShinobiCheckFile( "shaders/shinobi.shader" );
-	CG_ShinobiCheckFile( "gfx/shinobi/glow.tga" );
-	CG_ShinobiCheckFile( "effects/shinobi/rasengan_hand.efx" );
-	CG_ShinobiCheckFile( "effects/shinobi/chakra_aura.efx" );
+	CG_ShinobiCheckFile( "gfx/shinobi/fire.tga" );
+	CG_ShinobiCheckFile( "effects/shinobi/rasengan_hit_2.efx" );
+	CG_ShinobiCheckFile( "effects/shinobi/clone_smoke.efx" );
 	CG_ShinobiCheckFile( "models/shinobi/earth_pillar1.md3" );
 	CG_ShinobiCheckFile( "ext_data/NPCs/shinobi.npc" );
-	CG_ShinobiCheckFile( "shinobi_binds.cfg" );
 
-	trap->Print( "[shinobi] fx handles: rasenganHand %i rasenganForm %i chidoriHand %i chidoriForm %i aura %i fireball %i\n",
-		cgs.effects.shinobiRasenganHand, cgs.effects.shinobiRasenganForm,
-		cgs.effects.shinobiChidoriHand, cgs.effects.shinobiChidoriForm,
-		cgs.effects.shinobiChakraAura, cgs.effects.shinobiFireball );
-	trap->Print( "[shinobi] local player flags: userInt1 %i userInt2 %i userInt3 %i, legsAnim %i torsoAnim %i\n",
+	trap->Print( "[shinobi] handles: fx hand %i/%i aura %i trail %i, shaders glow %i swirl %i bolt %i fire %i\n",
+		cgs.effects.shinobiRasenganHand, cgs.effects.shinobiChidoriHand, cgs.effects.shinobiChakraAura,
+		cgs.effects.shinobiFireballTrail, shinobiShaders.glow, shinobiShaders.swirl, shinobiShaders.bolt, shinobiShaders.fire );
+	trap->Print( "[shinobi] local player: userInt %i%i%i hand level %i, chakra %i\n",
 		cg.predictedPlayerState.userInt1, cg.predictedPlayerState.userInt2, cg.predictedPlayerState.userInt3,
-		cg.predictedPlayerState.legsAnim, cg.predictedPlayerState.torsoAnim );
+		SHINOBI_HAND_LEVEL( &cg.predictedPlayerState ), cg.predictedPlayerState.fd.forcePower );
 }
 
 void CG_ShinobiRegisterMedia( void ) {
-	cgs.effects.shinobiRasenganHand = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_HAND );
-	cgs.effects.shinobiRasenganForm = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_FORM );
-	cgs.effects.shinobiChidoriHand  = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_HAND );
-	cgs.effects.shinobiChidoriForm  = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_FORM );
-	cgs.effects.shinobiChakraAura   = CG_ShinobiRegisterFx( SHINOBI_FX_CHAKRA_AURA );
-	cgs.effects.shinobiFireball     = CG_ShinobiRegisterFx( SHINOBI_FX_FIREBALL );
+	cgs.effects.shinobiRasenganHand  = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_HAND );
+	cgs.effects.shinobiRasenganForm  = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_FORM );
+	cgs.effects.shinobiChidoriHand   = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_HAND );
+	cgs.effects.shinobiChidoriForm   = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_FORM );
+	cgs.effects.shinobiChakraAura    = CG_ShinobiRegisterFx( SHINOBI_FX_CHAKRA_AURA );
+	cgs.effects.shinobiFireballTrail = CG_ShinobiRegisterFx( SHINOBI_FX_FIREBALL_TRAIL );
 	// one-shot effects played by the server are registered through configstrings
+
+	shinobiShaders.glow  = trap->R_RegisterShader( "gfx/shinobi/glow" );
+	shinobiShaders.swirl = trap->R_RegisterShader( "gfx/shinobi/swirl" );
+	shinobiShaders.bolt  = trap->R_RegisterShader( "gfx/shinobi/bolt" );
+	shinobiShaders.fire  = trap->R_RegisterShader( "gfx/shinobi/fire" );
+	shinobiShaders.spark = trap->R_RegisterShader( "gfx/shinobi/spark" );
+
+	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
+}
+
+/*
+===========================================================================
+Hold-to-charge input: "+rasengan" / "-rasengan" etc. (bound to keys)
+===========================================================================
+*/
+static qboolean CG_ShinobiCanCharge( void ) {
+	const playerState_t *ps = &cg.predictedPlayerState;
+
+	if ( !cg.snap || cg.demoPlayback )
+		return qfalse;
+	if ( ps->pm_type == PM_SPECTATOR || ps->pm_type == PM_DEAD || ps->stats[STAT_HEALTH] <= 0 )
+		return qfalse;
+	return qtrue;
+}
+
+static void CG_ShinobiJutsuDown( int jutsu ) {
+	if ( shinobiCharge.jutsu || !CG_ShinobiCanCharge() )
+		return;
+	if ( ( jutsu == SJ_RASENGAN || jutsu == SJ_CHIDORI || jutsu == SJ_KATON )
+		&& SHINOBI_HAND_ANY( &cg.predictedPlayerState ) )
+		return; // hands busy
+	shinobiCharge.jutsu = jutsu;
+	shinobiCharge.start = cg.time;
+	trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
+}
+
+static void CG_ShinobiJutsuUp( int jutsu ) {
+	if ( shinobiCharge.jutsu != jutsu )
+		return;
+	shinobiCharge.jutsu = SJ_NONE;
+	trap->SendClientCommand( "jutsu_release" );
+}
+
+void CG_ShinobiRasenganDown_f( void )    { CG_ShinobiJutsuDown( SJ_RASENGAN ); }
+void CG_ShinobiRasenganUp_f( void )      { CG_ShinobiJutsuUp( SJ_RASENGAN ); }
+void CG_ShinobiChidoriDown_f( void )     { CG_ShinobiJutsuDown( SJ_CHIDORI ); }
+void CG_ShinobiChidoriUp_f( void )       { CG_ShinobiJutsuUp( SJ_CHIDORI ); }
+void CG_ShinobiKatonDown_f( void )       { CG_ShinobiJutsuDown( SJ_KATON ); }
+void CG_ShinobiKatonUp_f( void )         { CG_ShinobiJutsuUp( SJ_KATON ); }
+void CG_ShinobiDotonDown_f( void )       { CG_ShinobiJutsuDown( SJ_DOTON ); }
+void CG_ShinobiDotonUp_f( void )         { CG_ShinobiJutsuUp( SJ_DOTON ); }
+void CG_ShinobiKageBunshinDown_f( void ) { CG_ShinobiJutsuDown( SJ_BUNSHIN ); }
+void CG_ShinobiKageBunshinUp_f( void )   { CG_ShinobiJutsuUp( SJ_BUNSHIN ); }
+
+/*
+===========================================================================
+Sprite helpers
+===========================================================================
+*/
+static void CG_ShinobiSprite( const vec3_t org, float radius, float rotation, qhandle_t shader, float r, float g, float b ) {
+	refEntity_t ent;
+
+	if ( !shader || radius <= 0 )
+		return;
+	memset( &ent, 0, sizeof( ent ) );
+	ent.reType = RT_SPRITE;
+	VectorCopy( org, ent.origin );
+	ent.radius = radius;
+	ent.rotation = rotation;
+	ent.customShader = shader;
+	ent.shaderRGBA[0] = (byte)( Com_Clamp( 0, 1, r ) * 255 );
+	ent.shaderRGBA[1] = (byte)( Com_Clamp( 0, 1, g ) * 255 );
+	ent.shaderRGBA[2] = (byte)( Com_Clamp( 0, 1, b ) * 255 );
+	ent.shaderRGBA[3] = 255;
+	ent.renderfx = RF_NOSHADOW;
+	trap->R_AddRefEntityToScene( &ent );
 }
 
 static void CG_ShinobiHandOrigin( centity_t *cent, clientInfo_t *ci, vec3_t out ) {
@@ -107,35 +191,110 @@ static void CG_ShinobiHandOrigin( centity_t *cent, clientInfo_t *ci, vec3_t out 
 	}
 }
 
+/*
+Rasengan: a dense, spinning ball of chakra. Several swirl layers turning in
+opposite directions at different speeds, a white-hot core and a soft halo.
+*/
+static void CG_ShinobiDrawRasengan( const vec3_t org, float radius, qboolean forming ) {
+	const float t = cg.time * 0.001f;
+	const float pulse = 1.0f + 0.06f * sinf( t * 25.0f );
+	float r = radius * pulse;
+
+	if ( forming )
+		r *= 0.55f + 0.1f * sinf( t * 40.0f );
+
+	CG_ShinobiSprite( org, r * 2.2f, 0, shinobiShaders.glow, 0.10f, 0.30f, 0.80f );          // halo
+	CG_ShinobiSprite( org, r * 1.35f, t * 900.0f, shinobiShaders.swirl, 0.25f, 0.55f, 1.0f );  // outer swirl
+	CG_ShinobiSprite( org, r * 1.20f, -t * 1300.0f, shinobiShaders.swirl, 0.30f, 0.65f, 1.0f );
+	CG_ShinobiSprite( org, r * 1.00f, t * 1700.0f + 60, shinobiShaders.swirl, 0.45f, 0.75f, 1.0f );
+	CG_ShinobiSprite( org, r * 0.85f, -t * 2300.0f + 120, shinobiShaders.swirl, 0.55f, 0.85f, 1.0f );
+	CG_ShinobiSprite( org, r * 0.70f, 0, shinobiShaders.glow, 0.85f, 0.95f, 1.0f );            // core
+	CG_ShinobiSprite( org, r * 0.40f, 0, shinobiShaders.glow, 1.0f, 1.0f, 1.0f );
+}
+
+/*
+Chidori: a crackling knot of lightning. Bolts are re-rolled every frame so
+the ball never looks the same twice.
+*/
+static void CG_ShinobiDrawChidori( const vec3_t org, float radius, qboolean forming ) {
+	const int bolts = forming ? 3 : 7;
+	const float r = forming ? radius * 0.6f : radius;
+	int i;
+
+	CG_ShinobiSprite( org, r * 2.4f, 0, shinobiShaders.glow, 0.15f, 0.30f, 0.75f );
+	CG_ShinobiSprite( org, r * 0.8f, 0, shinobiShaders.glow, 0.75f, 0.85f, 1.0f );
+	CG_ShinobiSprite( org, r * 0.45f, 0, shinobiShaders.glow, 1.0f, 1.0f, 1.0f );
+	for ( i = 0; i < bolts; i++ ) {
+		const float k = flrand( 0.6f, 1.0f );
+		vec3_t p;
+		VectorSet( p, org[0] + flrand( -1.0f, 1.0f ) * r * 0.3f, org[1] + flrand( -1.0f, 1.0f ) * r * 0.3f, org[2] + flrand( -1.0f, 1.0f ) * r * 0.3f );
+		CG_ShinobiSprite( p, r * flrand( 1.2f, 2.4f ), flrand( 0, 360 ), shinobiShaders.bolt, 0.55f * k, 0.75f * k, 1.0f * k );
+	}
+}
+
+// Chidori dash: a fading streak of lightning along the path of the hand
+static void CG_ShinobiChidoriTrail( centity_t *cent, const vec3_t org, float radius ) {
+	vec3_t white = { 1, 1, 1 }, blue = { 0.45f, 0.65f, 1.0f };
+
+	if ( cent->shinobiTrailTime && cg.time - cent->shinobiTrailTime < 200
+		&& Distance( cent->shinobiTrailPrev, org ) > 1.0f ) {
+		trap->FX_AddLine( cent->shinobiTrailPrev, (float *)org, radius * 1.6f, radius * 0.2f, 0.0f,
+			1.0f, 0.0f, 0.0f, blue, blue, 0.0f, 260, shinobiShaders.bolt, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+		trap->FX_AddLine( cent->shinobiTrailPrev, (float *)org, radius * 0.5f, 0.1f, 0.0f,
+			1.0f, 0.0f, 0.0f, white, blue, 0.0f, 180, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
+	VectorCopy( org, cent->shinobiTrailPrev );
+	cent->shinobiTrailTime = cg.time;
+}
+
 void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 	entityState_t *s = &cent->currentState;
 	vec3_t org, up = { 0, 0, 1 };
 
 	if ( s->eFlags & EF_DEAD ) {
+		cent->shinobiTrailTime = 0;
 		return;
 	}
 
 	if ( SHINOBI_HAND_ANY( s ) ) {
 		const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( s );
+		const qboolean forming = SHINOBI_HAND_FORMING( s );
+		int li = SHINOBI_HAND_LEVEL( s ) - 1;
+		float radius;
+
+		if ( li < 0 || li >= SHINOBI_MAX_LEVEL )
+			li = 0;
+		radius = chidori ? shinobiChidoriRadius[li] : shinobiRasenganRadius[li];
 
 		CG_ShinobiHandOrigin( cent, ci, org );
 
+		if ( chidori ) {
+			const float f = 0.6f + 0.4f * flrand( 0.0f, 1.0f );
+			CG_ShinobiDrawChidori( org, radius, forming );
+			trap->R_AddLightToScene( org, ( 100 + 60 * li ) * f, 0.55f * f, 0.75f * f, 1.0f * f );
+			if ( SHINOBI_HAND_DASH( s ) )
+				CG_ShinobiChidoriTrail( cent, org, radius );
+			else
+				cent->shinobiTrailTime = 0;
+		}
+		else {
+			CG_ShinobiDrawRasengan( org, radius, forming );
+			trap->R_AddLightToScene( org, 90 + 50 * li, 0.3f, 0.6f, 1.0f );
+		}
+
+		// loose sparks around the hand
 		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
 			fxHandle_t fx;
-
-			if ( SHINOBI_HAND_FORMING( s ) )
+			if ( forming )
 				fx = chidori ? cgs.effects.shinobiChidoriForm : cgs.effects.shinobiRasenganForm;
 			else
 				fx = chidori ? cgs.effects.shinobiChidoriHand : cgs.effects.shinobiRasenganHand;
-
 			trap->FX_PlayEffectID( fx, org, up, -1, -1, qfalse );
 			cent->shinobiHandFxTime = cg.time + SHINOBI_HAND_FX_INTERVAL;
 		}
-
-		if ( chidori ) { // flickering lightning glow every frame
-			const float f = 0.6f + 0.4f * flrand( 0.0f, 1.0f );
-			trap->R_AddLightToScene( org, 120 + 80 * f, 0.55f * f, 0.75f * f, 1.0f * f );
-		}
+	}
+	else {
+		cent->shinobiTrailTime = 0;
 	}
 
 	if ( SHINOBI_CHARGING( s ) ) {
@@ -153,31 +312,98 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 CG_ShinobiEntity
 
 Draws mod entities that have no model. Returns qtrue if it handled the entity.
+
+Great fireball: a dense churning ball - stacked layers of the fire texture
+spinning against each other around a white-hot core, inside an orange
+glow - plus a short trail of embers and smoke from an effect file.
 ==================
 */
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
+	const float    t = cg.time * 0.001f;
+	vec3_t         dir;
+	float          R, flick;
+	int            li;
 
-	if ( s->eType != ET_GENERAL || s->generic1 != SHINOBI_ENT_FIREBALL ) {
+	if ( s->eType != ET_GENERAL || s->generic1 < SHINOBI_ENT_FIREBALL || s->generic1 >= SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL ) {
 		return qfalse;
 	}
+	li = s->generic1 - SHINOBI_ENT_FIREBALL;
+	R = shinobiFireballVisual[li];
+	flick = 0.9f + 0.1f * flrand( 0.0f, 1.0f );
 
-	{
-		vec3_t dir;
-		const float f = 0.8f + 0.2f * flrand( 0.0f, 1.0f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 2.3f * flick, 0, shinobiShaders.glow, 0.45f, 0.16f, 0.02f );           // heat haze glow
+	CG_ShinobiSprite( cent->lerpOrigin, R * 1.30f, t * 260.0f, shinobiShaders.fire, 0.80f, 0.35f, 0.10f );         // outer flames
+	CG_ShinobiSprite( cent->lerpOrigin, R * 1.15f, -t * 380.0f + 90, shinobiShaders.fire, 0.85f, 0.45f, 0.12f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.95f, t * 520.0f + 200, shinobiShaders.fire, 0.80f, 0.50f, 0.20f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.80f, -t * 700.0f + 300, shinobiShaders.fire, 0.70f, 0.50f, 0.25f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.45f * flick, 0, shinobiShaders.glow, 0.90f, 0.75f, 0.45f );          // core
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.25f, 0, shinobiShaders.glow, 1.0f, 0.95f, 0.80f );
 
-		VectorCopy( s->pos.trDelta, dir );
-		if ( VectorNormalize( dir ) == 0 ) {
-			VectorSet( dir, 0, 0, 1 );
-		}
-
-		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
-			trap->FX_PlayEffectID( cgs.effects.shinobiFireball, cent->lerpOrigin, dir, -1, -1, qfalse );
-			cent->shinobiHandFxTime = cg.time + SHINOBI_BALL_FX_INTERVAL;
-		}
-		trap->R_AddLightToScene( cent->lerpOrigin, 260 * f, 1.0f, 0.55f, 0.15f );
+	VectorCopy( s->pos.trDelta, dir );
+	if ( VectorNormalize( dir ) == 0 ) {
+		VectorSet( dir, 0, 0, 1 );
 	}
+	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+		trap->FX_PlayEffectID( cgs.effects.shinobiFireballTrail, cent->lerpOrigin, dir, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + SHINOBI_BALL_FX_INTERVAL;
+	}
+	trap->R_AddLightToScene( cent->lerpOrigin, ( 180 + 90 * li ) * flick, 1.0f, 0.55f, 0.15f );
 	return qtrue;
+}
+
+/*
+===========================================================================
+HUD: status text and the three charge bars
+===========================================================================
+*/
+static void CG_ShinobiDrawChargeBars( void ) {
+	static const vec4_t barColor[SHINOBI_MAX_LEVEL] = {
+		{ 0.35f, 0.80f, 1.00f, 0.95f },  // level 1: blue
+		{ 1.00f, 0.85f, 0.25f, 0.95f },  // level 2: yellow
+		{ 1.00f, 0.35f, 0.15f, 0.95f },  // level 3: red
+	};
+	static const int barEnd[SHINOBI_MAX_LEVEL] = { SHINOBI_BAR1_MS, SHINOBI_BAR2_MS, SHINOBI_BAR3_MS };
+	const vec4_t back = { 0.0f, 0.0f, 0.0f, 0.55f };
+	const vec4_t locked = { 0.45f, 0.12f, 0.12f, 0.8f };
+	const vec4_t frame = { 1.0f, 1.0f, 1.0f, 0.35f };
+	const float  barW = 64, barH = 8, gap = 6, y = 384;
+	const float  x0 = ( SCREEN_WIDTH - ( barW * 3 + gap * 2 ) ) * 0.5f;
+	const int    chakra = cg.predictedPlayerState.fd.forcePower;
+	const int    held = cg.time - shinobiCharge.start;
+	const int    lvl = Shinobi_ChargeLevel( held );
+	int          shown = lvl, i;
+	const char  *label;
+	vec4_t       textColor = { 1, 1, 1, 1 };
+
+	while ( shown > 1 && chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) )
+		shown--;
+
+	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
+		const int   begin = i ? barEnd[i - 1] : 0;
+		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( barEnd[i] - begin ) );
+		const float x = x0 + i * ( barW + gap );
+		const qboolean affordable = chakra >= Shinobi_JutsuCost( shinobiCharge.jutsu, i + 1 );
+
+		CG_FillRect( x, y, barW, barH, back );
+		if ( fill > 0 )
+			CG_FillRect( x, y, barW * fill, barH, affordable ? barColor[i] : locked );
+		CG_DrawRect( x, y, barW, barH, 1, frame );
+	}
+
+	if ( chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) ) {
+		label = va( "%s - not enough chakra (%i)", shinobiJutsuNames[shinobiCharge.jutsu], Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) );
+		VectorSet( textColor, 1, 0.4f, 0.4f );
+	}
+	else {
+		label = va( "%s  Lv %i  (%i chakra)", shinobiJutsuNames[shinobiCharge.jutsu], shown, Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) );
+		VectorCopy( barColor[shown - 1], textColor );
+	}
+	{
+		const float scale = 0.6f;
+		const int w = CG_Text_Width( label, scale, FONT_MEDIUM );
+		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, y - 18, scale, textColor, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	}
 }
 
 void CG_ShinobiDrawHUD( void ) {
@@ -187,21 +413,26 @@ void CG_ShinobiDrawHUD( void ) {
 	const float    scale = 0.7f;
 	const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( ps );
 
-	{ // log every change of the local jutsu flags (cheap: only on change)
+	{ // with shinobi_debug 1, log every change of the local jutsu flags
 		static int lastFlags = -1;
 		const int flags = ( ps->userInt1 ? 1 : 0 ) | ( ps->userInt2 ? 2 : 0 ) | ( ps->userInt3 ? 4 : 0 );
 		if ( flags != lastFlags && CG_ShinobiDebug() ) {
-			trap->Print( "[shinobi] local flags %i%i%i charging %i hand %i chidori %i forming %i armed %i dash %i chakra %i\n",
+			trap->Print( "[shinobi] local flags %i%i%i charging %i hand %i chidori %i level %i forming %i armed %i dash %i chakra %i\n",
 				ps->userInt1 ? 1 : 0, ps->userInt2 ? 1 : 0, ps->userInt3 ? 1 : 0,
-				SHINOBI_CHARGING( ps ) ? 1 : 0, SHINOBI_HAND_ANY( ps ) ? 1 : 0, SHINOBI_HAND_IS_CHIDORI( ps ) ? 1 : 0,
+				SHINOBI_CHARGING( ps ) ? 1 : 0, SHINOBI_HAND_ANY( ps ) ? 1 : 0, chidori ? 1 : 0, SHINOBI_HAND_LEVEL( ps ),
 				SHINOBI_HAND_FORMING( ps ) ? 1 : 0, SHINOBI_HAND_ARMED( ps ) ? 1 : 0, SHINOBI_HAND_DASH( ps ) ? 1 : 0,
 				ps->fd.forcePower );
 			lastFlags = flags;
 		}
 	}
 
-	if ( ps->pm_type == PM_SPECTATOR || ps->stats[STAT_HEALTH] <= 0 ) {
+	if ( !CG_ShinobiCanCharge() ) {
+		shinobiCharge.jutsu = SJ_NONE;
 		return;
+	}
+
+	if ( shinobiCharge.jutsu ) {
+		CG_ShinobiDrawChargeBars();
 	}
 
 	if ( SHINOBI_CHARGING( ps ) ) {
@@ -211,12 +442,12 @@ void CG_ShinobiDrawHUD( void ) {
 		text = chidori ? "Chidori forming..." : "Rasengan forming...";
 	}
 	else if ( SHINOBI_HAND_ARMED( ps ) ) {
-		text = chidori ? "CHIDORI - ATTACK!" : "RASENGAN - ATTACK!";
+		text = va( "%s Lv %i - ATTACK!", chidori ? "CHIDORI" : "RASENGAN", SHINOBI_HAND_LEVEL( ps ) );
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.012f );
 	}
 
 	if ( text ) {
 		const int w = CG_Text_Width( text, scale, FONT_MEDIUM );
-		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 360, scale, color, text, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 340, scale, color, text, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 	}
 }

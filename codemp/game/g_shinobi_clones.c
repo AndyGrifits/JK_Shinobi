@@ -167,7 +167,6 @@ static void Shinobi_CloneApplyTeam( gentity_t *clone, gentity_t *owner ) {
 
 static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 	gentity_t *spawner, *clone;
-	vec3_t     up = { 0, 0, 1 };
 
 	spawner = G_Spawn();
 	if ( !spawner )
@@ -206,41 +205,49 @@ static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 		clone->s.npcSaber1 = G_ModelIndex( va( "@%s", owner->client->saber[0].name ) );
 	}
 
-	G_PlayEffectID( shinobiMedia.fxClonePoof, origin, up );
 	return clone;
 }
 
-void Cmd_KageBunshin_f( gentity_t *ent ) {
+qboolean Shinobi_CastKageBunshin( gentity_t *ent, int lvl ) {
 	gclient_t *client = ent->client;
 	// right, left, then behind and the diagonals: corridors still work
 	static const float yaws[] = { -90, 90, 180, -135, 135, -45, 45, 0 };
-	vec3_t spots[SHINOBI_CLONE_COUNT];
-	int i, spawned = 0;
-
-	if ( !Shinobi_CanAct( ent ) )
-		return;
-	if ( client->ps.fd.forcePower < SHINOBI_CLONE_COST ) {
-		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		trap->SendServerCommand( ent - g_entities, va( "cp \"Not enough chakra (%i/%i)\"", client->ps.fd.forcePower, SHINOBI_CLONE_COST ) );
-		return;
-	}
+	vec3_t     spots[SHINOBI_CLONE_MAX];
+	vec3_t     up = { 0, 0, 1 }, smoke;
+	int        i, found = 0, swap;
+	const int  wanted = lvl < 1 ? 1 : ( lvl > SHINOBI_CLONE_MAX ? SHINOBI_CLONE_MAX : lvl );
 
 	Shinobi_RemoveClones( ent->s.number ); // recast replaces the old ones
 
-	for ( i = 0; i < (int)ARRAY_LEN( yaws ) && spawned < SHINOBI_CLONE_COUNT; i++ ) {
-		if ( Shinobi_CloneSpot( ent, yaws[i], spots, spawned, spots[spawned] ) && Shinobi_SpawnClone( ent, spots[spawned] ) )
-			spawned++;
+	for ( i = 0; i < (int)ARRAY_LEN( yaws ) && found < wanted; i++ ) {
+		if ( Shinobi_CloneSpot( ent, yaws[i], spots, found, spots[found] ) )
+			found++;
 	}
-
-	if ( !spawned ) {
+	if ( !found ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, "cp \"No room for clones\"" );
-		return;
+		return qfalse;
 	}
 
-	client->ps.fd.forcePower -= SHINOBI_CLONE_COST;
-	Shinobi_StopCharging( client );
-	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndPoof );
+	// one big smoke cloud hides the caster and every clone...
+	VectorCopy( client->ps.origin, smoke );
+	G_PlayEffectID( shinobiMedia.fxCloneSmoke, smoke, up );
+	G_SoundAtLoc( smoke, CHAN_AUTO, shinobiMedia.sndPoof );
+
+	// ...and the original ends up in a random one of the spots
+	swap = Q_irand( 0, found ); // == found: the original stays where it is
+	if ( swap < found ) {
+		vec3_t newSpot;
+		VectorCopy( spots[swap], newSpot );
+		VectorCopy( client->ps.origin, spots[swap] );
+		Shinobi_TeleportClient( ent, newSpot );
+	}
+
+	for ( i = 0; i < found; i++ ) {
+		Shinobi_SpawnClone( ent, spots[i] );
+	}
+	client->shinobi.cloneDrainNext = level.time + SHINOBI_CLONE_DRAIN_MS;
+	return qtrue;
 }
 
 static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
@@ -306,8 +313,36 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 	}
 }
 
-void Shinobi_RunFrame( void ) {
+// living clones slowly drain their owner's chakra (and stop its natural regen);
+// when the owner runs dry, the clones vanish
+static void Shinobi_CloneDrain( const int clonesPerOwner[MAX_CLIENTS] ) {
 	int i;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *owner = &g_entities[i];
+		gclient_t *client = owner->client;
+
+		if ( !clonesPerOwner[i] || !owner->inuse || !client )
+			continue;
+
+		client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+		if ( client->shinobi.cloneDrainNext > level.time )
+			continue;
+		client->shinobi.cloneDrainNext = level.time + SHINOBI_CLONE_DRAIN_MS;
+		client->ps.fd.forcePower -= clonesPerOwner[i];
+		if ( client->ps.fd.forcePower <= 0 ) {
+			client->ps.fd.forcePower = 0;
+			Shinobi_RemoveClones( i );
+			trap->SendServerCommand( i, "cp \"Out of chakra: the clones vanish\"" );
+		}
+	}
+}
+
+void Shinobi_RunFrame( void ) {
+	int clonesPerOwner[MAX_CLIENTS];
+	int i;
+
+	memset( clonesPerOwner, 0, sizeof( clonesPerOwner ) );
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *clone = &g_entities[i];
@@ -325,9 +360,14 @@ void Shinobi_RunFrame( void ) {
 			continue;
 		}
 
+		if ( owner->s.number < MAX_CLIENTS )
+			clonesPerOwner[owner->s.number]++;
+
 		if ( clone->shinobiCloneThink <= level.time ) {
 			clone->shinobiCloneThink = level.time + SHINOBI_CLONE_THINK_MS;
 			Shinobi_CloneSupervise( clone, owner );
 		}
 	}
+
+	Shinobi_CloneDrain( clonesPerOwner );
 }

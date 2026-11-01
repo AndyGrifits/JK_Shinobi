@@ -398,6 +398,12 @@ void WP_InitForcePowers( gentity_t *ent ) {
 			trap->SendServerCommand( ent-g_entities, va( "print \"The server has one or more force powers that you have chosen disabled.\nYou will not be able to use the disable force power(s) while playing on this server.\n\"" ) );
 	}
 
+	// JK_Shinobi: every ninja can run along walls (side wall runs need Force Jump 2)
+	if ( ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] < FORCE_LEVEL_2 ) {
+		ent->client->ps.fd.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_2;
+		ent->client->ps.fd.forcePowersKnown |= ( 1 << FP_LEVITATION );
+	}
+
 	for ( i=0; i<NUM_FORCE_POWERS; i++ ) {
 		if ( (ent->client->ps.fd.forcePowersKnown & (1 << i)) && !ent->client->ps.fd.forcePowerLevel[i] )
 			ent->client->ps.fd.forcePowersKnown &= ~(1 << i);

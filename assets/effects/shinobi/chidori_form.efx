@@ -9,7 +9,7 @@ Particle
 	life				40 70
 	rotation			0 360
 	spawnFlags			orgOnSphere
-	radius				4 12
+	radius				4 14
 	size
 	{
 		start			5 10
@@ -21,24 +21,5 @@ Particle
 	shaders
 	[
 		gfx/shinobi/bolt
-	]
-}
-
-Particle
-{
-	name				core
-	count				1
-	life				60
-	size
-	{
-		start			2 4
-	}
-	rgb
-	{
-		start			0.8 0.9 1
-	}
-	shaders
-	[
-		gfx/shinobi/glow
 	]
 }

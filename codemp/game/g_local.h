@@ -810,6 +810,9 @@ struct gclient_s {
 		int		handSoundNext;	// Chidori chirp repeat
 		int		fireballNext;	// cooldown end
 		int		wallNext;		// cooldown end
+		int		chargeJutsu;	// shinobiJutsu_t being held (SJ_NONE = 0)
+		int		chargeStart;	// level.time the jutsu key went down
+		int		cloneDrainNext;	// next chakra drain tick for living shadow clones
 	} shinobi;
 };
 
@@ -1384,6 +1387,8 @@ void Cmd_Rasengan_f( gentity_t *ent );
 void Cmd_Chidori_f( gentity_t *ent );
 void Cmd_Katon_f( gentity_t *ent );
 void Cmd_Doton_f( gentity_t *ent );
+void Cmd_JutsuBegin_f( gentity_t *ent );
+void Cmd_JutsuRelease_f( gentity_t *ent );
 void Cmd_Shunshin_f( gentity_t *ent );
 void Cmd_KageBunshin_f( gentity_t *ent );
 void Shinobi_RunFrame( void );

@@ -107,3 +107,14 @@ models/shinobi/earth_rock
 		rgbGen lightingDiffuse
 	}
 }
+
+// Great fireball layers (full-colour texture, additive, tinted by the cgame)
+gfx/shinobi/fire
+{
+	cull none
+	{
+		map gfx/shinobi/fire
+		blendFunc GL_ONE GL_ONE
+		rgbGen vertex
+	}
+}
