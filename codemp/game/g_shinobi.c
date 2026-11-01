@@ -19,6 +19,12 @@ shinobiMedia_t shinobiMedia;
 static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back );
 static void     Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd );
 
+void Shinobi_EffectDir( int fx, vec3_t org, vec3_t dir ) {
+	vec3_t angles;
+	vectoangles( dir, angles );
+	G_PlayEffectID( fx, org, angles );
+}
+
 int Shinobi_LevelEffect( const char *base, int level ) {
 	return G_EffectIndex( va( "%s_%i", base, level ) );
 }
@@ -261,7 +267,7 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 		}
 	}
 
-	G_PlayEffectID( chidori ? shinobiMedia.fxChidoriHit[li] : shinobiMedia.fxRasenganHit[li], point, dir );
+	Shinobi_EffectDir( chidori ? shinobiMedia.fxChidoriHit[li] : shinobiMedia.fxRasenganHit[li], point, dir );
 	G_SoundAtLoc( point, CHAN_AUTO, chidori ? shinobiMedia.sndChidoriHit : shinobiMedia.sndRasenganHit );
 	Shinobi_ClearHand( client );
 }
@@ -371,6 +377,8 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_SUITON:   cast = Shinobi_CastSuiton( ent, lvl ); break;
 	case SJ_FUTON:    cast = Shinobi_CastFuton( ent, lvl ); break;
 	case SJ_SUIRO:    cast = Shinobi_CastSuiro( ent, lvl ); break;
+	case SJ_WAVE:     cast = Shinobi_CastWave( ent, lvl ); break;
+	case SJ_BLADE:    cast = Shinobi_CastBlade( ent, lvl ); break;
 	default: break;
 	}
 
@@ -406,6 +414,12 @@ void Cmd_Kawarimi_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_KAWARIMI
 void Cmd_Suiton_f( gentity_t *ent )      { Shinobi_CastCommand( ent, SJ_SUITON ); }
 void Cmd_Futon_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FUTON ); }
 void Cmd_Suiro_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_SUIRO ); }
+void Cmd_Wave_f( gentity_t *ent )        { Shinobi_CastCommand( ent, SJ_WAVE ); }
+void Cmd_WindBlade_f( gentity_t *ent )   { Shinobi_CastCommand( ent, SJ_BLADE ); }
+void Cmd_PushWall_f( gentity_t *ent ) {
+	if ( Shinobi_CanAct( ent ) && !ent->client->shinobi.prisonCaster )
+		Shinobi_PushWall( ent );
+}
 
 // "jutsu_begin <name>": key pressed, start timing the hold
 void Cmd_JutsuBegin_f( gentity_t *ent ) {
@@ -424,6 +438,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
 	}
+	if ( jutsu == SJ_DOTON && !client->shinobi.prisonCaster && Shinobi_PushWall( ent ) )
+		return; // our wall was right in front: F shoves it forward instead of raising a new one
 	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
 		Shinobi_Cast( ent, jutsu, 1 );
 		if ( client->shinobi.prisonTarget )
@@ -577,12 +593,12 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 	Shinobi_StopCharging( client );
 
 	// smoke and leaves where we were, and where we land
-	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, client->ps.origin, dir );
 	G_SoundAtLoc( client->ps.origin, CHAN_AUTO, shinobiMedia.sndPoof );
 
 	Shinobi_TeleportClient( ent, tr.endpos );
 
-	G_PlayEffectID( shinobiMedia.fxShunshin, client->ps.origin, dir );
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, client->ps.origin, dir );
 	return qtrue;
 }
 

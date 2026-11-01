@@ -10334,6 +10334,11 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_MUD_SLOW );
 		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_MUD_SLOW );
 	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_PUDDLE )
+	{ // splashing through a puddle
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_PUDDLE_SLOW );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_PUDDLE_SLOW );
+	}
 
 	PM_ShinobiWallRun();
 

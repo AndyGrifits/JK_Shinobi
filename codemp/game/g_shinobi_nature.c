@@ -36,6 +36,7 @@ void Shinobi_NatureInit( void ) {
 	for ( i = 1; i <= SHINOBI_MAX_LEVEL; i++ ) {
 		m->fxWaterSplash[i - 1] = Shinobi_LevelEffect( SHINOBI_FX_WATER_SPLASH, i );
 		m->fxWindGust[i - 1]    = Shinobi_LevelEffect( SHINOBI_FX_WIND_GUST, i );
+		m->fxStorm[i - 1]       = Shinobi_LevelEffect( SHINOBI_FX_STORM, i );
 	}
 	m->sndHiss        = G_SoundIndex( "sound/chars/remote/misc/hiss.wav" );
 	m->sndSplash      = G_SoundIndex( "sound/player/watr_in.wav" );
@@ -211,6 +212,7 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 }
 
 static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd );
+static void Shinobi_SpawnWaterBullet( gentity_t *ent );
 
 // every client frame, before Pmove
 void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
@@ -257,6 +259,18 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_SetRawBit( &client->ps.userVec2[0], client->shinobi.prisonCaster != 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[1], client->shinobi.prisonTarget != 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[2], client->shinobi.stunEnd > level.time );
+	if ( client->shinobi.puddleEnd > level.time )
+		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_PUDDLE;
+	else
+		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_PUDDLE;
+
+	// the rest of a Water Bullets burst
+	if ( client->shinobi.burstLeft > 0 && client->shinobi.burstNext <= level.time ) {
+		client->shinobi.burstLeft--;
+		client->shinobi.burstNext = level.time + SHINOBI_WATER_BURST_MS;
+		if ( !client->shinobi.prisonCaster && ent->health > 0 )
+			Shinobi_SpawnWaterBullet( ent );
+	}
 }
 
 /*
@@ -293,6 +307,7 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 			break;
 		case SZ_WATER:
 			Shinobi_Wet( p );
+			p->client->shinobi.puddleEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
 			break;
 		case SZ_MUD:
 			p->client->shinobi.mudEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
@@ -497,7 +512,7 @@ static void Shinobi_WaterballImpact( gentity_t *ball, vec3_t pos, vec3_t normal,
 		}
 	}
 
-	G_PlayEffectID( shinobiMedia.fxWaterSplash[li], pos, normal );
+	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[li], pos, normal );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndSplash );
 	if ( Shinobi_FloorBelow( pos, 128, floor ) )
 		Shinobi_SpawnZone( SZ_WATER, floor, (float)shinobiPuddleRadius[li], shinobiPuddleLife[li],
@@ -572,17 +587,13 @@ static void Shinobi_WaterballThink( gentity_t *ball ) {
 	ball->nextthink = level.time + FRAMETIME;
 }
 
-qboolean Shinobi_CastSuiton( gentity_t *ent, int lvl ) {
+static void Shinobi_SpawnWaterBullet( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	const int  li = lvl - 1;
+	const int  li = 0; // every bullet of a burst is a level 1 bullet
 	const int  size = shinobiWaterSize[li];
 	gentity_t *ball;
 	vec3_t     fwd, eye, start, mins, maxs;
 	trace_t    tr;
-
-	if ( SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.waterNext > level.time )
-		return qfalse;
-	client->shinobi.waterNext = level.time + SHINOBI_WATER_COOLDOWN;
 
 	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
 	VectorCopy( client->ps.origin, eye );
@@ -595,11 +606,11 @@ qboolean Shinobi_CastSuiton( gentity_t *ent, int lvl ) {
 
 	ball = G_Spawn();
 	if ( !ball )
-		return qfalse;
+		return;
 	ball->classname = "shinobi_waterball";
 	ball->s.eType = ET_GENERAL;
 	ball->s.generic1 = SHINOBI_ENT_WATERBALL + li;
-	WATERBALL_LEVEL( ball ) = lvl;
+	WATERBALL_LEVEL( ball ) = li + 1;
 	ball->r.ownerNum = ent->s.number;
 	ball->parent = ent;
 	VectorCopy( mins, ball->r.mins );
@@ -617,8 +628,336 @@ qboolean Shinobi_CastSuiton( gentity_t *ent, int lvl ) {
 	trap->LinkEntity( (sharedEntity_t *)ball );
 
 	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
-	client->ps.forceHandExtendTime = level.time + 400;
+	client->ps.forceHandExtendTime = level.time + 250;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWaterCast );
+}
+
+// Water Bullets: 'lvl' bullets in a quick burst (the rest follow from StatusThink)
+qboolean Shinobi_CastSuiton( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.waterNext > level.time || client->shinobi.burstLeft )
+		return qfalse;
+	Shinobi_SpawnWaterBullet( ent );
+	client->shinobi.burstLeft = lvl - 1;
+	client->shinobi.burstNext = level.time + SHINOBI_WATER_BURST_MS;
+	client->shinobi.waterNext = level.time + SHINOBI_WATER_COOLDOWN + ( lvl - 1 ) * SHINOBI_WATER_BURST_MS;
+	return qtrue;
+}
+
+// a mass of earth (or a wave) rolling over burning ground puts it out
+void Shinobi_SmotherFire( vec3_t pos, float radius, qboolean steam ) {
+	int i;
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *z = &g_entities[i];
+		if ( Shinobi_IsZone( z ) && ZONE_TYPE( z ) == SZ_FIRE && Shinobi_ZonesOverlap( z, pos, radius ) ) {
+			vec3_t above;
+			VectorCopy( z->r.currentOrigin, above );
+			above[2] += 16;
+			Shinobi_ZoneKill( z );
+			if ( steam )
+				Shinobi_SteamAt( above, ZONE_RADIUS( z ) * 0.7f );
+		}
+	}
+}
+
+/*
+===========================================================================
+Water Wave: a low wall of water rolling along the floor
+===========================================================================
+*/
+#define WAVE_LEVEL(w)    ( (w)->genericValue2 )
+#define WAVE_END(w)      ( (w)->genericValue3 )   // distance left
+#define WAVE_PUDDLE(w)   ( (w)->genericValue4 )   // distance to the next puddle
+#define WAVE_HIT(w)      ( (w)->genericValue5 )   // clients already hit (bits)
+#define WAVE_YAW(w)      ( (w)->s.angles2[1] )
+
+static void Shinobi_WaveEnd( gentity_t *wave ) {
+	const int li = WAVE_LEVEL( wave ) - 1;
+	vec3_t    fwd, angles, pos;
+
+	VectorSet( angles, 0, WAVE_YAW( wave ), 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+	VectorCopy( wave->r.currentOrigin, pos );
+	pos[2] += SHINOBI_WAVE_HEIGHT * 0.5f;
+	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[li], pos, fwd );
+	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndSplash );
+	Shinobi_SpawnZone( SZ_WATER, wave->r.currentOrigin, shinobiWaveHalfWidth[li] * 0.9f, shinobiPuddleLife[2],
+		wave->r.ownerNum < MAX_CLIENTS ? wave->r.ownerNum + 1 : 0 );
+	G_FreeEntity( wave );
+}
+
+static void Shinobi_WaveThink( gentity_t *wave ) {
+	const int   li = WAVE_LEVEL( wave ) - 1;
+	const float half = (float)shinobiWaveHalfWidth[li];
+	const float step = SHINOBI_WAVE_SPEED * ( FRAMETIME / 1000.0f );
+	gentity_t  *owner = &g_entities[wave->r.ownerNum];
+	vec3_t      angles, fwd, right, cur, next, top, bottom, mins, maxs;
+	trace_t     tr;
+	int         i;
+
+	if ( !owner->inuse || !owner->client )
+		owner = wave;
+	VectorSet( angles, 0, WAVE_YAW( wave ), 0 );
+	AngleVectors( angles, fwd, right, NULL );
+	VectorCopy( wave->r.currentOrigin, cur );
+
+	// roll forward; a wall (or an earth wall) breaks the wave
+	VectorSet( mins, -8, -8, 8 );
+	VectorSet( maxs, 8, 8, SHINOBI_WAVE_HEIGHT - 8 );
+	VectorMA( cur, step, fwd, next );
+	trap->Trace( &tr, cur, mins, maxs, next, wave->r.ownerNum, MASK_SOLID, qfalse, 0, 0 );
+	if ( tr.fraction < 1.0f || tr.startsolid ) {
+		Shinobi_WaveEnd( wave );
+		return;
+	}
+	// follow the floor: small steps up and slopes down, not cliffs
+	VectorCopy( next, top );
+	top[2] += 24;
+	VectorCopy( next, bottom );
+	bottom[2] -= 48;
+	trap->Trace( &tr, top, NULL, NULL, bottom, ENTITYNUM_NONE, MASK_SOLID, qfalse, 0, 0 );
+	if ( tr.startsolid || tr.fraction >= 1.0f || tr.plane.normal[2] < 0.6f ) {
+		Shinobi_WaveEnd( wave );
+		return;
+	}
+	VectorCopy( tr.endpos, next );
+
+	// puts out fire it rolls over, and the fireballs it meets
+	Shinobi_SmotherFire( next, half, qtrue );
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		vec3_t     d, fp;
+		if ( !e->inuse || !e->classname || strcmp( e->classname, "shinobi_fireball" ) )
+			continue;
+		BG_EvaluateTrajectory( &e->s.pos, level.time, fp );
+		VectorSubtract( fp, next, d );
+		if ( fabs( DotProduct( d, fwd ) ) < 40 && fabs( DotProduct( d, right ) ) < half
+			&& d[2] > -16 && d[2] < SHINOBI_WAVE_HEIGHT + 16 ) {
+			Shinobi_SteamAt( fp, 60 );
+			G_FreeEntity( e );
+		}
+	}
+
+	// sweep people up
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *p = &g_entities[i];
+		vec3_t     d, push;
+		float      feet;
+
+		if ( !p->inuse || !p->client || p->health <= 0 || p->client->sess.sessionTeam == TEAM_SPECTATOR )
+			continue;
+		if ( p == owner || ( WAVE_HIT( wave ) & ( 1 << i ) ) || SHINOBI_HIDDEN( &p->client->ps ) )
+			continue;
+		if ( level.gametype >= GT_TEAM && OnSameTeam( owner, p ) )
+			continue;
+		VectorSubtract( p->r.currentOrigin, next, d );
+		feet = d[2] + p->r.mins[2];
+		if ( DotProduct( d, fwd ) < -24 || DotProduct( d, fwd ) > 32 || fabs( DotProduct( d, right ) ) > half + 16 )
+			continue;
+		if ( feet > SHINOBI_WAVE_HEIGHT || feet < -32 )
+			continue; // jumped over it (or far below)
+
+		WAVE_HIT( wave ) |= ( 1 << i );
+		shinobiHitElement = SE_WATER;
+		G_Damage( p, wave, owner, fwd, p->r.currentOrigin, shinobiWaveDamage[li], DAMAGE_NO_KNOCKBACK, MOD_WATER );
+		shinobiHitElement = SE_NONE;
+		if ( p->inuse && p->health > 0 ) {
+			VectorScale( fwd, shinobiWavePush[li], push );
+			push[2] = 220;
+			VectorCopy( push, p->client->ps.velocity );
+			p->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			p->client->ps.otherKiller = owner->s.number;
+			p->client->ps.otherKillerTime = level.time + 5000;
+			p->client->ps.otherKillerDebounceTime = level.time + 100;
+		}
+	}
+
+	// puddles along the way
+	WAVE_PUDDLE( wave ) -= (int)step;
+	if ( WAVE_PUDDLE( wave ) <= 0 ) {
+		WAVE_PUDDLE( wave ) = SHINOBI_WAVE_PUDDLE_STEP;
+		Shinobi_SpawnZone( SZ_WATER, next, half * 0.6f, shinobiPuddleLife[1],
+			owner->client ? owner->s.number + 1 : 0 );
+	}
+
+	WAVE_END( wave ) -= (int)step;
+	if ( WAVE_END( wave ) <= 0 ) {
+		VectorCopy( next, wave->r.currentOrigin );
+		Shinobi_WaveEnd( wave );
+		return;
+	}
+
+	// the client draws it moving smoothly between server frames
+	VectorCopy( next, wave->r.currentOrigin );
+	wave->s.pos.trType = TR_LINEAR;
+	wave->s.pos.trTime = level.time;
+	VectorCopy( next, wave->s.pos.trBase );
+	VectorScale( fwd, SHINOBI_WAVE_SPEED, wave->s.pos.trDelta );
+	trap->LinkEntity( (sharedEntity_t *)wave );
+	wave->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_CastWave( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	const int  li = lvl - 1;
+	gentity_t *wave;
+	vec3_t     angles, fwd, start, floor;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.waterNext > level.time )
+		return qfalse;
+	VectorSet( angles, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+	VectorMA( client->ps.origin, 40, fwd, start );
+	if ( !Shinobi_FloorBelow( start, 96, floor ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"Water Wave needs ground to roll on\"" );
+		return qfalse;
+	}
+	client->shinobi.waterNext = level.time + SHINOBI_WATER_COOLDOWN;
+
+	wave = G_Spawn();
+	if ( !wave )
+		return qfalse;
+	wave->classname = "shinobi_wave";
+	wave->s.eType = ET_GENERAL;
+	wave->s.generic1 = SHINOBI_ENT_WAVE + li;
+	WAVE_LEVEL( wave ) = lvl;
+	WAVE_END( wave ) = shinobiWaveRange[li];
+	WAVE_PUDDLE( wave ) = SHINOBI_WAVE_PUDDLE_STEP;
+	WAVE_HIT( wave ) = 0;
+	wave->s.angles2[0] = (float)shinobiWaveHalfWidth[li];
+	WAVE_YAW( wave ) = client->ps.viewangles[YAW];
+	wave->r.ownerNum = ent->s.number;
+	wave->r.contents = 0;
+	VectorSet( wave->r.mins, -shinobiWaveHalfWidth[li], -shinobiWaveHalfWidth[li], 0 );
+	VectorSet( wave->r.maxs, shinobiWaveHalfWidth[li], shinobiWaveHalfWidth[li], SHINOBI_WAVE_HEIGHT );
+	G_SetOrigin( wave, floor );
+	wave->think = Shinobi_WaveThink;
+	wave->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)wave );
+
+	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[li], floor, fwd );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndSplash );
+	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 500;
+	return qtrue;
+}
+
+/*
+===========================================================================
+Wind Blade: an arc of wind sweeping out from the caster
+===========================================================================
+*/
+#define BLADE_LEVEL(b)   ( (b)->genericValue2 )
+#define BLADE_HIT(b)     ( (b)->genericValue5 )
+#define BLADE_LAST_R(b)  ( (b)->genericValue6 )
+#define BLADE_YAW(b)     ( (b)->s.angles2[0] )
+
+static void Shinobi_BladeThink( gentity_t *blade ) {
+	const int   li = BLADE_LEVEL( blade ) - 1;
+	const float radius = ( level.time - blade->s.time ) * ( SHINOBI_BLADE_SPEED / 1000.0f );
+	const float lastR = (float)BLADE_LAST_R( blade );
+	gentity_t  *owner = &g_entities[blade->r.ownerNum];
+	vec3_t      angles, fwd, org;
+	int         i;
+
+	if ( !owner->inuse || !owner->client )
+		owner = blade;
+	VectorSet( angles, 0, BLADE_YAW( blade ), 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+	VectorCopy( blade->r.currentOrigin, org );
+
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *p = &g_entities[i];
+		vec3_t     d, push;
+		float      dist;
+		trace_t    tr;
+
+		if ( !p->inuse || !p->client || p == owner || p->health <= 0 )
+			continue;
+		if ( i < MAX_CLIENTS ) {
+			if ( ( BLADE_HIT( blade ) & ( 1 << i ) ) || p->client->sess.sessionTeam == TEAM_SPECTATOR
+				|| SHINOBI_HIDDEN( &p->client->ps ) )
+				continue;
+		}
+		if ( Shinobi_DamageBlocked( p, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, p ) ) )
+			continue;
+
+		VectorSubtract( p->r.currentOrigin, org, d );
+		if ( fabs( d[2] ) > SHINOBI_BLADE_HALF_HEIGHT )
+			continue; // jumped over / below it
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist < lastR - 24 || dist > radius + 24 || DotProduct( d, fwd ) < SHINOBI_BLADE_ARC )
+			continue;
+		trap->Trace( &tr, org, NULL, NULL, p->r.currentOrigin, blade->r.ownerNum, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f && tr.entityNum != p->s.number )
+			continue; // behind a wall
+
+		if ( i < MAX_CLIENTS )
+			BLADE_HIT( blade ) |= ( 1 << i );
+		shinobiHitElement = SE_WIND;
+		G_Damage( p, blade, owner, d, p->r.currentOrigin, shinobiBladeDamage[li], DAMAGE_NO_KNOCKBACK, MOD_FORCE_DARK );
+		shinobiHitElement = SE_NONE;
+		if ( p->inuse && p->client && p->health > 0 ) {
+			VectorScale( d, shinobiBladePush[li], push );
+			push[2] = 100;
+			VectorAdd( p->client->ps.velocity, push, p->client->ps.velocity );
+		}
+	}
+
+	BLADE_LAST_R( blade ) = (int)radius;
+	if ( radius >= shinobiBladeRange[li] ) {
+		G_FreeEntity( blade );
+		return;
+	}
+	blade->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_CastBlade( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	const int  li = lvl - 1;
+	const float range = (float)shinobiBladeRange[li];
+	gentity_t *blade;
+	vec3_t     angles, fwd, org, fxOrg;
+
+	if ( client->shinobi.bladeNext > level.time )
+		return qfalse;
+	client->shinobi.bladeNext = level.time + SHINOBI_BLADE_COOLDOWN;
+
+	VectorSet( angles, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, org );
+	org[2] += 8; // chest height
+
+	blade = G_Spawn();
+	if ( !blade )
+		return qfalse;
+	blade->classname = "shinobi_blade";
+	blade->s.eType = ET_GENERAL;
+	blade->s.generic1 = SHINOBI_ENT_BLADE + li;
+	BLADE_LEVEL( blade ) = lvl;
+	BLADE_YAW( blade ) = client->ps.viewangles[YAW];
+	BLADE_HIT( blade ) = 0;
+	BLADE_LAST_R( blade ) = 0;
+	blade->s.time = level.time;
+	blade->r.ownerNum = ent->s.number;
+	blade->r.contents = 0;
+	blade->r.svFlags |= SVF_BROADCAST; // big, and drawn from its origin
+	VectorSet( blade->r.mins, -range, -range, -SHINOBI_BLADE_HALF_HEIGHT );
+	VectorSet( blade->r.maxs, range, range, SHINOBI_BLADE_HALF_HEIGHT );
+	G_SetOrigin( blade, org );
+	blade->think = Shinobi_BladeThink;
+	blade->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)blade );
+
+	VectorMA( org, 32, fwd, fxOrg );
+	Shinobi_EffectDir( shinobiMedia.fxWindGust[li], fxOrg, fwd );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 400;
 	return qtrue;
 }
 
@@ -735,7 +1074,7 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 	}
 
 	VectorMA( eye, 32, fwd, fxOrg );
-	G_PlayEffectID( shinobiMedia.fxWindGust[li], fxOrg, fwd );
+	Shinobi_EffectDir( shinobiMedia.fxStorm[li], fxOrg, fwd );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 	G_SoundAtLoc( fxOrg, CHAN_AUTO, shinobiMedia.sndWind2 );
 	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;

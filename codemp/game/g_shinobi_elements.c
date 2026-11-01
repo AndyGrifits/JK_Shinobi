@@ -15,6 +15,8 @@ controller entity owns the wall's shared health.
 */
 #include "g_shinobi_local.h"
 
+extern void G_Knockdown( gentity_t *victim ); // g_combat.c
+
 void Shinobi_ElementsInit( void ) {
 	shinobiMedia_t *m = &shinobiMedia;
 	int i;
@@ -70,7 +72,7 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 	// a big one leaves the ground burning (or steaming, on water)
 	Shinobi_FireLands( pos, li + 1, owner->client ? owner->s.number + 1 : 0 );
 
-	G_PlayEffectID( shinobiMedia.fxFireballBoom[li], pos, normal );
+	Shinobi_EffectDir( shinobiMedia.fxFireballBoom[li], pos, normal );
 	// a deep blast plus the crackle of fire, and the ground shakes nearby
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom2 );
@@ -192,6 +194,9 @@ leaving gaps to see and shoot through; at zero the rest go too.
 #define WALL_LAST_ATTACKER(c) ( (c)->genericValue11 )
 #define WALL_LAST_TIME(c)    ( (c)->genericValue12 )
 #define WALL_LAST_DAMAGE(c)  ( (c)->genericValue13 )
+#define WALL_LEVEL(c)        ( (c)->genericValue14 )
+#define WALL_PUSH_END(c)     ( (c)->genericValue15 )
+#define WALL_PUSH_HIT(c)     ( (c)->count )          // clients hit by a push (bits)
 
 static void Shinobi_PillarFree( gentity_t *self ) {
 	G_FreeEntity( self );
@@ -399,6 +404,8 @@ qboolean Shinobi_CastDoton( gentity_t *ent, int lvl ) {
 	if ( !wall )
 		return qfalse;
 	wall->classname = "shinobi_earthwall_ctrl";
+	wall->r.ownerNum = ent->s.number;
+	WALL_LEVEL( wall ) = lvl;
 	wall->r.svFlags |= SVF_NOCLIENT;
 	wall->health = WALL_MAX_HEALTH( wall ) = shinobiWallHealth[lvl - 1];
 	wall->think = Shinobi_WallSink;
@@ -417,5 +424,175 @@ qboolean Shinobi_CastDoton( gentity_t *ent, int lvl ) {
 	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
 	client->ps.forceHandExtendTime = level.time + 500;
 	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndWallRise );
+	return qtrue;
+}
+
+/*
+===========================================================================
+Pushing the wall: every standing pillar slides forward as a wave of earth.
+People in the way are shoved ahead; pinned against something solid they are
+crushed (more damage, knocked down) and the wall breaks on them. Burning
+ground under it is smothered. At the end of the run the pillars crumble.
+===========================================================================
+*/
+
+static void Shinobi_WallPushThink( gentity_t *wall ) {
+	gentity_t *owner = &g_entities[wall->r.ownerNum];
+	const int  li = WALL_LEVEL( wall ) - 1;
+	vec3_t     dir;
+	int        i, alive = 0;
+
+	if ( !owner->inuse || !owner->client )
+		owner = wall;
+	VectorCopy( wall->movedir, dir );
+
+	for ( i = 0; i < WALL_COUNT( wall ); i++ ) {
+		gentity_t *p = Shinobi_WallPillar( wall, i );
+		vec3_t     newPos, mins, maxs, floor;
+		trace_t    tr;
+		int        c;
+
+		if ( !p || ( p->s.eFlags & EF_NODRAW ) )
+			continue;
+		BG_EvaluateTrajectory( &p->s.pos, level.time, newPos );
+
+		// slam into the world (or run off a ledge): this pillar breaks
+		VectorSet( mins, -SHINOBI_WALL_HALF_WIDTH + 2, -SHINOBI_WALL_HALF_WIDTH + 2, 16 );
+		VectorSet( maxs, SHINOBI_WALL_HALF_WIDTH - 2, SHINOBI_WALL_HALF_WIDTH - 2, SHINOBI_WALL_HEIGHT - 8 );
+		trap->Trace( &tr, p->r.currentOrigin, mins, maxs, newPos, p->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f || tr.startsolid || !Shinobi_FloorBelow( newPos, 40, floor ) ) {
+			Shinobi_PillarCrumble( p );
+			continue;
+		}
+		VectorCopy( newPos, p->r.currentOrigin );
+		trap->LinkEntity( (sharedEntity_t *)p );
+		alive++;
+
+		Shinobi_SmotherFire( newPos, SHINOBI_WALL_HALF_WIDTH + 8, qfalse );
+
+		// people in front of this pillar
+		for ( c = 0; c < MAX_CLIENTS; c++ ) {
+			gentity_t *v = &g_entities[c];
+			vec3_t     d, ahead;
+			trace_t    pin;
+
+			if ( !v->inuse || !v->client || v == owner || v->health <= 0 || v->client->sess.sessionTeam == TEAM_SPECTATOR )
+				continue;
+			if ( level.gametype >= GT_TEAM && OnSameTeam( owner, v ) )
+				continue;
+			VectorSubtract( v->r.currentOrigin, newPos, d );
+			if ( fabs( d[0] ) > SHINOBI_WALL_HALF_WIDTH + 18 || fabs( d[1] ) > SHINOBI_WALL_HALF_WIDTH + 18
+				|| d[2] + v->r.mins[2] > SHINOBI_WALL_HEIGHT || d[2] + v->r.maxs[2] < 0 )
+				continue;
+
+			// pinned: something solid right ahead of him
+			VectorMA( v->r.currentOrigin, 24, dir, ahead );
+			trap->Trace( &pin, v->r.currentOrigin, v->r.mins, v->r.maxs, ahead, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+			if ( pin.fraction < 1.0f && pin.entityNum == ENTITYNUM_WORLD ) {
+				shinobiHitElement = SE_EARTH;
+				G_Damage( v, wall, owner, dir, v->r.currentOrigin, shinobiWallCrushDamage[li], DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
+				shinobiHitElement = SE_NONE;
+				if ( v->inuse && v->health > 0 )
+					G_Knockdown( v );
+				G_SoundAtLoc( v->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWallBreak );
+				WALL_PUSH_HIT( wall ) |= ( 1 << c );
+				Shinobi_WallCrumble( wall, qfalse ); // the wall breaks on him
+				wall->think = Shinobi_WallFree;
+				wall->nextthink = level.time + FRAMETIME;
+				return;
+			}
+			if ( !( WALL_PUSH_HIT( wall ) & ( 1 << c ) ) ) {
+				WALL_PUSH_HIT( wall ) |= ( 1 << c );
+				shinobiHitElement = SE_EARTH;
+				G_Damage( v, wall, owner, dir, v->r.currentOrigin, shinobiWallPushDamage[li], DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
+				shinobiHitElement = SE_NONE;
+			}
+			if ( v->inuse && v->health > 0 ) { // keep him moving ahead of the wall
+				VectorScale( dir, SHINOBI_WALL_PUSH_SPEED + 150, v->client->ps.velocity );
+				v->client->ps.velocity[2] = 160;
+				v->client->ps.groundEntityNum = ENTITYNUM_NONE;
+				v->client->ps.otherKiller = owner->s.number;
+				v->client->ps.otherKillerTime = level.time + 5000;
+				v->client->ps.otherKillerDebounceTime = level.time + 100;
+			}
+		}
+	}
+
+	if ( !alive || level.time >= WALL_PUSH_END( wall ) ) {
+		Shinobi_WallCrumble( wall, qfalse );
+		wall->think = Shinobi_WallFree;
+		wall->nextthink = level.time + FRAMETIME;
+		return;
+	}
+	wall->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_PushWall( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     angles, fwd, eye;
+	gentity_t *best = NULL;
+	float      bestDist = SHINOBI_WALL_PUSH_REACH;
+	int        i;
+
+	VectorSet( angles, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+
+	// our own standing wall, in front of us
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *w = &g_entities[i];
+		vec3_t     center = { 0, 0, 0 }, d;
+		int        n = 0, k;
+		float      dist;
+
+		if ( !w->inuse || !w->classname || strcmp( w->classname, "shinobi_earthwall_ctrl" ) )
+			continue;
+		if ( w->r.ownerNum != ent->s.number || w->health <= 0 || w->think != Shinobi_WallSink )
+			continue;
+		for ( k = 0; k < WALL_COUNT( w ); k++ ) {
+			gentity_t *p = Shinobi_WallPillar( w, k );
+			if ( p && !( p->s.eFlags & EF_NODRAW ) ) {
+				VectorAdd( center, p->r.currentOrigin, center );
+				n++;
+			}
+		}
+		if ( !n )
+			continue;
+		VectorScale( center, 1.0f / n, center );
+		VectorSubtract( center, eye, d );
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > bestDist || DotProduct( d, fwd ) < 0.3f )
+			continue;
+		best = w;
+		bestDist = dist;
+	}
+	if ( !best )
+		return qfalse;
+
+	if ( !Shinobi_SpendChakra( ent, SHINOBI_WALL_PUSH_COST ) )
+		return qtrue; // it was there, we just couldn't pay
+
+	VectorCopy( fwd, best->movedir );
+	WALL_PUSH_HIT( best ) = 0;
+	WALL_PUSH_END( best ) = level.time + (int)( shinobiWallPushDist[WALL_LEVEL( best ) - 1] * 1000.0f / SHINOBI_WALL_PUSH_SPEED );
+	for ( i = 0; i < WALL_COUNT( best ); i++ ) {
+		gentity_t *p = Shinobi_WallPillar( best, i );
+		if ( !p || ( p->s.eFlags & EF_NODRAW ) )
+			continue;
+		p->r.contents = 0; // we move people ourselves; the pillars must not block each other
+		p->takedamage = qfalse;
+		p->s.pos.trType = TR_LINEAR;
+		p->s.pos.trTime = level.time;
+		VectorCopy( p->r.currentOrigin, p->s.pos.trBase );
+		VectorScale( fwd, SHINOBI_WALL_PUSH_SPEED, p->s.pos.trDelta );
+		trap->LinkEntity( (sharedEntity_t *)p );
+	}
+	best->think = Shinobi_WallPushThink;
+	best->nextthink = level.time + FRAMETIME;
+
+	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 500;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallRise );
 	return qtrue;
 }

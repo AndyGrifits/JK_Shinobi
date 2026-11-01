@@ -25,7 +25,7 @@ typedef struct {
 	int sndLog;
 	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
 	int sndFireLoop, sndCrackleLoop;
-	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL];
+	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
 	int logModel;
@@ -40,6 +40,7 @@ qboolean Shinobi_SpendChakra( gentity_t *ent, int cost );
 void     Shinobi_NoChakra( gentity_t *ent, int cost );
 int      Shinobi_LevelEffect( const char *base, int level );
 void     Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );
+void     Shinobi_EffectDir( int fx, vec3_t org, vec3_t dir ); // G_PlayEffectID wants angles, not a direction
 qboolean Shinobi_CastKawarimi( gentity_t *ent );
 void     Shinobi_Hide( gentity_t *ent );
 
@@ -47,6 +48,7 @@ void     Shinobi_Hide( gentity_t *ent );
 void     Shinobi_ElementsInit( void );
 qboolean Shinobi_CastKaton( gentity_t *ent, int level );
 qboolean Shinobi_CastDoton( gentity_t *ent, int level );
+qboolean Shinobi_PushWall( gentity_t *ent ); // qtrue if a wall of ours was in front to push
 
 // g_shinobi_clones.c
 qboolean Shinobi_CastKageBunshin( gentity_t *ent, int level );
@@ -69,5 +71,8 @@ void      Shinobi_FireLands( vec3_t pos, int lvl, int ownerNum );
 void      Shinobi_FireballSetLevel( gentity_t *ball, int lvl, float speedScale );
 qboolean  Shinobi_CastSuiton( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastFuton( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastWave( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastBlade( gentity_t *ent, int lvl );
+void      Shinobi_SmotherFire( vec3_t pos, float radius, qboolean steam );
 qboolean  Shinobi_CastSuiro( gentity_t *ent, int lvl );
 void      Shinobi_PrisonRelease( gentity_t *ent );

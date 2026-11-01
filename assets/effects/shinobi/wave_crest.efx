@@ -1,0 +1,61 @@
+repeatDelay				0
+
+// Water Wave crest: spray and foam thrown up and forward (local X = travel).
+
+Particle
+{
+	name				spray
+	flags				useAlpha
+	count				2 4
+	life				300 550
+	spawnFlags			orgOnSphere
+	radius				2 10
+	vel					40 -40 60 160 40 160
+	gravity				600
+	size
+	{
+		start			2 4
+		end				1
+	}
+	rgb
+	{
+		start			0.8 0.9 1
+	}
+	alpha
+	{
+		start			0.9
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/droplet
+	]
+}
+
+Particle
+{
+	name				foam
+	flags				useAlpha
+	count				1
+	life				350 550
+	rotation			0 360
+	vel					20 -20 20 80 20 60
+	size
+	{
+		start			10 16
+		end				24 34
+	}
+	rgb
+	{
+		start			0.88 0.94 1
+	}
+	alpha
+	{
+		start			0.55
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

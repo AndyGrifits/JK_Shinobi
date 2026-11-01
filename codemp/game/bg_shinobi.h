@@ -48,6 +48,8 @@ typedef enum {
 	SJ_SUITON,    // water bullet
 	SJ_FUTON,     // wind gust
 	SJ_SUIRO,     // water prison
+	SJ_WAVE,      // water wave
+	SJ_BLADE,     // wind blade
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -59,18 +61,18 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro"
+	"suiton", "futon", "suiro", "wave", "windblade"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Suiton", "Futon", "Water Prison"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_FUTON, SJ_DOTON, SJ_SUIRO, SJ_BUNSHIN
+	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_BUNSHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -84,9 +86,11 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 45, 70 }, // Kage Bunshin
 	{ 20, 30, 40 }, // Shunshin
 	{ 35, 35, 35 }, // Kawarimi
-	{ 15, 30, 50 }, // Suiton
-	{ 15, 25, 40 }, // Futon
+	{ 10, 18, 26 }, // Water Bullets (1 / 2 / 3 bullets)
+	{ 15, 25, 40 }, // Storm Wind
 	{ 20, 20, 20 }, // Water Prison (to start; then it drains while held)
+	{ 20, 35, 50 }, // Water Wave
+	{ 15, 25, 40 }, // Wind Blade
 };
 
 // jutsu that cast on key press, without charging
@@ -246,6 +250,14 @@ static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by 
 #define SHINOBI_WALL_LIFETIME      12000
 #define SHINOBI_WALL_SINK_MS       600
 #define SHINOBI_WALL_MODELS        3    // models/shinobi/earth_pillar1..3.md3
+// Pushing your own wall (Doton selected, F near the wall): it slides forward
+// as a wave of earth and crumbles at the end; pinning someone crushes him
+#define SHINOBI_WALL_PUSH_COST     15
+#define SHINOBI_WALL_PUSH_REACH    150  // wall centre at most this far in front
+#define SHINOBI_WALL_PUSH_SPEED    600
+static const int shinobiWallPushDist[3]  = { 240, 320, 400 };
+static const int shinobiWallPushDamage[3] = { 15, 25, 35 };
+static const int shinobiWallCrushDamage[3] = { 30, 45, 60 };
 
 /*
 ---------------------------------------------------------------------------
@@ -296,16 +308,45 @@ static const int shinobiFireZoneLife[3]   = {   0, 5000, 7000 };
 #define SHINOBI_ELECTRIC_DAMAGE    3     // per zone tick
 #define SHINOBI_ELECTRIC_STUN_MS   350
 
-// Suiton: water bullet (puts out fire, leaves a puddle)
-#define SHINOBI_WATER_COOLDOWN     700
-#define SHINOBI_WATER_LIFE         2000
-static const int   shinobiWaterSpeed[3]   = { 1100, 1000,  900 };
-static const int   shinobiWaterSize[3]    = {    8,   12,   18 };
-static const int   shinobiWaterDamage[3]  = {   15,   25,   40 };
-static const int   shinobiWaterPush[3]    = {  300,  450,  650 };
-static const int   shinobiPuddleRadius[3] = {   70,  100,  140 };
-static const int   shinobiPuddleLife[3]   = { 9000, 11000, 13000 };
-static const float shinobiWaterVisual[3]  = { 10.0f, 15.0f, 22.0f };
+// Water Bullets: the charge level is the number of bullets (1-3), fired in a
+// quick burst. Fast, small, each leaves a little puddle and puts out fire.
+// (Tables per bullet "level"; a bullet weakened by a fireball drops a level.)
+#define SHINOBI_WATER_COOLDOWN     900
+#define SHINOBI_WATER_LIFE         1500
+#define SHINOBI_WATER_BURST_MS     140   // between bullets of one burst
+static const int   shinobiWaterSpeed[3]   = { 1600, 1500, 1400 };
+static const int   shinobiWaterSize[3]    = {    6,    9,   12 };
+static const int   shinobiWaterDamage[3]  = {   12,   20,   30 };
+static const int   shinobiWaterPush[3]    = {  150,  250,  350 };
+static const int   shinobiPuddleRadius[3] = {   45,   60,   80 };
+static const int   shinobiPuddleLife[3]   = { 6000, 7000, 8000 };
+static const float shinobiWaterVisual[3]  = { 7.0f, 10.0f, 14.0f };
+#define SHINOBI_PUDDLE_SLOW        0.8f  // puddles slow a little
+
+// Water Wave: a low wall of water rolling along the floor. Low enough to clear
+// with a force jump, not with a normal one. Pushes, soaks, puts out fire,
+// leaves puddles behind; breaks on walls (mud at an earth wall).
+#define SHINOBI_WAVE_SPEED         520
+#define SHINOBI_WAVE_HEIGHT        56
+#define SHINOBI_WAVE_PUDDLE_STEP   140   // a puddle every this many units
+static const int shinobiWaveHalfWidth[3] = {  70, 100, 130 };
+static const int shinobiWaveRange[3]     = { 400, 550, 700 };
+static const int shinobiWaveDamage[3]    = {  10,  18,  28 };
+static const int shinobiWavePush[3]      = { 350, 500, 700 };
+
+// Wind Blade: a wide arc of wind sweeping forward at chest height; hard to
+// dodge sideways, jump over it. Hits each target once; walls stop it.
+#define SHINOBI_BLADE_SPEED        1300
+#define SHINOBI_BLADE_ARC          0.57f // cos of the half angle (~55 degrees)
+#define SHINOBI_BLADE_HALF_HEIGHT  40
+#define SHINOBI_BLADE_COOLDOWN     900
+static const int shinobiBladeRange[3]  = { 450, 600, 800 };
+static const int shinobiBladeDamage[3] = {  20,  30,  45 };
+static const int shinobiBladePush[3]   = { 150, 250, 350 };
+
+// Extra predicted status bits that only the player himself needs
+#define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
+#define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
@@ -331,6 +372,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 // Non-player entities drawn by the cgame (entityState.generic1 on ET_GENERAL)
 #define SHINOBI_ENT_FIREBALL       201  // 201..203 = fireball level 1..3
 #define SHINOBI_LOG_MODEL          "models/shinobi/log.md3"
+#define SHINOBI_ENT_WAVE           220  // 220..222 = water wave level 1..3; s.angles2 = half width, yaw
+#define SHINOBI_ENT_BLADE          223  // 223..225 = wind blade level 1..3; s.angles2[0] = yaw, s.time = start
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
@@ -358,7 +401,9 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_STEAM_BURST     "shinobi/steam_burst"
 #define SHINOBI_FX_WATER_SPLASH    "shinobi/water_splash"       // + "_1".."_3" per level
 #define SHINOBI_FX_WATER_TRAIL     "shinobi/water_trail"
-#define SHINOBI_FX_WIND_GUST       "shinobi/wind_gust"          // + "_1".."_3" per level
+#define SHINOBI_FX_WIND_GUST       "shinobi/wind_gust"          // + "_1".."_3": now the Wind Blade cast
+#define SHINOBI_FX_STORM           "shinobi/storm_wind"         // + "_1".."_3" per level
+#define SHINOBI_FX_WAVE_CREST      "shinobi/wave_crest"
 #define SHINOBI_FX_DRIP            "shinobi/drip"
 #define SHINOBI_FX_BUBBLES         "shinobi/bubbles"
 #define SHINOBI_FX_ZONE_SPARK      "shinobi/zone_spark"

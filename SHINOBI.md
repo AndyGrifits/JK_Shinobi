@@ -29,11 +29,13 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Rasengan | ball in hand; attack = dash strike, knockdown. Size, damage (40/60/90) and knockback grow with level. Also hits earth walls | 25/40/60 |
 | Chidori | lightning in hand; attack = long dash (380/495/620 units) leaving a lightning streak, 50/75/105 damage, electrocutes | 25/40/60 |
 | Katon | great fireball blasted with both hands: bigger/slower/stronger per level (25+40 / 45+65 / 70+100 dmg, blast radius 130/180/250), loud explosion and camera shake | 15/30/50 |
-| Doton | earth wall: 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
+| Doton | earth wall (F again next to your wall: push it - a wave of earth that shoves people 240/320/400 units, 15/25/35 damage, crushes anyone pinned against a wall for 30/45/60 and a knockdown, then crumbles; 15 chakra): 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
 | Kage Bunshin | 1/2/3 clones in a big smoke cloud, the original lands in a random spot; each clone drains 3 chakra/s | 25/45/70 |
 | Kawarimi | an AI double with your looks takes your place and goes for the nearest enemy; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
-| Suiton | water bullet: 15/25/40 damage and a push; leaves a puddle (radius 70/100/140); puts out fire, cancels fireballs (the stronger one goes on, weakened) | 15/30/50 |
-| Futon | Daitoppa: wind gust in a cone (320/480/640 units), throws people back; fans burning ground (bigger, longer), levels up fireballs in flight, blows steam away | 15/25/40 |
+| Water Bullets | 1/2/3 fast bullets in a burst (charge level = number of bullets), 12 damage each, small push; each leaves a small puddle, puts out fire, wears fireballs down | 10/18/26 |
+| Water Wave | a low wave rolling along the floor (width 140/200/260, 400/550/700 units): 10/18/28 damage, throws people back, soaks, puts out fire and fireballs, leaves puddles. Too high to step over, clear it with a force jump | 20/35/50 |
+| Storm Wind | Daitoppa: wind in a cone (320/480/640 units) throws people back; fans burning ground, levels up fireballs, blows steam away | 15/25/40 |
+| Wind Blade | a wide arc of wind (~110 degrees) sweeping out to 450/600/800 units at chest height: 20/30/45 damage; hard to sidestep, jump over it; walls stop it | 15/25/40 |
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 
 ### Elements
@@ -50,7 +52,8 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 Katon Lv2/3 leaves burning ground (radius 90/130). Statuses: **burning** (3 damage every
 0.5 s, 3 s after leaving the fire; water, steam and map water put it out), **wet** (6 s:
 can't catch fire, fire does half damage, lightning 1.5x), **in mud** (half speed).
-Earth walls take half damage from fire and a third from water and wind.
+Earth walls take half damage from fire and a third from water and wind. Puddles slow a little,
+mud a lot. A pushed wall smothers burning ground it rolls over.
 
 Quick keys still work: hold **T** Chidori, **V** Doton, **G** Kage Bunshin.
 Everyone has Force Jump 2 (wall runs) and fists. Extended melee is on (`g_debugMelee 1`): with fists, right click kicks (direction keys pick the kick, also in the air), both buttons grab; jump at a wall and hold Space to cling to it. No names are shown over enemies,

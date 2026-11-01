@@ -831,6 +831,9 @@ struct gclient_s {
 		int		prisonCaster;	// held by this client (num + 1)
 		int		prisonEnd, prisonTick;
 		int		stunEnd;		// stunned after a Water Prison until
+		int		puddleEnd;		// slowed by a puddle until
+		int		burstLeft, burstNext; // Water Bullets still to fire
+		int		bladeNext;		// Wind Blade cooldown end
 	} shinobi;
 };
 
@@ -1413,6 +1416,9 @@ void Cmd_Kawarimi_f( gentity_t *ent );
 void Cmd_Suiton_f( gentity_t *ent );
 void Cmd_Futon_f( gentity_t *ent );
 void Cmd_Suiro_f( gentity_t *ent );
+void Cmd_Wave_f( gentity_t *ent );
+void Cmd_WindBlade_f( gentity_t *ent );
+void Cmd_PushWall_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );

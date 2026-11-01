@@ -24,7 +24,7 @@ static struct {
 
 // loose-particle effects for elements (one-shots come from the server)
 static struct {
-	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark;
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest;
 } shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
@@ -123,6 +123,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.drip       = CG_ShinobiRegisterFx( SHINOBI_FX_DRIP );
 	shinobiFx.bubbles    = CG_ShinobiRegisterFx( SHINOBI_FX_BUBBLES );
 	shinobiFx.zoneSpark  = CG_ShinobiRegisterFx( SHINOBI_FX_ZONE_SPARK );
+	shinobiFx.waveCrest  = CG_ShinobiRegisterFx( SHINOBI_FX_WAVE_CREST );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
@@ -529,6 +530,74 @@ static void CG_ShinobiWaterball( centity_t *cent ) {
 }
 
 /*
+Water Wave: a row of churning water blobs across its width, spray on the crest.
+*/
+static void CG_ShinobiWave( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const float    half = s->angles2[0], H = (float)SHINOBI_WAVE_HEIGHT, t = cg.time * 0.001f;
+	vec3_t         angles, fwd, right, pos;
+	float          x;
+	int            k = 0;
+
+	VectorSet( angles, 0, s->angles2[1], 0 );
+	AngleVectors( angles, fwd, right, NULL );
+
+	for ( x = -half; x <= half + 0.1f; x += 22.0f, k++ ) {
+		const float bob = 4.0f * sinf( t * 9.0f + k * 1.7f );
+		VectorMA( cent->lerpOrigin, x, right, pos );
+		pos[2] += H * 0.4f + bob;
+		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.6f );
+		VectorMA( pos, 6, fwd, pos );
+		pos[2] += H * 0.35f;
+		CG_ShinobiSpriteA( pos, H * 0.4f, -t * 120.0f + k * 70, shinobiShaders.swirl, 0.3f, 0.45f, 0.65f, 1.0f );
+	}
+
+	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+		VectorMA( cent->lerpOrigin, flrand( -half, half ), right, pos );
+		pos[2] += H * 0.85f;
+		trap->FX_PlayEffectID( shinobiFx.waveCrest, pos, fwd, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + 30;
+	}
+}
+
+/*
+Wind Blade: a pale arc of wind spreading out from where it was cast.
+*/
+static void CG_ShinobiBlade( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const int      li = s->generic1 - SHINOBI_ENT_BLADE;
+	const float    range = (float)shinobiBladeRange[li];
+	const float    R = ( cg.time - s->time ) * ( SHINOBI_BLADE_SPEED / 1000.0f );
+	const float    halfAng = RAD2DEG( acosf( SHINOBI_BLADE_ARC ) );
+	const float    fade = 1.0f - R / range;
+	vec3_t         core = { 0.85f, 0.95f, 1.0f }, haze = { 0.5f, 0.6f, 0.65f };
+	int            k;
+	const int      N = 12;
+
+	if ( R <= 8 || R > range )
+		return;
+	for ( k = 0; k < N; k++ ) {
+		const float a0 = DEG2RAD( s->angles2[0] - halfAng + 2 * halfAng * k / N );
+		const float a1 = DEG2RAD( s->angles2[0] - halfAng + 2 * halfAng * ( k + 1 ) / N );
+		const float edge = ( k == 0 || k == N - 1 ) ? 0.5f : 1.0f; // thinner at the tips
+		vec3_t      p0, p1, q0, q1;
+
+		VectorSet( p0, cent->lerpOrigin[0] + cosf( a0 ) * R, cent->lerpOrigin[1] + sinf( a0 ) * R, cent->lerpOrigin[2] );
+		VectorSet( p1, cent->lerpOrigin[0] + cosf( a1 ) * R, cent->lerpOrigin[1] + sinf( a1 ) * R, cent->lerpOrigin[2] );
+		trap->FX_AddLine( p0, p1, ( 8 + 3 * li ) * edge, 2.0f, 0.0f, 0.9f * fade, 0.0f, 0.0f,
+			core, core, 0.0f, 60, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+		trap->FX_AddLine( p0, p1, ( 34 + 8 * li ) * edge, 10.0f, 0.0f, 0.35f * fade, 0.0f, 0.0f,
+			haze, haze, 0.0f, 90, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+
+		// a fainter echo just behind the edge
+		VectorSet( q0, cent->lerpOrigin[0] + cosf( a0 ) * ( R - 28 ), cent->lerpOrigin[1] + sinf( a0 ) * ( R - 28 ), cent->lerpOrigin[2] + 6 );
+		VectorSet( q1, cent->lerpOrigin[0] + cosf( a1 ) * ( R - 28 ), cent->lerpOrigin[1] + sinf( a1 ) * ( R - 28 ), cent->lerpOrigin[2] + 6 );
+		trap->FX_AddLine( q0, q1, ( 5 + 2 * li ) * edge, 1.0f, 0.0f, 0.45f * fade, 0.0f, 0.0f,
+			haze, haze, 0.0f, 60, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
+}
+
+/*
 Ground zones: a decal fading in and out, plus particles spawned over the
 area at a rate that grows with its size.
 */
@@ -601,6 +670,14 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 		return qfalse;
 	if ( s->generic1 >= SHINOBI_ENT_ZONE && s->generic1 < SHINOBI_ENT_ZONE + SZ_COUNT ) {
 		CG_ShinobiZone( cent );
+		return qtrue;
+	}
+	if ( s->generic1 >= SHINOBI_ENT_WAVE && s->generic1 < SHINOBI_ENT_WAVE + SHINOBI_MAX_LEVEL ) {
+		CG_ShinobiWave( cent );
+		return qtrue;
+	}
+	if ( s->generic1 >= SHINOBI_ENT_BLADE && s->generic1 < SHINOBI_ENT_BLADE + SHINOBI_MAX_LEVEL ) {
+		CG_ShinobiBlade( cent );
 		return qtrue;
 	}
 	if ( s->generic1 >= SHINOBI_ENT_WATERBALL && s->generic1 < SHINOBI_ENT_WATERBALL + SHINOBI_MAX_LEVEL ) {

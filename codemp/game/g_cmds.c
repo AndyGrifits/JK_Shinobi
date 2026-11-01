@@ -3423,6 +3423,7 @@ command_t commands[] = {
 	{ "noclip",				Cmd_Noclip_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "notarget",			Cmd_Notarget_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "npc",				Cmd_NPC_f,					CMD_CHEAT|CMD_ALIVE },
+	{ "pushwall",			Cmd_PushWall_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "rasengan",			Cmd_Rasengan_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "say",				Cmd_Say_f,					0 },
 	{ "say_team",			Cmd_SayTeam_f,				0 },
@@ -3440,7 +3441,9 @@ command_t commands[] = {
 	{ "t_use",				Cmd_TargetUse_f,			CMD_CHEAT|CMD_ALIVE },
 	{ "voice_cmd",			Cmd_VoiceCommand_f,			CMD_NOINTERMISSION },
 	{ "vote",				Cmd_Vote_f,					CMD_NOINTERMISSION },
+	{ "wave",				Cmd_Wave_f,					CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "where",				Cmd_Where_f,				CMD_NOINTERMISSION },
+	{ "windblade",			Cmd_WindBlade_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 };
 static const size_t numCommands = ARRAY_LEN( commands );
 

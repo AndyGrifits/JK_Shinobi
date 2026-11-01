@@ -22,6 +22,7 @@ FACTORS = {
     "fireball_explode": (0.72, 1.0, 1.39),
     "water_splash": (0.75, 1.0, 1.35),
     "wind_gust": (0.75, 1.0, 1.3),
+    "storm_wind": (0.75, 1.0, 1.3),
 }
 
 NUM = re.compile(r"-?\d+(?:\.\d+)?")
