@@ -1626,6 +1626,7 @@ static serverCommand_t	commands[] = {
 	{ "rcg",				CG_RestoreClientGhoul_f },
 	{ "remapShader",		CG_RemapShader_f },
 	{ "sb",					CG_SiegeBriefingDisplay_f },
+	{ "sbuild",				CG_ShinobiSetBuild_f },
 	{ "scl",				CG_SiegeClassSelect_f },
 	{ "scores",				CG_ParseScores },
 	{ "spc",				CG_SiegeProfileMenu_f },

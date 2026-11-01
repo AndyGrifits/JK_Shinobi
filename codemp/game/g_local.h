@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "qcommon/q_shared.h"
 #include "bg_public.h"
+#include "bg_shinobi.h"
 #include "bg_vehicles.h"
 #include "g_public.h"
 
@@ -509,6 +510,11 @@ typedef struct clientPersistant_s {
 	int			vote, teamvote; // 0 = none, 1 = yes, 2 = no
 
 	char		guid[33];
+	// JK_Shinobi ninja build (g_shinobi_build.c)
+	shinobiBuild_t	shinobiBuild;		// in effect since the last spawn
+	shinobiBuild_t	shinobiBuildNext;	// chosen, applied on the next spawn
+	qboolean	shinobiBuildSet;	// shinobiBuildNext came from the player
+	qboolean	shinobiCurseOff;	// Curse Seal turned off by /curseseal
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -834,6 +840,7 @@ struct gclient_s {
 		int		puddleEnd;		// slowed by a puddle until
 		int		burstLeft, burstNext; // Water Bullets still to fire
 		int		bladeNext;		// Wind Blade cooldown end
+		int		curseTick;		// Curse Seal health drain
 	} shinobi;
 };
 
@@ -1422,6 +1429,12 @@ void Cmd_PushWall_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
+// g_shinobi_build.c
+void  Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo );
+void  Shinobi_ApplyBuild( gentity_t *ent );
+int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod );
+float Shinobi_RegenScale( gentity_t *ent );
+void  Cmd_CurseSeal_f( gentity_t *ent );
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );
 qboolean Shinobi_DamageBlocked( gentity_t *targ, gentity_t *attacker );

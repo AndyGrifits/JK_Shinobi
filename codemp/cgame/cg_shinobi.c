@@ -12,6 +12,7 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 #include "game/bg_shinobi.h"
 #include "ui/menudef.h"
 #include "fx_local.h"
+#include "ui/keycodes.h"
 
 #define SHINOBI_HAND_FX_INTERVAL  60   // ms between hand spark effects
 #define SHINOBI_AURA_FX_INTERVAL  70
@@ -33,6 +34,19 @@ static struct {
 	int      start;
 	qboolean fromJump; // Shunshin charged with Shift + jump
 } shinobiCharge;
+
+// the build in effect (sent by the server on spawn: "sbuild <string>")
+static shinobiBuild_t shinobiActive;
+static qboolean       shinobiActiveSet;
+static vmCvar_t       shinobiBuildCvar;
+
+static const shinobiBuild_t *CG_ShinobiBuild( void ) {
+	if ( !shinobiActiveSet ) {
+		Shinobi_BuildDefault( &shinobiActive );
+		shinobiActiveSet = qtrue;
+	}
+	return &shinobiActive;
+}
 
 // jutsu selection (cycled with jutsu_next / jutsu_prev, cast with +jutsu)
 static struct {
@@ -128,8 +142,9 @@ void CG_ShinobiRegisterMedia( void ) {
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
 	shinobiSel.changeTime = 0;
-	if ( shinobiSel.index < 0 || shinobiSel.index >= SHINOBI_CYCLE_COUNT )
-		shinobiSel.index = 0;
+	shinobiSel.index = 0;
+	shinobiActiveSet = qfalse;
+	trap->Cvar_Register( &shinobiBuildCvar, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
@@ -191,7 +206,21 @@ Jutsu selection: one cast key ("+jutsu") for the jutsu picked with
 ===========================================================================
 */
 void CG_ShinobiCastDown_f( void ) {
-	CG_ShinobiJutsuDown( shinobiJutsuCycle[shinobiSel.index] );
+	const shinobiBuild_t *b = CG_ShinobiBuild();
+	if ( !b->numJutsu )
+		return;
+	if ( shinobiSel.index >= b->numJutsu )
+		shinobiSel.index = 0;
+	CG_ShinobiJutsuDown( b->jutsu[shinobiSel.index] );
+}
+
+// "sbuild <string>": the server applied our build
+void CG_ShinobiSetBuild_f( void ) {
+	Shinobi_BuildParse( CG_Argv( 1 ), &shinobiActive );
+	Shinobi_BuildFix( &shinobiActive );
+	shinobiActiveSet = qtrue;
+	if ( shinobiSel.index >= shinobiActive.numJutsu )
+		shinobiSel.index = 0;
 }
 
 void CG_ShinobiCastUp_f( void ) {
@@ -200,7 +229,10 @@ void CG_ShinobiCastUp_f( void ) {
 }
 
 static void CG_ShinobiSelect( int step ) {
-	shinobiSel.index = ( shinobiSel.index + step + SHINOBI_CYCLE_COUNT ) % SHINOBI_CYCLE_COUNT;
+	const int n = CG_ShinobiBuild()->numJutsu;
+	if ( !n )
+		return;
+	shinobiSel.index = ( shinobiSel.index + step + n ) % n;
 	shinobiSel.changeTime = cg.time;
 	trap->S_StartLocalSound( cgs.media.selectSound, CHAN_LOCAL_SOUND );
 }
@@ -237,6 +269,7 @@ void CG_ShinobiFrame( void ) {
 		shinobiSel.jumpHeld = qfalse;
 		return;
 	}
+	CG_ShinobiMenuAuto();
 	if ( !trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) )
 		return;
 	jump = cmd.upmove > 0;
@@ -729,7 +762,8 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	const float  x0 = ( SCREEN_WIDTH - ( barW * 3 + gap * 2 ) ) * 0.5f;
 	const int    chakra = cg.predictedPlayerState.fd.forcePower;
 	const int    held = cg.time - shinobiCharge.start;
-	const int    lvl = Shinobi_ChargeLevelFor( shinobiCharge.jutsu, held );
+	const int    castLvl = CG_ShinobiBuild()->stats[SST_CAST];
+	const int    lvl = Shinobi_ChargeLevelCast( shinobiCharge.jutsu, held, castLvl );
 	int          shown = lvl, i;
 	const char  *label;
 	vec4_t       textColor = { 1, 1, 1, 1 };
@@ -738,8 +772,8 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		shown--;
 
 	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
-		const int   begin = i ? Shinobi_BarEnd( shinobiCharge.jutsu, i - 1 ) : 0;
-		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( Shinobi_BarEnd( shinobiCharge.jutsu, i ) - begin ) );
+		const int   begin = i ? Shinobi_BarEndCast( shinobiCharge.jutsu, i - 1, castLvl ) : 0;
+		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( Shinobi_BarEndCast( shinobiCharge.jutsu, i, castLvl ) - begin ) );
 		const float x = x0 + i * ( barW + gap );
 		const qboolean affordable = chakra >= Shinobi_JutsuCost( shinobiCharge.jutsu, i + 1 );
 
@@ -749,7 +783,7 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		CG_DrawRect( x, y, barW, barH, 1, frame );
 	}
 
-	if ( held < Shinobi_BarEnd( shinobiCharge.jutsu, 0 ) ) {
+	if ( held < Shinobi_BarEndCast( shinobiCharge.jutsu, 0, castLvl ) ) {
 		label = va( "%s - forming seals...", shinobiJutsuTitles[shinobiCharge.jutsu] );
 		VectorSet( textColor, 0.8f, 0.8f, 0.8f );
 	}
@@ -776,12 +810,18 @@ static void CG_ShinobiDrawJutsuList( void ) {
 	float       total = 0, x;
 	int         i;
 
-	for ( i = 0; i < SHINOBI_CYCLE_COUNT; i++ )
-		total += CG_Text_Width( shinobiJutsuTitles[shinobiJutsuCycle[i]], scale, FONT_MEDIUM ) + ( i ? gap : 0 );
+	const shinobiBuild_t *b = CG_ShinobiBuild();
+
+	if ( !b->numJutsu )
+		return;
+	if ( shinobiSel.index >= b->numJutsu )
+		shinobiSel.index = 0;
+	for ( i = 0; i < b->numJutsu; i++ )
+		total += CG_Text_Width( shinobiJutsuTitles[b->jutsu[i]], scale, FONT_MEDIUM ) + ( i ? gap : 0 );
 	x = ( SCREEN_WIDTH - total ) * 0.5f;
 
-	for ( i = 0; i < SHINOBI_CYCLE_COUNT; i++ ) {
-		const int    j = shinobiJutsuCycle[i];
+	for ( i = 0; i < b->numJutsu; i++ ) {
+		const int    j = b->jutsu[i];
 		const char  *title = shinobiJutsuTitles[j];
 		const float  w = CG_Text_Width( title, scale, FONT_MEDIUM );
 		const qboolean selected = ( i == shinobiSel.index );
@@ -807,7 +847,7 @@ static void CG_ShinobiDrawJutsuList( void ) {
 	}
 
 	if ( recent > 0 ) { // just picked: show what the levels cost
-		const int   j = shinobiJutsuCycle[shinobiSel.index];
+		const int   j = b->jutsu[shinobiSel.index];
 		const char *info = SHINOBI_JUTSU_INSTANT( j )
 			? va( "%s: %i chakra", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ) )
 			: SHINOBI_JUTSU_HOLD( j )
@@ -891,4 +931,293 @@ void CG_ShinobiDrawHUD( void ) {
 		const int w = CG_Text_Width( text, scale, FONT_MEDIUM );
 		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 340, scale, color, text, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 	}
+}
+
+/*
+===========================================================================
+Build screen ("shinobi_build_menu", B): techniques, stats and a special
+ability, all on one screen, driven by the mouse. Saving writes the
+"shinobi_build" userinfo cvar; the server applies it on the next spawn.
+===========================================================================
+*/
+static struct {
+	qboolean       open;
+	qboolean       autoShown;
+	shinobiBuild_t edit;
+	float          cx, cy;           // cursor (640x480)
+	qboolean       click;
+	float          clickX, clickY;
+	char           msg[128];
+	int            msgTime;
+	qboolean       msgBad;
+	const char    *hover;
+} sm;
+
+static const vec4_t smSchoolColor[SS_COUNT] = {
+	{ 0.8f, 0.8f, 0.8f, 1 },
+	{ 1.0f, 0.5f, 0.2f, 1 },  // fire
+	{ 0.4f, 0.7f, 1.0f, 1 },  // water
+	{ 0.6f, 0.95f, 0.6f, 1 }, // wind
+	{ 0.85f, 0.65f, 0.4f, 1 },// earth
+	{ 0.8f, 0.85f, 1.0f, 1 }, // lightning
+	{ 0.85f, 0.6f, 1.0f, 1 }, // yin / yang
+};
+
+static void SM_Message( qboolean bad, const char *text ) {
+	Q_strncpyz( sm.msg, text, sizeof( sm.msg ) );
+	sm.msgTime = cg.time;
+	sm.msgBad = bad;
+}
+
+static void CG_ShinobiMenuClose( void ) {
+	sm.open = qfalse;
+	sm.click = qfalse;
+	trap->Key_SetCatcher( trap->Key_GetCatcher() & ~KEYCATCH_CGAME );
+}
+
+void CG_ShinobiMenu_f( void ) {
+	char buf[256];
+
+	if ( sm.open ) {
+		CG_ShinobiMenuClose();
+		return;
+	}
+	trap->Cvar_VariableStringBuffer( "shinobi_build", buf, sizeof( buf ) );
+	Shinobi_BuildParse( buf, &sm.edit );
+	Shinobi_BuildFix( &sm.edit );
+	sm.open = qtrue;
+	sm.autoShown = qtrue;
+	sm.cx = 320;
+	sm.cy = 240;
+	sm.click = qfalse;
+	sm.msg[0] = 0;
+	trap->Key_SetCatcher( trap->Key_GetCatcher() | KEYCATCH_CGAME );
+}
+
+static void CG_ShinobiMenuSave( void ) {
+	char why[128], str[256];
+
+	if ( !Shinobi_BuildValid( &sm.edit, why, sizeof( why ) ) ) {
+		SM_Message( qtrue, why );
+		return;
+	}
+	Shinobi_BuildString( &sm.edit, str, sizeof( str ) );
+	trap->Cvar_Set( "shinobi_build", str );
+	CG_ShinobiMenuClose();
+	trap->Print( "[shinobi] build saved: %s\n", str );
+}
+
+// key and mouse input while the screen is open (qtrue = eaten)
+qboolean CG_ShinobiMenuKey( int key, qboolean down ) {
+	if ( !sm.open )
+		return qfalse;
+	if ( !down )
+		return qtrue;
+	if ( key == A_MOUSE1 ) {
+		sm.click = qtrue;
+		sm.clickX = sm.cx;
+		sm.clickY = sm.cy;
+	}
+	else if ( key == A_ENTER || key == A_KP_ENTER ) {
+		CG_ShinobiMenuSave();
+	}
+	else if ( key == A_ESCAPE || key == 'b' || key == 'B' ) {
+		CG_ShinobiMenuClose();
+	}
+	return qtrue;
+}
+
+qboolean CG_ShinobiMenuMouse( int dx, int dy ) {
+	if ( !sm.open )
+		return qfalse;
+	sm.cx = Com_Clamp( 0, SCREEN_WIDTH - 1, sm.cx + dx );
+	sm.cy = Com_Clamp( 0, SCREEN_HEIGHT - 1, sm.cy + dy );
+	return qtrue;
+}
+
+static qboolean SM_Over( float x, float y, float w, float h ) {
+	return ( sm.cx >= x && sm.cx < x + w && sm.cy >= y && sm.cy < y + h ) ? qtrue : qfalse;
+}
+
+static qboolean SM_Clicked( float x, float y, float w, float h ) {
+	if ( sm.click && sm.clickX >= x && sm.clickX < x + w && sm.clickY >= y && sm.clickY < y + h ) {
+		sm.click = qfalse;
+		return qtrue;
+	}
+	return qfalse;
+}
+
+static void SM_Text( float x, float y, float scale, const vec4_t color, const char *text ) {
+	CG_Text_Paint( x, y, scale, (float *)color, text, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+}
+
+static qboolean SM_Button( float x, float y, float w, float h, const char *label, qboolean enabled ) {
+	const vec4_t bg = { 0.12f, 0.25f, 0.4f, 0.9f }, bgHot = { 0.2f, 0.4f, 0.65f, 0.95f };
+	const vec4_t frame = { 1, 1, 1, 0.4f }, white = { 1, 1, 1, 1 }, grey = { 0.5f, 0.5f, 0.5f, 1 };
+	const float  tw = CG_Text_Width( label, 0.45f, FONT_MEDIUM );
+
+	CG_FillRect( x, y, w, h, enabled && SM_Over( x, y, w, h ) ? bgHot : bg );
+	CG_DrawRect( x, y, w, h, 1, frame );
+	SM_Text( x + ( w - tw ) * 0.5f, y + 2, 0.45f, enabled ? white : grey, label );
+	return ( SM_Clicked( x, y, w, h ) && enabled ) ? qtrue : qfalse;
+}
+
+static void SM_ToggleJutsu( int j ) {
+	shinobiBuild_t test;
+	int            i;
+
+	for ( i = 0; i < sm.edit.numJutsu; i++ ) {
+		if ( sm.edit.jutsu[i] == j ) { // remove
+			for ( ; i < sm.edit.numJutsu - 1; i++ )
+				sm.edit.jutsu[i] = sm.edit.jutsu[i + 1];
+			sm.edit.numJutsu--;
+			return;
+		}
+	}
+	if ( sm.edit.numJutsu >= SHINOBI_BUILD_JUTSU ) {
+		SM_Message( qtrue, va( "At most %i techniques - remove one first", SHINOBI_BUILD_JUTSU ) );
+		return;
+	}
+	test = sm.edit;
+	test.jutsu[test.numJutsu++] = j;
+	if ( Shinobi_BuildSchools( &test, NULL ) > SHINOBI_BUILD_SCHOOLS ) {
+		SM_Message( qtrue, va( "Techniques from at most %i schools", SHINOBI_BUILD_SCHOOLS ) );
+		return;
+	}
+	sm.edit = test;
+}
+
+void CG_ShinobiDrawMenu( void ) {
+	const vec4_t panel = { 0, 0, 0, 0.85f }, frame = { 0.5f, 0.7f, 1, 0.5f };
+	const vec4_t white = { 1, 1, 1, 1 }, dim = { 0.7f, 0.7f, 0.7f, 1 }, title = { 0.55f, 0.85f, 1, 1 };
+	const vec4_t on = { 0.25f, 0.55f, 0.85f, 0.9f }, off = { 0.15f, 0.15f, 0.15f, 0.9f }, hot = { 1, 1, 1, 0.08f };
+	const vec4_t good = { 0.5f, 1, 0.5f, 1 }, bad = { 1, 0.45f, 0.4f, 1 };
+	const float  s = 0.45f, rowH = 14;
+	float        x, y;
+	int          sc, i, k, schoolsUsed;
+
+	if ( !sm.open )
+		return;
+	if ( !( trap->Key_GetCatcher() & KEYCATCH_CGAME ) ) { // closed from outside (ESC)
+		sm.open = qfalse;
+		return;
+	}
+	sm.hover = NULL;
+
+	CG_FillRect( 16, 20, 608, 440, panel );
+	CG_DrawRect( 16, 20, 608, 440, 1, frame );
+	SM_Text( 30, 26, 0.75f, title, "NINJA BUILD" );
+	SM_Text( 330, 32, 0.4f, dim, "Enter: save   B / Esc: close   applies on respawn" );
+
+	// --- techniques -----------------------------------------------------
+	schoolsUsed = Shinobi_BuildSchools( &sm.edit, NULL );
+	x = 30;
+	y = 58;
+	SM_Text( x, y, 0.5f, white, va( "TECHNIQUES  %i/%i  schools %i/%i", sm.edit.numJutsu, SHINOBI_BUILD_JUTSU,
+		schoolsUsed, SHINOBI_BUILD_SCHOOLS ) );
+	y += 18;
+	for ( sc = SS_KATON; sc < SS_COUNT; sc++ ) {
+		SM_Text( x, y, s, smSchoolColor[sc], shinobiSchoolTitles[sc] );
+		y += 15;
+		for ( k = 0; k < SHINOBI_CYCLE_COUNT; k++ ) {
+			const int      j = shinobiJutsuCycle[k];
+			const qboolean have = Shinobi_BuildHas( &sm.edit, j );
+
+			if ( shinobiJutsuSchool[j] != sc )
+				continue;
+			if ( SM_Over( x + 8, y, 240, rowH ) ) {
+				CG_FillRect( x + 8, y, 240, rowH, hot );
+				sm.hover = shinobiJutsuInfo[j];
+			}
+			CG_FillRect( x + 10, y + 3, 9, 9, have ? on : off );
+			CG_DrawRect( x + 10, y + 3, 9, 9, 1, frame );
+			SM_Text( x + 26, y, s, have ? white : dim, shinobiJutsuTitles[j] );
+			SM_Text( x + 150, y, 0.38f, dim, va( "%i/%i/%i", Shinobi_JutsuCost( j, 1 ), Shinobi_JutsuCost( j, 2 ), Shinobi_JutsuCost( j, 3 ) ) );
+			if ( SM_Clicked( x + 8, y, 240, rowH ) )
+				SM_ToggleJutsu( j );
+			y += rowH;
+		}
+		y += 3;
+	}
+	SM_Text( x, y + 2, 0.38f, dim, "always: Shunshin (Shift+Space), Kawarimi (X), chakra (R), fists" );
+
+	// --- stats ----------------------------------------------------------
+	x = 300;
+	y = 58;
+	SM_Text( x, y, 0.5f, white, va( "STATS  points left %i", SHINOBI_STAT_POINTS - Shinobi_BuildPoints( &sm.edit ) ) );
+	y += 22;
+	for ( i = 0; i < SST_COUNT; i++ ) {
+		if ( SM_Over( x, y, 160, 32 ) )
+			sm.hover = shinobiStatInfo[i];
+		SM_Text( x, y, s, white, shinobiStatTitles[i] );
+		if ( SM_Button( x, y + 15, 16, 13, "-", sm.edit.stats[i] > 0 ) )
+			sm.edit.stats[i]--;
+		for ( k = 0; k < SHINOBI_STAT_MAX; k++ ) {
+			CG_FillRect( x + 22 + k * 20, y + 17, 16, 9, k < sm.edit.stats[i] ? on : off );
+			CG_DrawRect( x + 22 + k * 20, y + 17, 16, 9, 1, frame );
+		}
+		if ( SM_Button( x + 126, y + 15, 16, 13, "+", sm.edit.stats[i] < SHINOBI_STAT_MAX
+			&& Shinobi_BuildPoints( &sm.edit ) < SHINOBI_STAT_POINTS ) )
+			sm.edit.stats[i]++;
+		y += 38;
+	}
+
+	// --- special --------------------------------------------------------
+	x = 476;
+	y = 58;
+	SM_Text( x, y, 0.5f, white, "SPECIAL" );
+	y += 22;
+	for ( i = 0; i < SP_COUNT; i++ ) {
+		const qboolean chosen = ( sm.edit.perk == i );
+		const qboolean ready = shinobiPerkReady[i];
+
+		if ( SM_Over( x, y, 140, rowH ) ) {
+			CG_FillRect( x, y, 140, rowH, hot );
+			sm.hover = shinobiPerkInfo[i];
+		}
+		CG_FillRect( x + 2, y + 3, 9, 9, chosen ? on : off );
+		CG_DrawRect( x + 2, y + 3, 9, 9, 1, frame );
+		SM_Text( x + 18, y, s, ready ? ( chosen ? white : dim ) : off, ready ? shinobiPerkTitles[i] : va( "%s (soon)", shinobiPerkTitles[i] ) );
+		if ( SM_Clicked( x, y, 140, rowH ) ) {
+			if ( ready )
+				sm.edit.perk = i;
+			else
+				SM_Message( qtrue, va( "%s isn't ready yet", shinobiPerkTitles[i] ) );
+		}
+		y += rowH + 2;
+	}
+
+	// --- bottom: description, message, buttons -------------------------
+	CG_FillRect( 24, 368, 592, 18, off );
+	if ( sm.hover )
+		SM_Text( 30, 370, 0.42f, title, sm.hover );
+	if ( sm.msg[0] && cg.time - sm.msgTime < 4000 )
+		SM_Text( 30, 392, 0.45f, sm.msgBad ? bad : good, sm.msg );
+
+	if ( SM_Button( 30, 420, 100, 18, "Save", qtrue ) )
+		CG_ShinobiMenuSave();
+	if ( SM_Button( 140, 420, 100, 18, "Default", qtrue ) ) {
+		Shinobi_BuildDefault( &sm.edit );
+		SM_Message( qfalse, "Default build - Save to keep it" );
+	}
+	if ( SM_Button( 250, 420, 100, 18, "Close", qtrue ) )
+		CG_ShinobiMenuClose();
+	SM_Text( 370, 422, 0.38f, dim, "saved builds take effect when you respawn (/kill)" );
+
+	sm.click = qfalse; // a click on nothing is dropped
+	CG_DrawPic( sm.cx - 2, sm.cy - 2, 24, 24, cgs.media.cursor );
+}
+
+// open the screen by itself the first time, while no build was ever saved
+void CG_ShinobiMenuAuto( void ) {
+	char buf[256];
+
+	if ( sm.autoShown || sm.open || !cg.snap || cg.demoPlayback )
+		return;
+	if ( cg.snap->ps.pm_type != PM_NORMAL || cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR )
+		return;
+	sm.autoShown = qtrue;
+	trap->Cvar_VariableStringBuffer( "shinobi_build", buf, sizeof( buf ) );
+	if ( !buf[0] && !( trap->Key_GetCatcher() & KEYCATCH_UI ) )
+		CG_ShinobiMenu_f();
 }

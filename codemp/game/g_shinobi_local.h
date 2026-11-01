@@ -76,3 +76,9 @@ qboolean  Shinobi_CastBlade( gentity_t *ent, int lvl );
 void      Shinobi_SmotherFire( vec3_t pos, float radius, qboolean steam );
 qboolean  Shinobi_CastSuiro( gentity_t *ent, int lvl );
 void      Shinobi_PrisonRelease( gentity_t *ent );
+
+// g_shinobi_build.c
+extern int shinobiJutsuDamage; // set while a jutsu deals damage (no taijutsu bonus)
+qboolean  Shinobi_HasJutsu( gentity_t *ent, int jutsu );
+int       Shinobi_CastStat( gentity_t *ent );
+void      Shinobi_PerkThink( gentity_t *ent );

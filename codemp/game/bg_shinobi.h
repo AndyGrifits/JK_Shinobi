@@ -407,3 +407,138 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_DRIP            "shinobi/drip"
 #define SHINOBI_FX_BUBBLES         "shinobi/bubbles"
 #define SHINOBI_FX_ZONE_SPARK      "shinobi/zone_spark"
+
+/*
+---------------------------------------------------------------------------
+Ninja build (bg_shinobi.c): chosen on the build screen, stored in the
+userinfo cvar "shinobi_build" as "<jutsu,...>/<stat points>/<perk>", e.g.
+"suiton,wave,suiro,futon,windblade/2,2,2,2,2/none". Applied on respawn.
+
+  techniques  up to 5, from at most 2 schools (basic ones are free for all)
+  stats       10 points, at most 5 in one stat
+  special     one perk
+---------------------------------------------------------------------------
+*/
+typedef enum {
+	SS_BASE,       // everyone: Shunshin, Kawarimi
+	SS_KATON,
+	SS_SUITON,
+	SS_FUTON,
+	SS_DOTON,
+	SS_RAITON,
+	SS_YINYANG,
+	SS_COUNT
+} shinobiSchool_t;
+
+static const char * const shinobiSchoolTitles[SS_COUNT] = {
+	"Basic", "Katon - fire", "Suiton - water", "Futon - wind", "Doton - earth", "Raiton - lightning", "Yin / Yang"
+};
+
+static const int shinobiJutsuSchool[SJ_COUNT] = {
+	SS_BASE,    // none
+	SS_YINYANG, // Rasengan
+	SS_RAITON,  // Chidori
+	SS_KATON,   // Katon
+	SS_DOTON,   // Doton
+	SS_YINYANG, // Kage Bunshin
+	SS_BASE,    // Shunshin
+	SS_BASE,    // Kawarimi
+	SS_SUITON,  // Water Bullets
+	SS_FUTON,   // Storm Wind
+	SS_SUITON,  // Water Prison
+	SS_SUITON,  // Water Wave
+	SS_FUTON,   // Wind Blade
+};
+
+#define SHINOBI_BUILD_JUTSU     5
+#define SHINOBI_BUILD_SCHOOLS   2
+
+typedef enum {
+	SST_CHAKRA,    // +20 max chakra per point
+	SST_HEALTH,    // +15 max health per point
+	SST_TAIJUTSU,  // +10% fist, kick and saber damage per point
+	SST_CAST,      // charge bars fill 8% faster per point
+	SST_REGEN,     // chakra regenerates 12% faster per point
+	SST_COUNT
+} shinobiStat_t;
+
+#define SHINOBI_STAT_POINTS     10
+#define SHINOBI_STAT_MAX        5
+
+static const char * const shinobiStatTitles[SST_COUNT] = {
+	"Chakra pool", "Health", "Taijutsu", "Casting speed", "Chakra regen"
+};
+static const char * const shinobiStatInfo[SST_COUNT] = {
+	"+20 max chakra per point", "+15 max health per point", "+10% fist, kick and blade damage per point",
+	"charge bars fill 8% faster per point", "chakra comes back 12% faster per point"
+};
+
+typedef enum {
+	SP_NONE,
+	SP_GENTLE_FIST,
+	SP_CURSE_SEAL,
+	SP_SHARINGAN,
+	SP_BYAKUGAN,
+	SP_GATES,
+	SP_COUNT
+} shinobiPerk_t;
+
+static const char * const shinobiPerkNames[SP_COUNT] = {
+	"none", "gentlefist", "curseseal", "sharingan", "byakugan", "gates"
+};
+static const char * const shinobiPerkTitles[SP_COUNT] = {
+	"None", "Gentle Fist", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates"
+};
+static const char * const shinobiPerkInfo[SP_COUNT] = {
+	"no special ability",
+	"your fists and kicks also burn the enemy's chakra",
+	"out of chakra: it eats your health (never below 10) but chakra returns twice as fast; /curseseal turns it on/off",
+	"coming soon: see health, hidden enemies and the jutsu being charged",
+	"coming soon: see chakra and enemies through walls",
+	"coming soon: a burst of speed and taijutsu, then exhaustion"
+};
+// one line per jutsu for the build screen
+static const char * const shinobiJutsuInfo[SJ_COUNT] = {
+	"",
+	"ball of chakra in the hand; attack = dash strike that knocks down",
+	"lightning in the hand; long piercing dash that stuns",
+	"great fireball; Lv2+ leaves the ground burning",
+	"earth wall; F next to it again pushes it forward",
+	"1-3 shadow clones in a cloud of smoke; they drain chakra",
+	"Shift + Space: blink where you look",
+	"X: a double takes your place, you vanish",
+	"1-3 fast water bullets in a burst; small puddles",
+	"storm wind: throws people back, fans flames, blows steam away",
+	"hold F: trap an enemy in a ball of water (drains chakra)",
+	"low wave rolling along the floor; clear it with a force jump",
+	"wide arc of wind at chest height; jump over it"
+};
+
+static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qfalse, qfalse, qfalse };
+
+typedef struct {
+	int numJutsu;
+	int jutsu[SHINOBI_BUILD_JUTSU];
+	int stats[SST_COUNT];
+	int perk;
+} shinobiBuild_t;
+
+void     Shinobi_BuildDefault( shinobiBuild_t *b );
+void     Shinobi_BuildParse( const char *str, shinobiBuild_t *b );   // invalid parts are dropped
+void     Shinobi_BuildString( const shinobiBuild_t *b, char *out, int size );
+qboolean Shinobi_BuildValid( const shinobiBuild_t *b, char *why, int whySize );
+void     Shinobi_BuildFix( shinobiBuild_t *b );                       // make it valid by dropping extras
+qboolean Shinobi_BuildHas( const shinobiBuild_t *b, int jutsu );
+int      Shinobi_BuildSchools( const shinobiBuild_t *b, int *schools ); // distinct schools used
+int      Shinobi_BuildPoints( const shinobiBuild_t *b );
+
+// the charge bars, sped up by the Casting speed stat
+static QINLINE int Shinobi_BarEndCast( int jutsu, int bar, int castLvl ) {
+	return Shinobi_BarEnd( jutsu, bar ) * ( 100 - 8 * castLvl ) / 100;
+}
+static QINLINE int Shinobi_ChargeLevelCast( int jutsu, int heldMs, int castLvl ) {
+	if ( heldMs >= Shinobi_BarEndCast( jutsu, 2, castLvl ) ) return 3;
+	if ( heldMs >= Shinobi_BarEndCast( jutsu, 1, castLvl ) ) return 2;
+	return 1;
+}
+

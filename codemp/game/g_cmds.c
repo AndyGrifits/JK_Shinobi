@@ -3394,6 +3394,7 @@ command_t commands[] = {
 	{ "callteamvote",		Cmd_CallTeamVote_f,			CMD_NOINTERMISSION },
 	{ "callvote",			Cmd_CallVote_f,				CMD_NOINTERMISSION },
 	{ "chidori",			Cmd_Chidori_f,				CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "curseseal",			Cmd_CurseSeal_f,			CMD_NOINTERMISSION },
 	{ "debugBMove_Back",	Cmd_BotMoveBack_f,			CMD_CHEAT|CMD_ALIVE },
 	{ "debugBMove_Forward",	Cmd_BotMoveForward_f,		CMD_CHEAT|CMD_ALIVE },
 	{ "debugBMove_Left",	Cmd_BotMoveLeft_f,			CMD_CHEAT|CMD_ALIVE },

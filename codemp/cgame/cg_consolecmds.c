@@ -321,6 +321,7 @@ static consoleCommand_t	commands[] = {
 	{ "nextskin",					CG_TestModelNextSkin_f },
 	{ "prevframe",					CG_TestModelPrevFrame_f },
 	{ "prevskin",					CG_TestModelPrevSkin_f },
+	{ "shinobi_build_menu",			CG_ShinobiMenu_f },
 	{ "shinobi_diag",				CG_ShinobiDiag_f },
 	{ "shinobi_melee",				CG_ShinobiMelee_f },
 	{ "siegeCompleteCvarUpdate",	CG_SiegeCompleteCvarUpdate_f },

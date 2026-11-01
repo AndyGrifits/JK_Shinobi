@@ -5469,8 +5469,8 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 					else
 						self->client->ps.fd.forcePowerRegenDebounceTime += Q_max(g_forceRegenTime.integer*0.7, 1);
 				}
-				else
-					self->client->ps.fd.forcePowerRegenDebounceTime += Q_max(g_forceRegenTime.integer, 1);
+				else // JK_Shinobi: Chakra regen stat and Curse Seal
+					self->client->ps.fd.forcePowerRegenDebounceTime += Q_max(g_forceRegenTime.integer * Shinobi_RegenScale( self ), 1);
 			}
 		}
 	}

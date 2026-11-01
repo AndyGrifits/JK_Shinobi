@@ -238,7 +238,9 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 	VectorNormalize( dir );
 
 	shinobiHitElement = chidori ? SE_LIGHTNING : SE_NONE; // wet targets take 1.5x from Chidori
+	shinobiJutsuDamage = 1; // a jutsu, not a punch: no taijutsu bonus
 	G_Damage( victim, ent, ent, dir, point, damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	shinobiJutsuDamage = 0;
 	shinobiHitElement = SE_NONE;
 	if ( chidori )
 		Shinobi_ElectrifyAt( point, ent->s.number + 1 );
@@ -349,6 +351,10 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 
 	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return;
+	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
+		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
+		return;
+	}
 	if ( jutsu != SJ_KAWARIMI ) {
 		if ( client->shinobi.prisonCaster )
 			return; // in a Water Prison only Kawarimi works
@@ -438,6 +444,10 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
 	}
+	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
+		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
+		return;
+	}
 	if ( jutsu == SJ_DOTON && !client->shinobi.prisonCaster && Shinobi_PushWall( ent ) )
 		return; // our wall was right in front: F shoves it forward instead of raising a new one
 	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
@@ -468,14 +478,14 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_PrisonRelease( ent );
 		return;
 	}
-	if ( level.time - client->shinobi.chargeStart < Shinobi_BarEnd( jutsu, 0 ) ) {
+	if ( level.time - client->shinobi.chargeStart < Shinobi_BarEndCast( jutsu, 0, Shinobi_CastStat( ent ) ) ) {
 		// let go before the first bar was full: the seals weren't finished
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		return;
 	}
 	if ( jutsu == SJ_SHUNSHIN ) // Shift + back + jump blinks backward
 		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
-	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelFor( jutsu, level.time - client->shinobi.chargeStart ) );
+	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelCast( jutsu, level.time - client->shinobi.chargeStart, Shinobi_CastStat( ent ) ) );
 }
 
 /*
@@ -502,6 +512,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 
 	Shinobi_KawarimiThink( ent, ucmd );
+	Shinobi_PerkThink( ent );
 
 	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
 	if ( client->shinobi.chargeJutsu != SJ_NONE && client->shinobi.chargeJutsu != SJ_SHUNSHIN

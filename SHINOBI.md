@@ -2,6 +2,23 @@
 
 Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, built on [OpenJK](https://github.com/JACoders/OpenJK) (GPLv2).
 
+## Ninja build (B)
+
+Press **B** for the build screen (it also opens by itself the first time):
+
+- **Techniques**: up to 5, from at most 2 schools (Katon, Suiton, Futon, Doton, Raiton,
+  Yin/Yang). Only these are in the Q/E list and can be cast. Shunshin, Kawarimi,
+  chakra charging and fists are for everyone.
+- **Stats**: 10 points, at most 5 in one: chakra pool (+20 per point), health (+15),
+  taijutsu (+10% fist/kick/blade damage), casting speed (bars 8% faster), chakra regen
+  (12% faster).
+- **Special**: one ability. Ready: Gentle Fist (fists and kicks burn the target's chakra),
+  Curse Seal (out of chakra it eats your health down to 10 but chakra returns twice as
+  fast; `/curseseal` toggles it). Sharingan, Byakugan and Inner Gates are coming.
+
+Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
+With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
+
 ## Controls (prototype)
 
 Pick a jutsu with **Q / E** (the list is at the bottom of the screen), **hold F** to
@@ -20,6 +37,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **2** | fists / saber |
+| **B** | ninja build screen |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
 
 Shift no longer walks: it is the chakra modifier (more Shift combos later).
@@ -88,7 +106,8 @@ tools/build-win64.sh            # -> dist/shinobi/{*.dll, zz_shinobi.pk3}
 - `codemp/game/g_shinobi_clones.c` - Kage Bunshin and the Kawarimi double (NPCs, their supervisor, the log)
 - `codemp/game/g_shinobi_elements.c` - Katon fireball and Doton earth wall entities
 - `codemp/game/bg_pmove.c` (`PM_ShinobiPreMove`, `PM_ShinobiWallRun`) - predicted movement/animation, Shift modifier, wall runs
-- `codemp/cgame/cg_shinobi.c` - client effects, jutsu selection and HUD
+- `codemp/game/bg_shinobi.c`, `g_shinobi_build.c` - ninja build: parsing/validation, applying stats and perks
+- `codemp/cgame/cg_shinobi.c` - client effects, jutsu selection, HUD and the build screen
 - `assets/ext_data/NPCs/shinobi.npc` - base NPC definition for clones (model/saber/team overridden in code)
 - `assets/` - effects, shaders, textures, configs (packed into `zz_shinobi.pk3`)
 

@@ -2287,6 +2287,7 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > maxHealth )
 		client->pers.maxHealth = 100;
 	client->ps.stats[STAT_MAX_HEALTH] = client->pers.maxHealth;
+	Shinobi_BuildUserinfo( ent, userinfo ); // JK_Shinobi: ninja build (and its max health)
 
 	if ( level.gametype >= GT_TEAM )
 		client->pers.teamInfo = qtrue;
@@ -3842,6 +3843,8 @@ void ClientSpawn(gentity_t *ent) {
 	//rww - make sure client has a valid icarus instance
 	trap->ICARUS_FreeEnt( (sharedEntity_t *)ent );
 	trap->ICARUS_InitEnt( (sharedEntity_t *)ent );
+
+	Shinobi_ApplyBuild( ent ); // JK_Shinobi: the build chosen last takes effect now
 }
 
 

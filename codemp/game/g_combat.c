@@ -4473,6 +4473,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	if ( damage > 0 )
 	{ // JK_Shinobi: elements (fire on a wet target...), and getting hurt ends Kawarimi / lets go of a Water Prison
 		damage = Shinobi_ElementDamage( targ, attacker, damage );
+		damage = Shinobi_BuildDamage( targ, attacker, damage, mod );
 		Shinobi_Damaged( targ, attacker );
 	}
 
