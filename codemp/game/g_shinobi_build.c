@@ -86,34 +86,53 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 	return damage;
 }
 
-static qboolean Shinobi_CurseActive( gentity_t *ent ) {
-	gclient_t *client = ent->client;
-	return ( client->pers.shinobiBuild.perk == SP_CURSE_SEAL && !client->pers.shinobiCurseOff
-		&& client->ps.fd.forcePower < 5 && ent->health > 0 ) ? qtrue : qfalse;
-}
-
+/*
+Curse Seal: awakens when the chakra runs dry and stays awake until the
+chakra is back to half. While awake it eats health (never below 10) and
+pours chakra back 2.5x faster; dark chakra licks around the body.
+*/
 float Shinobi_RegenScale( gentity_t *ent ) {
 	float f;
 	if ( !ent->client || ent->s.number >= MAX_CLIENTS )
 		return 1.0f;
 	f = 1.0f - 0.12f * ent->client->pers.shinobiBuild.stats[SST_REGEN];
-	if ( ent->client->pers.shinobiBuild.perk == SP_CURSE_SEAL && !ent->client->pers.shinobiCurseOff
-		&& ent->client->ps.fd.forcePower < ent->client->ps.fd.forcePowerMax / 2 )
-		f *= 0.5f; // the seal pours chakra back
+	if ( ent->client->shinobi.curseAwake )
+		f *= 0.4f;
 	return f;
 }
 
-// Curse Seal: out of chakra, it feeds on your health (never below 10)
 void Shinobi_PerkThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+	const qboolean hasSeal = client->pers.shinobiBuild.perk == SP_CURSE_SEAL && !client->pers.shinobiCurseOff;
+	vec3_t     up = { 0, 0, 1 };
 
-	if ( Shinobi_CurseActive( ent ) && client->shinobi.curseTick <= level.time ) {
-		client->shinobi.curseTick = level.time + 500;
+	if ( !hasSeal || ent->health <= 0 ) {
+		client->shinobi.curseAwake = qfalse;
+	}
+	else if ( !client->shinobi.curseAwake && client->ps.fd.forcePower <= 1 ) {
+		client->shinobi.curseAwake = qtrue;
+		client->shinobi.curseTick = level.time + 300;
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndCurse );
+		G_PlayEffectID( shinobiMedia.fxCurse, ent->r.currentOrigin, up );
+		trap->SendServerCommand( ent - g_entities, "cp \"^6Curse Seal awakened\"" );
+	}
+	else if ( client->shinobi.curseAwake && client->ps.fd.forcePower >= client->ps.fd.forcePowerMax / 2 ) {
+		client->shinobi.curseAwake = qfalse;
+	}
+
+	if ( client->shinobi.curseAwake && client->shinobi.curseTick <= level.time ) {
+		client->shinobi.curseTick = level.time + 300;
 		if ( ent->health > 10 ) {
 			ent->health--;
 			client->ps.stats[STAT_HEALTH] = ent->health;
 		}
+		G_PlayEffectID( shinobiMedia.fxCurse, ent->r.currentOrigin, up );
 	}
+
+	if ( client->shinobi.curseAwake )
+		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_CURSE;
+	else
+		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_CURSE;
 }
 
 void Cmd_CurseSeal_f( gentity_t *ent ) {
@@ -124,5 +143,6 @@ void Cmd_CurseSeal_f( gentity_t *ent ) {
 		return;
 	}
 	client->pers.shinobiCurseOff = !client->pers.shinobiCurseOff;
+	client->shinobi.curseAwake = qfalse;
 	trap->SendServerCommand( ent - g_entities, va( "cp \"Curse Seal %s\"", client->pers.shinobiCurseOff ? "^2sealed (off)" : "^1released (on)" ) );
 }

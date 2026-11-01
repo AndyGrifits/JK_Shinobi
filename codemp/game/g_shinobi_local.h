@@ -24,7 +24,8 @@ typedef struct {
 
 	int sndLog;
 	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
-	int sndFireLoop, sndCrackleLoop;
+	int sndFireLoop, sndCrackleLoop, sndCurse;
+	int fxCurse;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];

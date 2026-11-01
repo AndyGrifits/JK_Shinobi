@@ -48,6 +48,8 @@ void Shinobi_NatureInit( void ) {
 	m->sndGurgle      = G_SoundIndex( "sound/player/gurp1.wav" );
 	m->sndFireLoop    = G_SoundIndex( "sound/effects/fire_lp.wav" );
 	m->sndCrackleLoop = G_SoundIndex( "sound/effects/energy_crackle.wav" );
+	m->sndCurse       = G_SoundIndex( "sound/weapons/force/rage.wav" );
+	m->fxCurse        = G_EffectIndex( SHINOBI_FX_CURSE );
 }
 
 /*

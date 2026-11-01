@@ -841,6 +841,7 @@ struct gclient_s {
 		int		burstLeft, burstNext; // Water Bullets still to fire
 		int		bladeNext;		// Wind Blade cooldown end
 		int		curseTick;		// Curse Seal health drain
+		qboolean curseAwake;	// Curse Seal active (until chakra is back to half)
 	} shinobi;
 };
 

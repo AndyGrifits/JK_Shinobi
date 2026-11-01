@@ -13,8 +13,9 @@ Press **B** for the build screen (it also opens by itself the first time):
   taijutsu (+10% fist/kick/blade damage), casting speed (bars 8% faster), chakra regen
   (12% faster).
 - **Special**: one ability. Ready: Gentle Fist (fists and kicks burn the target's chakra),
-  Curse Seal (out of chakra it eats your health down to 10 but chakra returns twice as
-  fast; `/curseseal` toggles it). Sharingan, Byakugan and Inner Gates are coming.
+  Curse Seal (awakens at 0 chakra and stays awake until chakra is back to half: eats
+  ~3 health/s, never below 10, chakra returns 2.5x faster, dark chakra around you;
+  `/curseseal` toggles it). Sharingan, Byakugan and Inner Gates are coming.
 
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).

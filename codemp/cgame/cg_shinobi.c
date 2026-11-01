@@ -893,7 +893,12 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( SHINOBI_STUNNED( ps ) ) {
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) {
+		text = "Curse Seal awakened - it feeds on your health";
+		VectorSet( color, 0.8f, 0.3f, 1.0f );
+		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.008f );
+	}
+	else if ( SHINOBI_STUNNED( ps ) ) {
 		text = "Gasping for air!";
 		VectorSet( color, 0.6f, 0.8f, 1.0f );
 	}
@@ -1028,10 +1033,15 @@ qboolean CG_ShinobiMenuKey( int key, qboolean down ) {
 }
 
 qboolean CG_ShinobiMenuMouse( int dx, int dy ) {
+	// raw mouse counts ~ screen pixels: convert to the 640x480 layout so the
+	// pointer moves like the desktop cursor on any resolution / aspect
+	const float sx = cgs.glconfig.vidWidth > 0 ? (float)SCREEN_WIDTH / cgs.glconfig.vidWidth : 1.0f;
+	const float sy = cgs.glconfig.vidHeight > 0 ? (float)SCREEN_HEIGHT / cgs.glconfig.vidHeight : 1.0f;
+
 	if ( !sm.open )
 		return qfalse;
-	sm.cx = Com_Clamp( 0, SCREEN_WIDTH - 1, sm.cx + dx );
-	sm.cy = Com_Clamp( 0, SCREEN_HEIGHT - 1, sm.cy + dy );
+	sm.cx = Com_Clamp( 0, SCREEN_WIDTH - 1, sm.cx + dx * sx * 1.5f );
+	sm.cy = Com_Clamp( 0, SCREEN_HEIGHT - 1, sm.cy + dy * sy * 1.5f );
 	return qtrue;
 }
 
@@ -1205,7 +1215,17 @@ void CG_ShinobiDrawMenu( void ) {
 	SM_Text( 370, 422, 0.38f, dim, "saved builds take effect when you respawn (/kill)" );
 
 	sm.click = qfalse; // a click on nothing is dropped
-	CG_DrawPic( sm.cx - 2, sm.cy - 2, 24, 24, cgs.media.cursor );
+
+	// pointer: a small dot exactly on the hot spot, with a short cross around it
+	{
+		const vec4_t ink = { 1, 1, 1, 1 }, edge = { 0, 0, 0, 0.9f };
+		CG_FillRect( sm.cx - 1.5f, sm.cy - 1.5f, 3, 3, edge );
+		CG_FillRect( sm.cx - 1, sm.cy - 1, 2, 2, ink );
+		CG_FillRect( sm.cx - 6, sm.cy - 0.25f, 3, 0.5f, ink );
+		CG_FillRect( sm.cx + 3, sm.cy - 0.25f, 3, 0.5f, ink );
+		CG_FillRect( sm.cx - 0.25f, sm.cy - 6, 0.5f, 3, ink );
+		CG_FillRect( sm.cx - 0.25f, sm.cy + 3, 0.5f, 3, ink );
+	}
 }
 
 // open the screen by itself the first time, while no build was ever saved

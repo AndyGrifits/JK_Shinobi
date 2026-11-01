@@ -347,6 +347,7 @@ static const int shinobiBladePush[3]   = { 150, 250, 350 };
 // Extra predicted status bits that only the player himself needs
 #define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
+#define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
@@ -407,6 +408,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_DRIP            "shinobi/drip"
 #define SHINOBI_FX_BUBBLES         "shinobi/bubbles"
 #define SHINOBI_FX_ZONE_SPARK      "shinobi/zone_spark"
+#define SHINOBI_FX_CURSE           "shinobi/curse_aura"
 
 /*
 ---------------------------------------------------------------------------
@@ -492,7 +494,7 @@ static const char * const shinobiPerkTitles[SP_COUNT] = {
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
 	"your fists and kicks also burn the enemy's chakra",
-	"out of chakra: it eats your health (never below 10) but chakra returns twice as fast; /curseseal turns it on/off",
+	"at 0 chakra it awakens: eats 3 health/s (never below 10), chakra returns 2.5x faster until half full; /curseseal off",
 	"coming soon: see health, hidden enemies and the jutsu being charged",
 	"coming soon: see chakra and enemies through walls",
 	"coming soon: a burst of speed and taijutsu, then exhaustion"
