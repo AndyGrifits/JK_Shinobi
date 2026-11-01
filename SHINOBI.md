@@ -47,7 +47,9 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 |---|---|---|
 | Rasengan | ball in hand; attack = dash strike, knockdown. Size, damage (40/60/90) and knockback grow with level. Also hits earth walls | 25/40/60 |
 | Chidori | lightning in hand; attack = long dash (380/495/620 units) leaving a lightning streak, 50/75/105 damage, electrocutes | 25/40/60 |
-| Katon | great fireball blasted with both hands: bigger/slower/stronger per level (25+40 / 45+65 / 70+100 dmg, blast radius 130/180/250), loud explosion and camera shake | 15/30/50 |
+| Katon | great fireball, cast at 2 or 3 bars only (letting go earlier cancels): slow and dodgeable, 60+80 / 95+120 damage, blast radius 190/260, leaves the ground burning; flying through ash blows it up | -/30/50 |
+| Fire Breath | hold F: a cone of fire (260 units) that follows your aim at a limited turn rate; 20 damage/s, sets people and the ground alight; you walk slowly | 10 + 12/s |
+| Ash Cloud | a cloud of hot ash 200 units ahead (radius 110/150/190, 9 s): blinds (the screen goes dark inside), chokes; any fire (fireball, fire breath, burning ground, Chidori) blows it up for 35/50/70 and leaves burning ground; wind blows it away | 20/30/40 |
 | Doton | earth wall (F again next to your wall: push it - a wave of earth that shoves people 240/320/400 units, 15/25/35 damage, crushes anyone pinned against a wall for 30/45/60 and a knockdown, then crumbles; 15 chakra): 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
 | Kage Bunshin | 1/2/3 clones in a big smoke cloud, the original lands in a random spot; each clone drains 3 chakra/s | 25/45/70 |
 | Kawarimi | an AI double with your looks takes your place and goes for the nearest enemy; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
@@ -56,6 +58,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Storm Wind | Daitoppa: wind in a cone (320/480/640 units) throws people back; fans burning ground, levels up fireballs, blows steam away | 15/25/40 |
 | Wind Blade | a wide arc of wind (~110 degrees) sweeping out to 450/600/800 units at chest height: 20/30/45 damage; hard to sidestep, jump over it; walls stop it | 15/25/40 |
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
+| Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 
 ### Elements
 
@@ -68,7 +71,10 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | earth wall + puddle | mud: slows everyone in it |
 | fireball into lake/river on the map | fizzles out |
 
-Katon Lv2/3 leaves burning ground (radius 90/130). Statuses: **burning** (3 damage every
+Katon leaves burning ground (radius 90/130).
+
+Crowd control can't be chained: after a stun, knockdown, Water Prison or Shadow Bind
+ends, the victim is immune to the next one for 2.5 s (damage still lands). Statuses: **burning** (3 damage every
 0.5 s, 3 s after leaving the fire; water, steam and map water put it out), **wet** (6 s:
 can't catch fire, fire does half damage, lightning 1.5x), **in mud** (half speed).
 Earth walls take half damage from fire and a third from water and wind. Puddles slow a little,

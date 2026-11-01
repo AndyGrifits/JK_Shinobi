@@ -1,0 +1,59 @@
+repeatDelay				0
+
+// Ash Cloud: one thick, slowly churning puff of dark ash with a few embers
+// (the cgame keeps spawning them over the cloud).
+
+Particle
+{
+	name				ash
+	flags				useAlpha
+	count				1
+	life				1600 2400
+	rotation			0 360
+	rotationDelta		-3 3
+	spawnFlags			orgOnSphere
+	radius				0 20
+	vel					-10 -10 6 10 10 22
+	size
+	{
+		start			40 56
+		end				80 100
+	}
+	rgb
+	{
+		start			0.22 0.2 0.19
+		end				0.3 0.28 0.26
+	}
+	alpha
+	{
+		start			0.7
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				embers
+	count				0 1
+	life				800 1400
+	spawnFlags			orgOnSphere
+	radius				10 40
+	vel					-15 -15 5 15 15 30
+	size
+	{
+		start			1 1.5
+		end				0.5
+	}
+	rgb
+	{
+		start			1 0.45 0.15
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}

@@ -71,6 +71,7 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 
 	// a big one leaves the ground burning (or steaming, on water)
 	Shinobi_FireLands( pos, li + 1, owner->client ? owner->s.number + 1 : 0 );
+	Shinobi_IgniteAshAt( pos, shinobiFireballRadius[li] * 0.5f, owner->client ? owner->s.number + 1 : 0 );
 
 	Shinobi_EffectDir( shinobiMedia.fxFireballBoom[li], pos, normal );
 	// a deep blast plus the crackle of fire, and the ground shakes nearby
@@ -87,6 +88,7 @@ static void Shinobi_FireballThink( gentity_t *ball ) {
 	trace_t   tr;
 
 	BG_EvaluateTrajectory( &ball->s.pos, level.time, newPos );
+	Shinobi_IgniteAshAt( newPos, size, ball->r.ownerNum < MAX_CLIENTS ? ball->r.ownerNum + 1 : 0 ); // through ash: boom
 	if ( Shinobi_InMapWater( newPos ) ) { // flew into a lake: out with a hiss
 		Shinobi_SteamAt( newPos, 0 );
 		G_FreeEntity( ball );
@@ -492,8 +494,10 @@ static void Shinobi_WallPushThink( gentity_t *wall ) {
 				shinobiHitElement = SE_EARTH;
 				G_Damage( v, wall, owner, dir, v->r.currentOrigin, shinobiWallCrushDamage[li], DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
 				shinobiHitElement = SE_NONE;
-				if ( v->inuse && v->health > 0 )
+				if ( v->inuse && v->health > 0 && !Shinobi_CCImmune( v ) ) {
 					G_Knockdown( v );
+					Shinobi_CCGrant( v, level.time + 1500 );
+				}
 				G_SoundAtLoc( v->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWallBreak );
 				WALL_PUSH_HIT( wall ) |= ( 1 << c );
 				Shinobi_WallCrumble( wall, qfalse ); // the wall breaks on him

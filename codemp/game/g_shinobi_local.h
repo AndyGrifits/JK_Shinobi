@@ -24,7 +24,7 @@ typedef struct {
 
 	int sndLog;
 	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
-	int sndFireLoop, sndCrackleLoop, sndCurse;
+	int sndFireLoop, sndCrackleLoop, sndCurse, sndShadow;
 	int fxCurse;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
@@ -77,6 +77,21 @@ qboolean  Shinobi_CastBlade( gentity_t *ent, int lvl );
 void      Shinobi_SmotherFire( vec3_t pos, float radius, qboolean steam );
 qboolean  Shinobi_CastSuiro( gentity_t *ent, int lvl );
 void      Shinobi_PrisonRelease( gentity_t *ent );
+
+// g_shinobi.c (crowd control)
+qboolean  Shinobi_CCImmune( gentity_t *e );
+void      Shinobi_CCGrant( gentity_t *e, int ccEnds );
+
+// g_shinobi_nature.c (Katon additions)
+qboolean  Shinobi_CastFlame( gentity_t *ent );
+void      Shinobi_FlameStop( gentity_t *ent );
+qboolean  Shinobi_CastAsh( gentity_t *ent, int lvl );
+void      Shinobi_IgniteAshAt( vec3_t pos, float radius, int igniterNum );
+
+// g_shinobi_shadow.c
+qboolean  Shinobi_CastShadow( gentity_t *ent );
+void      Shinobi_ShadowRelease( gentity_t *ent );
+void      Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd );
 
 // g_shinobi_build.c
 extern int shinobiJutsuDamage; // set while a jutsu deals damage (no taijutsu bonus)

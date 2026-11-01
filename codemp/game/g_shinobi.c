@@ -69,6 +69,19 @@ void Shinobi_Init( void ) {
 Common helpers
 ===========================================================================
 */
+// hard crowd control (stuns, knockdowns, prisons, binds) can't chain: after
+// one ends the victim is immune for a moment
+qboolean Shinobi_CCImmune( gentity_t *e ) {
+	return ( e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.ccImmuneEnd > level.time ) ? qtrue : qfalse;
+}
+
+void Shinobi_CCGrant( gentity_t *e, int ccEnds ) {
+	if ( !e || !e->client || e->s.number >= MAX_CLIENTS )
+		return;
+	if ( e->client->shinobi.ccImmuneEnd < ccEnds + SHINOBI_CC_IMMUNE_MS )
+		e->client->shinobi.ccImmuneEnd = ccEnds + SHINOBI_CC_IMMUNE_MS;
+}
+
 qboolean Shinobi_CanAct( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
@@ -255,12 +268,17 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 		vc->ps.otherKillerTime = level.time + 5000;
 		vc->ps.otherKillerDebounceTime = level.time + 100;
 
-		if ( !chidori ) {
+		if ( Shinobi_CCImmune( victim ) ) {
+			// just out of another stun: only the hit and the throw
+		}
+		else if ( !chidori ) {
 			G_Knockdown( victim );
+			Shinobi_CCGrant( victim, level.time + 1500 );
 		}
 		else {
 			// electrocuted: electric shell on the model, no attacks, no control for a moment
 			const int stun = shinobiChidoriStunMs[li];
+			Shinobi_CCGrant( victim, level.time + stun );
 			vc->ps.electrifyTime = level.time + stun;
 			if ( vc->ps.weaponTime < stun )
 				vc->ps.weaponTime = stun;
@@ -365,7 +383,12 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		lvl = 1;
 	if ( lvl > SHINOBI_MAX_LEVEL )
 		lvl = SHINOBI_MAX_LEVEL;
-	while ( lvl > 1 && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
+	if ( lvl < SHINOBI_JUTSU_MIN_LEVEL( jutsu ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"%s needs a longer charge\"", shinobiJutsuTitles[jutsu] ) );
+		return;
+	}
+	while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
 		lvl--;
 	if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
 		Shinobi_NoChakra( ent, Shinobi_JutsuCost( jutsu, lvl ) );
@@ -385,6 +408,9 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_SUIRO:    cast = Shinobi_CastSuiro( ent, lvl ); break;
 	case SJ_WAVE:     cast = Shinobi_CastWave( ent, lvl ); break;
 	case SJ_BLADE:    cast = Shinobi_CastBlade( ent, lvl ); break;
+	case SJ_FLAME:    cast = Shinobi_CastFlame( ent ); break;
+	case SJ_ASH:      cast = Shinobi_CastAsh( ent, lvl ); break;
+	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	default: break;
 	}
 
@@ -422,6 +448,9 @@ void Cmd_Futon_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FUTON );
 void Cmd_Suiro_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_SUIRO ); }
 void Cmd_Wave_f( gentity_t *ent )        { Shinobi_CastCommand( ent, SJ_WAVE ); }
 void Cmd_WindBlade_f( gentity_t *ent )   { Shinobi_CastCommand( ent, SJ_BLADE ); }
+void Cmd_Flame_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FLAME ); }
+void Cmd_Ash_f( gentity_t *ent )         { Shinobi_CastCommand( ent, SJ_ASH ); }
+void Cmd_Kagemane_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHADOW ); }
 void Cmd_PushWall_f( gentity_t *ent ) {
 	if ( Shinobi_CanAct( ent ) && !ent->client->shinobi.prisonCaster )
 		Shinobi_PushWall( ent );
@@ -452,7 +481,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		return; // our wall was right in front: F shoves it forward instead of raising a new one
 	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
 		Shinobi_Cast( ent, jutsu, 1 );
-		if ( client->shinobi.prisonTarget )
+		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
+			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -473,12 +503,17 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 	if ( jutsu == SJ_NONE )
 		return;
 	client->shinobi.chargeJutsu = SJ_NONE;
-	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) {
-		if ( client->shinobi.prisonTarget )
+	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // key up: let go
+		if ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget )
 			Shinobi_PrisonRelease( ent );
+		else if ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
+			Shinobi_FlameStop( ent );
+		else if ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt )
+			Shinobi_ShadowRelease( ent );
 		return;
 	}
-	if ( level.time - client->shinobi.chargeStart < Shinobi_BarEndCast( jutsu, 0, Shinobi_CastStat( ent ) ) ) {
+	if ( level.time - client->shinobi.chargeStart
+		< Shinobi_BarEndCast( jutsu, SHINOBI_JUTSU_MIN_LEVEL( jutsu ) - 1, Shinobi_CastStat( ent ) ) ) {
 		// let go before the first bar was full: the seals weren't finished
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		return;
@@ -653,9 +688,11 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 		return qfalse;
 	}
 
-	// substitution is the way out of a Water Prison (no gasping afterwards)
+	// substitution is the way out of a Water Prison or a Shadow Bind (no gasping afterwards)
 	if ( client->shinobi.prisonCaster )
 		Shinobi_PrisonRelease( ent );
+	if ( client->shinobi.shadowBy )
+		Shinobi_ShadowRelease( ent );
 	client->shinobi.stunEnd = 0;
 
 	// drop whatever we were doing - the double carries on instead
@@ -726,6 +763,8 @@ void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker ) {
 	Shinobi_Reveal( targ );
 	if ( targ->client->shinobi.prisonTarget && attacker != targ )
 		Shinobi_PrisonRelease( targ ); // hit while holding a Water Prison: it bursts
+	if ( targ->client->shinobi.shadowEnt && attacker != targ )
+		Shinobi_ShadowRelease( targ ); // ...or a Shadow Bind
 }
 
 static void Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd ) {

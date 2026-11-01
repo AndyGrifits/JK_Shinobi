@@ -307,6 +307,13 @@ def streak(n=64):
     return np.exp(-(y / 0.08) ** 2) * np.clip(np.sin((x + 1) / 2 * math.pi), 0, 1) ** 0.7
 
 
+def shadow_band(n=64):
+    """Shadow Bind strip: black, solid in the middle of the width, soft edges."""
+    _, y, _, _ = grid(n)
+    alpha = np.clip((1.0 - np.abs(y)) / 0.35, 0, 1) ** 1.5 * 0.85
+    return np.zeros((n, n, 3)), alpha
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
@@ -325,6 +332,7 @@ def main():
     save_rgba("watersphere", *water_sphere())
     save_rgba("droplet", *droplet())
     save("streak", streak())
+    save_rgba("shadowband", *shadow_band())
 
     models = os.path.join(ROOT, "assets", "models", "shinobi")
     os.makedirs(models, exist_ok=True)

@@ -50,6 +50,9 @@ typedef enum {
 	SJ_SUIRO,     // water prison
 	SJ_WAVE,      // water wave
 	SJ_BLADE,     // wind blade
+	SJ_FLAME,     // fire breath (held)
+	SJ_ASH,       // ash cloud
+	SJ_SHADOW,    // shadow bind (held)
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -61,18 +64,19 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_BUNSHIN
+	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
+	SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -91,12 +95,17 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 20, 20, 20 }, // Water Prison (to start; then it drains while held)
 	{ 20, 35, 50 }, // Water Wave
 	{ 15, 25, 40 }, // Wind Blade
+	{ 10, 10, 10 }, // Fire Breath (to start; then it drains while held)
+	{ 20, 30, 40 }, // Ash Cloud
+	{ 15, 15, 15 }, // Shadow Bind (to start; then it drains while held)
 };
 
 // jutsu that cast on key press, without charging
 #define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW )
+// the lowest level a jutsu can be cast at (the great fireball needs a long charge)
+#define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
 // when each bar is full; Shunshin charges faster than the big jutsu
 static QINLINE int Shinobi_BarEnd( int jutsu, int bar ) {
@@ -230,11 +239,13 @@ static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
 // Katon: Goukakyuu (great fireball): explosive projectile
 #define SHINOBI_FIREBALL_COOLDOWN  900
 #define SHINOBI_FIREBALL_LIFE      2500
-static const int   shinobiFireballSpeed[3]  = { 900, 820, 740 };   // bigger balls fly slower
+// Cast at level 2 or 3 only (at least the second bar): a slow, dodgeable nuke.
+// Level 1 exists for fireballs weakened by water.
+static const int   shinobiFireballSpeed[3]  = { 900, 700, 580 };   // bigger balls fly slower
 static const int   shinobiFireballSize[3]   = {  10,  16,  24 };   // collision half-size
-static const int   shinobiFireballDamage[3] = {  25,  45,  70 };   // direct hit, on top of the blast
-static const int   shinobiFireballSplash[3] = {  40,  65, 100 };
-static const int   shinobiFireballRadius[3] = { 130, 180, 250 };
+static const int   shinobiFireballDamage[3] = {  25,  60,  95 };   // direct hit, on top of the blast
+static const int   shinobiFireballSplash[3] = {  40,  80, 120 };
+static const int   shinobiFireballRadius[3] = { 130, 190, 260 };
 static const float shinobiFireballVisual[3] = { 14.0f, 22.0f, 34.0f }; // drawn ball radius
 
 // Doton: Doryuheki (earth wall): row of stone pillars rising from the ground
@@ -288,6 +299,7 @@ typedef enum {
 	SZ_MUD,       // slows
 	SZ_STEAM,     // thick cloud, puts out fire
 	SZ_ELECTRIC,  // electrified puddle: stuns and hurts, back to water later
+	SZ_ASH,       // ash cloud: blinds, chokes; any fire makes it explode
 	SZ_COUNT
 } shinobiZone_t;
 
@@ -344,10 +356,46 @@ static const int shinobiBladeRange[3]  = { 450, 600, 800 };
 static const int shinobiBladeDamage[3] = {  20,  30,  45 };
 static const int shinobiBladePush[3]   = { 150, 250, 350 };
 
+// Fire Breath: held; a cone of flame that follows the view at a limited turn
+// rate, sets people and the ground on fire. The breather moves slowly.
+#define SHINOBI_FLAME_RANGE        260
+#define SHINOBI_FLAME_CONE         0.95f  // cos of the half angle (~18 degrees)
+#define SHINOBI_FLAME_TURN         110.0f // degrees per second
+#define SHINOBI_FLAME_TICK_MS      150
+#define SHINOBI_FLAME_DAMAGE       3      // per tick (20/s)
+#define SHINOBI_FLAME_DRAIN_MS     250
+#define SHINOBI_FLAME_DRAIN        3      // chakra per drain tick (12/s)
+#define SHINOBI_FLAME_ZONE_MS      400    // a patch of burning ground this often
+#define SHINOBI_FLAME_SLOW         0.4f
+
+// Ash Cloud: a cloud of hot ash in front; blinds and chokes, and any fire
+// (fireball, fire breath, burning ground, Chidori) blows it up.
+static const int shinobiAshRadius[3]  = { 110, 150, 190 };
+static const int shinobiAshBlast[3]   = {  35,  50,  70 };
+#define SHINOBI_ASH_LIFE           9000
+#define SHINOBI_ASH_DISTANCE       200
+#define SHINOBI_ASH_DAMAGE         1      // choking, per zone tick
+
+// Shadow Bind: held; a shadow crawls forward along the ground. An enemy standing
+// on it is caught and copies every move you make (attacks included) until you
+// let go. Jump over the shadow to dodge.
+#define SHINOBI_SHADOW_SPEED       450
+#define SHINOBI_SHADOW_RANGE       600
+#define SHINOBI_SHADOW_HOLD_RANGE  900
+#define SHINOBI_SHADOW_WIDTH       28
+#define SHINOBI_SHADOW_DRAIN_MS    300
+#define SHINOBI_SHADOW_DRAIN       3      // chakra per drain tick (10/s)
+#define SHINOBI_BUTTON_MIRROR      (1<<14) // usercmd bit: moves set by the server (Shadow Bind)
+
+// After any hard crowd control ends, a short immunity to the next one
+#define SHINOBI_CC_IMMUNE_MS       2500
+
 // Extra predicted status bits that only the player himself needs
 #define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
+#define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed
+#define SHINOBI_STAT_BOUND         8     // caught by a Shadow Bind (moves come from the server)
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
@@ -375,6 +423,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_LOG_MODEL          "models/shinobi/log.md3"
 #define SHINOBI_ENT_WAVE           220  // 220..222 = water wave level 1..3; s.angles2 = half width, yaw
 #define SHINOBI_ENT_BLADE          223  // 223..225 = wind blade level 1..3; s.angles2[0] = yaw, s.time = start
+#define SHINOBI_ENT_FLAME          226  // fire breath stream; origin = mouth, s.angles2 = direction angles
+#define SHINOBI_ENT_SHADOW         227  // shadow bind; origin = caster's feet, s.angles2 = tip on the floor
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
@@ -409,6 +459,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_BUBBLES         "shinobi/bubbles"
 #define SHINOBI_FX_ZONE_SPARK      "shinobi/zone_spark"
 #define SHINOBI_FX_CURSE           "shinobi/curse_aura"
+#define SHINOBI_FX_FLAME           "shinobi/fire_breath"
+#define SHINOBI_FX_ASH             "shinobi/ash"
 
 /*
 ---------------------------------------------------------------------------
@@ -450,6 +502,9 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_SUITON,  // Water Prison
 	SS_SUITON,  // Water Wave
 	SS_FUTON,   // Wind Blade
+	SS_KATON,   // Fire Breath
+	SS_KATON,   // Ash Cloud
+	SS_YINYANG, // Shadow Bind
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -504,7 +559,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"",
 	"ball of chakra in the hand; attack = dash strike that knocks down",
 	"lightning in the hand; long piercing dash that stuns",
-	"great fireball; Lv2+ leaves the ground burning",
+	"great fireball: needs at least 2 bars; huge blast, leaves the ground burning",
 	"earth wall; F next to it again pushes it forward",
 	"1-3 shadow clones in a cloud of smoke; they drain chakra",
 	"Shift + Space: blink where you look",
@@ -513,7 +568,10 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"storm wind: throws people back, fans flames, blows steam away",
 	"hold F: trap an enemy in a ball of water (drains chakra)",
 	"low wave rolling along the floor; clear it with a force jump",
-	"wide arc of wind at chest height; jump over it"
+	"wide arc of wind at chest height; jump over it",
+	"hold F: breathe a cone of fire, sets people and ground alight (12 chakra/s)",
+	"a cloud of hot ash ahead: blinds and chokes; any fire blows it up",
+	"hold F: a shadow crawls ahead; whoever it catches copies your moves"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qfalse, qfalse, qfalse };

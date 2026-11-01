@@ -200,3 +200,16 @@ gfx/shinobi/streak
 		rgbGen vertex
 	}
 }
+
+gfx/shinobi/shadowband
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/shadowband
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+		tcMod scroll -0.5 0
+	}
+}

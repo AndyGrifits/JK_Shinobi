@@ -72,6 +72,7 @@ set(MPGameGameFiles
 	"${MPDir}/game/g_shinobi_elements.c"
 	"${MPDir}/game/g_shinobi_nature.c"
 	"${MPDir}/game/g_shinobi_build.c"
+	"${MPDir}/game/g_shinobi_shadow.c"
 	"${MPDir}/game/g_session.c"
 	"${MPDir}/game/g_spawn.c"
 	"${MPDir}/game/g_svcmds.c"

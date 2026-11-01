@@ -20,12 +20,19 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
-	qhandle_t puddle, mud, scorch, waterSphere, ring;
+	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand;
 } shinobiShaders;
+
+// thick smoke around the local player this frame (drawn over the screen)
+static struct {
+	int   time;
+	int   type;   // SZ_ASH or SZ_STEAM
+	float amount; // 0..1
+} shinobiFog;
 
 // loose-particle effects for elements (one-shots come from the server)
 static struct {
-	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest;
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash;
 } shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
@@ -138,6 +145,9 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.bubbles    = CG_ShinobiRegisterFx( SHINOBI_FX_BUBBLES );
 	shinobiFx.zoneSpark  = CG_ShinobiRegisterFx( SHINOBI_FX_ZONE_SPARK );
 	shinobiFx.waveCrest  = CG_ShinobiRegisterFx( SHINOBI_FX_WAVE_CREST );
+	shinobiFx.flame      = CG_ShinobiRegisterFx( SHINOBI_FX_FLAME );
+	shinobiFx.ash        = CG_ShinobiRegisterFx( SHINOBI_FX_ASH );
+	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
@@ -563,6 +573,80 @@ static void CG_ShinobiWaterball( centity_t *cent ) {
 }
 
 /*
+Fire Breath: a widening cone of flame sprites along the stream, gushing particles.
+*/
+static void CG_ShinobiFlame( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const float    len = s->angles2[ROLL], t = cg.time * 0.001f;
+	vec3_t         angles, fwd, p;
+	float          d;
+	int            k = 0;
+
+	VectorSet( angles, s->angles2[PITCH], s->angles2[YAW], 0 );
+	AngleVectors( angles, fwd, NULL, NULL );
+
+	for ( d = 8; d < len; d += 18, k++ ) {
+		const float r = 5 + d * 0.3f;
+		const float f = 0.75f + 0.25f * flrand( 0, 1 );
+		VectorMA( cent->lerpOrigin, d, fwd, p );
+		CG_ShinobiSprite( p, r * f, t * 300.0f + k * 57, shinobiShaders.fire, 0.85f, 0.45f + 0.2f * ( 1 - d / len ), 0.12f );
+		if ( k % 2 == 0 )
+			CG_ShinobiSprite( p, r * 0.6f, 0, shinobiShaders.glow, 0.6f, 0.35f, 0.08f );
+	}
+	CG_ShinobiSprite( cent->lerpOrigin, 8, 0, shinobiShaders.glow, 1.0f, 0.85f, 0.5f );
+	VectorMA( cent->lerpOrigin, len * 0.5f, fwd, p );
+	trap->R_AddLightToScene( p, 200 * ( 0.85f + 0.15f * flrand( 0, 1 ) ), 1.0f, 0.55f, 0.15f );
+
+	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+		trap->FX_PlayEffectID( shinobiFx.flame, cent->lerpOrigin, fwd, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + 30;
+	}
+}
+
+/*
+Shadow Bind: a dark band along the floor from the binder's feet to the tip.
+*/
+static void CG_ShinobiShadow( centity_t *cent ) {
+	const float *tip = cent->currentState.angles2;
+	vec3_t       d, side, a, b;
+	float        len;
+	int          n, i;
+
+	VectorSubtract( tip, cent->lerpOrigin, d );
+	len = VectorLength( d );
+	if ( len < 4 ) {
+		CG_ShinobiGroundDecal( cent->lerpOrigin, 16, 0, shinobiShaders.scorch, 0, 0, 0, 0.8f );
+		return;
+	}
+	VectorSet( side, -d[1], d[0], 0 );
+	VectorNormalize( side );
+	VectorScale( side, SHINOBI_SHADOW_WIDTH * 0.5f, side );
+	n = (int)( len / 24 ) + 1;
+
+	for ( i = 0; i < n; i++ ) {
+		polyVert_t v[4];
+		int        k;
+		VectorMA( cent->lerpOrigin, (float)i / n, d, a );
+		VectorMA( cent->lerpOrigin, (float)( i + 1 ) / n, d, b );
+		VectorSubtract( a, side, v[0].xyz );
+		VectorAdd( a, side, v[1].xyz );
+		VectorAdd( b, side, v[2].xyz );
+		VectorSubtract( b, side, v[3].xyz );
+		v[0].st[0] = v[1].st[0] = (float)i / n * len / 64.0f;
+		v[2].st[0] = v[3].st[0] = (float)( i + 1 ) / n * len / 64.0f;
+		v[0].st[1] = v[3].st[1] = 0;
+		v[1].st[1] = v[2].st[1] = 1;
+		for ( k = 0; k < 4; k++ ) {
+			v[k].xyz[2] += 1.5f;
+			v[k].modulate[0] = v[k].modulate[1] = v[k].modulate[2] = 0;
+			v[k].modulate[3] = 230;
+		}
+		trap->R_AddPolysToScene( shinobiShaders.shadowBand, 4, v, 1 );
+	}
+	CG_ShinobiGroundDecal( tip, 20, 0, shinobiShaders.scorch, 0, 0, 0, 0.9f );
+}
+
+/*
 Water Wave: a row of churning water blobs across its width, spray on the crest.
 */
 static void CG_ShinobiWave( centity_t *cent ) {
@@ -680,8 +764,32 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		fx = shinobiFx.steam;
 		interval = (int)( 110 / ( area < 0.4f ? 0.4f : area ) );
 		break;
+	case SZ_ASH:
+		CG_ShinobiGroundDecal( org, R * 0.8f, rot, shinobiShaders.scorch, 1, 1, 1, 0.5f * a );
+		fx = shinobiFx.ash;
+		interval = (int)( 45 / ( area < 0.4f ? 0.4f : area ) );
+		break;
 	default:
 		break;
+	}
+
+	// standing in ash or steam: you can hardly see
+	if ( type == SZ_ASH || type == SZ_STEAM ) {
+		vec3_t d;
+		VectorSubtract( cg.refdef.vieworg, org, d );
+		if ( d[2] > -16 && d[2] < SHINOBI_ZONE_HEIGHT + 48 ) {
+			float dist;
+			d[2] = 0;
+			dist = VectorLength( d );
+			if ( dist < R ) {
+				const float amt = a * Com_Clamp( 0, 1, ( R - dist ) / 40.0f );
+				if ( shinobiFog.time != cg.time || amt > shinobiFog.amount ) {
+					shinobiFog.time = cg.time;
+					shinobiFog.type = type;
+					shinobiFog.amount = amt;
+				}
+			}
+		}
 	}
 
 	if ( fx && fadeOut > 0.3f
@@ -707,6 +815,14 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 >= SHINOBI_ENT_WAVE && s->generic1 < SHINOBI_ENT_WAVE + SHINOBI_MAX_LEVEL ) {
 		CG_ShinobiWave( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_FLAME ) {
+		CG_ShinobiFlame( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_SHADOW ) {
+		CG_ShinobiShadow( cent );
 		return qtrue;
 	}
 	if ( s->generic1 >= SHINOBI_ENT_BLADE && s->generic1 < SHINOBI_ENT_BLADE + SHINOBI_MAX_LEVEL ) {
@@ -768,7 +884,7 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	const char  *label;
 	vec4_t       textColor = { 1, 1, 1, 1 };
 
-	while ( shown > 1 && chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) )
+	while ( shown > SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) && chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) )
 		shown--;
 
 	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
@@ -783,7 +899,7 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		CG_DrawRect( x, y, barW, barH, 1, frame );
 	}
 
-	if ( held < Shinobi_BarEndCast( shinobiCharge.jutsu, 0, castLvl ) ) {
+	if ( held < Shinobi_BarEndCast( shinobiCharge.jutsu, SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) - 1, castLvl ) ) {
 		label = va( "%s - forming seals...", shinobiJutsuTitles[shinobiCharge.jutsu] );
 		VectorSet( textColor, 0.8f, 0.8f, 0.8f );
 	}
@@ -887,13 +1003,27 @@ void CG_ShinobiDrawHUD( void ) {
 		return;
 	}
 
+	if ( shinobiFog.time == cg.time && shinobiFog.amount > 0 ) {
+		vec4_t fog;
+		if ( shinobiFog.type == SZ_ASH )
+			VectorSet4( fog, 0.12f, 0.11f, 0.1f, 0.85f * shinobiFog.amount );
+		else
+			VectorSet4( fog, 0.85f, 0.88f, 0.9f, 0.7f * shinobiFog.amount );
+		CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, fog );
+	}
+
 	CG_ShinobiDrawJutsuList();
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) {
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) {
+		text = "Shadow Bind! You copy his moves - Kawarimi (X) to escape";
+		VectorSet( color, 0.7f, 0.7f, 0.75f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) {
 		text = "Curse Seal awakened - it feeds on your health";
 		VectorSet( color, 0.8f, 0.3f, 1.0f );
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.008f );

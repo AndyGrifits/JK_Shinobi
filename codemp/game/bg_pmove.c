@@ -10300,6 +10300,18 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~BUTTON_WALKING;
 	}
 
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND )
+	{ // caught by a Shadow Bind: the server feeds us the binder's moves; our own
+	  // keys do nothing (so prediction just stands still)
+		if ( !( pm->cmd.buttons & SHINOBI_BUTTON_MIRROR ) )
+		{
+			pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
+			pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+				| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+		}
+		pm->cmd.buttons &= ~SHINOBI_BUTTON_MIRROR;
+	}
+
 	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) )
 	{ // floating in a Water Prison (or gasping just after): helpless, hands at the throat
 		pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
@@ -10333,6 +10345,15 @@ static void PM_ShinobiPreMove( void )
 	{ // wading through mud
 		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_MUD_SLOW );
 		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_MUD_SLOW );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CHANNEL )
+	{ // breathing fire: barely walking
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_FLAME_SLOW );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_FLAME_SLOW );
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
 	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_PUDDLE )
 	{ // splashing through a puddle

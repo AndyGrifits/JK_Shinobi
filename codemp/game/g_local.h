@@ -842,6 +842,17 @@ struct gclient_s {
 		int		bladeNext;		// Wind Blade cooldown end
 		int		curseTick;		// Curse Seal health drain
 		qboolean curseAwake;	// Curse Seal active (until chakra is back to half)
+		int		ccImmuneEnd;	// immune to hard crowd control until
+		int		flameEnt;		// Fire Breath stream entity num + 1 (0 = not breathing)
+		vec3_t	flameAngles;	// where the stream points (turns slowly toward the view)
+		int		flameTick, flameDrain, flameZone;
+		int		shadowEnt;		// Shadow Bind entity num + 1
+		int		shadowTarget;	// caught client num + 1
+		int		shadowBy;		// we are caught by this client num + 1
+		float	shadowLen;		// how far the shadow has crawled
+		vec3_t	shadowStart, shadowDir;
+		float	shadowYaw;		// victim yaw minus binder yaw when caught
+		int		shadowDrain;
 	} shinobi;
 };
 
@@ -1427,6 +1438,9 @@ void Cmd_Suiro_f( gentity_t *ent );
 void Cmd_Wave_f( gentity_t *ent );
 void Cmd_WindBlade_f( gentity_t *ent );
 void Cmd_PushWall_f( gentity_t *ent );
+void Cmd_Flame_f( gentity_t *ent );
+void Cmd_Ash_f( gentity_t *ent );
+void Cmd_Kagemane_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );

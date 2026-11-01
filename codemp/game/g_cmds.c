@@ -3391,6 +3391,7 @@ int cmdcmp( const void *a, const void *b ) {
 
 command_t commands[] = {
 	{ "addbot",				Cmd_AddBot_f,				0 },
+	{ "ash",				Cmd_Ash_f,					CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "callteamvote",		Cmd_CallTeamVote_f,			CMD_NOINTERMISSION },
 	{ "callvote",			Cmd_CallVote_f,				CMD_NOINTERMISSION },
 	{ "chidori",			Cmd_Chidori_f,				CMD_ALIVE|CMD_NOINTERMISSION },
@@ -3403,6 +3404,7 @@ command_t commands[] = {
 	{ "doton",				Cmd_Doton_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "duelteam",			Cmd_DuelTeam_f,				CMD_NOINTERMISSION },
 	{ "futon",				Cmd_Futon_f,				CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "flame",				Cmd_Flame_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "follow",				Cmd_Follow_f,				CMD_NOINTERMISSION },
 	{ "follownext",			Cmd_FollowNext_f,			CMD_NOINTERMISSION },
 	{ "followprev",			Cmd_FollowPrev_f,			CMD_NOINTERMISSION },
@@ -3413,6 +3415,7 @@ command_t commands[] = {
 	{ "god",				Cmd_God_f,					CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "jutsu_begin",		Cmd_JutsuBegin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "jutsu_release",		Cmd_JutsuRelease_f,			CMD_NOINTERMISSION },
+	{ "kagemane",			Cmd_Kagemane_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kagebunshin",		Cmd_KageBunshin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "katon",				Cmd_Katon_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kawarimi",			Cmd_Kawarimi_f,				CMD_ALIVE|CMD_NOINTERMISSION },

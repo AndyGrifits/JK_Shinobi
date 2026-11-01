@@ -1,0 +1,83 @@
+repeatDelay				0
+
+// Fire Breath: flames gushing out along the stream (local X = direction).
+
+Particle
+{
+	name				gush
+	count				2 3
+	life				300 450
+	rotation			0 360
+	rotationDelta		-20 20
+	vel					500 -70 -70 700 70 70
+	size
+	{
+		start			6 10
+		end				36 50
+	}
+	rgb
+	{
+		start			1 0.7 0.3
+		end				0.8 0.15 0.03
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/fire
+		gfx/shinobi/wisp
+	]
+}
+
+Particle
+{
+	name				embers
+	count				1 2
+	life				400 700
+	vel					400 -120 -60 650 120 120
+	gravity				-60
+	size
+	{
+		start			1.5 2.5
+		end				0.5
+	}
+	rgb
+	{
+		start			1 0.7 0.3
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}
+
+Particle
+{
+	name				smoke
+	flags				useAlpha
+	count				0 1
+	life				600 900
+	rotation			0 360
+	vel					250 -60 0 400 60 90
+	size
+	{
+		start			16 22
+		end				50 70
+	}
+	rgb
+	{
+		start			0.2 0.18 0.16
+	}
+	alpha
+	{
+		start			0.35
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

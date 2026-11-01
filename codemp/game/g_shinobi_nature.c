@@ -49,6 +49,7 @@ void Shinobi_NatureInit( void ) {
 	m->sndFireLoop    = G_SoundIndex( "sound/effects/fire_lp.wav" );
 	m->sndCrackleLoop = G_SoundIndex( "sound/effects/energy_crackle.wav" );
 	m->sndCurse       = G_SoundIndex( "sound/weapons/force/rage.wav" );
+	m->sndShadow      = G_SoundIndex( "sound/weapons/force/grip.mp3" );
 	m->fxCurse        = G_EffectIndex( SHINOBI_FX_CURSE );
 }
 
@@ -204,6 +205,10 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	client->shinobi.burnEnd = client->shinobi.wetEnd = client->shinobi.mudEnd = 0;
 	if ( client->shinobi.prisonTarget || client->shinobi.prisonCaster )
 		Shinobi_PrisonRelease( ent );
+	if ( client->shinobi.flameEnt )
+		Shinobi_FlameStop( ent );
+	if ( client->shinobi.shadowEnt || client->shinobi.shadowBy )
+		Shinobi_ShadowRelease( ent );
 	Shinobi_SetRawBit( &client->ps.userVec1[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );
@@ -235,6 +240,8 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	if ( client->shinobi.prisonTarget )
 		Shinobi_PrisonThink( ent, ucmd );
+	if ( client->shinobi.shadowBy )
+		Shinobi_ShadowVictimThink( ent, ucmd );
 	if ( client->shinobi.prisonCaster ) {
 		// held in the water: no moving, no attacking, no force (Kawarimi still works)
 		gentity_t *caster = &g_entities[client->shinobi.prisonCaster - 1];
@@ -317,14 +324,24 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 		case SZ_STEAM:
 			p->client->shinobi.burnEnd = 0;
 			break;
+		case SZ_ASH:
+			if ( p->s.number + 1 != ZONE_OWNER( z ) ) { // the caster breathes through it
+				shinobiHitElement = SE_NONE;
+				G_Damage( p, z, ZONE_OWNER( z ) ? &g_entities[ZONE_OWNER( z ) - 1] : p, NULL, NULL,
+					SHINOBI_ASH_DAMAGE, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_TRIGGER_HURT );
+			}
+			break;
 		case SZ_ELECTRIC: {
 			gentity_t *attacker = ZONE_OWNER( z ) ? &g_entities[ZONE_OWNER( z ) - 1] : p;
 			if ( !attacker->inuse || !attacker->client )
 				attacker = p;
 			Shinobi_Wet( p );
-			p->client->ps.electrifyTime = level.time + SHINOBI_ELECTRIC_STUN_MS;
-			if ( p->client->ps.weaponTime < SHINOBI_ELECTRIC_STUN_MS )
-				p->client->ps.weaponTime = SHINOBI_ELECTRIC_STUN_MS;
+			if ( !Shinobi_CCImmune( p ) ) {
+				p->client->ps.electrifyTime = level.time + SHINOBI_ELECTRIC_STUN_MS;
+				if ( p->client->ps.weaponTime < SHINOBI_ELECTRIC_STUN_MS )
+					p->client->ps.weaponTime = SHINOBI_ELECTRIC_STUN_MS;
+				Shinobi_CCGrant( p, level.time + SHINOBI_ELECTRIC_STUN_MS );
+			}
 			shinobiHitElement = SE_LIGHTNING;
 			G_Damage( p, attacker, attacker, NULL, NULL, SHINOBI_ELECTRIC_DAMAGE, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
 			shinobiHitElement = SE_NONE;
@@ -355,6 +372,7 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 
 	if ( type == SZ_FIRE ) {
 		vec3_t above;
+		Shinobi_IgniteAshAt( origin, radius, ownerNum ); // fire on ash: boom
 		VectorCopy( origin, above );
 		above[2] += 8;
 		if ( Shinobi_InMapWater( above ) ) {
@@ -417,6 +435,8 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 // lightning touching a puddle electrifies it
 void Shinobi_ElectrifyAt( vec3_t point, int ownerNum ) {
 	int i;
+
+	Shinobi_IgniteAshAt( point, 24, ownerNum ); // lightning sets ash off too
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *z = &g_entities[i];
@@ -1069,7 +1089,7 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 				ZONE_OWNER( e ) = ent->s.number + 1;
 				trap->LinkEntity( (sharedEntity_t *)e );
 			}
-			else if ( ZONE_TYPE( e ) == SZ_STEAM ) { // blown away
+			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH ) { // blown away
 				Shinobi_ZoneKill( e );
 			}
 		}
@@ -1114,7 +1134,8 @@ static gentity_t *Shinobi_PrisonFindTarget( gentity_t *ent ) {
 			continue;
 		if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
 			continue;
-		if ( SHINOBI_HIDDEN( &e->client->ps ) || e->client->shinobi.prisonCaster || e->client->shinobi.prisonTarget )
+		if ( SHINOBI_HIDDEN( &e->client->ps ) || e->client->shinobi.prisonCaster || e->client->shinobi.prisonTarget
+			|| e->client->shinobi.shadowBy || Shinobi_CCImmune( e ) )
 			continue;
 
 		VectorSubtract( e->r.currentOrigin, eye, d );
@@ -1202,6 +1223,7 @@ void Shinobi_PrisonRelease( gentity_t *ent ) {
 		if ( target->health > 0 ) { // a moment to catch your breath (Kawarimi clears it)
 			target->client->shinobi.stunEnd = level.time + SHINOBI_PRISON_STUN_MS;
 			Shinobi_SetRawBit( &target->client->ps.userVec2[2], 1 );
+			Shinobi_CCGrant( target, target->client->shinobi.stunEnd );
 		}
 		if ( target->inuse ) {
 			G_PlayEffectID( shinobiMedia.fxWaterSplash[0], target->r.currentOrigin, up );
@@ -1244,4 +1266,247 @@ static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd ) {
 		if ( target->inuse && target->health > 0 && Q_irand( 0, 2 ) == 0 )
 			G_Sound( target, CHAN_VOICE, shinobiMedia.sndGurgle );
 	}
+}
+
+/*
+===========================================================================
+Ash Cloud: hot ash hanging in the air. Blinds, chokes, and any fire that
+touches it (fireball, fire breath, burning ground, Chidori) blows it up.
+===========================================================================
+*/
+#define ZONE_LEVEL(z)    ( (z)->genericValue5 )
+
+static void Shinobi_AshIgnite( gentity_t *z, int igniterNum ) {
+	const int  li = ZONE_LEVEL( z ) > 0 ? ZONE_LEVEL( z ) - 1 : 0;
+	const float r = ZONE_RADIUS( z );
+	gentity_t *attacker = NULL;
+	vec3_t     center, up = { 0, 0, 1 };
+
+	if ( igniterNum > 0 )
+		attacker = &g_entities[igniterNum - 1];
+	else if ( ZONE_OWNER( z ) > 0 )
+		attacker = &g_entities[ZONE_OWNER( z ) - 1];
+	if ( !attacker || !attacker->inuse )
+		attacker = z;
+
+	VectorCopy( z->r.currentOrigin, center );
+	center[2] += 32;
+	Shinobi_ZoneKill( z ); // first: the blast below must not set it off again
+
+	shinobiHitElement = SE_FIRE;
+	G_RadiusDamage( center, attacker, shinobiAshBlast[li], r * 1.2f, NULL, z, MOD_ROCKET_SPLASH );
+	shinobiHitElement = SE_NONE;
+
+	Shinobi_EffectDir( shinobiMedia.fxFireballBoom[2], center, up );
+	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndFireballBoom );
+	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndFireballBoom2 );
+	G_ScreenShake( center, NULL, 4.0f, 600, qfalse );
+	Shinobi_SpawnZone( SZ_FIRE, z->r.currentOrigin, r * 0.7f, 4000, igniterNum );
+}
+
+void Shinobi_IgniteAshAt( vec3_t pos, float radius, int igniterNum ) {
+	int i;
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *z = &g_entities[i];
+		vec3_t     d;
+
+		if ( !Shinobi_IsZone( z ) || ZONE_TYPE( z ) != SZ_ASH )
+			continue;
+		VectorSubtract( pos, z->r.currentOrigin, d );
+		if ( d[2] < -32 || d[2] > SHINOBI_ZONE_HEIGHT + 64 )
+			continue;
+		d[2] = 0;
+		if ( VectorLength( d ) <= ZONE_RADIUS( z ) + radius )
+			Shinobi_AshIgnite( z, igniterNum );
+	}
+}
+
+qboolean Shinobi_CastAsh( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	vec3_t     fwd, eye, end, floor;
+	trace_t    tr;
+	gentity_t *z;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight;
+	VectorMA( eye, SHINOBI_ASH_DISTANCE, fwd, end );
+	trap->Trace( &tr, eye, NULL, NULL, end, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+	if ( !Shinobi_FloorBelow( tr.endpos, 160, floor ) && !Shinobi_FloorBelow( client->ps.origin, 64, floor ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		return qfalse;
+	}
+	z = Shinobi_SpawnZone( SZ_ASH, floor, (float)shinobiAshRadius[lvl - 1], SHINOBI_ASH_LIFE, ent->s.number + 1 );
+	if ( !z )
+		return qfalse;
+	ZONE_LEVEL( z ) = lvl;
+
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCE_2HANDEDLIGHTNING_HOLD;
+	client->ps.forceHandExtendTime = level.time + 500;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndHiss );
+	return qtrue;
+}
+
+/*
+===========================================================================
+Fire Breath: held. The stream turns toward where you look at a limited rate;
+it burns people in the cone and sets the ground it touches alight.
+===========================================================================
+*/
+static void Shinobi_FlameEntThink( gentity_t *flame );
+
+void Shinobi_FlameStop( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if ( client->shinobi.flameEnt ) {
+		gentity_t *flame = &g_entities[client->shinobi.flameEnt - 1];
+		if ( flame->inuse && flame->classname && !strcmp( flame->classname, "shinobi_flame" ) )
+			G_FreeEntity( flame );
+	}
+	client->shinobi.flameEnt = 0;
+	client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_CHANNEL;
+	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT && client->ps.forceDodgeAnim == BOTH_FORCELIGHTNING_HOLD )
+		client->ps.forceHandExtend = HANDEXTEND_NONE;
+}
+
+qboolean Shinobi_CastFlame( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	gentity_t *flame;
+
+	if ( client->shinobi.flameEnt || SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	flame = G_Spawn();
+	if ( !flame )
+		return qfalse;
+	flame->classname = "shinobi_flame";
+	flame->s.eType = ET_GENERAL;
+	flame->s.generic1 = SHINOBI_ENT_FLAME;
+	flame->r.ownerNum = ent->s.number;
+	flame->r.contents = 0;
+	flame->r.svFlags |= SVF_BROADCAST;
+	flame->s.loopSound = shinobiMedia.sndFireLoop;
+	G_SetOrigin( flame, client->ps.origin );
+	flame->think = Shinobi_FlameEntThink;
+	flame->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)flame );
+
+	VectorCopy( client->ps.viewangles, client->shinobi.flameAngles );
+	client->shinobi.flameAngles[ROLL] = 0;
+	client->shinobi.flameTick = level.time;
+	client->shinobi.flameDrain = level.time + SHINOBI_FLAME_DRAIN_MS;
+	client->shinobi.flameZone = level.time + SHINOBI_FLAME_ZONE_MS;
+	client->shinobi.flameEnt = flame->s.number + 1;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFireballCast );
+	return qtrue;
+}
+
+static void Shinobi_FlameEntThink( gentity_t *flame ) {
+	gentity_t  *owner = &g_entities[flame->r.ownerNum];
+	gclient_t  *client = owner->client;
+	const float step = SHINOBI_FLAME_TURN * ( FRAMETIME / 1000.0f );
+	vec3_t      fwd, mouth, end, viewFwd;
+	trace_t     tr;
+	float       reach;
+	int         i;
+
+	if ( !owner->inuse || !client || client->shinobi.flameEnt != flame->s.number + 1 ) {
+		G_FreeEntity( flame );
+		return;
+	}
+	if ( owner->health <= 0 || client->shinobi.prisonCaster || client->shinobi.shadowBy
+		|| client->shinobi.stunEnd > level.time || !Shinobi_CanAct( owner ) ) {
+		Shinobi_FlameStop( owner );
+		return;
+	}
+
+	// turn slowly toward the view
+	for ( i = 0; i < 2; i++ ) {
+		float d = AngleSubtract( client->ps.viewangles[i], client->shinobi.flameAngles[i] );
+		if ( d > step ) d = step;
+		if ( d < -step ) d = -step;
+		client->shinobi.flameAngles[i] = AngleNormalize180( client->shinobi.flameAngles[i] + d );
+	}
+	AngleVectors( client->shinobi.flameAngles, fwd, NULL, NULL );
+	AngleVectors( client->ps.viewangles, viewFwd, NULL, NULL );
+	VectorCopy( client->ps.origin, mouth );
+	mouth[2] += client->ps.viewheight - 6;
+	VectorMA( mouth, 10, fwd, mouth );
+	VectorMA( mouth, SHINOBI_FLAME_RANGE, fwd, end );
+	trap->Trace( &tr, mouth, NULL, NULL, end, owner->s.number, MASK_SOLID, qfalse, 0, 0 );
+	reach = tr.fraction * SHINOBI_FLAME_RANGE;
+
+	// chakra
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	if ( client->shinobi.flameDrain <= level.time ) {
+		client->shinobi.flameDrain = level.time + SHINOBI_FLAME_DRAIN_MS;
+		if ( client->ps.fd.forcePower < SHINOBI_FLAME_DRAIN ) {
+			Shinobi_FlameStop( owner );
+			return;
+		}
+		client->ps.fd.forcePower -= SHINOBI_FLAME_DRAIN;
+	}
+
+	// burn what's in the cone
+	if ( client->shinobi.flameTick <= level.time ) {
+		client->shinobi.flameTick = level.time + SHINOBI_FLAME_TICK_MS;
+		for ( i = 0; i < level.num_entities; i++ ) {
+			gentity_t *e = &g_entities[i];
+			vec3_t     d;
+			float      dist;
+			trace_t    los;
+
+			if ( !e->inuse || !e->client || e == owner || e->health <= 0 )
+				continue;
+			if ( Shinobi_DamageBlocked( e, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, e ) ) )
+				continue;
+			if ( i < MAX_CLIENTS && SHINOBI_HIDDEN( &e->client->ps ) )
+				continue;
+			VectorSubtract( e->r.currentOrigin, mouth, d );
+			dist = VectorNormalize( d );
+			if ( dist > reach + 24 || DotProduct( d, fwd ) < SHINOBI_FLAME_CONE )
+				continue;
+			trap->Trace( &los, mouth, NULL, NULL, e->r.currentOrigin, owner->s.number, MASK_SOLID, qfalse, 0, 0 );
+			if ( los.fraction < 1.0f && los.entityNum != e->s.number )
+				continue;
+			shinobiHitElement = SE_FIRE;
+			G_Damage( e, flame, owner, fwd, e->r.currentOrigin, SHINOBI_FLAME_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_LAVA );
+			shinobiHitElement = SE_NONE;
+		}
+		// ash anywhere along the stream goes up
+		for ( i = 0; i * 40 < reach; i++ ) {
+			vec3_t p;
+			VectorMA( mouth, i * 40.0f, fwd, p );
+			Shinobi_IgniteAshAt( p, 16, owner->s.number + 1 );
+		}
+	}
+
+	// the ground it licks catches fire (a lake just steams)
+	if ( client->shinobi.flameZone <= level.time && tr.fraction < 1.0f ) {
+		vec3_t floor;
+		client->shinobi.flameZone = level.time + SHINOBI_FLAME_ZONE_MS;
+		if ( Shinobi_InMapWater( tr.endpos ) )
+			Shinobi_SteamAt( tr.endpos, 0 );
+		else if ( tr.plane.normal[2] > 0.6f || Shinobi_FloorBelow( tr.endpos, 64, floor ) ) {
+			if ( tr.plane.normal[2] > 0.6f )
+				VectorCopy( tr.endpos, floor );
+			Shinobi_SpawnZone( SZ_FIRE, floor, 50, 3500, owner->s.number + 1 );
+		}
+	}
+
+	// keep the pose and the slow walk
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCELIGHTNING_HOLD;
+	client->ps.forceHandExtendTime = level.time + 150;
+	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_CHANNEL;
+
+	// the cgame draws the stream from these
+	G_SetOrigin( flame, mouth );
+	VectorCopy( client->shinobi.flameAngles, flame->s.angles2 );
+	flame->s.angles2[ROLL] = reach;
+	trap->LinkEntity( (sharedEntity_t *)flame );
+	flame->nextthink = level.time + FRAMETIME;
 }
