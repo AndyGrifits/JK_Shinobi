@@ -190,6 +190,7 @@ static void Shinobi_ShadowThink( gentity_t *sh ) {
 				if ( v->client->shinobi.flameEnt )
 					Shinobi_FlameStop( v );
 				G_Sound( v, CHAN_AUTO, shinobiMedia.sndShadow );
+				G_LogPrintf( "[shinobi] Shadow Bind: %i caught %i\n", binder->s.number, v->s.number );
 				trap->SendServerCommand( v - g_entities, "cp \"^0Shadow Bind!^7\nyou move as he moves - Kawarimi gets you out\"" );
 				trap->SendServerCommand( binder - g_entities, "cp \"Caught! They copy your every move\"" );
 			}
@@ -226,6 +227,7 @@ void Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_ShadowRelease( ent );
 		return;
 	}
+	ucmd->generic_cmd = 0; // no force powers, saber style changes... of his own
 	ucmd->forwardmove = binder->client->pers.cmd.forwardmove;
 	ucmd->rightmove = binder->client->pers.cmd.rightmove;
 	ucmd->upmove = binder->client->pers.cmd.upmove;
@@ -238,5 +240,22 @@ void Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 	angles[ROLL] = 0;
 	SetClientViewAngle( ent, angles );
 
+	// and the same speed, turned by the angle between us: even if something
+	// else feeds this player moves, he goes where the binder goes
+	{
+		const float a = DEG2RAD( client->shinobi.shadowYaw );
+		const float bx = binder->client->ps.velocity[0], by = binder->client->ps.velocity[1];
+		client->ps.velocity[0] = bx * cosf( a ) - by * sinf( a );
+		client->ps.velocity[1] = bx * sinf( a ) + by * cosf( a );
+	}
 	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BOUND;
+
+	if ( client->shinobi.debugNext <= level.time && trap->Cvar_VariableIntegerValue( "shinobi_debug" ) ) {
+		client->shinobi.debugNext = level.time + 1000;
+		trap->Print( "[shinobi] bound %i by %i: cmd %i/%i/%i btn %x vel %.0f %.0f binder cmd %i/%i/%i vel %.0f %.0f\n",
+			ent->s.number, binder->s.number, ucmd->forwardmove, ucmd->rightmove, ucmd->upmove, ucmd->buttons,
+			client->ps.velocity[0], client->ps.velocity[1], binder->client->pers.cmd.forwardmove,
+			binder->client->pers.cmd.rightmove, binder->client->pers.cmd.upmove,
+			binder->client->ps.velocity[0], binder->client->ps.velocity[1] );
+	}
 }

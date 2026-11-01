@@ -375,8 +375,8 @@ void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		return;
 	}
 	if ( jutsu != SJ_KAWARIMI ) {
-		if ( client->shinobi.prisonCaster )
-			return; // in a Water Prison only Kawarimi works
+		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
+			return; // in a Water Prison or a Shadow Bind only Kawarimi works
 		Shinobi_Reveal( ent ); // any jutsu ends a substitution
 	}
 
@@ -478,6 +478,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
 	}
+	if ( client->shinobi.shadowBy || client->shinobi.prisonCaster )
+		return; // bound or imprisoned: no seals
 	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
 		return;
@@ -568,7 +570,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
 
 	// --- Chakra charging: hold USE while standing still on the ground ---
-	if ( ( ucmd->buttons & BUTTON_USE )
+	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.prisonCaster
 		&& !ucmd->forwardmove && !ucmd->rightmove && ucmd->upmove <= 0
 		&& client->ps.groundEntityNum != ENTITYNUM_NONE
 		&& !SHINOBI_HAND_ANY( &client->ps )

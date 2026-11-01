@@ -250,6 +250,7 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 		}
 		else {
 			ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+			ucmd->generic_cmd = 0;
 			ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
 				| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
 			client->shinobi.wetEnd = level.time + SHINOBI_WET_MS;

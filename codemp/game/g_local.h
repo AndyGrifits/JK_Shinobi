@@ -860,6 +860,7 @@ struct gclient_s {
 		int		kunaiNext;		// kunai throw cooldown end
 		int		hiraishinNext;	// Hiraishin cooldown end
 		int		infuseUntil;	// Shift + attack: hits until then carry chakra
+		int		debugNext;		// throttle for shinobi_debug prints
 	} shinobi;
 };
 
