@@ -10183,7 +10183,9 @@ static void PM_ShinobiPreMove( void )
 	}
 
 	if ( SHINOBI_CHARGING( ps ) )
-	{ // gathering chakra: sit still in meditation
+	{ // gathering chakra: sit still in meditation.
+		// The pose is the stock /meditate taunt: a "taunt" hand-extend whose
+		// animation comes from forceDodgeAnim (leaving that at 0 = T-pose).
 		pm->cmd.forwardmove = 0;
 		pm->cmd.rightmove = 0;
 		if ( pm->cmd.upmove > 0 )
@@ -10191,13 +10193,23 @@ static void PM_ShinobiPreMove( void )
 			pm->cmd.upmove = 0;
 		}
 		pm->cmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
-		PM_SetAnim( SETANIM_BOTH, BOTH_MEDITATE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		ps->legsTimer = ps->torsoTimer = 200;
+		ps->velocity[0] = ps->velocity[1] = 0; // full-body taunts need a standstill
+		ps->forceHandExtend = HANDEXTEND_TAUNT;
+		ps->forceDodgeAnim = BOTH_MEDITATE;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+		if ( ps->legsAnim != BOTH_MEDITATE || ps->torsoAnim != BOTH_MEDITATE )
+		{
+			PM_SetAnim( SETANIM_BOTH, BOTH_MEDITATE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		}
 	}
-	else if ( ps->legsAnim == BOTH_MEDITATE )
-	{ // stopped charging: let normal animation take over right away
-		ps->legsTimer = 0;
-		ps->torsoTimer = 0;
+	else if ( ps->forceHandExtend == HANDEXTEND_TAUNT && ps->forceDodgeAnim == BOTH_MEDITATE
+		&& ps->legsAnim == BOTH_MEDITATE )
+	{ // stopped charging (released USE): stand up at once
+		ps->forceHandExtend = HANDEXTEND_NONE;
+		ps->forceDodgeAnim = 0;
+		ps->forceHandExtendTime = 0;
+		PM_SetAnim( SETANIM_BOTH, BOTH_STAND1, SETANIM_FLAG_OVERRIDE );
+		ps->legsTimer = ps->torsoTimer = 0;
 	}
 
 	if ( SHINOBI_HAND_ANY( ps ) )

@@ -38,6 +38,10 @@ void Shinobi_Init( void ) {
 	m->sndChidoriHit   = G_SoundIndex( "sound/weapons/force/lightninghit1" );
 
 	Shinobi_ElementsInit();
+
+	trap->Print( "[shinobi] game module built " __DATE__ " " __TIME__ ": fx rasenganHit %i chidoriHit %i shunshin %i clonePoof %i fireballBoom %i wallRise %i, wall models %i %i %i\n",
+		m->fxRasenganHit, m->fxChidoriHit, m->fxShunshin, m->fxClonePoof, m->fxFireballBoom, m->fxWallRise,
+		m->wallModels[0], m->wallModels[1], m->wallModels[2] );
 }
 
 /*
@@ -329,6 +333,11 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 			client->ps.userInt1 = 1;
 			client->shinobi.chargeTick = level.time + SHINOBI_CHARGE_TICK_MS;
 			G_Sound( ent, CHAN_AUTO, shinobiMedia.sndChargeStart );
+			// meditate with the blade off, like the stock /meditate taunt
+			if ( client->ps.weapon == WP_SABER && client->ps.saberHolstered != 2 ) {
+				G_Sound( ent, CHAN_WEAPON, client->saber[0].soundOff );
+				client->ps.saberHolstered = 2;
+			}
 		}
 		while ( client->shinobi.chargeTick <= level.time ) {
 			client->ps.fd.forcePower += SHINOBI_CHARGE_PER_TICK;

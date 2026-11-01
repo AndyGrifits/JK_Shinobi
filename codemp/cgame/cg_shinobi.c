@@ -15,14 +15,68 @@ the fireball entity, which has no model of its own.
 #define SHINOBI_AURA_FX_INTERVAL  70
 #define SHINOBI_BALL_FX_INTERVAL  25
 
+/*
+===========================================================================
+Diagnostics: everything is printed with a "[shinobi]" prefix so it can be
+pulled out of qconsole.log (launchers set logfile 2).
+===========================================================================
+*/
+static fxHandle_t CG_ShinobiRegisterFx( const char *name ) {
+	fxHandle_t h = trap->FX_RegisterEffect( name );
+	if ( !h ) {
+		trap->Print( S_COLOR_RED "[shinobi] cgame: effect FAILED to load: effects/%s.efx\n", name );
+	}
+	return h;
+}
+
+static void CG_ShinobiCheckFile( const char *path ) {
+	fileHandle_t f;
+	int len = trap->FS_Open( path, &f, FS_READ );
+
+	if ( len > 0 ) {
+		trap->FS_Close( f );
+		trap->Print( "[shinobi] file ok      %6i  %s\n", len, path );
+	}
+	else {
+		trap->Print( S_COLOR_RED "[shinobi] file MISSING        %s\n", path );
+	}
+}
+
+void CG_ShinobiDiag_f( void ) {
+	char fsGame[MAX_QPATH];
+	char renderer[MAX_QPATH];
+
+	trap->Cvar_VariableStringBuffer( "fs_game", fsGame, sizeof( fsGame ) );
+	trap->Cvar_VariableStringBuffer( "cl_renderer", renderer, sizeof( renderer ) );
+	trap->Print( "[shinobi] cgame module built " __DATE__ " " __TIME__ ", fs_game '%s', renderer '%s'\n", fsGame, renderer );
+
+	CG_ShinobiCheckFile( "shaders/shinobi.shader" );
+	CG_ShinobiCheckFile( "gfx/shinobi/glow.tga" );
+	CG_ShinobiCheckFile( "effects/shinobi/rasengan_hand.efx" );
+	CG_ShinobiCheckFile( "effects/shinobi/chakra_aura.efx" );
+	CG_ShinobiCheckFile( "models/shinobi/earth_pillar1.md3" );
+	CG_ShinobiCheckFile( "ext_data/NPCs/shinobi.npc" );
+	CG_ShinobiCheckFile( "shinobi_binds.cfg" );
+
+	trap->Print( "[shinobi] fx handles: rasenganHand %i rasenganForm %i chidoriHand %i chidoriForm %i aura %i fireball %i\n",
+		cgs.effects.shinobiRasenganHand, cgs.effects.shinobiRasenganForm,
+		cgs.effects.shinobiChidoriHand, cgs.effects.shinobiChidoriForm,
+		cgs.effects.shinobiChakraAura, cgs.effects.shinobiFireball );
+	trap->Print( "[shinobi] local player flags: userInt1 %i userInt2 %i userInt3 %i, legsAnim %i torsoAnim %i\n",
+		cg.predictedPlayerState.userInt1, cg.predictedPlayerState.userInt2, cg.predictedPlayerState.userInt3,
+		cg.predictedPlayerState.legsAnim, cg.predictedPlayerState.torsoAnim );
+}
+
 void CG_ShinobiRegisterMedia( void ) {
-	cgs.effects.shinobiRasenganHand = trap->FX_RegisterEffect( SHINOBI_FX_RASENGAN_HAND );
-	cgs.effects.shinobiRasenganForm = trap->FX_RegisterEffect( SHINOBI_FX_RASENGAN_FORM );
-	cgs.effects.shinobiChidoriHand  = trap->FX_RegisterEffect( SHINOBI_FX_CHIDORI_HAND );
-	cgs.effects.shinobiChidoriForm  = trap->FX_RegisterEffect( SHINOBI_FX_CHIDORI_FORM );
-	cgs.effects.shinobiChakraAura   = trap->FX_RegisterEffect( SHINOBI_FX_CHAKRA_AURA );
-	cgs.effects.shinobiFireball     = trap->FX_RegisterEffect( SHINOBI_FX_FIREBALL );
+	cgs.effects.shinobiRasenganHand = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_HAND );
+	cgs.effects.shinobiRasenganForm = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_FORM );
+	cgs.effects.shinobiChidoriHand  = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_HAND );
+	cgs.effects.shinobiChidoriForm  = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_FORM );
+	cgs.effects.shinobiChakraAura   = CG_ShinobiRegisterFx( SHINOBI_FX_CHAKRA_AURA );
+	cgs.effects.shinobiFireball     = CG_ShinobiRegisterFx( SHINOBI_FX_FIREBALL );
 	// one-shot effects played by the server are registered through configstrings
+
+	CG_ShinobiDiag_f();
 }
 
 static void CG_ShinobiHandOrigin( centity_t *cent, clientInfo_t *ci, vec3_t out ) {
@@ -124,6 +178,19 @@ void CG_ShinobiDrawHUD( void ) {
 	vec4_t         color = { 0.55f, 0.85f, 1.0f, 1.0f };
 	const float    scale = 0.7f;
 	const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( ps );
+
+	{ // log every change of the local jutsu flags (cheap: only on change)
+		static int lastFlags = -1;
+		const int flags = ( ps->userInt1 ? 1 : 0 ) | ( ps->userInt2 ? 2 : 0 ) | ( ps->userInt3 ? 4 : 0 );
+		if ( flags != lastFlags ) {
+			trap->Print( "[shinobi] local flags %i%i%i charging %i hand %i chidori %i forming %i armed %i dash %i chakra %i\n",
+				ps->userInt1 ? 1 : 0, ps->userInt2 ? 1 : 0, ps->userInt3 ? 1 : 0,
+				SHINOBI_CHARGING( ps ) ? 1 : 0, SHINOBI_HAND_ANY( ps ) ? 1 : 0, SHINOBI_HAND_IS_CHIDORI( ps ) ? 1 : 0,
+				SHINOBI_HAND_FORMING( ps ) ? 1 : 0, SHINOBI_HAND_ARMED( ps ) ? 1 : 0, SHINOBI_HAND_DASH( ps ) ? 1 : 0,
+				ps->fd.forcePower );
+			lastFlags = flags;
+		}
+	}
 
 	if ( ps->pm_type == PM_SPECTATOR || ps->stats[STAT_HEALTH] <= 0 ) {
 		return;
