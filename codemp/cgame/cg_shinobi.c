@@ -21,6 +21,13 @@ Diagnostics: everything is printed with a "[shinobi]" prefix so it can be
 pulled out of qconsole.log (launchers set logfile 2).
 ===========================================================================
 */
+// "shinobi_debug 1" prints state changes and asset checks (the self-test sets it)
+static qboolean CG_ShinobiDebug( void ) {
+	char buf[16];
+	trap->Cvar_VariableStringBuffer( "shinobi_debug", buf, sizeof( buf ) );
+	return atoi( buf ) ? qtrue : qfalse;
+}
+
 static fxHandle_t CG_ShinobiRegisterFx( const char *name ) {
 	fxHandle_t h = trap->FX_RegisterEffect( name );
 	if ( !h ) {
@@ -76,7 +83,8 @@ void CG_ShinobiRegisterMedia( void ) {
 	cgs.effects.shinobiFireball     = CG_ShinobiRegisterFx( SHINOBI_FX_FIREBALL );
 	// one-shot effects played by the server are registered through configstrings
 
-	CG_ShinobiDiag_f();
+	if ( CG_ShinobiDebug() )
+		CG_ShinobiDiag_f();
 }
 
 static void CG_ShinobiHandOrigin( centity_t *cent, clientInfo_t *ci, vec3_t out ) {
@@ -182,7 +190,7 @@ void CG_ShinobiDrawHUD( void ) {
 	{ // log every change of the local jutsu flags (cheap: only on change)
 		static int lastFlags = -1;
 		const int flags = ( ps->userInt1 ? 1 : 0 ) | ( ps->userInt2 ? 2 : 0 ) | ( ps->userInt3 ? 4 : 0 );
-		if ( flags != lastFlags ) {
+		if ( flags != lastFlags && CG_ShinobiDebug() ) {
 			trap->Print( "[shinobi] local flags %i%i%i charging %i hand %i chidori %i forming %i armed %i dash %i chakra %i\n",
 				ps->userInt1 ? 1 : 0, ps->userInt2 ? 1 : 0, ps->userInt3 ? 1 : 0,
 				SHINOBI_CHARGING( ps ) ? 1 : 0, SHINOBI_HAND_ANY( ps ) ? 1 : 0, SHINOBI_HAND_IS_CHIDORI( ps ) ? 1 : 0,
