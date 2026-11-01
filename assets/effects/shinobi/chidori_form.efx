@@ -1,0 +1,44 @@
+repeatDelay				0
+
+// Chidori forming: stray sparks and small arcs jumping around the hand.
+
+Particle
+{
+	name				arcs
+	count				1 2
+	life				40 70
+	rotation			0 360
+	spawnFlags			orgOnSphere
+	radius				4 12
+	size
+	{
+		start			5 10
+	}
+	rgb
+	{
+		start			0.55 0.75 1
+	}
+	shaders
+	[
+		gfx/shinobi/bolt
+	]
+}
+
+Particle
+{
+	name				core
+	count				1
+	life				60
+	size
+	{
+		start			2 4
+	}
+	rgb
+	{
+		start			0.8 0.9 1
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}

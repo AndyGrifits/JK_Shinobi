@@ -807,6 +807,9 @@ struct gclient_s {
 		int		armedEnd;
 		int		dashEnd;
 		int		shunshinNext;	// cooldown end
+		int		handSoundNext;	// Chidori chirp repeat
+		int		fireballNext;	// cooldown end
+		int		wallNext;		// cooldown end
 	} shinobi;
 };
 
@@ -1378,6 +1381,9 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 void Shinobi_Init( void );
 void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd );
 void Cmd_Rasengan_f( gentity_t *ent );
+void Cmd_Chidori_f( gentity_t *ent );
+void Cmd_Katon_f( gentity_t *ent );
+void Cmd_Doton_f( gentity_t *ent );
 void Cmd_Shunshin_f( gentity_t *ent );
 void Cmd_KageBunshin_f( gentity_t *ent );
 void Shinobi_RunFrame( void );

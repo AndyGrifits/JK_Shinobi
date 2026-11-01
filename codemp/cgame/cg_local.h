@@ -1465,6 +1465,9 @@ typedef struct cgEffects_s {
 	fxHandle_t shinobiRasenganHand;
 	fxHandle_t shinobiRasenganForm;
 	fxHandle_t shinobiChakraAura;
+	fxHandle_t shinobiChidoriHand;
+	fxHandle_t shinobiChidoriForm;
+	fxHandle_t shinobiFireball;
 	fxHandle_t forceDrainWide;
 	fxHandle_t forceDrained;
 
@@ -1774,6 +1777,7 @@ void CG_Text_Paint(float x, float y, float scale, vec4_t color, const char *text
 void CG_ShinobiRegisterMedia( void );
 void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci );
 void CG_ShinobiDrawHUD( void );
+qboolean CG_ShinobiEntity( centity_t *cent );
 int CG_Text_Width(const char *text, float scale, int iMenuFont);
 int CG_Text_Height(const char *text, float scale, int iMenuFont);
 float CG_GetValue(int ownerDraw);

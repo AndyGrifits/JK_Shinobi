@@ -3349,7 +3349,10 @@ Ghoul2 Insert End
 	case ET_TERRAIN:
 		break;
 	case ET_GENERAL:
-		CG_General( cent );
+		if ( !CG_ShinobiEntity( cent ) ) // JK_Shinobi: fireball and other model-less jutsu
+		{
+			CG_General( cent );
+		}
 		break;
 	case ET_PLAYER:
 		CG_Player( cent );

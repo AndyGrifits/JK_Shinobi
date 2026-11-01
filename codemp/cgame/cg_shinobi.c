@@ -3,7 +3,8 @@
 JK_Shinobi - client-side jutsu visuals and HUD.
 
 Reads the jutsu flags that the server puts in entityState/playerState user
-fields (see game/bg_shinobi.h) and plays the matching effects.
+fields (see game/bg_shinobi.h) and plays the matching effects. Also draws
+the fireball entity, which has no model of its own.
 ===========================================================================
 */
 #include "cg_local.h"
@@ -12,11 +13,15 @@ fields (see game/bg_shinobi.h) and plays the matching effects.
 
 #define SHINOBI_HAND_FX_INTERVAL  40   // ms between hand effect spawns (effects live ~80ms)
 #define SHINOBI_AURA_FX_INTERVAL  70
+#define SHINOBI_BALL_FX_INTERVAL  25
 
 void CG_ShinobiRegisterMedia( void ) {
 	cgs.effects.shinobiRasenganHand = trap->FX_RegisterEffect( SHINOBI_FX_RASENGAN_HAND );
 	cgs.effects.shinobiRasenganForm = trap->FX_RegisterEffect( SHINOBI_FX_RASENGAN_FORM );
+	cgs.effects.shinobiChidoriHand  = trap->FX_RegisterEffect( SHINOBI_FX_CHIDORI_HAND );
+	cgs.effects.shinobiChidoriForm  = trap->FX_RegisterEffect( SHINOBI_FX_CHIDORI_FORM );
 	cgs.effects.shinobiChakraAura   = trap->FX_RegisterEffect( SHINOBI_FX_CHAKRA_AURA );
+	cgs.effects.shinobiFireball     = trap->FX_RegisterEffect( SHINOBI_FX_FIREBALL );
 	// one-shot effects played by the server are registered through configstrings
 }
 
@@ -48,13 +53,26 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 		return;
 	}
 
-	if ( SHINOBI_RASENGAN_ANY( s ) ) {
-		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
-			fxHandle_t fx = SHINOBI_RASENGAN_FORMING( s ) ? cgs.effects.shinobiRasenganForm : cgs.effects.shinobiRasenganHand;
+	if ( SHINOBI_HAND_ANY( s ) ) {
+		const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( s );
 
-			CG_ShinobiHandOrigin( cent, ci, org );
+		CG_ShinobiHandOrigin( cent, ci, org );
+
+		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+			fxHandle_t fx;
+
+			if ( SHINOBI_HAND_FORMING( s ) )
+				fx = chidori ? cgs.effects.shinobiChidoriForm : cgs.effects.shinobiRasenganForm;
+			else
+				fx = chidori ? cgs.effects.shinobiChidoriHand : cgs.effects.shinobiRasenganHand;
+
 			trap->FX_PlayEffectID( fx, org, up, -1, -1, qfalse );
 			cent->shinobiHandFxTime = cg.time + SHINOBI_HAND_FX_INTERVAL;
+		}
+
+		if ( chidori ) { // flickering lightning glow every frame
+			const float f = 0.6f + 0.4f * flrand( 0.0f, 1.0f );
+			trap->R_AddLightToScene( org, 120 + 80 * f, 0.55f * f, 0.75f * f, 1.0f * f );
 		}
 	}
 
@@ -68,11 +86,44 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 	}
 }
 
+/*
+==================
+CG_ShinobiEntity
+
+Draws mod entities that have no model. Returns qtrue if it handled the entity.
+==================
+*/
+qboolean CG_ShinobiEntity( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+
+	if ( s->eType != ET_GENERAL || s->generic1 != SHINOBI_ENT_FIREBALL ) {
+		return qfalse;
+	}
+
+	{
+		vec3_t dir;
+		const float f = 0.8f + 0.2f * flrand( 0.0f, 1.0f );
+
+		VectorCopy( s->pos.trDelta, dir );
+		if ( VectorNormalize( dir ) == 0 ) {
+			VectorSet( dir, 0, 0, 1 );
+		}
+
+		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+			trap->FX_PlayEffectID( cgs.effects.shinobiFireball, cent->lerpOrigin, dir, -1, -1, qfalse );
+			cent->shinobiHandFxTime = cg.time + SHINOBI_BALL_FX_INTERVAL;
+		}
+		trap->R_AddLightToScene( cent->lerpOrigin, 260 * f, 1.0f, 0.55f, 0.15f );
+	}
+	return qtrue;
+}
+
 void CG_ShinobiDrawHUD( void ) {
 	playerState_t *ps = &cg.predictedPlayerState;
 	const char    *text = NULL;
 	vec4_t         color = { 0.55f, 0.85f, 1.0f, 1.0f };
 	const float    scale = 0.7f;
+	const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( ps );
 
 	if ( ps->pm_type == PM_SPECTATOR || ps->stats[STAT_HEALTH] <= 0 ) {
 		return;
@@ -81,11 +132,11 @@ void CG_ShinobiDrawHUD( void ) {
 	if ( SHINOBI_CHARGING( ps ) ) {
 		text = va( "Gathering chakra... %i", ps->fd.forcePower );
 	}
-	else if ( SHINOBI_RASENGAN_FORMING( ps ) ) {
-		text = "Rasengan forming...";
+	else if ( SHINOBI_HAND_FORMING( ps ) ) {
+		text = chidori ? "Chidori forming..." : "Rasengan forming...";
 	}
-	else if ( SHINOBI_RASENGAN_ARMED( ps ) ) {
-		text = "RASENGAN - ATTACK!";
+	else if ( SHINOBI_HAND_ARMED( ps ) ) {
+		text = chidori ? "CHIDORI - ATTACK!" : "RASENGAN - ATTACK!";
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.012f );
 	}
 

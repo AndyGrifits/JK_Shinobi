@@ -1,0 +1,66 @@
+repeatDelay				0
+
+// A stone pillar breaks through the ground (also used when it sinks back).
+// Played at the pillar's base with the axis pointing up (local X = up).
+
+Particle
+{
+	name				dust
+	count				4 6
+	life				900 1400
+	rotation			0 360
+	rotationDelta		-6 6
+	spawnFlags			orgOnCylinder
+	radius				14 24
+	height				4
+	vel					20 -20 -20 70 20 20
+	size
+	{
+		start			22 30
+		end				50 70
+	}
+	rgb
+	{
+		start			0.55 0.47 0.37 0.62 0.55 0.44
+	}
+	alpha
+	{
+		start			0.65
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				chips
+	count				6 10
+	life				600 1000
+	rotation			0 360
+	rotationDelta		-60 60
+	spawnFlags			orgOnCylinder axisFromSphere
+	radius				10 20
+	height				4
+	vel					60 0 120 160 0 280
+	gravity				-700
+	size
+	{
+		start			2.5 5
+	}
+	rgb
+	{
+		start			0.45 0.38 0.3 0.6 0.52 0.42
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/chip
+	]
+}

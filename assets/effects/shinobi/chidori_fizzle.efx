@@ -1,0 +1,54 @@
+repeatDelay				0
+
+// Chidori dies out: a few last sparks.
+
+Particle
+{
+	name				arcs
+	count				3 4
+	life				60 120
+	rotation			0 360
+	spawnFlags			orgOnSphere
+	radius				4 10
+	size
+	{
+		start			8 14
+	}
+	rgb
+	{
+		start			0.55 0.75 1
+	}
+	alpha
+	{
+		start			0.8
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/bolt
+	]
+}
+
+Particle
+{
+	name				sparks
+	count				6 9
+	life				200 400
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				3 6
+	vel					60 0 0 160 0 0
+	gravity				-300
+	size
+	{
+		start			1 2
+		end				0
+	}
+	rgb
+	{
+		start			0.75 0.9 1
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}

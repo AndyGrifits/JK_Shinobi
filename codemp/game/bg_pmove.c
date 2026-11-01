@@ -10200,19 +10200,20 @@ static void PM_ShinobiPreMove( void )
 		ps->torsoTimer = 0;
 	}
 
-	if ( SHINOBI_RASENGAN_ANY( ps ) )
-	{ // the attack button belongs to the jutsu while a Rasengan exists
+	if ( SHINOBI_HAND_ANY( ps ) )
+	{ // the attack button belongs to the jutsu while a Rasengan / Chidori exists
 		pm->cmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
 	}
 
-	if ( SHINOBI_RASENGAN_DASH( ps ) )
-	{ // lunge forward with the ball
+	if ( SHINOBI_HAND_DASH( ps ) )
+	{ // lunge forward with the ball / lightning
 		vec3_t yaw, fwd;
+		const float speed = SHINOBI_HAND_IS_CHIDORI( ps ) ? SHINOBI_CHIDORI_DASH_SPEED : SHINOBI_RASENGAN_DASH_SPEED;
 
 		VectorSet( yaw, 0, ps->viewangles[YAW], 0 );
 		AngleVectors( yaw, fwd, NULL, NULL );
-		ps->velocity[0] = fwd[0] * SHINOBI_RASENGAN_DASH_SPEED;
-		ps->velocity[1] = fwd[1] * SHINOBI_RASENGAN_DASH_SPEED;
+		ps->velocity[0] = fwd[0] * speed;
+		ps->velocity[1] = fwd[1] * speed;
 		pm->cmd.forwardmove = 0;
 		pm->cmd.rightmove = 0;
 		pm->cmd.upmove = 0;

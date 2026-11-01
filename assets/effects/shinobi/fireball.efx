@@ -1,0 +1,113 @@
+repeatDelay				0
+
+// Great fireball in flight. Played every ~25ms at the ball with the effect
+// axis along the direction of travel (local X = forward), so flames trail
+// behind with negative X velocity.
+
+Particle
+{
+	name				core
+	count				1
+	life				60
+	rotation			0 360
+	size
+	{
+		start			20 24
+	}
+	rgb
+	{
+		start			1 0.85 0.45
+	}
+	alpha
+	{
+		start			1
+		end				0.5
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				flames
+	count				3 4
+	life				180 300
+	rotation			0 360
+	rotationDelta		-40 40
+	spawnFlags			orgOnSphere
+	radius				6 14
+	vel					-140 -25 -25 -60 25 25
+	size
+	{
+		start			18 26
+		end				8 12
+	}
+	rgb
+	{
+		start			1 0.65 0.2
+		end				0.9 0.2 0.05
+	}
+	alpha
+	{
+		start			0.85
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/swirl
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				smoke
+	count				0 1
+	life				500 800
+	rotation			0 360
+	vel					-60 -15 10 -30 15 40
+	size
+	{
+		start			10 14
+		end				28 36
+	}
+	rgb
+	{
+		start			0.25 0.22 0.2
+	}
+	alpha
+	{
+		start			0.45
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				embers
+	count				1 2
+	life				300 600
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				8 14
+	vel					30 0 0 90 0 0
+	gravity				-120
+	size
+	{
+		start			1.5 2.5
+		end				0
+	}
+	rgb
+	{
+		start			1 0.7 0.25
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}

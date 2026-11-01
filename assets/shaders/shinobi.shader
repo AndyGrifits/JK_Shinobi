@@ -78,3 +78,35 @@ gfx/shinobi/leaf
 		alphaGen vertex
 	}
 }
+
+gfx/shinobi/bolt
+{
+	cull none
+	{
+		map gfx/shinobi/bolt
+		blendFunc GL_SRC_ALPHA GL_ONE
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+gfx/shinobi/chip
+{
+	cull none
+	{
+		map gfx/shinobi/chip
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// Earth wall pillars (models/shinobi/earth_pillar*.md3), lit like any model.
+models/shinobi/earth_rock
+{
+	cull none
+	{
+		map models/shinobi/earth_rock
+		rgbGen lightingDiffuse
+	}
+}

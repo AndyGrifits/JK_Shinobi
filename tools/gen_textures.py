@@ -122,6 +122,79 @@ def leaf(n=64):
     return rgb, alpha
 
 
+def bolt(n=128, seed=7, branches=2):
+    """Jagged lightning bolt across the texture with a couple of side branches."""
+    rng = np.random.default_rng(seed)
+    img = np.zeros((n, n), np.float32)
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
+
+    def stroke(points, width, strength):
+        nonlocal img
+        for (x0, y0), (x1, y1) in zip(points[:-1], points[1:]):
+            dx, dy = x1 - x0, y1 - y0
+            length2 = dx * dx + dy * dy + 1e-6
+            t = np.clip(((xx - x0) * dx + (yy - y0) * dy) / length2, 0, 1)
+            d = np.hypot(xx - (x0 + t * dx), yy - (y0 + t * dy))
+            img = np.maximum(img, strength * np.exp(-(d / width) ** 2))
+
+    def jagged(x0, y0, x1, y1, steps, jitter):
+        pts = []
+        for i in range(steps + 1):
+            t = i / steps
+            off = 0 if i in (0, steps) else rng.normal(0, jitter)
+            # perpendicular offset
+            px, py = -(y1 - y0), (x1 - x0)
+            norm = math.hypot(px, py) or 1
+            pts.append((x0 + (x1 - x0) * t + px / norm * off, y0 + (y1 - y0) * t + py / norm * off))
+        return pts
+
+    main_pts = jagged(4, n * 0.5, n - 4, n * 0.5, 9, n * 0.07)
+    stroke(main_pts, 1.6, 1.0)   # bright core
+    stroke(main_pts, 5.0, 0.35)  # glow
+    for _ in range(branches):
+        k = rng.integers(2, len(main_pts) - 2)
+        x0, y0 = main_pts[k]
+        x1 = min(n - 4, x0 + rng.uniform(15, 35))
+        y1 = y0 + rng.choice([-1, 1]) * rng.uniform(15, 30)
+        pts = jagged(x0, y0, x1, y1, 4, n * 0.03)
+        stroke(pts, 1.1, 0.8)
+        stroke(pts, 3.5, 0.25)
+    # fade at both ends so sprites blend
+    xs = np.linspace(0, 1, n)[None, :]
+    return img * np.clip(np.sin(xs * math.pi) * 1.6, 0, 1)
+
+
+def chip(n=32, seed=3):
+    """Irregular rock chip (alpha-blended, tinted by the effect)."""
+    rng = np.random.default_rng(seed)
+    x, y, r, a = grid(n)
+    radius = 0.7 + 0.12 * np.cos(a * 3 + rng.uniform(0, 6)) + 0.08 * np.cos(a * 5 + rng.uniform(0, 6))
+    alpha = np.clip((radius - r) / 0.06, 0, 1)
+    shade = 0.75 + 0.25 * (-x * 0.6 - y * 0.6) + 0.15 * value_noise(n, 4, seed)
+    rgb = np.dstack([shade, shade, shade])
+    return rgb, alpha
+
+
+def rock(n=256):
+    """Tileable earthy rock texture for the earth wall pillars (full colour)."""
+    noise = (0.45 * value_noise(n, 6, 11) + 0.3 * value_noise(n, 12, 12)
+             + 0.15 * value_noise(n, 24, 13) + 0.1 * value_noise(n, 48, 14))
+    # cracks: thin dark lines where a ridged noise is near its middle value
+    ridged = np.abs(value_noise(n, 5, 15) - 0.5)
+    mask = np.clip((value_noise(n, 3, 17) - 0.45) * 4, 0, 1)  # cracks only in places
+    cracks = np.clip(1.0 - ridged / 0.012, 0, 1) * 0.45 * mask
+    speckle = (value_noise(n, 64, 18) > 0.8) * 0.08
+    # horizontal strata
+    yy = np.linspace(0, 1, n)[:, None]
+    strata = 0.06 * np.sin(yy * math.pi * 14 + 3 * value_noise(n, 4, 16))
+    v = np.clip(0.42 + 0.6 * (noise - 0.5) + strata - cracks - speckle, 0, 1)
+    base = np.array([0.56, 0.47, 0.36])  # warm earth
+    rgb = v[..., None] * base[None, None, :] * 1.6
+    rgb = np.clip(rgb, 0, 1)
+    data = np.dstack([rgb, np.ones((n, n))])
+    return data
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     save("glow", glow())
@@ -129,9 +202,15 @@ def main():
     save("ring", ring())
     save("wisp", wisp())
     save("spark", spark())
+    save("bolt", bolt())
     save_rgba("smoke", *smoke())
     save_rgba("leaf", *leaf())
-    print("textures written to", OUT)
+    save_rgba("chip", *chip())
+
+    models = os.path.join(ROOT, "assets", "models", "shinobi")
+    os.makedirs(models, exist_ok=True)
+    Image.fromarray((rock() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(models, "earth_rock.tga"))
+    print("textures written to", OUT, "and", models)
 
 
 if __name__ == "__main__":

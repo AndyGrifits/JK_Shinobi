@@ -1,0 +1,63 @@
+repeatDelay				0
+
+// A pillar is smashed: chunks of rock and a cloud of dust.
+
+Particle
+{
+	name				chunks
+	count				12 16
+	life				700 1200
+	rotation			0 360
+	rotationDelta		-80 80
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				10 40
+	vel					120 0 0 300 0 0
+	gravity				-800
+	size
+	{
+		start			4 8
+	}
+	rgb
+	{
+		start			0.45 0.38 0.3 0.62 0.54 0.43
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/chip
+	]
+}
+
+Particle
+{
+	name				dust
+	count				6 8
+	life				900 1500
+	rotation			0 360
+	rotationDelta		-6 6
+	spawnFlags			orgOnSphere
+	radius				10 40
+	vel					-40 -40 -10 40 40 40
+	size
+	{
+		start			30 40
+		end				70 90
+	}
+	rgb
+	{
+		start			0.55 0.47 0.37
+	}
+	alpha
+	{
+		start			0.7
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
