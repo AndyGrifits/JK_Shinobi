@@ -5,6 +5,7 @@ repeatDelay				0
 Particle
 {
 	name				burst
+	flags				useAlpha
 	count				7 9
 	life				450 700
 	spawnFlags			orgOnSphere

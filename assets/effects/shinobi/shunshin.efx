@@ -6,6 +6,7 @@ repeatDelay				0
 Particle
 {
 	name				smoke
+	flags				useAlpha
 	count				4 6
 	life				350 550
 	spawnFlags			orgOnSphere
@@ -37,6 +38,7 @@ Particle
 Particle
 {
 	name				leaves
+	flags				useAlpha
 	count				7 10
 	life				700 1100
 	spawnFlags			orgOnSphere axisFromSphere

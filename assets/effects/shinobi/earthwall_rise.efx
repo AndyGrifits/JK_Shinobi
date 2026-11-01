@@ -6,6 +6,7 @@ repeatDelay				0
 Particle
 {
 	name				dust
+	flags				useAlpha
 	count				4 6
 	life				900 1400
 	rotation			0 360
@@ -37,6 +38,7 @@ Particle
 Particle
 {
 	name				chips
+	flags				useAlpha
 	count				6 10
 	life				600 1000
 	rotation			0 360

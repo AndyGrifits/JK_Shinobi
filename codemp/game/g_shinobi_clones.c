@@ -121,28 +121,39 @@ static void Shinobi_GetOwnerModel( gentity_t *owner, char *model, char *skin ) {
 	}
 }
 
-static qboolean Shinobi_CloneSpot( gentity_t *owner, float sideOffset, vec3_t out ) {
-	vec3_t  yaw, fwd, right, start, end;
+// Try to put a clone next to the owner in direction 'yawOffset' (degrees from
+// the view direction). In tight spaces it settles for a shorter distance, as
+// long as it does not overlap the owner or a clone placed earlier.
+#define CLONE_SPOT_DIST     64
+#define CLONE_SPOT_MIN_DIST 36   // two 30-unit-wide boxes must not touch
+static qboolean Shinobi_CloneSpot( gentity_t *owner, float yawOffset, vec3_t taken[], int numTaken, vec3_t out ) {
+	vec3_t  angles, dir, start, end;
 	trace_t tr;
+	float   dist;
+	int     i;
 
-	VectorSet( yaw, 0, owner->client->ps.viewangles[YAW], 0 );
-	AngleVectors( yaw, fwd, right, NULL );
+	VectorSet( angles, 0, owner->client->ps.viewangles[YAW] + yawOffset, 0 );
+	AngleVectors( angles, dir, NULL, NULL );
 
 	VectorCopy( owner->client->ps.origin, start );
 	start[2] += 1;
-	VectorMA( start, sideOffset, right, end );
-	VectorMA( end, 16, fwd, end );
+	VectorMA( start, CLONE_SPOT_DIST, dir, end );
 
 	trap->Trace( &tr, start, owner->r.mins, owner->r.maxs, end, owner->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
-	if ( tr.startsolid || tr.allsolid || tr.fraction < 0.6f )
+	if ( tr.startsolid || tr.allsolid )
 		return qfalse;
+	dist = tr.fraction * CLONE_SPOT_DIST;
+	if ( dist < CLONE_SPOT_MIN_DIST )
+		return qfalse;
+
+	for ( i = 0; i < numTaken; i++ ) {
+		if ( Distance( tr.endpos, taken[i] ) < CLONE_SPOT_MIN_DIST )
+			return qfalse;
+	}
 	VectorCopy( tr.endpos, out );
 	return qtrue;
 }
 
-// NPC teams drive stock AI and saber code (same playerTeam = reduced damage
-// and no blade clashes). In FFA every player is NPCTEAM_PLAYER, so clones must
-// be on the other side; in team modes they join the owner's side.
 static void Shinobi_CloneApplyTeam( gentity_t *clone, gentity_t *owner ) {
 	if ( level.gametype >= GT_TEAM ) {
 		clone->client->playerTeam = clone->s.teamowner = owner->client->playerTeam;
@@ -201,7 +212,9 @@ static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 
 void Cmd_KageBunshin_f( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	static const float sides[] = { -56, 56, -112, 112 };
+	// right, left, then behind and the diagonals: corridors still work
+	static const float yaws[] = { -90, 90, 180, -135, 135, -45, 45, 0 };
+	vec3_t spots[SHINOBI_CLONE_COUNT];
 	int i, spawned = 0;
 
 	if ( !Shinobi_CanAct( ent ) )
@@ -214,9 +227,8 @@ void Cmd_KageBunshin_f( gentity_t *ent ) {
 
 	Shinobi_RemoveClones( ent->s.number ); // recast replaces the old ones
 
-	for ( i = 0; i < (int)ARRAY_LEN( sides ) && spawned < SHINOBI_CLONE_COUNT; i++ ) {
-		vec3_t spot;
-		if ( Shinobi_CloneSpot( ent, sides[i], spot ) && Shinobi_SpawnClone( ent, spot ) )
+	for ( i = 0; i < (int)ARRAY_LEN( yaws ) && spawned < SHINOBI_CLONE_COUNT; i++ ) {
+		if ( Shinobi_CloneSpot( ent, yaws[i], spots, spawned, spots[spawned] ) && Shinobi_SpawnClone( ent, spots[spawned] ) )
 			spawned++;
 	}
 

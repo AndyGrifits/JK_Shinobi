@@ -5,6 +5,7 @@ repeatDelay				0
 Particle
 {
 	name				chunks
+	flags				useAlpha
 	count				12 16
 	life				700 1200
 	rotation			0 360
@@ -35,6 +36,7 @@ Particle
 Particle
 {
 	name				dust
+	flags				useAlpha
 	count				6 8
 	life				900 1500
 	rotation			0 360

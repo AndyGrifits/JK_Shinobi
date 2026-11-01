@@ -62,6 +62,7 @@ Particle
 Particle
 {
 	name				smoke
+	flags				useAlpha
 	count				6 8
 	life				1000 1600
 	rotation			0 360
