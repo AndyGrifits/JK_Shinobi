@@ -9407,6 +9407,8 @@ void CG_Player( centity_t *cent ) {
 		ci->frame = cent->pe.torso.frame;
 	}
 
+	CG_ShinobiPlayerEffects( cent, ci ); // JK_Shinobi: rasengan, chakra aura
+
 	if (cent->currentState.activeForcePass > FORCE_LEVEL_3
 		&& cent->currentState.NPC_class != CLASS_VEHICLE)
 	{

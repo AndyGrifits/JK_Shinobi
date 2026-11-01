@@ -1,0 +1,118 @@
+repeatDelay				0
+
+// Held Rasengan. Played every ~40ms at the left hand; each piece lives a bit
+// longer than that so the ball looks continuous.
+
+Particle
+{
+	name				core
+	count				1
+	life				90
+	rotation			0 360
+	size
+	{
+		start			6 7
+		end				5
+	}
+	rgb
+	{
+		start			0.85 0.95 1
+	}
+	alpha
+	{
+		start			1
+		end				0.5
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				halo
+	count				1
+	life				90
+	rotation			0 360
+	size
+	{
+		start			15 18
+	}
+	rgb
+	{
+		start			0.15 0.45 1
+	}
+	alpha
+	{
+		start			0.55
+		end				0.15
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				swirl
+	count				2
+	life				90
+	rotation			0 360
+	rotationDelta		90 140
+	size
+	{
+		start			11 14
+	}
+	rgb
+	{
+		start			0.45 0.8 1
+	}
+	alpha
+	{
+		start			0.9
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/swirl
+	]
+}
+
+Particle
+{
+	name				sparks
+	count				0 1
+	life				120 200
+	spawnFlags			orgOnSphere
+	radius				6 9
+	vel					-30 -40 -40 30 40 40
+	size
+	{
+		start			1.5 2.5
+		end				0
+	}
+	rgb
+	{
+		start			0.7 0.9 1
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}
+
+Light
+{
+	name				light
+	life				90
+	size
+	{
+		start			90 110
+	}
+	rgb
+	{
+		start			0.25 0.55 1
+	}
+}

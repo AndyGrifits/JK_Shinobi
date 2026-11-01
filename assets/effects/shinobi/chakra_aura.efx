@@ -1,0 +1,75 @@
+repeatDelay				0
+
+// Chakra gathering aura around a meditating shinobi. Played every ~70ms with
+// the effect axis pointing up, so local X = world up.
+
+Particle
+{
+	name				flames
+	count				2 3
+	life				450 650
+	spawnFlags			orgOnCylinder
+	radius				14 20
+	height				10
+	origin				4 0 0
+	vel					50 0 0 90 0 0
+	size
+	{
+		start			10 14
+		end				4
+	}
+	rgb
+	{
+		start			0.25 0.55 1
+		end				0.6 0.85 1
+	}
+	alpha
+	{
+		start			0.5
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/wisp
+	]
+}
+
+Particle
+{
+	name				motes
+	count				1 2
+	life				600 900
+	spawnFlags			orgOnCylinder
+	radius				8 22
+	height				30
+	origin				10 0 0
+	vel					30 0 0 60 0 0
+	size
+	{
+		start			1.5 2.5
+		end				0
+	}
+	rgb
+	{
+		start			0.7 0.9 1
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}
+
+Light
+{
+	name				light
+	life				80
+	origin				20 0 0
+	size
+	{
+		start			70 90
+	}
+	rgb
+	{
+		start			0.15 0.35 0.9
+	}
+}

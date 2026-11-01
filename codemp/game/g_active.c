@@ -2818,6 +2818,12 @@ void ClientThink_real( gentity_t *ent ) {
 	//play/stop any looping sounds tied to controlled movement
 	G_CheckMovingLoopingSounds( ent, ucmd );
 
+	// JK_Shinobi: chakra charging and jutsu state, before Pmove reads the flags
+	if ( ent->s.number < MAX_CLIENTS )
+	{
+		Shinobi_ClientThink( ent, ucmd );
+	}
+
 	pmove.ps = &client->ps;
 	pmove.cmd = *ucmd;
 	if ( pmove.ps->pm_type == PM_DEAD ) {

@@ -24,4 +24,5 @@ if [ -d "$ROOT/assets" ] && [ -n "$(ls -A "$ROOT/assets")" ]; then
   rm -f "$DIST/zz_shinobi.pk3"
   (cd "$ROOT/assets" && zip -qr "$DIST/zz_shinobi.pk3" .)
 fi
+cp "$ROOT"/tools/launchers/*.bat "$ROOT/dist/"
 ls -l "$DIST"

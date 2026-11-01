@@ -50,6 +50,7 @@ set(MPCGameGameFiles
 	"${MPDir}/game/bg_local.h"
 	"${MPDir}/game/bg_public.h"
 	"${MPDir}/game/bg_saga.h"
+	"${MPDir}/game/bg_shinobi.h"
 	"${MPDir}/game/bg_weapons.h"
 	"${MPDir}/game/surfaceflags.h"
 	)
@@ -74,6 +75,7 @@ set(MPCGameCgameFiles
 	"${MPDir}/cgame/cg_playerstate.c"
 	"${MPDir}/cgame/cg_predict.c"
 	"${MPDir}/cgame/cg_saga.c"
+	"${MPDir}/cgame/cg_shinobi.c"
 	"${MPDir}/cgame/cg_scoreboard.c"
 	"${MPDir}/cgame/cg_servercmds.c"
 	"${MPDir}/cgame/cg_snapshot.c"

@@ -456,6 +456,9 @@ typedef struct centity_s {
 	qboolean		cloaked;
 
 	int				vChatTime;
+
+	int				shinobiHandFxTime;	// JK_Shinobi: next time to emit hand effect
+	int				shinobiAuraFxTime;	// JK_Shinobi: next time to emit chakra aura
 } centity_t;
 
 
@@ -1457,6 +1460,11 @@ typedef struct cgEffects_s {
 	fxHandle_t forceLightningWide;
 
 	fxHandle_t forceDrain;
+
+	// JK_Shinobi
+	fxHandle_t shinobiRasenganHand;
+	fxHandle_t shinobiRasenganForm;
+	fxHandle_t shinobiChakraAura;
 	fxHandle_t forceDrainWide;
 	fxHandle_t forceDrained;
 
@@ -1761,6 +1769,11 @@ void CG_DrawFlagModel( float x, float y, float w, float h, int team, qboolean fo
 void CG_DrawTeamBackground( int x, int y, int w, int h, float alpha, int team );
 void CG_OwnerDraw(float x, float y, float w, float h, float text_x, float text_y, int ownerDraw, int ownerDrawFlags, int align, float special, float scale, vec4_t color, qhandle_t shader, int textStyle,int font);
 void CG_Text_Paint(float x, float y, float scale, vec4_t color, const char *text, float adjust, int limit, int style, int iMenuFont);
+
+// cg_shinobi.c
+void CG_ShinobiRegisterMedia( void );
+void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci );
+void CG_ShinobiDrawHUD( void );
 int CG_Text_Width(const char *text, float scale, int iMenuFont);
 int CG_Text_Height(const char *text, float scale, int iMenuFont);
 float CG_GetValue(int ownerDraw);

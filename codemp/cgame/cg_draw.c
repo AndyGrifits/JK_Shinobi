@@ -1485,6 +1485,7 @@ void CG_DrawHUD(centity_t	*cent)
 			}
 
 			CG_DrawForcePower(menuHUD);
+			CG_ShinobiDrawHUD();
 
 			// Draw ammo tics or saber style
 			if ( cent->currentState.weapon == WP_SABER )

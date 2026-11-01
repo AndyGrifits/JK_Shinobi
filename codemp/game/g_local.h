@@ -793,6 +793,14 @@ struct gclient_s {
 		int		drainDebounce;
 		int		lightningDebounce;
 	} force;
+
+	// JK_Shinobi jutsu timers (flags are in ps.userInt*, see bg_shinobi.h)
+	struct {
+		int		chargeTick;
+		int		formEnd;
+		int		armedEnd;
+		int		dashEnd;
+	} shinobi;
 };
 
 //Interest points
@@ -1358,6 +1366,11 @@ void G_RunClient			( gentity_t *ent );
 // g_team.c
 //
 qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
+
+// g_shinobi.c
+void Shinobi_Init( void );
+void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd );
+void Cmd_Rasengan_f( gentity_t *ent );
 void Team_CheckDroppedItem( gentity_t *dropped );
 
 //

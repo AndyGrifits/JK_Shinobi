@@ -1,0 +1,51 @@
+repeatDelay				0
+
+// Rasengan dissipates without hitting anything.
+
+Particle
+{
+	name				puff
+	count				1
+	life				250
+	size
+	{
+		start			10
+		end				30
+	}
+	rgb
+	{
+		start			0.35 0.65 1
+	}
+	alpha
+	{
+		start			0.7
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				bits
+	count				6 9
+	life				250 450
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				4 8
+	vel					60 0 0 140 0 0
+	size
+	{
+		start			1.5 2.5
+		end				0
+	}
+	rgb
+	{
+		start			0.6 0.85 1
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}

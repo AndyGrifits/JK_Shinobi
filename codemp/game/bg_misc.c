@@ -2813,6 +2813,11 @@ void BG_PlayerStateToEntityState( playerState_t *ps, entityState_t *s, qboolean 
 	s->eFlags = ps->eFlags;
 	s->eFlags2 = ps->eFlags2;
 
+	// JK_Shinobi jutsu flags (see bg_shinobi.h)
+	s->userInt1 = ps->userInt1;
+	s->userInt2 = ps->userInt2;
+	s->userInt3 = ps->userInt3;
+
 	s->saberInFlight = ps->saberInFlight;
 	s->saberEntityNum = ps->saberEntityNum;
 	s->saberMove = ps->saberMove;
@@ -2966,6 +2971,11 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 										// so corpses can also reference the proper config
 	s->eFlags = ps->eFlags;
 	s->eFlags2 = ps->eFlags2;
+
+	// JK_Shinobi jutsu flags (see bg_shinobi.h)
+	s->userInt1 = ps->userInt1;
+	s->userInt2 = ps->userInt2;
+	s->userInt3 = ps->userInt3;
 
 	s->saberInFlight = ps->saberInFlight;
 	s->saberEntityNum = ps->saberEntityNum;

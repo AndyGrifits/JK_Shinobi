@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "qcommon/q_shared.h"
 #include "bg_public.h"
 #include "bg_local.h"
+#include "bg_shinobi.h"
 #include "ghoul2/G2.h"
 
 #ifdef _GAME
@@ -10164,6 +10165,64 @@ void PM_MoveForKata(usercmd_t *ucmd)
 	}
 }
 
+/*
+================
+PM_ShinobiPreMove
+
+JK_Shinobi: applies jutsu flags to movement. Runs on both server and client
+(prediction), so it may only read predicted state (ps->userInt*).
+================
+*/
+static void PM_ShinobiPreMove( void )
+{
+	playerState_t *ps = pm->ps;
+
+	if ( ps->clientNum >= MAX_CLIENTS || ps->pm_type != PM_NORMAL )
+	{
+		return;
+	}
+
+	if ( SHINOBI_CHARGING( ps ) )
+	{ // gathering chakra: sit still in meditation
+		pm->cmd.forwardmove = 0;
+		pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
+		PM_SetAnim( SETANIM_BOTH, BOTH_MEDITATE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		ps->legsTimer = ps->torsoTimer = 200;
+	}
+	else if ( ps->legsAnim == BOTH_MEDITATE )
+	{ // stopped charging: let normal animation take over right away
+		ps->legsTimer = 0;
+		ps->torsoTimer = 0;
+	}
+
+	if ( SHINOBI_RASENGAN_ANY( ps ) )
+	{ // the attack button belongs to the jutsu while a Rasengan exists
+		pm->cmd.buttons &= ~(BUTTON_ATTACK|BUTTON_ALT_ATTACK);
+	}
+
+	if ( SHINOBI_RASENGAN_DASH( ps ) )
+	{ // lunge forward with the ball
+		vec3_t yaw, fwd;
+
+		VectorSet( yaw, 0, ps->viewangles[YAW], 0 );
+		AngleVectors( yaw, fwd, NULL, NULL );
+		ps->velocity[0] = fwd[0] * SHINOBI_RASENGAN_DASH_SPEED;
+		ps->velocity[1] = fwd[1] * SHINOBI_RASENGAN_DASH_SPEED;
+		pm->cmd.forwardmove = 0;
+		pm->cmd.rightmove = 0;
+		pm->cmd.upmove = 0;
+		if ( ps->torsoAnim != BOTH_FORCEPUSH )
+		{
+			PM_SetAnim( SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		}
+	}
+}
+
 void PmoveSingle (pmove_t *pmove) {
 	qboolean stiffenedUp = qfalse;
 	float gDist = 0;
@@ -10191,6 +10250,8 @@ void PmoveSingle (pmove_t *pmove) {
 			pm->cmd.buttons |= BUTTON_ATTACK;
 		}
 	}
+
+	PM_ShinobiPreMove();
 
 	//set up these "global" bg ents
 	pm_entSelf = PM_BGEntForNum(pm->ps->clientNum);
