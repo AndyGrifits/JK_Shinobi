@@ -20,6 +20,8 @@ FACTORS = {
     "rasengan_hit": (0.70, 1.0, 1.45),
     "chidori_hit": (0.75, 1.0, 1.35),
     "fireball_explode": (0.72, 1.0, 1.39),
+    "water_splash": (0.75, 1.0, 1.35),
+    "wind_gust": (0.75, 1.0, 1.3),
 }
 
 NUM = re.compile(r"-?\d+(?:\.\d+)?")

@@ -820,6 +820,16 @@ struct gclient_s {
 		qboolean kawarimiPending; // waiting for the double to appear before hiding
 		qboolean kawarimiPhase;	// non-solid until clear of other bodies
 		int		shunshinBack;	// Shunshin charge goes backward
+		// elements (g_shinobi_nature.c)
+		int		burnEnd, burnTick, burnAttacker; // on fire until; attacker num + 1
+		int		wetEnd;
+		int		mudEnd;
+		int		waterNext;		// Suiton cooldown end
+		int		windNext;		// Futon cooldown end
+		int		prisonNext;		// Water Prison cooldown end
+		int		prisonTarget;	// holding this client (num + 1) in a Water Prison
+		int		prisonCaster;	// held by this client (num + 1)
+		int		prisonEnd, prisonTick;
 	} shinobi;
 };
 
@@ -1399,9 +1409,13 @@ void Cmd_JutsuRelease_f( gentity_t *ent );
 void Cmd_Shunshin_f( gentity_t *ent );
 void Cmd_KageBunshin_f( gentity_t *ent );
 void Cmd_Kawarimi_f( gentity_t *ent );
+void Cmd_Suiton_f( gentity_t *ent );
+void Cmd_Futon_f( gentity_t *ent );
+void Cmd_Suiro_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
-void Shinobi_Damaged( gentity_t *targ );
+void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
+int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );
 qboolean Shinobi_DamageBlocked( gentity_t *targ, gentity_t *attacker );
 gentity_t *Shinobi_CreditAttacker( gentity_t *attacker );

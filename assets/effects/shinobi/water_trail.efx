@@ -1,0 +1,61 @@
+repeatDelay				0
+
+// Water bullet in flight: spray shed behind it (local X = travel direction).
+
+Particle
+{
+	name				spray
+	flags				useAlpha
+	count				2 3
+	life				250 450
+	spawnFlags			orgOnSphere
+	radius				2 8
+	vel					-80 -30 -30 -20 30 30
+	gravity				300
+	size
+	{
+		start			2 4
+		end				1
+	}
+	rgb
+	{
+		start			0.75 0.88 1
+	}
+	alpha
+	{
+		start			0.9
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/droplet
+	]
+}
+
+Particle
+{
+	name				mist
+	flags				useAlpha
+	count				0 1
+	life				300 500
+	rotation			0 360
+	vel					-40 -8 -8 -10 8 8
+	size
+	{
+		start			6 10
+		end				18 24
+	}
+	rgb
+	{
+		start			0.8 0.9 1
+	}
+	alpha
+	{
+		start			0.3
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

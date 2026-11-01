@@ -128,3 +128,75 @@ models/shinobi/log
 		rgbGen lightingDiffuse
 	}
 }
+
+// ---- elements -------------------------------------------------------------
+// Ground decals are drawn by the cgame as flat polys with vertex colour/alpha.
+gfx/shinobi/puddle
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/puddle
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+		tcMod rotate 4
+	}
+}
+
+gfx/shinobi/mud
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/mud
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+gfx/shinobi/scorch
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/scorch
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// Water Prison ball and water bullet (sprites, alpha from the cgame)
+gfx/shinobi/watersphere
+{
+	cull none
+	{
+		map gfx/shinobi/watersphere
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+gfx/shinobi/droplet
+{
+	cull none
+	{
+		map gfx/shinobi/droplet
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+gfx/shinobi/streak
+{
+	cull none
+	{
+		map gfx/shinobi/streak
+		blendFunc GL_ONE GL_ONE
+		rgbGen vertex
+	}
+}

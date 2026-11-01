@@ -1,0 +1,82 @@
+repeatDelay				0
+
+// Burning ground: one tongue of flame (the cgame spawns many over the zone).
+
+Particle
+{
+	name				flame
+	count				1
+	life				350 650
+	rotation			-20 20
+	vel					-6 -6 50 6 6 110
+	size
+	{
+		start			14 24
+		end				4 8
+	}
+	rgb
+	{
+		start			1 0.6 0.18
+		end				0.8 0.15 0.03
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/fire
+		gfx/shinobi/wisp
+	]
+}
+
+Particle
+{
+	name				ember
+	count				0 1
+	life				500 900
+	vel					-15 -15 60 15 15 140
+	gravity				-30
+	size
+	{
+		start			1.5 2.5
+		end				0.5
+	}
+	rgb
+	{
+		start			1 0.7 0.3
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}
+
+Particle
+{
+	name				smoke
+	flags				useAlpha
+	count				0 1
+	life				900 1400
+	rotation			0 360
+	vel					-8 -8 40 8 8 70
+	size
+	{
+		start			10 16
+		end				30 40
+	}
+	rgb
+	{
+		start			0.2 0.18 0.16
+	}
+	alpha
+	{
+		start			0.3
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

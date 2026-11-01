@@ -246,6 +246,67 @@ def log_texture(n=256):
     return np.clip(img, 0, 1)
 
 
+def ragged_disc(n, seed, edge=0.82, rough=0.10):
+    """Irregular disc mask in [0, 1] (puddles, mud, scorch marks)."""
+    _, _, r, a = grid(n)
+    wob = rough * (value_noise(n, 5, seed) - 0.5) * 2 + 0.04 * np.sin(a * 7 + seed)
+    return np.clip((edge + wob - r) / 0.12, 0, 1)
+
+
+def puddle(n=128):
+    """Water lying on the floor: bright ripples, see-through middle (tinted blue)."""
+    _, _, r, _ = grid(n)
+    disc = ragged_disc(n, 41)
+    ripple = 0.5 + 0.5 * np.cos(r * math.pi * 7 + value_noise(n, 4, 42) * 9)
+    gloss = value_noise(n, 8, 43)
+    shade = 0.7 + 0.2 * ripple + 0.1 * gloss
+    alpha = disc * (0.5 + 0.2 * ripple ** 4 + 0.15 * gloss)
+    return np.dstack([shade, shade, shade]), alpha
+
+
+def mud(n=128):
+    disc = ragged_disc(n, 51, edge=0.8, rough=0.14)
+    noise = 0.6 * value_noise(n, 8, 52) + 0.4 * value_noise(n, 24, 53)
+    base = np.array([0.36, 0.25, 0.14])
+    rgb = (0.7 + 0.6 * noise)[..., None] * base[None, None, :]
+    wet = np.clip((value_noise(n, 12, 54) - 0.62) * 3, 0, 1)[..., None] * 0.14  # glossy wet spots
+    return np.clip(rgb + wet, 0, 1), disc * 0.9
+
+
+def scorch(n=128):
+    _, _, r, _ = grid(n)
+    disc = ragged_disc(n, 61, edge=0.85, rough=0.16)
+    noise = value_noise(n, 10, 62)
+    rgb = np.dstack([0.08 + 0.1 * noise, 0.05 + 0.06 * noise, 0.03 + 0.03 * noise])
+    alpha = disc * np.clip(1.1 - r * 0.7, 0, 1) * 0.85
+    return rgb, alpha
+
+
+def water_sphere(n=128):
+    """A ball of water seen from any side: clear middle, bright rim, a highlight."""
+    x, y, r, _ = grid(n)
+    inside = r < 1.0
+    rim = np.exp(-((r - 0.93) / 0.07) ** 2)
+    swirl_n = value_noise(n, 6, 71)
+    body = 0.22 + 0.12 * swirl_n
+    hl = np.exp(-(((x + 0.35) ** 2 + (y + 0.4) ** 2) / 0.02)) * 0.9
+    alpha = np.where(inside, np.clip(body + rim * 0.75 + hl, 0, 1), 0)
+    shade = np.clip(0.75 + 0.25 * swirl_n + hl, 0, 1)
+    return np.dstack([shade * 0.85, shade * 0.95, shade]), alpha
+
+
+def droplet(n=32):
+    _, _, r, _ = grid(n)
+    alpha = np.clip(1 - r, 0, 1) ** 1.5
+    return np.ones((n, n, 3)), alpha
+
+
+def streak(n=64):
+    """Soft horizontal line for wind gusts (additive)."""
+    x, y, _, _ = grid(n)
+    return np.exp(-(y / 0.08) ** 2) * np.clip(np.sin((x + 1) / 2 * math.pi), 0, 1) ** 0.7
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
@@ -258,6 +319,12 @@ def main():
     save_rgba("smoke", *smoke())
     save_rgba("leaf", *leaf())
     save_rgba("chip", *chip())
+    save_rgba("puddle", *puddle())
+    save_rgba("mud", *mud())
+    save_rgba("scorch", *scorch())
+    save_rgba("watersphere", *water_sphere())
+    save_rgba("droplet", *droplet())
+    save("streak", streak())
 
     models = os.path.join(ROOT, "assets", "models", "shinobi")
     os.makedirs(models, exist_ok=True)

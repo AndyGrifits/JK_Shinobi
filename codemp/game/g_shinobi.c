@@ -50,6 +50,7 @@ void Shinobi_Init( void ) {
 	m->sndChidoriHit   = G_SoundIndex( "sound/weapons/force/lightninghit1" );
 
 	Shinobi_ElementsInit();
+	Shinobi_NatureInit();
 
 	trap->Print( "[shinobi] game module built " __DATE__ " " __TIME__ ": fx rasenganHit %i/%i/%i fireballBoom %i/%i/%i cloneSmoke %i, wall models %i %i %i\n",
 		m->fxRasenganHit[0], m->fxRasenganHit[1], m->fxRasenganHit[2],
@@ -230,7 +231,11 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 	dir[2] = 0.35f;
 	VectorNormalize( dir );
 
+	shinobiHitElement = chidori ? SE_LIGHTNING : SE_NONE; // wet targets take 1.5x from Chidori
 	G_Damage( victim, ent, ent, dir, point, damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	shinobiHitElement = SE_NONE;
+	if ( chidori )
+		Shinobi_ElectrifyAt( point, ent->s.number + 1 );
 
 	if ( victim->inuse && victim->client && victim->health > 0 ) {
 		gclient_t *vc = victim->client;
@@ -305,6 +310,13 @@ static void Shinobi_HandThink( gentity_t *ent, qboolean attackPressed ) {
 		VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
 		AngleVectors( yaw, fwd, NULL, NULL );
 
+		if ( chidori ) { // lightning dragged through a puddle electrifies it
+			vec3_t feet;
+			VectorCopy( client->ps.origin, feet );
+			feet[2] += ent->r.mins[2];
+			Shinobi_ElectrifyAt( feet, ent->s.number + 1 );
+		}
+
 		victim = Shinobi_FindDashTarget( ent, fwd, point );
 		if ( !victim )
 			victim = Shinobi_FindDashObstacle( ent, fwd, point );
@@ -331,8 +343,11 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 
 	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return;
-	if ( jutsu != SJ_KAWARIMI )
+	if ( jutsu != SJ_KAWARIMI ) {
+		if ( client->shinobi.prisonCaster )
+			return; // in a Water Prison only Kawarimi works
 		Shinobi_Reveal( ent ); // any jutsu ends a substitution
+	}
 
 	if ( lvl < 1 )
 		lvl = 1;
@@ -353,6 +368,9 @@ static void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_BUNSHIN:  cast = Shinobi_CastKageBunshin( ent, lvl ); break;
 	case SJ_SHUNSHIN: cast = Shinobi_CastShunshin( ent, lvl, client->shinobi.shunshinBack ); break;
 	case SJ_KAWARIMI: cast = Shinobi_CastKawarimi( ent ); break;
+	case SJ_SUITON:   cast = Shinobi_CastSuiton( ent, lvl ); break;
+	case SJ_FUTON:    cast = Shinobi_CastFuton( ent, lvl ); break;
+	case SJ_SUIRO:    cast = Shinobi_CastSuiro( ent, lvl ); break;
 	default: break;
 	}
 
@@ -385,6 +403,9 @@ void Cmd_Doton_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_DOTON );
 void Cmd_KageBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_BUNSHIN ); }
 void Cmd_Shunshin_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHUNSHIN ); }
 void Cmd_Kawarimi_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_KAWARIMI ); }
+void Cmd_Suiton_f( gentity_t *ent )      { Shinobi_CastCommand( ent, SJ_SUITON ); }
+void Cmd_Futon_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FUTON ); }
+void Cmd_Suiro_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_SUIRO ); }
 
 // "jutsu_begin <name>": key pressed, start timing the hold
 void Cmd_JutsuBegin_f( gentity_t *ent ) {
@@ -435,6 +456,11 @@ Called every client frame from ClientThink_real, before Pmove.
 void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 	qboolean   attackPressed;
+
+	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
+		Shinobi_StatusClear( ent );
+	else
+		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
 
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );
@@ -580,6 +606,10 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 		return qfalse;
 	}
 
+	// substitution is the way out of a Water Prison
+	if ( client->shinobi.prisonCaster )
+		Shinobi_PrisonRelease( ent );
+
 	// drop whatever we were doing - the double carries on instead
 	if ( SHINOBI_HAND_ANY( &client->ps ) )
 		Shinobi_ClearHand( client );
@@ -642,9 +672,12 @@ void Shinobi_Reveal( gentity_t *ent ) {
 	}
 }
 
-void Shinobi_Damaged( gentity_t *targ ) {
-	if ( targ && targ->client && targ->s.number < MAX_CLIENTS )
-		Shinobi_Reveal( targ );
+void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker ) {
+	if ( !targ || !targ->client || targ->s.number >= MAX_CLIENTS )
+		return;
+	Shinobi_Reveal( targ );
+	if ( targ->client->shinobi.prisonTarget && attacker != targ )
+		Shinobi_PrisonRelease( targ ); // hit while holding a Water Prison: it bursts
 }
 
 static void Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd ) {

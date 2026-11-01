@@ -10217,6 +10217,7 @@ static void PM_ShinobiWallRun( void )
 	if ( ps->fd.forcePowerLevel[FP_LEVITATION] <= FORCE_LEVEL_1
 		|| ( ps->weapon != WP_SABER && ps->weapon != WP_MELEE )
 		|| SHINOBI_HAND_ANY( ps ) || SHINOBI_HIDDEN( ps ) || SHINOBI_CHARGING( ps )
+		|| SHINOBI_IMPRISONED( ps ) || SHINOBI_PRISON_CASTER( ps )
 		|| pm->waterlevel >= 2 || ps->gravity <= 0
 		|| ps->forceHandExtend == HANDEXTEND_KNOCKDOWN
 		|| PM_InKnockDown( ps ) )
@@ -10297,6 +10298,34 @@ static void PM_ShinobiPreMove( void )
 			pm->cmd.upmove = 0;
 		}
 		pm->cmd.buttons &= ~BUTTON_WALKING;
+	}
+
+	if ( SHINOBI_IMPRISONED( ps ) )
+	{ // floating in a Water Prison: helpless
+		pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+		VectorClear( ps->velocity );
+		ps->gravity = 1; // (0 would trigger the zero-g jump code)
+	}
+	else if ( SHINOBI_PRISON_CASTER( ps ) )
+	{ // holding a Water Prison: hand out, standing still
+		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+		ps->velocity[0] = ps->velocity[1] = 0;
+		ps->forceHandExtend = HANDEXTEND_TAUNT;
+		ps->forceDodgeAnim = BOTH_FORCEGRIP_HOLD;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+	}
+
+	if ( SHINOBI_MUDDY( ps ) )
+	{ // wading through mud
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_MUD_SLOW );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_MUD_SLOW );
 	}
 
 	PM_ShinobiWallRun();

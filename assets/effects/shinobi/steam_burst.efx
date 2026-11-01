@@ -1,0 +1,34 @@
+repeatDelay				0
+
+// Fire meets water: a hissing burst of steam.
+
+Particle
+{
+	name				burst
+	flags				useAlpha
+	count				8 11
+	life				900 1500
+	rotation			0 360
+	rotationDelta		-6 6
+	spawnFlags			orgOnSphere
+	radius				6 24
+	vel					-70 -70 40 70 70 140
+	size
+	{
+		start			24 34
+		end				70 96
+	}
+	rgb
+	{
+		start			0.95 0.96 0.98
+	}
+	alpha
+	{
+		start			0.75
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

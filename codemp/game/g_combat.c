@@ -4471,8 +4471,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 		return;
 	}
 	if ( damage > 0 )
-	{ // JK_Shinobi: getting hurt ends Kawarimi
-		Shinobi_Damaged( targ );
+	{ // JK_Shinobi: elements (fire on a wet target...), and getting hurt ends Kawarimi / lets go of a Water Prison
+		damage = Shinobi_ElementDamage( targ, attacker, damage );
+		Shinobi_Damaged( targ, attacker );
 	}
 
 	if ( (targ->flags&FL_SHIELDED) && mod != MOD_SABER  && !targ->client)

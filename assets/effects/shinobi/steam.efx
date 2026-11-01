@@ -1,0 +1,34 @@
+repeatDelay				0
+
+// Steam cloud: one slow, thick white puff (the cgame keeps spawning them).
+
+Particle
+{
+	name				puff
+	flags				useAlpha
+	count				1
+	life				1400 2000
+	rotation			0 360
+	rotationDelta		-4 4
+	spawnFlags			orgOnSphere
+	radius				0 16
+	vel					-12 -12 18 12 12 40
+	size
+	{
+		start			30 44
+		end				70 90
+	}
+	rgb
+	{
+		start			0.92 0.94 0.96
+	}
+	alpha
+	{
+		start			0.55
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

@@ -23,6 +23,9 @@ typedef struct {
 	int sndWallRise, sndWallBreak;
 
 	int sndLog;
+	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
+	int sndFireLoop, sndCrackleLoop;
+	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
 	int logModel;
@@ -50,3 +53,21 @@ qboolean Shinobi_CastKageBunshin( gentity_t *ent, int level );
 gentity_t *Shinobi_SpawnDecoy( gentity_t *owner );
 gentity_t *Shinobi_Decoy( gentity_t *owner );
 void     Shinobi_DecoyToLog( gentity_t *decoy );
+
+// g_shinobi_nature.c (elements)
+extern int shinobiHitElement; // element of the damage being dealt right now (shinobiElement_t)
+void      Shinobi_NatureInit( void );
+void      Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd );
+void      Shinobi_StatusClear( gentity_t *ent );
+gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs, int ownerNum );
+qboolean  Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor );
+void      Shinobi_ElectrifyAt( vec3_t point, int ownerNum );
+void      Shinobi_EarthOnWater( vec3_t center, float radius );
+void      Shinobi_SteamAt( vec3_t pos, float radius );
+qboolean  Shinobi_InMapWater( vec3_t pos );
+void      Shinobi_FireLands( vec3_t pos, int lvl, int ownerNum );
+void      Shinobi_FireballSetLevel( gentity_t *ball, int lvl, float speedScale );
+qboolean  Shinobi_CastSuiton( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastFuton( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastSuiro( gentity_t *ent, int lvl );
+void      Shinobi_PrisonRelease( gentity_t *ent );

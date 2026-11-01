@@ -56,6 +56,7 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 	VectorCopy( ball->s.pos.trDelta, dir );
 	VectorNormalize( dir );
 
+	shinobiHitElement = SE_FIRE; // sets people on fire, half damage to wet ones and earth walls
 	if ( hitEnt >= 0 && hitEnt < ENTITYNUM_WORLD ) {
 		gentity_t *other = &g_entities[hitEnt];
 		if ( other->takedamage ) {
@@ -64,6 +65,10 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 	}
 	// the caster is immune to their own blast
 	G_RadiusDamage( pos, owner, shinobiFireballSplash[li], shinobiFireballRadius[li], owner, ball, MOD_ROCKET_SPLASH );
+	shinobiHitElement = SE_NONE;
+
+	// a big one leaves the ground burning (or steaming, on water)
+	Shinobi_FireLands( pos, li + 1, owner->client ? owner->s.number + 1 : 0 );
 
 	G_PlayEffectID( shinobiMedia.fxFireballBoom[li], pos, normal );
 	// a deep blast plus the crackle of fire, and the ground shakes nearby
@@ -80,6 +85,11 @@ static void Shinobi_FireballThink( gentity_t *ball ) {
 	trace_t   tr;
 
 	BG_EvaluateTrajectory( &ball->s.pos, level.time, newPos );
+	if ( Shinobi_InMapWater( newPos ) ) { // flew into a lake: out with a hiss
+		Shinobi_SteamAt( newPos, 0 );
+		G_FreeEntity( ball );
+		return;
+	}
 	VectorSet( mins, -size, -size, -size );
 	VectorSet( maxs, size, size, size );
 
@@ -401,6 +411,7 @@ qboolean Shinobi_CastDoton( gentity_t *ent, int lvl ) {
 	}
 
 	client->shinobi.wallNext = level.time + SHINOBI_WALL_COOLDOWN;
+	Shinobi_EarthOnWater( center, ( wanted * SHINOBI_WALL_SPACING ) * 0.5f + 24 ); // puddles turn to mud
 
 	// slam the ground
 	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;

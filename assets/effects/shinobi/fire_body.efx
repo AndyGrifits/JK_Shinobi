@@ -1,0 +1,62 @@
+repeatDelay				0
+
+// A person on fire: small flames licking up from the body.
+
+Particle
+{
+	name				flame
+	count				1
+	life				250 450
+	rotation			-25 25
+	spawnFlags			orgOnSphere
+	radius				4 12
+	vel					-5 -5 40 5 5 90
+	size
+	{
+		start			8 13
+		end				2 4
+	}
+	rgb
+	{
+		start			1 0.6 0.2
+		end				0.8 0.15 0.03
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/fire
+		gfx/shinobi/wisp
+	]
+}
+
+Particle
+{
+	name				smoke
+	flags				useAlpha
+	count				0 1
+	life				600 900
+	rotation			0 360
+	vel					-5 -5 30 5 5 60
+	size
+	{
+		start			6 10
+		end				18 24
+	}
+	rgb
+	{
+		start			0.15 0.14 0.13
+	}
+	alpha
+	{
+		start			0.3
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

@@ -2820,6 +2820,8 @@ void BG_PlayerStateToEntityState( playerState_t *ps, entityState_t *s, qboolean 
 	s->userFloat1 = ps->userFloat1; // raw bits: hand jutsu level
 	s->userFloat2 = ps->userFloat2;
 	s->userFloat3 = ps->userFloat3; // raw bit: hidden by Kawarimi
+	VectorCopy( ps->userVec1, s->userVec1 ); // raw bits: element statuses
+	VectorCopy( ps->userVec2, s->userVec2 );
 
 	s->saberInFlight = ps->saberInFlight;
 	s->saberEntityNum = ps->saberEntityNum;
@@ -2982,6 +2984,8 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 	s->userFloat1 = ps->userFloat1; // raw bits: hand jutsu level
 	s->userFloat2 = ps->userFloat2;
 	s->userFloat3 = ps->userFloat3; // raw bit: hidden by Kawarimi
+	VectorCopy( ps->userVec1, s->userVec1 ); // raw bits: element statuses
+	VectorCopy( ps->userVec2, s->userVec2 );
 
 	s->saberInFlight = ps->saberInFlight;
 	s->saberEntityNum = ps->saberEntityNum;

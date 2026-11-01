@@ -1,0 +1,31 @@
+repeatDelay				0
+
+// Inside the Water Prison: bubbles rising.
+
+Particle
+{
+	name				bubble
+	count				1 2
+	life				500 800
+	spawnFlags			orgOnSphere
+	radius				4 26
+	vel					-6 -6 30 6 6 60
+	size
+	{
+		start			2 4
+		end				3 6
+	}
+	rgb
+	{
+		start			0.7 0.85 1
+	}
+	alpha
+	{
+		start			0.9
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/ring
+	]
+}

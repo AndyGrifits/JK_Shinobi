@@ -19,7 +19,13 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
+	qhandle_t puddle, mud, scorch, waterSphere, ring;
 } shinobiShaders;
+
+// loose-particle effects for elements (one-shots come from the server)
+static struct {
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark;
+} shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
 static struct {
@@ -104,6 +110,19 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.bolt  = trap->R_RegisterShader( "gfx/shinobi/bolt" );
 	shinobiShaders.fire  = trap->R_RegisterShader( "gfx/shinobi/fire" );
 	shinobiShaders.spark = trap->R_RegisterShader( "gfx/shinobi/spark" );
+	shinobiShaders.puddle      = trap->R_RegisterShader( "gfx/shinobi/puddle" );
+	shinobiShaders.mud         = trap->R_RegisterShader( "gfx/shinobi/mud" );
+	shinobiShaders.scorch      = trap->R_RegisterShader( "gfx/shinobi/scorch" );
+	shinobiShaders.waterSphere = trap->R_RegisterShader( "gfx/shinobi/watersphere" );
+	shinobiShaders.ring        = trap->R_RegisterShader( "gfx/shinobi/ring" );
+
+	shinobiFx.fireGround = CG_ShinobiRegisterFx( SHINOBI_FX_FIRE_GROUND );
+	shinobiFx.fireBody   = CG_ShinobiRegisterFx( SHINOBI_FX_FIRE_BODY );
+	shinobiFx.steam      = CG_ShinobiRegisterFx( SHINOBI_FX_STEAM );
+	shinobiFx.waterTrail = CG_ShinobiRegisterFx( SHINOBI_FX_WATER_TRAIL );
+	shinobiFx.drip       = CG_ShinobiRegisterFx( SHINOBI_FX_DRIP );
+	shinobiFx.bubbles    = CG_ShinobiRegisterFx( SHINOBI_FX_BUBBLES );
+	shinobiFx.zoneSpark  = CG_ShinobiRegisterFx( SHINOBI_FX_ZONE_SPARK );
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
@@ -237,6 +256,58 @@ void CG_ShinobiFrame( void ) {
 Sprite helpers
 ===========================================================================
 */
+static void CG_ShinobiSpriteA( const vec3_t org, float radius, float rotation, qhandle_t shader, float r, float g, float b, float a ) {
+	refEntity_t ent;
+
+	if ( !shader || radius <= 0 || a <= 0 )
+		return;
+	memset( &ent, 0, sizeof( ent ) );
+	ent.reType = RT_SPRITE;
+	VectorCopy( org, ent.origin );
+	ent.radius = radius;
+	ent.rotation = rotation;
+	ent.customShader = shader;
+	ent.shaderRGBA[0] = (byte)( Com_Clamp( 0, 1, r ) * 255 );
+	ent.shaderRGBA[1] = (byte)( Com_Clamp( 0, 1, g ) * 255 );
+	ent.shaderRGBA[2] = (byte)( Com_Clamp( 0, 1, b ) * 255 );
+	ent.shaderRGBA[3] = (byte)( Com_Clamp( 0, 1, a ) * 255 );
+	ent.renderfx = RF_NOSHADOW;
+	trap->R_AddRefEntityToScene( &ent );
+}
+
+// a flat square on the floor (puddle, mud, scorch mark)
+static void CG_ShinobiGroundDecal( const vec3_t org, float radius, float rotation, qhandle_t shader,
+	float r, float g, float b, float a ) {
+	static const float st[4][2] = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+	polyVert_t v[4];
+	int        i;
+
+	if ( !shader || radius <= 0 || a <= 0 )
+		return;
+	for ( i = 0; i < 4; i++ ) {
+		const float ang = DEG2RAD( rotation + 45.0f + 90.0f * i );
+		v[i].xyz[0] = org[0] + cosf( ang ) * radius * 1.414f;
+		v[i].xyz[1] = org[1] + sinf( ang ) * radius * 1.414f;
+		v[i].xyz[2] = org[2] + 1.0f;
+		v[i].st[0] = st[i][0];
+		v[i].st[1] = st[i][1];
+		v[i].modulate[0] = (byte)( Com_Clamp( 0, 1, r ) * 255 );
+		v[i].modulate[1] = (byte)( Com_Clamp( 0, 1, g ) * 255 );
+		v[i].modulate[2] = (byte)( Com_Clamp( 0, 1, b ) * 255 );
+		v[i].modulate[3] = (byte)( Com_Clamp( 0, 1, a ) * 255 );
+	}
+	trap->R_AddPolysToScene( shader, 4, v, 1 );
+}
+
+// random point on the floor inside a zone
+static void CG_ShinobiZonePoint( const vec3_t org, float radius, vec3_t out ) {
+	const float ang = flrand( 0, 2 * M_PI );
+	const float d = radius * sqrtf( flrand( 0, 1 ) ) * 0.9f;
+	out[0] = org[0] + cosf( ang ) * d;
+	out[1] = org[1] + sinf( ang ) * d;
+	out[2] = org[2] + 2;
+}
+
 static void CG_ShinobiSprite( const vec3_t org, float radius, float rotation, qhandle_t shader, float r, float g, float b ) {
 	refEntity_t ent;
 
@@ -382,6 +453,39 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 		cent->shinobiTrailTime = 0;
 	}
 
+	// --- element statuses (timers share shinobiAuraFxTime with the chakra aura) ---
+	if ( SHINOBI_IMPRISONED( s ) ) { // floating in a ball of water
+		const float t = cg.time * 0.001f;
+		VectorCopy( cent->lerpOrigin, org );
+		org[2] += 4;
+		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS, t * 20.0f, shinobiShaders.waterSphere, 0.55f, 0.75f, 1.0f, 0.55f );
+		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 0.92f, -t * 35.0f, shinobiShaders.waterSphere, 0.4f, 0.6f, 0.95f, 0.35f );
+		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 1.05f, t * 50.0f, shinobiShaders.swirl, 0.25f, 0.4f, 0.6f, 1.0f );
+		trap->R_AddLightToScene( org, 120, 0.3f, 0.5f, 0.9f );
+		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
+			trap->FX_PlayEffectID( shinobiFx.bubbles, org, up, -1, -1, qfalse );
+			cent->shinobiAuraFxTime = cg.time + 150;
+		}
+	}
+	else if ( SHINOBI_BURNING( s ) ) {
+		const float f = 0.7f + 0.3f * flrand( 0, 1 );
+		VectorCopy( cent->lerpOrigin, org );
+		trap->R_AddLightToScene( org, 110 * f, 1.0f * f, 0.5f * f, 0.15f * f );
+		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
+			org[2] += flrand( -18, 14 );
+			trap->FX_PlayEffectID( shinobiFx.fireBody, org, up, -1, -1, qfalse );
+			cent->shinobiAuraFxTime = cg.time + 60;
+		}
+	}
+	else if ( SHINOBI_WET( s ) ) {
+		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
+			VectorCopy( cent->lerpOrigin, org );
+			org[2] += flrand( -10, 20 );
+			trap->FX_PlayEffectID( shinobiFx.drip, org, up, -1, -1, qfalse );
+			cent->shinobiAuraFxTime = cg.time + 220;
+		}
+	}
+
 	if ( SHINOBI_CHARGING( s ) ) {
 		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
 			VectorCopy( cent->lerpOrigin, org );
@@ -403,6 +507,89 @@ spinning against each other around a white-hot core, inside an orange
 glow - plus a short trail of embers and smoke from an effect file.
 ==================
 */
+/*
+Water bullet: a wobbling ball of water with a spray trail.
+*/
+static void CG_ShinobiWaterball( centity_t *cent ) {
+	const int   li = cent->currentState.generic1 - SHINOBI_ENT_WATERBALL;
+	const float R = shinobiWaterVisual[li], t = cg.time * 0.001f;
+	vec3_t      dir;
+
+	CG_ShinobiSpriteA( cent->lerpOrigin, R * 1.15f, t * 90.0f, shinobiShaders.waterSphere, 0.6f, 0.8f, 1.0f, 0.85f );
+	CG_ShinobiSpriteA( cent->lerpOrigin, R * 0.95f, -t * 160.0f, shinobiShaders.swirl, 0.3f, 0.5f, 0.8f, 1.0f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.5f, 0, shinobiShaders.glow, 0.25f, 0.4f, 0.6f );
+
+	VectorCopy( cent->currentState.pos.trDelta, dir );
+	if ( VectorNormalize( dir ) == 0 )
+		VectorSet( dir, 0, 0, 1 );
+	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+		trap->FX_PlayEffectID( shinobiFx.waterTrail, cent->lerpOrigin, dir, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + SHINOBI_BALL_FX_INTERVAL;
+	}
+}
+
+/*
+Ground zones: a decal fading in and out, plus particles spawned over the
+area at a rate that grows with its size.
+*/
+static void CG_ShinobiZone( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const int      type = s->generic1 - SHINOBI_ENT_ZONE;
+	const float    R = s->angles2[0];
+	const float    fadeIn = Com_Clamp( 0, 1, ( cg.time - s->time ) / 400.0f );
+	const float    fadeOut = s->time2 ? Com_Clamp( 0, 1, ( s->time2 - cg.time ) / 800.0f ) : 1.0f;
+	const float    a = fadeIn * fadeOut;
+	const float    rot = (float)( s->number * 47 % 360 ); // stable per zone
+	const float    area = ( R * R ) / ( 100.0f * 100.0f );
+	vec3_t         up = { 0, 0, 1 }, org, p;
+	int            interval = 0;
+	fxHandle_t     fx = 0;
+
+	if ( R <= 0 || a <= 0 )
+		return;
+	VectorCopy( cent->lerpOrigin, org );
+
+	switch ( type ) {
+	case SZ_FIRE: {
+		const float f = 0.75f + 0.25f * flrand( 0, 1 );
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.scorch, 1, 1, 1, a );
+		p[0] = org[0]; p[1] = org[1]; p[2] = org[2] + 24;
+		trap->R_AddLightToScene( p, R * 1.6f * f * a, 1.0f, 0.5f, 0.15f );
+		fx = shinobiFx.fireGround;
+		interval = (int)( 40 / ( area < 0.4f ? 0.4f : area ) );
+		break;
+	}
+	case SZ_WATER:
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.puddle, 0.45f, 0.65f, 0.9f, 0.85f * a );
+		break;
+	case SZ_ELECTRIC: {
+		const float f = flrand( 0.5f, 1.0f );
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.puddle, 0.6f, 0.85f, 1.0f, a );
+		p[0] = org[0]; p[1] = org[1]; p[2] = org[2] + 16;
+		trap->R_AddLightToScene( p, R * 1.4f * f * a, 0.5f, 0.7f, 1.0f );
+		fx = shinobiFx.zoneSpark;
+		interval = (int)( 70 / ( area < 0.4f ? 0.4f : area ) );
+		break;
+	}
+	case SZ_MUD:
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
+		break;
+	case SZ_STEAM:
+		fx = shinobiFx.steam;
+		interval = (int)( 110 / ( area < 0.4f ? 0.4f : area ) );
+		break;
+	default:
+		break;
+	}
+
+	if ( fx && fadeOut > 0.3f
+		&& ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) ) {
+		CG_ShinobiZonePoint( org, R, p );
+		trap->FX_PlayEffectID( fx, p, up, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + ( interval < 15 ? 15 : interval );
+	}
+}
+
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -410,7 +597,17 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	float          R, flick;
 	int            li;
 
-	if ( s->eType != ET_GENERAL || s->generic1 < SHINOBI_ENT_FIREBALL || s->generic1 >= SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL ) {
+	if ( s->eType != ET_GENERAL )
+		return qfalse;
+	if ( s->generic1 >= SHINOBI_ENT_ZONE && s->generic1 < SHINOBI_ENT_ZONE + SZ_COUNT ) {
+		CG_ShinobiZone( cent );
+		return qtrue;
+	}
+	if ( s->generic1 >= SHINOBI_ENT_WATERBALL && s->generic1 < SHINOBI_ENT_WATERBALL + SHINOBI_MAX_LEVEL ) {
+		CG_ShinobiWaterball( cent );
+		return qtrue;
+	}
+	if ( s->generic1 < SHINOBI_ENT_FIREBALL || s->generic1 >= SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL ) {
 		return qfalse;
 	}
 	li = s->generic1 - SHINOBI_ENT_FIREBALL;
@@ -492,7 +689,7 @@ static void CG_ShinobiDrawChargeBars( void ) {
 
 // the row of selectable jutsu at the bottom of the screen
 static void CG_ShinobiDrawJutsuList( void ) {
-	const float scale = 0.5f, gap = 14, y = 446;
+	const float scale = 0.42f, gap = 10, y = 448;
 	const int   chakra = cg.predictedPlayerState.fd.forcePower;
 	const float recent = Com_Clamp( 0, 1, 1.0f - ( cg.time - shinobiSel.changeTime - 1500 ) / 500.0f );
 	float       total = 0, x;
@@ -572,7 +769,21 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( SHINOBI_HIDDEN( ps ) ) {
+	if ( SHINOBI_IMPRISONED( ps ) ) {
+		text = "Water Prison! Kawarimi (X) to escape";
+		VectorSet( color, 0.5f, 0.75f, 1.0f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
+	}
+	else if ( SHINOBI_PRISON_CASTER( ps ) ) {
+		text = "Holding the Water Prison - attack or jump to let go";
+		VectorSet( color, 0.5f, 0.75f, 1.0f );
+	}
+	else if ( SHINOBI_BURNING( ps ) ) {
+		text = "Burning! Water puts it out";
+		VectorSet( color, 1.0f, 0.55f, 0.2f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.015f );
+	}
+	else if ( SHINOBI_HIDDEN( ps ) ) {
 		text = "Hidden - move slowly, any action reveals you";
 		color[0] = 0.7f; color[1] = 0.7f; color[2] = 0.7f;
 		color[3] = 0.6f + 0.25f * sinf( cg.time * 0.004f );

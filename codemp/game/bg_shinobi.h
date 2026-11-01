@@ -17,6 +17,8 @@ those as a single bit by default, so the three bits are combined:
 
   userFloat1/2 (raw bits)          hand jutsu level - 1
   userFloat3   (raw bit)           Kawarimi: hidden (slow, invisible to others)
+  userVec1[0..2] (raw bits)        burning, wet, stuck in mud
+  userVec2[0..1] (raw bits)        trapped in a Water Prison, holding one
 
 Timers live server-side in gclient_t; only these bits are sent.
 ===========================================================================
@@ -42,6 +44,9 @@ typedef enum {
 	SJ_BUNSHIN,
 	SJ_SHUNSHIN,  // Shift + jump (charged by holding jump), not in the selection list
 	SJ_KAWARIMI,  // instant, no levels
+	SJ_SUITON,    // water bullet
+	SJ_FUTON,     // wind gust
+	SJ_SUIRO,     // water prison
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -52,17 +57,19 @@ typedef enum {
 
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
-	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi"
+	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
+	"suiton", "futon", "suiro"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
-	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi"
+	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
+	"Suiton", "Futon", "Water Prison"
 };
 
 // the jutsu the selection keys cycle through (Shunshin has its own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_DOTON, SJ_BUNSHIN, SJ_KAWARIMI
+	SJ_RASENGAN, SJ_CHIDORI, SJ_KATON, SJ_SUITON, SJ_FUTON, SJ_DOTON, SJ_SUIRO, SJ_BUNSHIN, SJ_KAWARIMI
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -76,6 +83,9 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 45, 70 }, // Kage Bunshin
 	{ 20, 30, 40 }, // Shunshin
 	{ 35, 35, 35 }, // Kawarimi
+	{ 15, 30, 50 }, // Suiton
+	{ 15, 25, 40 }, // Futon
+	{ 30, 40, 55 }, // Water Prison
 };
 
 // jutsu that cast on key press, without charging
@@ -142,6 +152,11 @@ static QINLINE void Shinobi_SetRawBit( float *f, int on ) {
 #define SHINOBI_HAND_IS_CHIDORI(s) ((s)->userInt1 && SHINOBI_HAND_ANY(s))
 #define SHINOBI_CHARGING(s)        ((s)->userInt1 && !SHINOBI_HAND_ANY(s))
 #define SHINOBI_HIDDEN(s)          ( Shinobi_RawBit( &(s)->userFloat3 ) )
+#define SHINOBI_BURNING(s)         ( Shinobi_RawBit( &(s)->userVec1[0] ) )
+#define SHINOBI_WET(s)             ( Shinobi_RawBit( &(s)->userVec1[1] ) )
+#define SHINOBI_MUDDY(s)           ( Shinobi_RawBit( &(s)->userVec1[2] ) )
+#define SHINOBI_IMPRISONED(s)      ( Shinobi_RawBit( &(s)->userVec2[0] ) )
+#define SHINOBI_PRISON_CASTER(s)   ( Shinobi_RawBit( &(s)->userVec2[1] ) )
 #define SHINOBI_SET_HIDDEN(s, on)  Shinobi_SetRawBit( &(s)->userFloat3, (on) )
 
 // Shift is the chakra modifier (it no longer walks): Shift + jump = Shunshin.
@@ -228,9 +243,88 @@ static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by 
 #define SHINOBI_WALL_SINK_MS       600
 #define SHINOBI_WALL_MODELS        3    // models/shinobi/earth_pillar1..3.md3
 
+/*
+---------------------------------------------------------------------------
+Elements. Jutsu carry an element; elements react with each other through
+zones left on the ground and through the statuses they put on players:
+
+  water + fire (zone or ball)  -> fire goes out, steam cloud (blocks sight)
+  wind  + fire                 -> fire grows (zones), fireballs level up
+  wind  + steam                -> steam blown away
+  lightning + water            -> the puddle is electrified (stuns, hurts)
+  earth + water                -> mud (slows)
+  wet: fire hurts half, lightning 1.5x, can't catch fire
+  earth wall: fire does half damage, water and wind a third
+---------------------------------------------------------------------------
+*/
+typedef enum {
+	SE_NONE,
+	SE_FIRE,
+	SE_WATER,
+	SE_EARTH,
+	SE_WIND,
+	SE_LIGHTNING
+} shinobiElement_t;
+
+typedef enum {
+	SZ_FIRE,      // burning ground: sets people on fire
+	SZ_WATER,     // puddle: wets, puts out fire
+	SZ_MUD,       // slows
+	SZ_STEAM,     // thick cloud, puts out fire
+	SZ_ELECTRIC,  // electrified puddle: stuns and hurts, back to water later
+	SZ_COUNT
+} shinobiZone_t;
+
+#define SHINOBI_ZONE_HEIGHT        64    // people this far above a zone stand in it
+#define SHINOBI_ZONE_TICK_MS       250
+#define SHINOBI_ZONE_MAX_RADIUS    220
+
+static const int shinobiFireZoneRadius[3] = {   0,   90,  130 }; // Katon Lv2+ leaves burning ground
+static const int shinobiFireZoneLife[3]   = {   0, 5000, 7000 };
+#define SHINOBI_BURN_MS            3000  // still burning after leaving the fire
+#define SHINOBI_BURN_TICK_MS       500
+#define SHINOBI_BURN_DAMAGE        3
+#define SHINOBI_WET_MS             6000
+#define SHINOBI_STEAM_MS           4000
+#define SHINOBI_MUD_MS             12000
+#define SHINOBI_MUD_SLOW           0.5f
+#define SHINOBI_ELECTRIC_MS        3000
+#define SHINOBI_ELECTRIC_DAMAGE    3     // per zone tick
+#define SHINOBI_ELECTRIC_STUN_MS   350
+
+// Suiton: water bullet (puts out fire, leaves a puddle)
+#define SHINOBI_WATER_COOLDOWN     700
+#define SHINOBI_WATER_LIFE         2000
+static const int   shinobiWaterSpeed[3]   = { 1100, 1000,  900 };
+static const int   shinobiWaterSize[3]    = {    8,   12,   18 };
+static const int   shinobiWaterDamage[3]  = {   15,   25,   40 };
+static const int   shinobiWaterPush[3]    = {  300,  450,  650 };
+static const int   shinobiPuddleRadius[3] = {   70,  100,  140 };
+static const int   shinobiPuddleLife[3]   = { 9000, 11000, 13000 };
+static const float shinobiWaterVisual[3]  = { 10.0f, 15.0f, 22.0f };
+
+// Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
+#define SHINOBI_WIND_COOLDOWN      1500
+#define SHINOBI_WIND_CONE          0.82f // cos of the half angle (~35 degrees)
+static const int shinobiWindRange[3]  = { 320,  480,  640 };
+static const int shinobiWindPush[3]   = { 450,  700, 1000 };
+static const int shinobiWindDamage[3] = {   4,    8,   12 };
+
+// Suiro: water prison. Hold out your hand: the victim floats in a ball of
+// water, helpless (only Kawarimi gets out); you can't move either.
+#define SHINOBI_PRISON_RANGE       150
+#define SHINOBI_PRISON_COOLDOWN    6000
+#define SHINOBI_PRISON_TICK_MS     500
+#define SHINOBI_PRISON_DAMAGE      3     // drowning, per tick
+#define SHINOBI_PRISON_RADIUS      42.0f // drawn water ball
+static const int shinobiPrisonMs[3] = { 2500, 4000, 6000 };
+
 // Non-player entities drawn by the cgame (entityState.generic1 on ET_GENERAL)
 #define SHINOBI_ENT_FIREBALL       201  // 201..203 = fireball level 1..3
 #define SHINOBI_LOG_MODEL          "models/shinobi/log.md3"
+#define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
+#define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
+                                        // s.time = start, s.time2 = end
 
 // Effect files (inside zz_shinobi.pk3, under effects/)
 #define SHINOBI_FX_RASENGAN_HAND   "shinobi/rasengan_hand"
@@ -249,3 +343,13 @@ static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by 
 #define SHINOBI_FX_CLONE_SMOKE     "shinobi/clone_smoke"
 #define SHINOBI_FX_WALL_RISE       "shinobi/earthwall_rise"
 #define SHINOBI_FX_WALL_BREAK      "shinobi/earthwall_break"
+#define SHINOBI_FX_FIRE_GROUND     "shinobi/fire_ground"
+#define SHINOBI_FX_FIRE_BODY       "shinobi/fire_body"
+#define SHINOBI_FX_STEAM           "shinobi/steam"
+#define SHINOBI_FX_STEAM_BURST     "shinobi/steam_burst"
+#define SHINOBI_FX_WATER_SPLASH    "shinobi/water_splash"       // + "_1".."_3" per level
+#define SHINOBI_FX_WATER_TRAIL     "shinobi/water_trail"
+#define SHINOBI_FX_WIND_GUST       "shinobi/wind_gust"          // + "_1".."_3" per level
+#define SHINOBI_FX_DRIP            "shinobi/drip"
+#define SHINOBI_FX_BUBBLES         "shinobi/bubbles"
+#define SHINOBI_FX_ZONE_SPARK      "shinobi/zone_spark"

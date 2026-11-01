@@ -1,0 +1,33 @@
+repeatDelay				0
+
+// Soaked: a couple of drops falling off.
+
+Particle
+{
+	name				drop
+	flags				useAlpha
+	count				1 2
+	life				300 500
+	spawnFlags			orgOnSphere
+	radius				6 14
+	vel					-5 -5 -20 5 5 0
+	gravity				400
+	size
+	{
+		start			1.2 2
+		end				1
+	}
+	rgb
+	{
+		start			0.75 0.88 1
+	}
+	alpha
+	{
+		start			0.9
+		end				0.3
+	}
+	shaders
+	[
+		gfx/shinobi/droplet
+	]
+}

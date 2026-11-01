@@ -31,6 +31,25 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Doton | earth wall: 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
 | Kage Bunshin | 1/2/3 clones in a big smoke cloud, the original lands in a random spot; each clone drains 3 chakra/s | 25/45/70 |
 | Kawarimi | an AI double with your looks takes your place and keeps fighting; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
+| Suiton | water bullet: 15/25/40 damage and a push; leaves a puddle (radius 70/100/140); puts out fire, cancels fireballs (the stronger one goes on, weakened) | 15/30/50 |
+| Futon | Daitoppa: wind gust in a cone (320/480/640 units), throws people back; fans burning ground (bigger, longer), levels up fireballs in flight, blows steam away | 15/25/40 |
+| Water Prison | the enemy within reach in front floats in a ball of water for 2.5/4/6 s: no moving, no attacking, slowly drowns. You must hold still; attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out | 30/40/55 |
+
+### Elements
+
+| Meets | Result |
+|---|---|
+| water + fire (ground or fireball) | the fire goes out in a cloud of steam (blocks sight) |
+| wind + fire | burning ground grows and lasts longer; fireballs level up and speed up |
+| wind + steam | steam is blown away |
+| Chidori + puddle | the puddle is electrified for 3 s: stuns and hurts whoever stands in it |
+| earth wall + puddle | mud: slows everyone in it |
+| fireball into lake/river on the map | fizzles out |
+
+Katon Lv2/3 leaves burning ground (radius 90/130). Statuses: **burning** (3 damage every
+0.5 s, 3 s after leaving the fire; water, steam and map water put it out), **wet** (6 s:
+can't catch fire, fire does half damage, lightning 1.5x), **in mud** (half speed).
+Earth walls take half damage from fire and a third from water and wind.
 
 Quick keys still work: hold **T** Chidori, **V** Doton, **G** Kage Bunshin.
 Everyone has Force Jump 2 (wall runs) and fists. Extended melee is on (`g_debugMelee 1`): with fists, right click kicks (direction keys pick the kick, also in the air), both buttons grab; jump at a wall and hold Space to cling to it. No names are shown over enemies,
