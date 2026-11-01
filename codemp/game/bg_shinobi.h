@@ -54,6 +54,8 @@ typedef enum {
 	SJ_ASH,       // ash cloud
 	SJ_SHADOW,    // shadow bind (held)
 	SJ_WATERCLONE,// water clone: casts the next jutsu of your build on its own
+	SJ_HIRAISHIN, // flying thunder god: teleport to your marked kunai
+	SJ_RAITRAP,   // lightning trap: your marked kunai discharge
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -65,19 +67,19 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
 	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
-	SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW
+	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_HIRAISHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -100,10 +102,12 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 20, 30, 40 }, // Ash Cloud
 	{ 15, 15, 15 }, // Shadow Bind (to start; then it drains while held)
 	{ 25, 25, 25 }, // Water Clone (its own jutsu are paid by you too)
+	{ 25, 25, 25 }, // Hiraishin
+	{ 20, 20, 20 }, // Lightning Trap
 };
 
 // jutsu that cast on key press, without charging
-#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE )
+#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP )
 // jutsu that last while the key is held, without levels
 #define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
@@ -397,6 +401,29 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_WATERCLONE_HOLD_MS 6000  // longest it holds a prison / bind
 #define SHINOBI_WATERCLONE_BREATH_MS 2500
 
+// Kunai (Z, everyone): thrown point first, sticks in walls. Shift+Z throws a
+// marked kunai (Hiraishin seal): costs chakra, stays 30 s, marks the enemy it
+// hits for 12 s. Hiraishin teleports to it, Lightning Trap discharges it.
+#define SHINOBI_KUNAI_SPEED        1800
+#define SHINOBI_KUNAI_DAMAGE       10
+#define SHINOBI_KUNAI_COOLDOWN     450
+#define SHINOBI_KUNAI_LIFE         8000   // stuck in a wall
+#define SHINOBI_MARK_COST          10
+#define SHINOBI_MARK_LIFE          30000
+#define SHINOBI_MARK_ON_ENEMY      12000
+#define SHINOBI_MARK_MAX           2      // per player; a third replaces the oldest
+#define SHINOBI_HIRAISHIN_COOLDOWN 8000
+#define SHINOBI_RAITRAP_RADIUS     110
+#define SHINOBI_RAITRAP_DAMAGE     25
+#define SHINOBI_RAITRAP_STUN_MS    800
+#define SHINOBI_KUNAI_MODEL        "models/shinobi/kunai.md3"
+
+// Shift + attack: chakra flows into fists, kicks and the blade (5 chakra a hit)
+// with the nature of your main school: fire burns, water soaks, wind cuts
+// deeper, earth hits harder, lightning jolts, Yin/Yang just hits harder.
+#define SHINOBI_INFUSE_COST        5
+#define SHINOBI_INFUSE_WINDOW_MS   450
+
 // After any hard crowd control ends, a short immunity to the next one
 #define SHINOBI_CC_IMMUNE_MS       2500
 
@@ -435,6 +462,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_ENT_BLADE          223  // 223..225 = wind blade level 1..3; s.angles2[0] = yaw, s.time = start
 #define SHINOBI_ENT_FLAME          226  // fire breath stream; origin = mouth, s.angles2 = direction angles
 #define SHINOBI_ENT_SHADOW         227  // shadow bind; origin = caster's feet, s.angles2 = tip on the floor
+#define SHINOBI_ENT_KUNAI          228  // plain kunai (drawn from its model)
+#define SHINOBI_ENT_KUNAI_MARKED   229  // marked kunai: model + seal glow
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
@@ -471,6 +500,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_CURSE           "shinobi/curse_aura"
 #define SHINOBI_FX_FLAME           "shinobi/fire_breath"
 #define SHINOBI_FX_ASH             "shinobi/ash"
+#define SHINOBI_FX_HIRAISHIN       "shinobi/hiraishin"
 
 /*
 ---------------------------------------------------------------------------
@@ -516,6 +546,8 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_KATON,   // Ash Cloud
 	SS_YINYANG, // Shadow Bind
 	SS_SUITON,  // Water Clone
+	SS_YINYANG, // Hiraishin
+	SS_RAITON,  // Lightning Trap
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -583,7 +615,9 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: breathe a cone of fire, sets people and ground alight (12 chakra/s)",
 	"a cloud of hot ash ahead: blinds and chokes; any fire blows it up",
 	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
-	"a clone of water that fights and casts the jutsu after it in your list (paid by you)"
+	"a clone of water that fights and casts the jutsu after it in your list (paid by you)",
+	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
+	"your marked kunai (Shift+Z) discharge: damage and a short stun around each"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qfalse, qfalse, qfalse };
@@ -614,3 +648,14 @@ static QINLINE int Shinobi_ChargeLevelCast( int jutsu, int heldMs, int castLvl )
 	return 1;
 }
 
+
+// the nature your Shift + attack carries: the first elemental school in the build
+static QINLINE int Shinobi_BuildElement( const shinobiBuild_t *b ) {
+	int i;
+	for ( i = 0; i < b->numJutsu; i++ ) {
+		const int s = shinobiJutsuSchool[b->jutsu[i]];
+		if ( s >= SS_KATON && s <= SS_RAITON )
+			return s;
+	}
+	return SS_YINYANG;
+}

@@ -57,6 +57,7 @@ void Shinobi_Init( void ) {
 
 	Shinobi_ElementsInit();
 	Shinobi_NatureInit();
+	Shinobi_KunaiInit();
 
 	trap->Print( "[shinobi] game module built " __DATE__ " " __TIME__ ": fx rasenganHit %i/%i/%i fireballBoom %i/%i/%i cloneSmoke %i, wall models %i %i %i\n",
 		m->fxRasenganHit[0], m->fxRasenganHit[1], m->fxRasenganHit[2],
@@ -412,6 +413,8 @@ void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_ASH:      cast = Shinobi_CastAsh( ent, lvl ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
+	case SJ_HIRAISHIN: cast = Shinobi_CastHiraishin( ent ); break;
+	case SJ_RAITRAP:  cast = Shinobi_CastRaiTrap( ent ); break;
 	default: break;
 	}
 
@@ -550,6 +553,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	Shinobi_KawarimiThink( ent, ucmd );
 	Shinobi_PerkThink( ent );
+	Shinobi_InfuseThink( ent, ucmd );
 
 	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
 	if ( client->shinobi.chargeJutsu != SJ_NONE && client->shinobi.chargeJutsu != SJ_SHUNSHIN

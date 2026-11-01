@@ -857,6 +857,9 @@ struct gclient_s {
 		int		wcCastNext;		// Water Clone (on the clone's client): next cast
 		int		wcHoldJutsu, wcHoldEnd;
 		vec3_t	wcHoldPos;
+		int		kunaiNext;		// kunai throw cooldown end
+		int		hiraishinNext;	// Hiraishin cooldown end
+		int		infuseUntil;	// Shift + attack: hits until then carry chakra
 	} shinobi;
 };
 
@@ -1446,6 +1449,7 @@ void Cmd_Flame_f( gentity_t *ent );
 void Cmd_Ash_f( gentity_t *ent );
 void Cmd_Kagemane_f( gentity_t *ent );
 void Cmd_MizuBunshin_f( gentity_t *ent );
+void Cmd_Kunai_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );

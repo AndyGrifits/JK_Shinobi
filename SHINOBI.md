@@ -37,6 +37,9 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + Space** | Shunshin where you look (up and down too); hold Space longer = farther (160 / 360 / 640 units, about 4 / 10 / 18 m; 20/30/40 chakra, 5 s cooldown) |
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
+| **Z** | throw a kunai (10 damage, sticks in walls) |
+| **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 2): stays 30 s; an enemy it hits carries the mark 12 s |
+| **Shift + attack** | chakra in fists, kicks and the blade (5 chakra a hit), with your main school's nature: fire burns, water soaks, wind +40%, earth knocks back, lightning jolts (and doubles damage on earth walls), Yin/Yang +25% |
 | **2** | fists / saber |
 | **B** | ninja build screen |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
@@ -60,6 +63,8 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
+| Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
+| Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |
 
 ### Elements
 

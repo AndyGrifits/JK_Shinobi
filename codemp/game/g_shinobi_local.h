@@ -96,6 +96,15 @@ qboolean  Shinobi_CastShadow( gentity_t *ent );
 void      Shinobi_ShadowRelease( gentity_t *ent );
 void      Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd );
 
+// g_shinobi_kunai.c
+void      Shinobi_KunaiInit( void );
+qboolean  Shinobi_CastHiraishin( gentity_t *ent );
+qboolean  Shinobi_CastRaiTrap( gentity_t *ent );
+void      Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd );
+int       Shinobi_InfuseHit( gentity_t *targ, gentity_t *attacker, int damage );
+void      Shinobi_Ignite( gentity_t *ent, int attackerNum );
+void      Shinobi_Wet( gentity_t *ent );
+
 // g_shinobi_build.c
 extern int shinobiJutsuDamage; // set while a jutsu deals damage (no taijutsu bonus)
 qboolean  Shinobi_HasJutsu( gentity_t *ent, int jutsu );

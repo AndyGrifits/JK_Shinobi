@@ -213,3 +213,19 @@ gfx/shinobi/shadowband
 		tcMod scroll -0.5 0
 	}
 }
+
+// Kunai (models/shinobi/kunai.md3)
+models/shinobi/kunai
+{
+	cull none
+	{
+		map models/shinobi/kunai
+		rgbGen lightingDiffuse
+	}
+	{
+		map gfx/shinobi/glow
+		blendFunc GL_ONE GL_ONE
+		rgbGen const ( 0.12 0.12 0.14 )
+		tcGen environment
+	}
+}

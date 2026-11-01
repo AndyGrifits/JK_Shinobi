@@ -140,7 +140,7 @@ void Shinobi_SteamAt( vec3_t pos, float radius ) {
 Statuses
 ===========================================================================
 */
-static void Shinobi_Ignite( gentity_t *ent, int attackerNum ) {
+void Shinobi_Ignite( gentity_t *ent, int attackerNum ) {
 	gclient_t *client = ent->client;
 
 	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
@@ -155,7 +155,7 @@ static void Shinobi_Ignite( gentity_t *ent, int attackerNum ) {
 	client->shinobi.burnAttacker = attackerNum;
 }
 
-static void Shinobi_Wet( gentity_t *ent ) {
+void Shinobi_Wet( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
 	if ( !client || ent->s.number >= MAX_CLIENTS )

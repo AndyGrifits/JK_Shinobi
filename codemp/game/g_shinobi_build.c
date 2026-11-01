@@ -76,6 +76,8 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 
 	// Taijutsu: fists, kicks and blades hit harder
 	damage = (int)( damage * ( 1.0f + 0.1f * ac->pers.shinobiBuild.stats[SST_TAIJUTSU] ) + 0.5f );
+	// Shift + attack: the hit carries your chakra nature
+	damage = Shinobi_InfuseHit( targ, attacker, damage );
 
 	// Gentle Fist: bare-handed hits burn the target's chakra
 	if ( mod == MOD_MELEE && ac->pers.shinobiBuild.perk == SP_GENTLE_FIST && targ && targ->client && targ != attacker ) {

@@ -817,6 +817,12 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 		CG_ShinobiWave( cent );
 		return qtrue;
 	}
+	if ( s->generic1 == SHINOBI_ENT_KUNAI_MARKED ) { // the seal glows; the model is drawn as usual
+		const float pulse = 0.7f + 0.3f * sinf( cg.time * 0.01f );
+		CG_ShinobiSprite( cent->lerpOrigin, 7 * pulse, 0, shinobiShaders.glow, 1.0f * pulse, 0.8f * pulse, 0.25f * pulse );
+		trap->R_AddLightToScene( cent->lerpOrigin, 60 * pulse, 1.0f, 0.8f, 0.3f );
+		return qfalse;
+	}
 	if ( s->generic1 == SHINOBI_ENT_FLAME ) {
 		CG_ShinobiFlame( cent );
 		return qtrue;
@@ -1013,6 +1019,18 @@ void CG_ShinobiDrawHUD( void ) {
 	}
 
 	CG_ShinobiDrawJutsuList();
+
+	{ // Shift held with fists or the blade: which nature the next hit carries
+		usercmd_t cmd;
+		if ( ( ps->weapon == WP_MELEE || ps->weapon == WP_SABER )
+			&& trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd ) ) {
+			static const char * const nature[SS_COUNT] = { "chakra", "fire", "water", "wind", "earth", "lightning", "chakra" };
+			const char  *label = va( "Shift+attack: %s (%i chakra)", nature[Shinobi_BuildElement( CG_ShinobiBuild() )], SHINOBI_INFUSE_COST );
+			const float  w = CG_Text_Width( label, 0.45f, FONT_MEDIUM );
+			vec4_t       c = { 0.9f, 0.85f, 0.5f, 0.85f };
+			CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 262, 0.45f, c, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+		}
+	}
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
 		CG_ShinobiDrawChargeBars();

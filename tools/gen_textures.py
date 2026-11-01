@@ -314,6 +314,18 @@ def shadow_band(n=64):
     return np.zeros((n, n, 3)), alpha
 
 
+def kunai_texture(n=64):
+    """Left half: brushed steel; right half: dark cloth-wrapped grip."""
+    img = np.zeros((n, n, 3))
+    h = n // 2
+    yy, xx = np.mgrid[0:n, 0:h].astype(np.float32)
+    brushed = 0.55 + 0.2 * value_noise(n, 32, 81)[:, :h] + 0.15 * (1 - np.abs(yy / n - 0.5) * 2)
+    img[:, :h] = np.clip(brushed, 0, 1)[..., None] * np.array([0.82, 0.85, 0.9])[None, None, :]
+    stripes = 0.5 + 0.5 * np.sin((xx + yy) / n * math.pi * 10)
+    img[:, h:] = (0.12 + 0.1 * stripes)[..., None] * np.array([0.9, 0.8, 0.7])[None, None, :]
+    return np.clip(img, 0, 1)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
@@ -338,6 +350,7 @@ def main():
     os.makedirs(models, exist_ok=True)
     Image.fromarray((rock() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(models, "earth_rock.tga"))
     Image.fromarray((log_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "log.tga"))
+    Image.fromarray((kunai_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "kunai.tga"))
     print("textures written to", OUT, "and", models)
 
 

@@ -189,6 +189,95 @@ def write_md3(path, name, verts, uvs, normals, tris, shader=SHADER):
 
 
 LOG_SHADER = "models/shinobi/log"
+KUNAI_SHADER = "models/shinobi/kunai"
+
+
+def build_kunai():
+    """Kunai along +X with the point at the front, centred near its balance point.
+
+    Texture (models/shinobi/kunai.tga): steel on the left half (u < 0.5), wrapped
+    dark handle on the right half.
+    """
+    verts, uvs, tris, hints = [], [], [], []
+
+    def add(v, uv):
+        verts.append(v)
+        uvs.append(uv)
+        return len(verts) - 1
+
+    # blade: diamond cross-section (wide in Y, thin in Z), tapering to the tip
+    blade = [(0.0, 1.0, 0.25), (4.0, 2.4, 0.5), (11.0, 0.9, 0.25), (14.0, 0.0, 0.0)]
+    rings = []
+    for x, w, t in blade:
+        ring = [add((x, 0.0, t), (0.05 + x / 30, 0.2)), add((x, w, 0.0), (0.05 + x / 30, 0.0)),
+                add((x, 0.0, -t), (0.05 + x / 30, 0.8)), add((x, -w, 0.0), (0.05 + x / 30, 1.0))]
+        rings.append(ring)
+    for a, b in zip(rings[:-1], rings[1:]):
+        for k in range(4):
+            k2 = (k + 1) % 4
+            tris += [(a[k], b[k], a[k2]), (a[k2], b[k], b[k2])]
+            hints += [None, None]
+    # handle: hexagonal grip from x=0 back to x=-7
+    sides = 6
+    hr = 0.55
+    hrings = []
+    for x in (0.0, -7.0):
+        ring = []
+        for k in range(sides):
+            ang = 2 * math.pi * k / sides
+            ring.append(add((x, math.cos(ang) * hr, math.sin(ang) * hr), (0.55 + 0.4 * k / sides, 0.1 if x == 0 else 0.9)))
+        hrings.append(ring)
+    for k in range(sides):
+        k2 = (k + 1) % sides
+        a, b = hrings[0], hrings[1]
+        tris += [(a[k], b[k], a[k2]), (a[k2], b[k], b[k2])]
+        hints += [None, None]
+    # ring at the pommel: a flat octagonal loop in the XY plane around x=-8.6
+    seg = 8
+    outer, inner = 1.5, 0.9
+    cx = -8.6
+    o, i_ = [], []
+    for k in range(seg):
+        ang = 2 * math.pi * k / seg
+        for zz in (0.25, -0.25):
+            pass
+        o.append((add((cx + math.cos(ang) * outer, math.sin(ang) * outer, 0.25), (0.6, 0.5)),
+                  add((cx + math.cos(ang) * outer, math.sin(ang) * outer, -0.25), (0.6, 0.5))))
+        i_.append((add((cx + math.cos(ang) * inner, math.sin(ang) * inner, 0.25), (0.7, 0.5)),
+                   add((cx + math.cos(ang) * inner, math.sin(ang) * inner, -0.25), (0.7, 0.5))))
+    for k in range(seg):
+        k2 = (k + 1) % seg
+        # top and bottom faces
+        tris += [(o[k][0], o[k2][0], i_[k][0]), (i_[k][0], o[k2][0], i_[k2][0])]
+        hints += [(0, 0, 1), (0, 0, 1)]
+        tris += [(o[k][1], i_[k][1], o[k2][1]), (i_[k][1], i_[k2][1], o[k2][1])]
+        hints += [(0, 0, -1), (0, 0, -1)]
+        # outer rim
+        tris += [(o[k][0], o[k][1], o[k2][0]), (o[k2][0], o[k][1], o[k2][1])]
+        hints += [("out", k), ("out", k)]
+
+    def orient(tri, hint):
+        a, b, c = tri
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        cen = [(verts[a][j] + verts[b][j] + verts[c][j]) / 3.0 for j in range(3)]
+        if hint is None:
+            h = (0.0, cen[1], cen[2])            # away from the X axis
+        elif isinstance(hint[0], str):
+            h = (cen[0] - cx, cen[1], 0.0)      # away from the ring centre
+        else:
+            h = hint
+        return tri if n[0] * h[0] + n[1] * h[1] + n[2] * h[2] >= 0 else (a, c, b)
+    tris = [orient(t, h) for t, h in zip(tris, hints)]
+    acc = [[0.0, 0.0, 0.0] for _ in verts]
+    for a, b, c in tris:
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        ln = math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2) or 1.0
+        for idx in (a, b, c):
+            for j in range(3):
+                acc[idx][j] += n[j] / ln
+    # scale up a little so it reads at game distances
+    verts = [(x * 1.15, y * 1.15, z * 1.15) for x, y, z in verts]
+    return verts, uvs, [tuple(v) for v in acc], tris
 
 
 def build_log(seed=7, sides=10, length=52.0, radius=7.0, segments=4):
@@ -267,6 +356,9 @@ def build_log(seed=7, sides=10, length=52.0, radius=7.0, segments=4):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    verts, uvs, normals, tris = build_kunai()
+    write_md3(os.path.join(OUT, "kunai.md3"), "models/shinobi/kunai.md3", verts, uvs, normals, tris, shader=KUNAI_SHADER)
+    print("models/shinobi/kunai.md3", len(verts), "verts", len(tris), "tris")
     verts, uvs, normals, tris = build_log()
     write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
     print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")
