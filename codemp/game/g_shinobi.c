@@ -363,20 +363,32 @@ Casting with levels
 */
 
 // Casts 'jutsu' at the highest level up to 'wanted' that the caster can pay for.
-void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
+void Shinobi_Debug( const char *fmt, ... ) {
+	va_list argptr;
+	char    text[1024];
+
+	if ( !trap->Cvar_VariableIntegerValue( "shinobi_debug" ) )
+		return;
+	va_start( argptr, fmt );
+	Q_vsnprintf( text, sizeof( text ), fmt, argptr );
+	va_end( argptr );
+	trap->Print( "[shinobi] %s\n", text );
+}
+
+qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	gclient_t *client = ent->client;
 	int        lvl = wanted;
 	qboolean   cast = qfalse;
 
 	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
-		return;
+		return qfalse;
 	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
-		return;
+		return qfalse;
 	}
 	if ( jutsu != SJ_KAWARIMI ) {
 		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
-			return; // in a Water Prison or a Shadow Bind only Kawarimi works
+			return qfalse; // in a Water Prison or a Shadow Bind only Kawarimi works
 		Shinobi_Reveal( ent ); // any jutsu ends a substitution
 	}
 
@@ -387,13 +399,13 @@ void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	if ( lvl < SHINOBI_JUTSU_MIN_LEVEL( jutsu ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s needs a longer charge\"", shinobiJutsuTitles[jutsu] ) );
-		return;
+		return qfalse;
 	}
 	while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
 		lvl--;
 	if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
 		Shinobi_NoChakra( ent, Shinobi_JutsuCost( jutsu, lvl ) );
-		return;
+		return qfalse;
 	}
 
 	switch ( jutsu ) {
@@ -423,6 +435,7 @@ void Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		client->ps.fd.forcePower -= Shinobi_JutsuCost( jutsu, lvl );
 		Shinobi_StopCharging( client );
 	}
+	return cast;
 }
 
 // "<jutsu> [level]": cast right away (binds use +jutsu/-jutsu, scripts and bots this)

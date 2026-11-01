@@ -44,7 +44,8 @@ int      Shinobi_LevelEffect( const char *base, int level );
 void     Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );
 void     Shinobi_EffectDir( int fx, vec3_t org, vec3_t dir ); // G_PlayEffectID wants angles, not a direction
 qboolean Shinobi_CastKawarimi( gentity_t *ent );
-void     Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ); // highest affordable level up to 'wanted'
+qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ); // highest affordable level up to 'wanted'
+void     Shinobi_Debug( const char *fmt, ... ); // printed with shinobi_debug 1
 void     Shinobi_Hide( gentity_t *ent );
 
 // g_shinobi_elements.c

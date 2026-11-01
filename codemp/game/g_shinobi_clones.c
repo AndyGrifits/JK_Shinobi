@@ -433,7 +433,7 @@ static int Shinobi_WaterCloneJutsu( gentity_t *owner ) {
 // how close the clone must be to use a jutsu (0 = it can't use it)
 static float Shinobi_WaterCloneRange( int jutsu ) {
 	switch ( jutsu ) {
-	case SJ_SUIRO:  return SHINOBI_PRISON_RANGE - 10;
+	case SJ_SUIRO:  return SHINOBI_PRISON_RANGE + 30;
 	case SJ_SUITON: return 700;
 	case SJ_WAVE:   return 500;
 	case SJ_FUTON:  return 450;
@@ -485,6 +485,8 @@ static qboolean Shinobi_WaterCloneThink( gentity_t *clone, gentity_t *owner ) {
 			|| ( c->shinobi.wcHoldJutsu == SJ_FLAME && c->shinobi.flameEnt )
 			|| ( c->shinobi.wcHoldJutsu == SJ_SHADOW && c->shinobi.shadowEnt );
 		if ( !still || level.time >= c->shinobi.wcHoldEnd ) {
+			Shinobi_Debug( "Water Clone %i stops holding %s (%s)", clone->s.number, shinobiJutsuTitles[c->shinobi.wcHoldJutsu],
+				still ? "time" : "lost it" );
 			Shinobi_WaterCloneStopHold( clone );
 		}
 		else if ( c->shinobi.wcHoldJutsu == SJ_SUIRO ) {
@@ -520,8 +522,14 @@ static qboolean Shinobi_WaterCloneThink( gentity_t *clone, gentity_t *owner ) {
 				clone->NPC->desiredYaw = angles[YAW];
 				clone->NPC->desiredPitch = angles[PITCH];
 			}
+			if ( !Shinobi_Cast( clone, jutsu, 2 ) ) {
+				Shinobi_Debug( "Water Clone %i: %s failed (enemy %i, dist %.0f)", clone->s.number, shinobiJutsuTitles[jutsu],
+					clone->enemy->s.number, VectorLength( d ) );
+				c->shinobi.wcCastNext = level.time + 500; // try again soon
+				return qtrue;
+			}
 			c->shinobi.wcCastNext = level.time + SHINOBI_WATERCLONE_CAST_MS;
-			Shinobi_Cast( clone, jutsu, 2 );
+			Shinobi_Debug( "Water Clone %i casts %s on %i", clone->s.number, shinobiJutsuTitles[jutsu], clone->enemy->s.number );
 
 			if ( SHINOBI_JUTSU_HOLD( jutsu ) ) {
 				c->shinobi.wcHoldJutsu = jutsu;

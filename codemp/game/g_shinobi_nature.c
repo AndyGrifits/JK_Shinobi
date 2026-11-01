@@ -1175,7 +1175,17 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 		return qfalse;
 	}
 	target = Shinobi_PrisonFindTarget( ent );
+	if ( ent->s.number >= MAX_CLIENTS && ent->enemy ) {
+		// a Water Clone traps the one it is fighting, wherever it faces
+		gentity_t *e = ent->enemy;
+		if ( e->inuse && e->client && e->s.number < MAX_CLIENTS && e->health > 0
+			&& !SHINOBI_HIDDEN( &e->client->ps ) && !e->client->shinobi.prisonCaster && !e->client->shinobi.prisonTarget
+			&& !e->client->shinobi.shadowBy && !Shinobi_CCImmune( e )
+			&& Distance( ent->r.currentOrigin, e->r.currentOrigin ) <= SHINOBI_PRISON_RANGE + 40 )
+			target = e;
+	}
 	if ( !target ) {
+		Shinobi_Debug( "Water Prison by %i: no target (enemy %i)", ent->s.number, ent->enemy ? ent->enemy->s.number : -1 );
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, "cp \"Water Prison: nobody within reach\"" );
 		return qfalse;
@@ -1196,6 +1206,7 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 	G_Sound( target, CHAN_AUTO, shinobiMedia.sndPrison );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWaterCast );
 	trap->SendServerCommand( target - g_entities, "cp \"^4Water Prison!^7\nKawarimi gets you out\"" );
+	Shinobi_Debug( "Water Prison by %i caught %i", ent->s.number, target->s.number );
 	return qtrue;
 }
 
@@ -1252,8 +1263,11 @@ static void Shinobi_PrisonThink( gentity_t *caster, usercmd_t *ucmd ) {
 
 	if ( !target->inuse || !target->client || target->health <= 0
 		|| target->client->shinobi.prisonCaster != caster->s.number + 1
-		|| Distance( caster->r.currentOrigin, target->r.currentOrigin ) > SHINOBI_PRISON_RANGE * 1.6f
+		|| Distance( caster->r.currentOrigin, target->r.currentOrigin ) > ( SHINOBI_PRISON_RANGE + 40 ) * 1.6f
 		|| ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE ) ) || ucmd->upmove > 0 ) {
+		Shinobi_Debug( "Water Prison by %i released: target ok %i, dist %.0f, buttons %i up %i", caster->s.number,
+			target->inuse && target->client && target->health > 0 && target->client->shinobi.prisonCaster == caster->s.number + 1,
+			Distance( caster->r.currentOrigin, target->r.currentOrigin ), ucmd->buttons, ucmd->upmove );
 		Shinobi_PrisonRelease( caster ); // let go (or it ran out)
 		return;
 	}
