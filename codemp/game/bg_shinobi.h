@@ -398,6 +398,31 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_SHADOW_DRAIN_MS    300
 #define SHINOBI_SHADOW_DRAIN       3      // chakra per drain tick (10/s)
 #define SHINOBI_BUTTON_MIRROR      (1<<14) // usercmd bit: moves set by the server (Shadow Bind)
+#define SHINOBI_BUTTON_BLOCK       (1<<13) // usercmd bit: block held (Ctrl = "+button13")
+
+/*
+Block (hold Ctrl): a guard stance. Hits from the front go into the guard
+(the shield stat) instead of health: fists, kicks and blades fully, jutsu
+half. No attacks or jutsu while blocking, slow steps, no jumping. Empty
+guard = guard break (a stagger). A full Rasengan / Chidori (level 3) breaks
+any guard at once. Perfect parry: a hit landing within the first moments of
+pressing block does nothing, and a close attacker is staggered.
+The shield no longer soaks damage on its own.
+*/
+#define SHINOBI_GUARD_MAX          100
+#define SHINOBI_GUARD_REGEN_DELAY  1500   // after a blocked hit or letting go
+#define SHINOBI_GUARD_REGEN_MS     80     // +1 guard
+#define SHINOBI_BLOCK_SLOW         0.4f
+#define SHINOBI_BLOCK_ARC          0.26f  // cos of the half-angle covered (~75 deg)
+#define SHINOBI_PARRY_MS           200    // perfect parry window after pressing block
+#define SHINOBI_PARRY_SPAM_MS      700    // presses closer than this get no parry window
+#define SHINOBI_PARRY_STAGGER_MS   800    // the parried attacker reels
+#define SHINOBI_GUARD_BREAK_MS     1000   // the guard broke: reeling
+#define SHINOBI_PARRY_REACH        160    // parried attackers this close get staggered
+#define SHINOBI_BLOCK_ANIM         BOTH_P1_S1_T_
+#define SHINOBI_STAGGER_ANIM       BOTH_H1_S1_T_
+
+qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove.c
 
 // Water Clone: one clone made of water that fights like a shadow clone and casts,
 // on its own, the jutsu that comes after Water Clone in your build (Water Prison:
@@ -441,6 +466,7 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_STAT_BOUND         8     // caught by a Shadow Bind (moves come from the server)
 #define SHINOBI_STAT_GATES         16    // Inner Gates open: faster, harder fists
 #define SHINOBI_STAT_TIRED         32    // after the Gates: slow, no chakra regen
+#define SHINOBI_STAT_STAGGER       64    // guard broken / parried: reeling, helpless
 
 // eye techniques, shown to everyone (the two spare eFlags2 bits)
 #define SHINOBI_EF2_SHARINGAN      (1<<8)

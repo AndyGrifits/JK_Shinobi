@@ -10276,6 +10276,24 @@ static void PM_ShinobiWallRun( void )
 	}
 }
 
+qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
+{
+	if ( !( buttons & SHINOBI_BUTTON_BLOCK ) || ps->pm_type != PM_NORMAL || ps->clientNum >= MAX_CLIENTS )
+		return qfalse;
+	if ( ps->stats[STAT_ARMOR] <= 0 || ps->stats[STAT_HEALTH] <= 0 )
+		return qfalse;
+	if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_CHANNEL ) )
+		return qfalse;
+	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) || SHINOBI_PRISON_CASTER( ps ) || SHINOBI_HIDDEN( ps ) )
+		return qfalse;
+	if ( SHINOBI_HAND_ANY( ps ) || SHINOBI_CHARGING( ps ) )
+		return qfalse;
+	if ( ps->forceHandExtend == HANDEXTEND_KNOCKDOWN || ps->forceHandExtend == HANDEXTEND_PRETHROWN
+		|| ps->forceHandExtend == HANDEXTEND_POSTTHROWN || ps->saberInFlight )
+		return qfalse;
+	return qtrue;
+}
+
 static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
@@ -10319,6 +10337,34 @@ static void PM_ShinobiPreMove( void )
 				| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
 		}
 		pm->cmd.buttons &= ~SHINOBI_BUTTON_MIRROR;
+	}
+
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
+	{ // guard broken / parried: reeling
+		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | SHINOBI_BUTTON_BLOCK );
+		ps->forceHandExtend = HANDEXTEND_TAUNT;
+		ps->forceDodgeAnim = SHINOBI_STAGGER_ANIM;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+	}
+	else if ( BG_ShinobiCanBlock( ps, pm->cmd.buttons ) )
+	{ // guard up: slow steps, no attacks, no jumping
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_BLOCK_SLOW );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_BLOCK_SLOW );
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+		ps->forceHandExtend = HANDEXTEND_TAUNT;
+		ps->forceDodgeAnim = SHINOBI_BLOCK_ANIM;
+		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
 	}
 
 	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) )

@@ -9289,6 +9289,11 @@ int WP_SaberCanBlock(gentity_t *self, vec3_t point, int dflags, int mod, qboolea
 		return 0;
 	}
 
+	if ( self->s.number < MAX_CLIENTS )
+	{ // JK_Shinobi: no automatic saber blocks for players - hold Ctrl to block (Shinobi_BlockDamage)
+		return 0;
+	}
+
 	if (attackStr == 999)
 	{
 		attackStr = 0;

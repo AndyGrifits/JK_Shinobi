@@ -2943,6 +2943,9 @@ int CheckArmor (gentity_t *ent, int damage, int dflags)
 	if (dflags & DAMAGE_NO_ARMOR)
 		return 0;
 
+	if ( ent->s.number < MAX_CLIENTS )
+		return 0; // JK_Shinobi: the shield is the guard - it only works while blocking (Shinobi_BlockDamage)
+
 	if ( client->NPC_class == CLASS_VEHICLE
 		&& ent->m_pVehicle
 		&& ent->client->ps.electrifyTime > level.time )
@@ -4474,7 +4477,16 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	{ // JK_Shinobi: elements (fire on a wet target...), and getting hurt ends Kawarimi / lets go of a Water Prison
 		damage = Shinobi_ElementDamage( targ, attacker, damage );
 		damage = Shinobi_BuildDamage( targ, attacker, damage, mod );
+		damage = Shinobi_BlockDamage( targ, inflictor, attacker, damage, &dflags, mod );
+		if ( damage <= 0 )
+		{ // stopped by the guard (or a perfect parry)
+			return;
+		}
 		Shinobi_Damaged( targ, attacker );
+	}
+	else
+	{
+		shinobiBlockResult = 0;
 	}
 
 	if ( (targ->flags&FL_SHIELDED) && mod != MOD_SABER  && !targ->client)

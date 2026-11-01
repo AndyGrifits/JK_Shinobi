@@ -54,6 +54,13 @@ void Shinobi_NatureInit( void ) {
 	m->fxGates        = G_EffectIndex( SHINOBI_FX_GATES );
 	m->sndEyes        = G_SoundIndex( "sound/weapons/force/see.wav" );
 	m->sndGates       = G_SoundIndex( "sound/weapons/force/speed.wav" );
+	for ( i = 0; i < 3; i++ ) {
+		m->sndBlockSaber[i] = G_SoundIndex( va( "sound/weapons/saber/saberblock%d.wav", i + 1 ) );
+		m->sndBlockFist[i]  = G_SoundIndex( va( "sound/weapons/melee/punch%d.mp3", i + 1 ) );
+	}
+	m->sndParry       = G_SoundIndex( "sound/weapons/saber/saberbounce1.wav" );
+	m->sndGuardBreak  = G_SoundIndex( "sound/weapons/saber/saberhitwall1.wav" );
+	m->fxBlock        = G_EffectIndex( "saber/saber_block" );
 }
 
 /*

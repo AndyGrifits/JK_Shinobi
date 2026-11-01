@@ -48,6 +48,8 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 		ent->health = client->ps.stats[STAT_HEALTH] = client->pers.maxHealth;
 		client->ps.fd.forcePowerMax = 100 + 20 * b->stats[SST_CHAKRA];
 		client->ps.fd.forcePower = client->ps.fd.forcePowerMax;
+		client->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX; // the guard (block)
+		client->shinobi.staggerEnd = 0;
 	}
 
 	Shinobi_BuildString( b, str, sizeof( str ) );

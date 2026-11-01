@@ -253,13 +253,19 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 
 	shinobiHitElement = chidori ? SE_LIGHTNING : SE_NONE; // wet targets take 1.5x from Chidori
 	shinobiJutsuDamage = 1; // a jutsu, not a punch: no taijutsu bonus
+	shinobiGuardBreaker = ( li == SHINOBI_MAX_LEVEL - 1 ); // a full one smashes through any guard
+	shinobiBlockResult = SBR_NONE;
 	G_Damage( victim, ent, ent, dir, point, damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	shinobiGuardBreaker = 0;
 	shinobiJutsuDamage = 0;
 	shinobiHitElement = SE_NONE;
 	if ( chidori )
 		Shinobi_ElectrifyAt( point, ent->s.number + 1 );
 
-	if ( victim->inuse && victim->client && victim->health > 0 ) {
+	if ( shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED ) {
+		// caught on the guard: no throw, no knockdown
+	}
+	else if ( victim->inuse && victim->client && victim->health > 0 ) {
 		gclient_t *vc = victim->client;
 
 		VectorScale( dir, throwSpeed, vc->ps.velocity );
@@ -386,6 +392,8 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
 		return qfalse;
 	}
+	if ( client->shinobi.blocking && ent->s.number < MAX_CLIENTS )
+		return qfalse; // guard up: no jutsu
 	if ( jutsu != SJ_KAWARIMI ) {
 		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
 			return qfalse; // in a Water Prison or a Shadow Bind only Kawarimi works
@@ -489,6 +497,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 	if ( jutsu == SJ_NONE )
 		return;
 
+	if ( client->shinobi.blocking )
+		return; // guard up: no seals
 	if ( SHINOBI_JUTSU_INSTANT( jutsu ) ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
@@ -561,6 +571,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	else
 		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
+	Shinobi_BlockThink( ent, ucmd );
 
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );
@@ -585,7 +596,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
 
 	// --- Chakra charging: hold USE while standing still on the ground ---
-	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.prisonCaster
+	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.prisonCaster && !client->shinobi.blocking
 		&& !ucmd->forwardmove && !ucmd->rightmove && ucmd->upmove <= 0
 		&& client->ps.groundEntityNum != ENTITYNUM_NONE
 		&& !SHINOBI_HAND_ANY( &client->ps )

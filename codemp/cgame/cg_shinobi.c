@@ -1293,6 +1293,10 @@ void CG_ShinobiDrawHUD( void ) {
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
 	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) {
+		text = "Staggered!";
+		VectorSet( color, 1.0f, 0.6f, 0.3f );
+	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) {
 		text = "Curse Seal awakened - it feeds on your health";
 		VectorSet( color, 0.8f, 0.3f, 1.0f );

@@ -850,6 +850,10 @@ struct gclient_s {
 		int		gatesTiredEnd;	// exhausted until
 		int		gatesNext;		// Inner Gates cooldown end
 		int		gatesFx;		// next aura puff
+		qboolean blocking;		// guard up this frame (Ctrl)
+		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)
+		int		guardRegen;		// guard starts coming back at
+		int		staggerEnd;		// reeling (guard broken / parried) until
 		int		ccImmuneEnd;	// immune to hard crowd control until
 		int		flameEnt;		// Fire Breath stream entity num + 1 (0 = not breathing)
 		vec3_t	flameAngles;	// where the stream points (turns slowly toward the view)
@@ -1469,6 +1473,9 @@ int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int
 float Shinobi_RegenScale( gentity_t *ent );
 void  Cmd_CurseSeal_f( gentity_t *ent );
 void  Cmd_Perk_f( gentity_t *ent );
+int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
+extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
+extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );

@@ -29,6 +29,19 @@ Press **B** for the build screen (it also opens by itself the first time):
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
 
+## Block (Ctrl)
+
+Hold Ctrl (`+button13`) for a guard stance: slow steps, no jumping, no attacks, no
+jutsu (raising it lets go of fire breath / shadow bind). Hits from the front (~150°)
+go into the guard - the shield bar (100) - instead of health: fists, kicks and blades
+fully, jutsu half (the other half hurts). An empty guard breaks: 1 s stagger. A full
+(level 3) Rasengan or Chidori breaks any guard at once; lower levels are just blocked
+(half damage, no knockdown). Perfect parry: a hit within 0.2 s of pressing Ctrl does
+nothing, and an attacker within reach staggers for 0.8 s (spamming Ctrl gives no
+window). The guard refills ~12/s from 1.5 s after the last blocked hit. Gentle Fist
+burns guard twice as fast. Burning, drowning, ash and zones ignore the guard. The
+shield no longer soaks damage on its own, and the automatic saber block is gone.
+
 ## Controls (prototype)
 
 Pick a jutsu with **Q / E** (the list is at the bottom of the screen), **hold F** to
