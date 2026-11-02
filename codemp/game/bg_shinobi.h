@@ -340,7 +340,7 @@ static const int shinobiPillarLaunch[3] = { 420, 500, 580 };
 #define SHINOBI_EARTHCLONE_LIFE    25000
 #define SHINOBI_EARTHCLONE_HEALTH  150
 #define SHINOBI_EARTHCLONE_SPEED   0.7f
-#define SHINOBI_EARTHCLONE_HIT     130   // % damage of its blows
+#define SHINOBI_CLONE_MELEE        0.3f  // any clone's blows: this much of its owner's
 
 // Lightning Clone: struck down, it discharges
 #define SHINOBI_RAICLONE_LIFE      15000
@@ -600,7 +600,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 Perks (perk command, key C):
   Sharingan  toggle; 5 chakra, then 3/s (no natural regen while open). See health bars, the jutsu an
              enemy is charging and Kawarimi-hidden enemies. Red eyes.
-  Byakugan   toggle; 5 chakra, then 5/s (no natural regen while open). See chakra bars and everyone
+  Byakugan   toggle; 5 chakra, then 8/s (no natural regen while open); fists burn chakra (Gentle Fist). See chakra bars and everyone
              within range through walls; clones show as hollow shells.
              Loud to switch on. Pale eyes.
   Inner Gates  10 s faster and +50% taijutsu, then 15 s exhausted
@@ -608,7 +608,7 @@ Perks (perk command, key C):
 */
 #define SHINOBI_DOJUTSU_COST           5
 #define SHINOBI_SHARINGAN_DRAIN_MS     333     // 1 chakra per tick (3/s), and no natural regen meanwhile
-#define SHINOBI_BYAKUGAN_DRAIN_MS      200     // 5/s
+#define SHINOBI_BYAKUGAN_DRAIN_MS      125     // 8/s (it also gives the Gentle Fist)
 #define SHINOBI_SHARINGAN_RANGE        2000
 #define SHINOBI_SHARINGAN_HIDDEN_RANGE 1500
 #define SHINOBI_BYAKUGAN_RANGE         1400
@@ -792,7 +792,6 @@ static const char * const shinobiStatInfo[SST_COUNT] = {
 
 typedef enum {
 	SP_NONE,
-	SP_GENTLE_FIST,
 	SP_CURSE_SEAL,
 	SP_SHARINGAN,
 	SP_BYAKUGAN,
@@ -801,17 +800,16 @@ typedef enum {
 } shinobiPerk_t;
 
 static const char * const shinobiPerkNames[SP_COUNT] = {
-	"none", "gentlefist", "curseseal", "sharingan", "byakugan", "gates"
+	"none", "curseseal", "sharingan", "byakugan", "gates"
 };
 static const char * const shinobiPerkTitles[SP_COUNT] = {
-	"None", "Gentle Fist", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates"
+	"None", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates"
 };
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
-	"your fists and kicks also burn the enemy's chakra",
 	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster, your mind clouds; C: on/off",
 	"C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
-	"C: toggle (5 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; loud",
+	"C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
 	"C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
 };
 // one line per jutsu for the build screen
@@ -844,7 +842,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: go under the ground (a trail of dust shows where); let go or attack to burst out, launching whoever is above",
 	"a stone pillar erupts where you look, launching whoever stands there; it stays a while as cover",
 	"8 s: 40% less damage, no knockdowns or knockback, a bit slower; Lightning cuts through it",
-	"a slow, tough earth clone (25 s) that hits hard; crumbles into mud",
+	"a slow, tough earth clone (25 s); crumbles into mud",
 	"a clone of lightning (15 s) that fights; struck down, it discharges and paralyses everyone around",
 	"a streak of lightning straight ahead: shocks and stuns whoever is in the way",
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
@@ -852,7 +850,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"chakra into health: 20 / 35 / 50 back"
 };
 
-static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };
+static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue };
 
 typedef struct {
 	int numJutsu;

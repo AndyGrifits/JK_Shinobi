@@ -185,8 +185,8 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 	absorb = taijutsu ? damage : ( damage + 1 ) / 2;
 	cost = absorb;
 	if ( mod == MOD_MELEE && attacker->client && attacker->s.number < MAX_CLIENTS
-		&& attacker->client->pers.shinobiBuild.perk == SP_GENTLE_FIST )
-		cost *= 2; // the Gentle Fist goes through guards
+		&& attacker->client->shinobi.eyes == SP_BYAKUGAN )
+		cost *= 2; // the Gentle Fist (Byakugan open) goes through guards
 	guard = client->ps.stats[STAT_ARMOR];
 	client->shinobi.guardRegen = level.time + SHINOBI_GUARD_REGEN_DELAY;
 	Shinobi_BlockFeedback( targ, src, qfalse );

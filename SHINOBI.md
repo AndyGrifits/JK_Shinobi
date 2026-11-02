@@ -12,7 +12,7 @@ Press **B** for the build screen (it also opens by itself the first time):
 - **Stats**: 10 points, at most 5 in one: chakra pool (+20 per point), health (+15),
   taijutsu (+10% fist/kick/blade damage), casting speed (bars 8% faster), chakra regen
   (12% faster).
-- **Special**: one ability. Ready: Gentle Fist (fists and kicks burn the target's chakra),
+- **Special**: one ability. Ready:
   Curse Seal (awakens at 0 chakra and stays awake until it has eaten your health down
   to 10, ~3 health/s; meanwhile chakra returns 5x faster, dark chakra around you and a darkened screen; at 10 health or less it only stirs (HUD says so);
   `/curseseal` or `C` toggles it).
@@ -20,7 +20,7 @@ Press **B** for the build screen (it also opens by itself the first time):
     (2000 u), the name of the jutsu they are charging, Kawarimi-hidden enemies within
     1500 u show as ghosts. Clones look like perfect copies (owner's health). Red eyes,
     visible to everyone.
-  - **Byakugan** (`C` on/off, 5 chakra + 5/s, no natural regen while open): chakra bars and glowing shells of every
+  - **Byakugan** (`C` on/off, 5 chakra + 8/s, no natural regen while open; also the Gentle Fist: bare-handed hits burn the target's chakra and burn guards twice as fast): chakra bars and glowing shells of every
     ninja within 1400 u, through walls; clones are hollow grey shells marked "clone".
     Switching it on is heard map-wide. Pale eyes.
   - **Inner Gates** (`C`): 10 s at 1.35x speed and +50% taijutsu, then 15 s exhausted
@@ -28,6 +28,11 @@ Press **B** for the build screen (it also opens by itself the first time):
 
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
+
+## Clones
+
+Any clone (shadow, water, earth, lightning, the Kawarimi double) hits in melee with 30%
+of its owner's strength (the owner's taijutsu stat included).
 
 ## Bots
 
@@ -53,8 +58,8 @@ fully, jutsu half (the other half hurts). An empty guard breaks: 1 s stagger. A 
 (level 3) Rasengan or Chidori breaks any guard at once; lower levels are just blocked
 (half damage, no knockdown). Perfect parry: a hit within 0.2 s of pressing Ctrl does
 nothing, and an attacker within reach staggers for 0.8 s (spamming Ctrl gives no
-window). The guard refills ~12/s from 1.5 s after the last blocked hit. Gentle Fist
-burns guard twice as fast. Burning, drowning, ash and zones ignore the guard. The
+window). The guard refills ~12/s from 1.5 s after the last blocked hit. With the Byakugan open
+(Gentle Fist) fists burn guard twice as fast. Burning, drowning, ash and zones ignore the guard. The
 shield no longer soaks damage on its own, and the automatic saber block is gone.
 
 ## Controls (prototype)
@@ -107,7 +112,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out), a dust trail follows you. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
 | Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a stone pillar erupts there launching whoever stands on it (20 / 30 / 40, knockdown); the pillar stays 6 s as cover (an earth wall of one: pushable, breakable, Lightning x3). 4 s cooldown | 20 / 30 / 40 |
 | Stone Skin | `tsuchiyoroi`, Doton, instant: 8 s of -40% damage, no knockdowns or knockback, 0.85x speed; Lightning Edge hits ignore it. 20 s cooldown | 25 |
-| Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone for 25 s whose blows hit 30% harder; crumbles into mud. One at a time | 30 |
+| Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone for 25 s ; crumbles into mud. One at a time | 30 |
 | Lightning Clone | `raibunshin`, Raiton, instant: a crackling clone for 15 s that fights; struck down, it discharges: 15 damage and a 1.3 s paralysis to everyone within 160 u, puddles electrified. One at a time | 30 |
 | Lightning Dash | `raido`, Raiton: a streak 300 / 450 / 600 u straight ahead; whoever is within ~40 u of it takes 12 and a 0.5 s stun; puddles on the way are electrified. 5 s cooldown | 20 / 30 / 40 |
 | Shadow Hide | `kagegakure`, Yin, hold F: melt into your shadow (4 chakra/s, up to 6 s, 0.7x speed): others see only a dark patch (the Byakugan sees you); fists, blades and missiles pass over it, fire and lightning drive you out. Let go or attack to rise. 8 s cooldown | 15 |

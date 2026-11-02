@@ -72,8 +72,15 @@ int Shinobi_CastStat( gentity_t *ent ) {
 int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod ) {
 	gclient_t *ac;
 
-	if ( attacker && attacker->shinobiCloneEarth && ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )
-		return damage * SHINOBI_EARTHCLONE_HIT / 100; // an earth clone's fists are stone
+	if ( attacker && attacker->shinobiCloneOwner && ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage ) {
+		// any clone hits with a fraction of its owner's strength (taijutsu included)
+		const gentity_t *owner = &g_entities[attacker->shinobiCloneOwner - 1];
+		float f = SHINOBI_CLONE_MELEE;
+		if ( owner->inuse && owner->client )
+			f *= 1.0f + 0.1f * owner->client->pers.shinobiBuild.stats[SST_TAIJUTSU];
+		damage = (int)( damage * f + 0.5f );
+		return damage < 1 ? 1 : damage;
+	}
 	if ( !attacker || !attacker->client || attacker->s.number >= MAX_CLIENTS || shinobiJutsuDamage )
 		return damage;
 	ac = attacker->client;
@@ -92,8 +99,8 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 	// Shift + attack: the hit carries your chakra nature
 	damage = Shinobi_InfuseHit( targ, attacker, damage );
 
-	// Gentle Fist: bare-handed hits burn the target's chakra
-	if ( mod == MOD_MELEE && ac->pers.shinobiBuild.perk == SP_GENTLE_FIST && targ && targ->client && targ != attacker ) {
+	// Gentle Fist: with the Byakugan open, bare-handed hits burn the target's chakra
+	if ( mod == MOD_MELEE && ac->shinobi.eyes == SP_BYAKUGAN && targ && targ->client && targ != attacker ) {
 		targ->client->ps.fd.forcePower -= damage;
 		if ( targ->client->ps.fd.forcePower < 0 )
 			targ->client->ps.fd.forcePower = 0;
@@ -255,9 +262,6 @@ void Cmd_Perk_f( gentity_t *ent ) {
 		break;
 	case SP_CURSE_SEAL:
 		Cmd_CurseSeal_f( ent );
-		break;
-	case SP_GENTLE_FIST:
-		trap->SendServerCommand( ent - g_entities, "cp \"Gentle Fist works by itself:\nyour bare hands burn chakra\"" );
 		break;
 	default:
 		trap->SendServerCommand( ent - g_entities, "cp \"No special ability - pick one in the build menu (B)\"" );
