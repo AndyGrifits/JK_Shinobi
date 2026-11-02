@@ -282,20 +282,21 @@ void Shinobi_PatchItems( void ) {
 		// (the view model stays: the cgame builds weapon file names from it)
 		item->icon = (char *)shinobiToolIcons[tool];
 		item->pickup_sound = tool == STOOL_HEAL ? "sound/player/pickuphealth.wav" : "sound/player/pickupenergy.wav";
-		switch ( tool ) {
-		case STOOL_HEAL:     item->giType = IT_HEALTH; item->giTag = 0; break;
-		case STOOL_CHAKRA:   item->giType = IT_AMMO; item->giTag = AMMO_FORCE; break;
-		case STOOL_EXKUNAI:
-		case STOOL_TAG:
-		case STOOL_SHURIKEN: { // the stock explosive weapon underneath (its weapon_* item stays a weapon)
-			const int wp = tool == STOOL_EXKUNAI ? SHINOBI_WP_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_WP_TAG : SHINOBI_WP_SHURIKEN );
-			if ( item->giType == IT_WEAPON && item->giTag == wp )
-				break;
-			item->giType = IT_AMMO;
-			item->giTag = tool == STOOL_EXKUNAI ? SHINOBI_AMMO_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_AMMO_TAG : SHINOBI_AMMO_SHURIKEN );
-			break;
-		}
-		}
+		// (types and tags stay: the game and the cgame look weapons / holdables up by them;
+		// Touch_Item hands out the tool instead, BG_CanItemBeGrabbed asks Shinobi_CanGrabTool)
 		Shinobi_ToolForItem( item->classname, &item->quantity );
+	}
+}
+
+// one of ours: may this player take it? (-1: not ours)
+int Shinobi_CanGrabTool( const char *classname, const playerState_t *ps ) {
+	const int tool = Shinobi_ToolForItem( classname, NULL );
+	switch ( tool ) {
+	case STOOL_HEAL:     return ps->stats[STAT_HEALTH] < ps->stats[STAT_MAX_HEALTH];
+	case STOOL_CHAKRA:   return ps->fd.forcePower < ps->fd.forcePowerMax;
+	case STOOL_EXKUNAI:  return ps->ammo[SHINOBI_AMMO_EXKUNAI] < SHINOBI_TOOL_MAX;
+	case STOOL_TAG:      return ps->ammo[SHINOBI_AMMO_TAG] < SHINOBI_TOOL_MAX;
+	case STOOL_SHURIKEN: return ps->ammo[SHINOBI_AMMO_SHURIKEN] < SHINOBI_TOOL_MAX;
+	default:             return -1;
 	}
 }

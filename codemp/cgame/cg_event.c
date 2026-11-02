@@ -600,7 +600,8 @@ static void CG_ItemPickup( int itemNum ) {
 	cg.itemPickupTime = cg.time;
 	cg.itemPickupBlendTime = cg.time;
 	// see if it should be the grabbed weapon
-	if ( cg.snap && bg_itemlist[itemNum].giType == IT_WEAPON ) {
+	if ( cg.snap && bg_itemlist[itemNum].giType == IT_WEAPON
+		&& Shinobi_ToolForItem( bg_itemlist[itemNum].classname, NULL ) == STOOL_NONE ) { // (JK_Shinobi: ninja tools don't switch weapons)
 
 		// 0 == no switching
 		// 1 == automatically switch to best SAFE weapon

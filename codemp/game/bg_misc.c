@@ -2111,6 +2111,14 @@ qboolean BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 		return qfalse;
 	}
 
+#if defined(_GAME) || defined(_CGAME)
+	{ // JK_Shinobi: pills and ninja tools (the stock pickups, reworked)
+		const int grab = Shinobi_CanGrabTool( item->classname, ps );
+		if ( grab >= 0 )
+			return grab ? qtrue : qfalse;
+	}
+#endif
+
 	switch( item->giType ) {
 	case IT_WEAPON:
 		if (ent->generic1 == ps->clientNum && ent->powerups)
@@ -2136,9 +2144,6 @@ qboolean BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 		if (item->giTag == -1)
 		{ //special case for "all ammo" packs
 			return qtrue;
-		}
-		if ( item->giTag == AMMO_FORCE ) { // JK_Shinobi: a Chakra Pill - only when short of chakra
-			return ps->fd.forcePower < ps->fd.forcePowerMax;
 		}
 		if ( ps->ammo[item->giTag] >= ammoData[item->giTag].max) {
 			return qfalse;		// can't hold any more

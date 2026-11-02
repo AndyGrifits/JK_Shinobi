@@ -569,6 +569,7 @@ typedef enum {
 
 void Shinobi_PatchItems( void );                       // bg_shinobi.c
 int  Shinobi_ToolForItem( const char *classname, int *amount );
+int  Shinobi_CanGrabTool( const char *classname, const playerState_t *ps );
 const char *Shinobi_ToolName( int tool );   // "2 Explosive Kunai" (pickup line)
 const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
 
