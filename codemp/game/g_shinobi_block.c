@@ -176,6 +176,11 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
 		return 0;
 	}
+	if ( taijutsu && Shinobi_WindEdgeActive( attacker ) ) {
+		*dflags &= ~DAMAGE_NO_KNOCKBACK;
+		Shinobi_BlockFeedback( targ, src, qfalse );
+		return damage; // the Wind Edge cuts straight through the guard
+	}
 
 	absorb = taijutsu ? damage : ( damage + 1 ) / 2;
 	cost = absorb;

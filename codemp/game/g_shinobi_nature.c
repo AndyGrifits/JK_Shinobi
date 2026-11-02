@@ -61,6 +61,8 @@ void Shinobi_NatureInit( void ) {
 	m->sndParry       = G_SoundIndex( "sound/weapons/saber/saberbounce1.wav" );
 	m->sndGuardBreak  = G_SoundIndex( "sound/weapons/saber/saberhitwall1.wav" );
 	m->fxBlock        = G_EffectIndex( "saber/saber_block" );
+	m->fxWindEdge     = G_EffectIndex( SHINOBI_FX_WIND_EDGE );
+	m->fxRaiEdge      = G_EffectIndex( SHINOBI_FX_CHIDORI_HAND );
 }
 
 /*
@@ -1579,4 +1581,148 @@ static void Shinobi_FlameEntThink( gentity_t *flame ) {
 	flame->s.angles2[ROLL] = reach;
 	trap->LinkEntity( (sharedEntity_t *)flame );
 	flame->nextthink = level.time + FRAMETIME;
+}
+
+/*
+===========================================================================
+Wind Wall (Futon): a wall of wind ahead. Fireballs, water bullets and kunai
+flying into its face go back at whoever threw them.
+===========================================================================
+*/
+#define WINDWALL_LEVEL(w) ( (w)->count )
+
+static void Shinobi_WindWallReflect( gentity_t *w, gentity_t *p, const vec3_t at, const vec3_t face ) {
+	gentity_t *owner = &g_entities[w->r.ownerNum];
+	gentity_t *thrower = ( p->r.ownerNum < ENTITYNUM_WORLD ) ? &g_entities[p->r.ownerNum] : NULL;
+	vec3_t     vel, aim;
+	float      speed;
+
+	BG_EvaluateTrajectoryDelta( &p->s.pos, level.time, vel );
+	speed = VectorLength( vel );
+	if ( speed < 100 )
+		speed = 100;
+	if ( thrower && thrower->inuse && thrower->health > 0 && thrower != owner ) {
+		vec3_t target;
+		VectorCopy( thrower->r.currentOrigin, target );
+		target[2] += 8;
+		VectorSubtract( target, at, aim );
+		VectorNormalize( aim );
+	}
+	else { // mirror it off the wall
+		const float dn = DotProduct( vel, face );
+		VectorMA( vel, -2.0f * dn, face, aim );
+		VectorNormalize( aim );
+	}
+
+	p->s.pos.trTime = level.time;
+	VectorCopy( at, p->s.pos.trBase );
+	VectorScale( aim, speed, p->s.pos.trDelta );
+	VectorCopy( at, p->r.currentOrigin );
+	p->r.ownerNum = owner->s.number;
+	p->parent = owner;
+	p->enemy = w; // caught once
+
+	if ( !strcmp( p->classname, "shinobi_fireball" ) ) {
+		const int lf = p->genericValue2;
+		Shinobi_FireballSetLevel( p, lf < SHINOBI_MAX_LEVEL ? lf + 1 : lf, 1.0f ); // the wind feeds it
+		p->genericValue1 = level.time + SHINOBI_FIREBALL_LIFE;
+		VectorScale( aim, VectorLength( p->s.pos.trDelta ), p->s.pos.trDelta );
+	}
+	else if ( !strcmp( p->classname, "shinobi_waterball" ) ) {
+		p->genericValue1 = level.time + SHINOBI_WATER_LIFE;
+	}
+	else {
+		p->s.pos.trDelta[2] += 40; // kunai arc
+		Shinobi_KunaiReflect( p, owner );
+	}
+	trap->LinkEntity( (sharedEntity_t *)p );
+	Shinobi_EffectDir( shinobiMedia.fxWindGust[0], (float *)at, aim );
+	G_SoundAtLoc( (float *)at, CHAN_AUTO, shinobiMedia.sndWind );
+}
+
+static void Shinobi_WindWallThink( gentity_t *w ) {
+	const float halfW = w->s.angles2[1];
+	vec3_t      face, right, yaw;
+	int         i;
+
+	if ( level.time >= w->s.time2 ) {
+		G_FreeEntity( w );
+		return;
+	}
+	VectorSet( yaw, 0, w->s.angles2[0], 0 );
+	AngleVectors( yaw, face, right, NULL ); // face points away from the caster
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *p = &g_entities[i];
+		vec3_t     d, vel;
+		float      along, depth;
+
+		if ( !p->inuse || !p->classname || p->enemy == w || p->r.ownerNum == w->r.ownerNum )
+			continue;
+		if ( strcmp( p->classname, "shinobi_fireball" ) && strcmp( p->classname, "shinobi_waterball" )
+			&& strcmp( p->classname, "shinobi_kunai" ) )
+			continue;
+		if ( p->s.pos.trType == TR_STATIONARY )
+			continue; // a kunai stuck somewhere
+		VectorSubtract( p->r.currentOrigin, w->r.currentOrigin, d );
+		if ( d[2] < -24 || d[2] > SHINOBI_WINDWALL_HEIGHT )
+			continue;
+		along = DotProduct( d, right );
+		depth = DotProduct( d, face );
+		if ( along < -halfW || along > halfW || depth < -SHINOBI_WINDWALL_DEPTH || depth > SHINOBI_WINDWALL_DEPTH * 2 )
+			continue;
+		BG_EvaluateTrajectoryDelta( &p->s.pos, level.time, vel );
+		if ( DotProduct( vel, face ) >= 0 )
+			continue; // flying away from the caster: let it be
+		Shinobi_WindWallReflect( w, p, p->r.currentOrigin, face );
+	}
+	w->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_CastWindWall( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	gentity_t *w;
+	vec3_t     fwd, yaw, pos, floor;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	if ( client->shinobi.windWallNext > level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Wind Wall ready in %.1f s\"",
+			( client->shinobi.windWallNext - level.time ) / 1000.0f ) );
+		return qfalse;
+	}
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	VectorMA( client->ps.origin, SHINOBI_WINDWALL_DISTANCE, fwd, pos );
+	if ( Shinobi_FloorBelow( pos, 96, floor ) )
+		VectorCopy( floor, pos );
+	else
+		pos[2] += ent->r.mins[2];
+
+	w = G_Spawn();
+	if ( !w )
+		return qfalse;
+	w->classname = "shinobi_windwall";
+	w->s.eType = ET_GENERAL;
+	w->s.generic1 = SHINOBI_ENT_WINDWALL;
+	w->s.angles2[0] = client->ps.viewangles[YAW];
+	w->s.angles2[1] = (float)shinobiWindWallHalfW[lvl - 1];
+	w->s.time = level.time;
+	w->s.time2 = level.time + shinobiWindWallLife[lvl - 1];
+	WINDWALL_LEVEL( w ) = lvl;
+	w->r.ownerNum = ent->s.number;
+	w->r.contents = 0;
+	w->r.svFlags |= SVF_BROADCAST;
+	G_SetOrigin( w, pos );
+	w->think = Shinobi_WindWallThink;
+	w->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)w );
+
+	client->shinobi.windWallNext = level.time + SHINOBI_WINDWALL_COOLDOWN;
+	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 400;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndWind2 );
+	return qtrue;
 }

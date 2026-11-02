@@ -61,7 +61,6 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 2): stays 30 s; an enemy it hits carries the mark 12 s |
-| **Shift + attack** | chakra in fists, kicks and the blade (5 chakra a hit), with your main school's nature: fire burns, water soaks, wind +40%, earth knocks back, lightning jolts (and doubles damage on earth walls), Yin/Yang +25% |
 | **2** | fists / saber |
 | **B** | ninja build screen |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
@@ -85,6 +84,11 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, a fog sheet covers the view; only the mist's maker sees people within 450 u as dark silhouettes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
+| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
+| Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 2 / 3 / 4 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
+| Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
+| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |
+| Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |

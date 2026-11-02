@@ -869,8 +869,14 @@ struct gclient_s {
 		int		wcHoldJutsu, wcHoldEnd;
 		vec3_t	wcHoldPos;
 		int		kunaiNext;		// kunai throw cooldown end
+		int		quakeNext;		// Earthquake cooldown end
+		int		windWallNext;	// Wind Wall cooldown end
 		int		hiraishinNext;	// Hiraishin cooldown end
-		int		infuseUntil;	// Shift + attack: hits until then carry chakra
+		int		infuseUntil;	// Wind / Lightning Edge until
+		int		infuseType;		// SS_FUTON or SS_RAITON
+		int		edgeFx;			// next hand effect
+		int		slashNext;		// next Wind Edge air slash
+		int		lastSaberMove;	// to catch each new swing
 		int		debugNext;		// throttle for shinobi_debug prints
 	} shinobi;
 };
@@ -1460,6 +1466,8 @@ void Cmd_PushWall_f( gentity_t *ent );
 void Cmd_Flame_f( gentity_t *ent );
 void Cmd_Ash_f( gentity_t *ent );
 void Cmd_Kirigakure_f( gentity_t *ent );
+void Cmd_Jishin_f( gentity_t *ent );
+void Cmd_Kazekabe_f( gentity_t *ent );
 void Cmd_Kagemane_f( gentity_t *ent );
 void Cmd_MizuBunshin_f( gentity_t *ent );
 void Cmd_Kunai_f( gentity_t *ent );

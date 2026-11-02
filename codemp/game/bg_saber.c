@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "bg_public.h"
 #include "bg_local.h"
 #include "w_saber.h"
+#include "bg_shinobi.h"
 
 #if defined(_GAME)
 	#include "g_local.h" // for cvars
@@ -108,6 +109,10 @@ void BG_ForcePowerDrain( playerState_t *ps, forcePowers_t forcePower, int overri
 			if (ps->fd.forcePowerLevel[FP_LEVITATION])
 			{ //don't divide by 0!
 				jumpDrain /= ps->fd.forcePowerLevel[FP_LEVITATION];
+			}
+			if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_SKYSTEP )
+			{ // JK_Shinobi: Sky Step - jumps cost half
+				jumpDrain = ( jumpDrain + 1 ) / 2;
 			}
 		}
 

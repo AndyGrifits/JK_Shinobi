@@ -3419,6 +3419,8 @@ command_t commands[] = {
 	{ "kagebunshin",		Cmd_KageBunshin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "katon",				Cmd_Katon_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kawarimi",			Cmd_Kawarimi_f,				CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "jishin",				Cmd_Jishin_f,				CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "kazekabe",			Cmd_Kazekabe_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kirigakure",			Cmd_Kirigakure_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kunai",				Cmd_Kunai_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kill",				Cmd_Kill_f,					CMD_ALIVE|CMD_NOINTERMISSION },

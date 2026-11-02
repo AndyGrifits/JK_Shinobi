@@ -4473,6 +4473,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	{ // JK_Shinobi: shadow clones never hurt their owner (and vice versa)
 		return;
 	}
+	if ( mod == MOD_FALLING && targ->client && targ->s.number < MAX_CLIENTS
+		&& ( targ->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_SKYSTEP ) )
+	{ // JK_Shinobi: Sky Step - lands like a feather
+		return;
+	}
 	if ( damage > 0 )
 	{ // JK_Shinobi: elements (fire on a wet target...), and getting hurt ends Kawarimi / lets go of a Water Prison
 		damage = Shinobi_ElementDamage( targ, attacker, damage );

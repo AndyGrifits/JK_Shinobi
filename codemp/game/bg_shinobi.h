@@ -57,6 +57,11 @@ typedef enum {
 	SJ_HIRAISHIN, // flying thunder god: teleport to your marked kunai
 	SJ_RAITRAP,   // lightning trap: your marked kunai discharge
 	SJ_MIST,      // hidden mist: a bank of fog around you
+	SJ_QUAKE,     // earthquake: long charge, the radius grows with it
+	SJ_WINDWALL,  // wind wall: throws projectiles back at their thrower
+	SJ_SKYSTEP,   // sky step: passive, jumps and wall runs cost half, no falling damage
+	SJ_WINDEDGE,  // wind edge: 15 s, strikes throw air slashes ahead and cut through guards
+	SJ_RAIEDGE,   // lightning edge: 15 s, +20% taijutsu, x3 against stone
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -68,18 +73,18 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_DOTON, SJ_CHIDORI,
+	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_CHIDORI, SJ_RAIEDGE,
 	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_HIRAISHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
@@ -106,10 +111,18 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 25, 25 }, // Hiraishin
 	{ 20, 20, 20 }, // Lightning Trap
 	{ 20, 30, 40 }, // Hidden Mist
+	{ 20, 35, 55 }, // Earthquake
+	{ 15, 25, 35 }, // Wind Wall
+	{  0,  0,  0 }, // Sky Step (passive)
+	{ 20, 20, 20 }, // Wind Edge
+	{ 20, 20, 20 }, // Lightning Edge
 };
 
 // jutsu that cast on key press, without charging
-#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP )
+#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP \
+	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE )
+// passive techniques: in the build, never cast (skipped by the selection keys)
+#define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
 #define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
@@ -119,8 +132,11 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 static QINLINE int Shinobi_BarEnd( int jutsu, int bar ) {
 	static const int normal[SHINOBI_MAX_LEVEL]   = { SHINOBI_BAR1_MS, SHINOBI_BAR2_MS, SHINOBI_BAR3_MS };
 	static const int shunshin[SHINOBI_MAX_LEVEL] = { 200, 500, 900 };
+	static const int quake[SHINOBI_MAX_LEVEL]    = { 700, 1700, 3000 }; // the earthquake takes its time
 	if ( bar < 0 ) bar = 0;
 	if ( bar >= SHINOBI_MAX_LEVEL ) bar = SHINOBI_MAX_LEVEL - 1;
+	if ( jutsu == SJ_QUAKE )
+		return quake[bar];
 	return jutsu == SJ_SHUNSHIN ? shunshin[bar] : normal[bar];
 }
 
@@ -192,6 +208,7 @@ static QINLINE void Shinobi_SetRawBit( float *f, int on ) {
 // while holding forward (paid with chakra)
 #define SHINOBI_WALLRUN_REACH      40   // how far to the side a wall may be
 #define SHINOBI_WALLRUN_EXTEND_COST 6   // chakra per extension (~every 0.5 s)
+#define SHINOBI_WALLRUN_COST(ps)   ( ( (ps)->stats[STAT_SHINOBI] & SHINOBI_STAT_SKYSTEP ) ? SHINOBI_WALLRUN_EXTEND_COST / 2 : SHINOBI_WALLRUN_EXTEND_COST )
 
 // Chakra (the force pool, fd.forcePower)
 #define SHINOBI_CHARGE_TICK_MS     50   // chakra gained every tick while charging
@@ -258,6 +275,25 @@ static const float shinobiFireballVisual[3] = { 14.0f, 22.0f, 34.0f }; // drawn 
 
 // Doton: Doryuheki (earth wall): row of stone pillars rising from the ground
 #define SHINOBI_WALL_COOLDOWN      3000
+
+// Earthquake: cracks race out to the radius, then everyone standing on the
+// ground inside is knocked down (level 1: staggered). Jumping dodges it.
+// Ignores the guard (it comes from below).
+static const int shinobiQuakeRadius[3] = { 220, 340, 480 };
+static const int shinobiQuakeWindup[3] = { 500, 600, 750 };  // cracks spreading before the strike
+static const int shinobiQuakeDamage[3] = { 15, 30, 45 };
+#define SHINOBI_QUAKE_COOLDOWN     5000
+#define SHINOBI_QUAKE_LINGER       900   // dust after the strike
+
+// Wind Wall: a standing wall of wind in front of the caster. Projectiles
+// flying into its face are thrown back at whoever threw them (they become
+// the caster's); a fireball grows a level on the way back.
+static const int shinobiWindWallLife[3]  = { 2000, 3000, 4000 };
+static const int shinobiWindWallHalfW[3] = { 80, 100, 120 };
+#define SHINOBI_WINDWALL_DISTANCE  64
+#define SHINOBI_WINDWALL_HEIGHT    140
+#define SHINOBI_WINDWALL_DEPTH     28    // how thick the catching zone is
+#define SHINOBI_WINDWALL_COOLDOWN  6000
 #define SHINOBI_WALL_MAX_PILLARS   7
 static const int shinobiWallPillars[3]   = {   3,   5,   7 };      // width
 static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by the whole wall (Lv1 Rasengan = 70% of Lv2)
@@ -452,8 +488,14 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 // Shift + attack: chakra flows into fists, kicks and the blade (5 chakra a hit)
 // with the nature of your main school: fire burns, water soaks, wind cuts
 // deeper, earth hits harder, lightning jolts, Yin/Yang just hits harder.
-#define SHINOBI_INFUSE_COST        5
-#define SHINOBI_INFUSE_WINDOW_MS   450
+#define SHINOBI_EDGE_MS            15000 // Wind / Lightning Edge duration
+#define SHINOBI_EDGE_FX_MS         220
+#define SHINOBI_WINDSLASH_REACH    140   // air slashes fly this far
+#define SHINOBI_WINDSLASH_DAMAGE_SABER 14
+#define SHINOBI_WINDSLASH_DAMAGE_FIST  7
+#define SHINOBI_WINDSLASH_MS       350   // at most one slash this often
+#define SHINOBI_RAIEDGE_BONUS      120   // % damage
+#define SHINOBI_RAIEDGE_STONE      3     // x against stone
 
 // After any hard crowd control ends, a short immunity to the next one
 #define SHINOBI_CC_IMMUNE_MS       2500
@@ -468,6 +510,9 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 #define SHINOBI_STAT_TIRED         32    // after the Gates: slow, no chakra regen
 #define SHINOBI_STAT_STAGGER       64    // guard broken / parried: reeling, helpless
 #define SHINOBI_STAT_CURSEWEAK     128   // Curse Seal stirs but the body is too weak (health <= 10)
+#define SHINOBI_STAT_WINDEDGE      256   // Wind Edge on the hands / blade
+#define SHINOBI_STAT_RAIEDGE       512   // Lightning Edge on the hands / blade
+#define SHINOBI_STAT_SKYSTEP       1024  // Sky Step in the build: cheap jumps
 
 // eye techniques, shown to everyone (the two spare eFlags2 bits)
 #define SHINOBI_EF2_SHARINGAN      (1<<8)
@@ -534,6 +579,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_ENT_SHADOW         227  // shadow bind; origin = caster's feet, s.angles2 = tip on the floor
 #define SHINOBI_ENT_KUNAI          228  // plain kunai (drawn from its model)
 #define SHINOBI_ENT_KUNAI_MARKED   229  // marked kunai: model + seal glow
+#define SHINOBI_ENT_QUAKE          230  // earthquake; s.angles2[0] = radius, s.time = cast, s.time2 = strike
+#define SHINOBI_ENT_WINDWALL       231  // wind wall; origin = bottom centre, s.angles2 = yaw, half width; s.time2 = end
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
@@ -571,6 +618,8 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_FLAME           "shinobi/fire_breath"
 #define SHINOBI_FX_ASH             "shinobi/ash"
 #define SHINOBI_FX_MIST            "shinobi/mist"
+#define SHINOBI_FX_QUAKE_DUST      "shinobi/quake_dust"
+#define SHINOBI_FX_WIND_EDGE       "shinobi/wind_edge"
 #define SHINOBI_FX_HIRAISHIN       "shinobi/hiraishin"
 #define SHINOBI_FX_GATES           "shinobi/gates_aura"
 
@@ -621,6 +670,11 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Hiraishin
 	SS_RAITON,  // Lightning Trap
 	SS_SUITON,  // Hidden Mist
+	SS_DOTON,   // Earthquake
+	SS_FUTON,   // Wind Wall
+	SS_FUTON,   // Sky Step
+	SS_FUTON,   // Wind Edge
+	SS_RAITON,  // Lightning Edge
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -691,7 +745,12 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"a water clone (30 s) that fights and uses the next water jutsu in your list (paid by you)",
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
 	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
-	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through"
+	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through",
+	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it; puddles turn to mud. Jump!",
+	"a wall of wind ahead (2-4 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
+	"passive: jumps and wall runs cost half the chakra, no falling damage",
+	"15 s: fists and blade throw air slashes a few metres ahead and cut through guards (not a perfect parry)",
+	"15 s: fists and blade hit 20% harder, 3x against earth walls and other stone"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };

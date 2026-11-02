@@ -10238,12 +10238,12 @@ static void PM_ShinobiWallRun( void )
 	if ( ( legs == BOTH_WALL_RUN_LEFT || legs == BOTH_WALL_RUN_RIGHT )
 		&& ps->legsTimer > 500 && ps->legsTimer <= 620
 		&& pm->cmd.forwardmove > 0
-		&& ps->fd.forcePower >= SHINOBI_WALLRUN_EXTEND_COST
+		&& ps->fd.forcePower >= SHINOBI_WALLRUN_COST( ps )
 		&& PM_ShinobiWallBeside( legs == BOTH_WALL_RUN_RIGHT ? 1.0f : -1.0f ) )
 	{
 		PM_SetAnim( ps->weaponTime ? SETANIM_LEGS : SETANIM_BOTH, legs,
 			SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-		ps->fd.forcePower -= SHINOBI_WALLRUN_EXTEND_COST;
+		ps->fd.forcePower -= SHINOBI_WALLRUN_COST( ps );
 		if ( ps->velocity[2] < 180 )
 		{
 			ps->velocity[2] = 180;
@@ -10255,7 +10255,7 @@ static void PM_ShinobiWallRun( void )
 	if ( ps->groundEntityNum == ENTITYNUM_NONE
 		&& pm->cmd.forwardmove > 0 && pm->cmd.rightmove && pm->cmd.upmove > 0
 		&& !PM_ShinobiInWallRun( legs )
-		&& ps->fd.forcePower >= SHINOBI_WALLRUN_EXTEND_COST )
+		&& ps->fd.forcePower >= SHINOBI_WALLRUN_COST( ps ) )
 	{
 		const float side = pm->cmd.rightmove > 0 ? 1.0f : -1.0f;
 		const int   anim = side > 0 ? BOTH_WALL_RUN_RIGHT : BOTH_WALL_RUN_LEFT;
@@ -10264,7 +10264,7 @@ static void PM_ShinobiWallRun( void )
 		{
 			return;
 		}
-		ps->fd.forcePower -= SHINOBI_WALLRUN_EXTEND_COST;
+		ps->fd.forcePower -= SHINOBI_WALLRUN_COST( ps );
 		if ( ps->velocity[2] < 300 )
 		{
 			ps->velocity[2] = 300;

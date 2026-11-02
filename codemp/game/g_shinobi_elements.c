@@ -600,3 +600,133 @@ qboolean Shinobi_PushWall( gentity_t *ent ) {
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallRise );
 	return qtrue;
 }
+
+/*
+===========================================================================
+Earthquake (Doton): the charge decides the radius. Cracks race out to it,
+then the ground heaves: everyone standing on it is knocked down (level 1:
+staggered) and hurt; puddles turn to mud. Anyone in the air is spared.
+===========================================================================
+*/
+static void Shinobi_QuakeStrike( gentity_t *q ) {
+	gentity_t *owner = &g_entities[q->r.ownerNum];
+	const int  li = q->count > 0 ? q->count - 1 : 0;
+	const float R = q->s.angles2[0];
+	vec3_t     center, up = { 0, 0, 1 };
+	int        i;
+
+	VectorCopy( q->r.currentOrigin, center );
+	if ( !owner->inuse || !owner->client )
+		owner = q;
+
+	Shinobi_EarthOnWater( center, R );
+	G_PlayEffectID( shinobiMedia.fxWallRise, center, up );
+	for ( i = 0; i < 8; i++ ) {
+		const float a = DEG2RAD( i * 45.0f + 22.5f );
+		vec3_t p, floor;
+		VectorSet( p, center[0] + cosf( a ) * R * 0.65f, center[1] + sinf( a ) * R * 0.65f, center[2] + 32 );
+		if ( Shinobi_FloorBelow( p, 96, floor ) )
+			G_PlayEffectID( shinobiMedia.fxWallRise, floor, up );
+	}
+	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndWallBreak );
+	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndWallRise );
+
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+
+		if ( !v->inuse || !v->client || !v->takedamage || v->health <= 0 || v == owner )
+			continue;
+		if ( v->s.number < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )
+			continue;
+		if ( v->shinobiCloneOwner && v->shinobiCloneOwner == owner->s.number + 1 )
+			continue; // our own clones keep their feet
+		if ( level.gametype >= GT_TEAM && owner->client && OnSameTeam( owner, v ) )
+			continue;
+		if ( v->client->ps.groundEntityNum == ENTITYNUM_NONE )
+			continue; // in the air: it passes under
+		VectorSubtract( v->r.currentOrigin, center, d );
+		if ( d[2] < -48 || d[2] > 96 )
+			continue;
+		d[2] = 0;
+		dist = VectorLength( d );
+		if ( dist > R )
+			continue;
+
+		shinobiHitElement = SE_EARTH;
+		shinobiJutsuDamage = 1;
+		G_Damage( v, q, owner, up, v->r.currentOrigin, shinobiQuakeDamage[li], DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
+		shinobiJutsuDamage = 0;
+		shinobiHitElement = SE_NONE;
+		if ( !v->inuse || v->health <= 0 || !v->client )
+			continue;
+		v->client->ps.velocity[2] += 120; // the ground jumps
+		if ( Shinobi_CCImmune( v ) )
+			continue;
+		if ( li == 0 && v->s.number < MAX_CLIENTS ) {
+			Shinobi_Stagger( v, 700 );
+			Shinobi_CCGrant( v, level.time + 700 );
+		}
+		else {
+			G_Knockdown( v );
+			Shinobi_CCGrant( v, level.time + 1500 );
+		}
+	}
+}
+
+static void Shinobi_QuakeThink( gentity_t *q ) {
+	if ( level.time >= q->s.time2 + SHINOBI_QUAKE_LINGER ) {
+		G_FreeEntity( q );
+		return;
+	}
+	if ( !q->genericValue1 && level.time >= q->s.time2 ) {
+		q->genericValue1 = 1;
+		Shinobi_QuakeStrike( q );
+	}
+	q->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_CastQuake( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	gentity_t *q;
+	vec3_t     floor;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	if ( client->shinobi.quakeNext > level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Earthquake ready in %.1f s\"",
+			( client->shinobi.quakeNext - level.time ) / 1000.0f ) );
+		return qfalse;
+	}
+	if ( client->ps.groundEntityNum == ENTITYNUM_NONE || !Shinobi_FloorBelow( ent->r.currentOrigin, 64, floor ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"Earthquake: stand on the ground\"" );
+		return qfalse;
+	}
+	q = G_Spawn();
+	if ( !q )
+		return qfalse;
+	q->classname = "shinobi_quake";
+	q->s.eType = ET_GENERAL;
+	q->s.generic1 = SHINOBI_ENT_QUAKE;
+	q->s.angles2[0] = (float)shinobiQuakeRadius[lvl - 1];
+	q->s.time = level.time;
+	q->s.time2 = level.time + shinobiQuakeWindup[lvl - 1];
+	q->count = lvl;
+	q->r.ownerNum = ent->s.number;
+	q->r.contents = 0;
+	q->r.svFlags |= SVF_BROADCAST;
+	G_SetOrigin( q, floor );
+	q->think = Shinobi_QuakeThink;
+	q->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)q );
+
+	client->shinobi.quakeNext = level.time + SHINOBI_QUAKE_COOLDOWN;
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 600;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallRise );
+	return qtrue;
+}

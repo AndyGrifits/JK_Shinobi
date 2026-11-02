@@ -432,6 +432,11 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_FLAME:    cast = Shinobi_CastFlame( ent ); break;
 	case SJ_ASH:      cast = Shinobi_CastAsh( ent, lvl ); break;
 	case SJ_MIST:     cast = Shinobi_CastMist( ent, lvl ); break;
+	case SJ_QUAKE:    cast = Shinobi_CastQuake( ent, lvl ); break;
+	case SJ_WINDWALL: cast = Shinobi_CastWindWall( ent, lvl ); break;
+	case SJ_WINDEDGE: cast = Shinobi_CastEdge( ent, SS_FUTON ); break;
+	case SJ_RAIEDGE:  cast = Shinobi_CastEdge( ent, SS_RAITON ); break;
+	case SJ_SKYSTEP:  trap->SendServerCommand( ent - g_entities, "cp \"Sky Step is passive\"" ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
 	case SJ_HIRAISHIN: cast = Shinobi_CastHiraishin( ent ); break;
@@ -477,6 +482,8 @@ void Cmd_WindBlade_f( gentity_t *ent )   { Shinobi_CastCommand( ent, SJ_BLADE );
 void Cmd_Flame_f( gentity_t *ent )       { Shinobi_CastCommand( ent, SJ_FLAME ); }
 void Cmd_Ash_f( gentity_t *ent )         { Shinobi_CastCommand( ent, SJ_ASH ); }
 void Cmd_Kirigakure_f( gentity_t *ent )  { Shinobi_CastCommand( ent, SJ_MIST ); }
+void Cmd_Jishin_f( gentity_t *ent )      { Shinobi_CastCommand( ent, SJ_QUAKE ); }
+void Cmd_Kazekabe_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_WINDWALL ); }
 void Cmd_Kagemane_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_SHADOW ); }
 void Cmd_MizuBunshin_f( gentity_t *ent ) { Shinobi_CastCommand( ent, SJ_WATERCLONE ); }
 void Cmd_PushWall_f( gentity_t *ent ) {

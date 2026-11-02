@@ -335,66 +335,112 @@ qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
 
 /*
 ===========================================================================
-Shift + attack: chakra in the weapon
+Wind Edge (Futon) / Lightning Edge (Raiton): chakra on the fists and blade
+for a while. Wind: every swing throws an air slash a few metres ahead, and
+the hits cut through guards (a perfect parry still stops them). Lightning:
+hits 20% harder, 3x against earth walls and other stone.
 ===========================================================================
 */
+extern qboolean BG_SaberInAttack( int move );
+
+qboolean Shinobi_WindEdgeActive( gentity_t *ent ) {
+	return ent && ent->client && ent->s.number < MAX_CLIENTS && ent->client->shinobi.infuseType == SS_FUTON
+		&& ent->client->shinobi.infuseUntil > level.time;
+}
+
+qboolean Shinobi_CastEdge( gentity_t *ent, int school ) {
+	gclient_t *client = ent->client;
+
+	client->shinobi.infuseType = school;
+	client->shinobi.infuseUntil = level.time + SHINOBI_EDGE_MS;
+	client->shinobi.edgeFx = level.time;
+	G_Sound( ent, CHAN_AUTO, school == SS_FUTON ? shinobiMedia.sndWind : shinobiMedia.sndChidoriForm );
+	trap->SendServerCommand( ent - g_entities, va( "cp \"%s (%i s)\"",
+		school == SS_FUTON ? "^5Wind Edge" : "^4Lightning Edge", SHINOBI_EDGE_MS / 1000 ) );
+	return qtrue;
+}
+
+// a swing with the Wind Edge: an air slash a few metres past the fist / blade
+static void Shinobi_WindSlash( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	const qboolean saber = client->ps.weapon == WP_SABER;
+	vec3_t     fwd, eye, start, end, fxOrg, mins = { -12, -12, -12 }, maxs = { 12, 12, 12 };
+	trace_t    tr;
+
+	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight - 8;
+	VectorMA( eye, 36, fwd, start ); // past the reach of the hit itself
+	VectorMA( eye, SHINOBI_WINDSLASH_REACH, fwd, end );
+	trap->Trace( &tr, start, mins, maxs, end, ent->s.number, MASK_SHOT, qfalse, 0, 0 );
+	if ( tr.entityNum < ENTITYNUM_WORLD ) {
+		gentity_t *other = &g_entities[tr.entityNum];
+		if ( other->takedamage && other != ent ) {
+			G_Damage( other, ent, ent, fwd, tr.endpos,
+				saber ? SHINOBI_WINDSLASH_DAMAGE_SABER : SHINOBI_WINDSLASH_DAMAGE_FIST, DAMAGE_NO_KNOCKBACK,
+				saber ? MOD_SABER : MOD_MELEE );
+		}
+	}
+	VectorMA( eye, 60, fwd, fxOrg );
+	Shinobi_EffectDir( shinobiMedia.fxWindGust[0], fxOrg, fwd );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+}
+
 void Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd ) {
-	if ( SHINOBI_MODIFIER( ucmd ) && ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK ) )
-		&& !SHINOBI_HAND_ANY( &ent->client->ps ) )
-		ent->client->shinobi.infuseUntil = level.time + SHINOBI_INFUSE_WINDOW_MS;
+	gclient_t *client = ent->client;
+	const qboolean on = client->shinobi.infuseUntil > level.time && client->shinobi.infuseType;
+
+	client->ps.stats[STAT_SHINOBI] &= ~( SHINOBI_STAT_WINDEDGE | SHINOBI_STAT_RAIEDGE );
+	if ( !on ) {
+		client->shinobi.infuseType = 0;
+		return;
+	}
+	client->ps.stats[STAT_SHINOBI] |= client->shinobi.infuseType == SS_FUTON ? SHINOBI_STAT_WINDEDGE : SHINOBI_STAT_RAIEDGE;
+
+	// chakra licking the hands / blade, for everyone to see
+	if ( client->shinobi.edgeFx <= level.time ) {
+		vec3_t yaw, fwd, right, org, up = { 0, 0, 1 };
+		client->shinobi.edgeFx = level.time + SHINOBI_EDGE_FX_MS;
+		VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+		AngleVectors( yaw, fwd, right, NULL );
+		VectorMA( client->ps.origin, 14, fwd, org );
+		VectorMA( org, 8, right, org );
+		org[2] += 6;
+		G_PlayEffectID( client->shinobi.infuseType == SS_FUTON ? shinobiMedia.fxWindEdge : shinobiMedia.fxRaiEdge, org, up );
+	}
+
+	if ( client->shinobi.infuseType == SS_FUTON && !client->shinobi.blocking
+		&& ( client->ps.weapon == WP_MELEE || ( client->ps.weapon == WP_SABER && !client->ps.saberHolstered ) ) ) {
+		const qboolean pressed = ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK ) )
+			&& !( client->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK ) );
+		const qboolean newSwing = client->ps.weapon == WP_SABER && BG_SaberInAttack( client->ps.saberMove )
+			&& client->ps.saberMove != client->shinobi.lastSaberMove;
+		if ( ( pressed || newSwing ) && client->shinobi.slashNext <= level.time ) {
+			client->shinobi.slashNext = level.time + SHINOBI_WINDSLASH_MS;
+			Shinobi_WindSlash( ent );
+		}
+	}
+	client->shinobi.lastSaberMove = client->ps.saberMove;
 }
 
 // called from Shinobi_BuildDamage for a fist, kick or blade hit
 int Shinobi_InfuseHit( gentity_t *targ, gentity_t *attacker, int damage ) {
 	gclient_t *ac = attacker->client;
-	vec3_t     up = { 0, 0, 1 }, dir;
 
-	if ( ac->shinobi.infuseUntil <= level.time || ac->ps.fd.forcePower < SHINOBI_INFUSE_COST || !targ || targ == attacker )
+	if ( ac->shinobi.infuseUntil <= level.time || ac->shinobi.infuseType != SS_RAITON || !targ || targ == attacker )
 		return damage;
-	ac->ps.fd.forcePower -= SHINOBI_INFUSE_COST;
-
-	VectorSubtract( targ->r.currentOrigin, attacker->r.currentOrigin, dir );
-	dir[2] = 0;
-	VectorNormalize( dir );
-
-	switch ( Shinobi_BuildElement( &ac->pers.shinobiBuild ) ) {
-	case SS_KATON:
-		Shinobi_Ignite( targ, attacker->s.number + 1 );
-		G_PlayEffectID( fxFireBody, targ->r.currentOrigin, up );
-		break;
-	case SS_SUITON:
-		Shinobi_Wet( targ );
-		damage = damage * 115 / 100;
-		Shinobi_EffectDir( shinobiMedia.fxWaterSplash[0], targ->r.currentOrigin, dir );
-		break;
-	case SS_FUTON:
-		damage = damage * 140 / 100; // a blade of wind on the edge
-		Shinobi_EffectDir( shinobiMedia.fxWindGust[0], targ->r.currentOrigin, dir );
-		break;
-	case SS_DOTON:
-		damage = damage * 120 / 100;
-		if ( targ->client ) { // heavy as a rock: knocked back
-			VectorMA( targ->client->ps.velocity, 350, dir, targ->client->ps.velocity );
-			targ->client->ps.velocity[2] += 120;
-			targ->client->ps.groundEntityNum = ENTITYNUM_NONE;
-		}
-		G_PlayEffectID( shinobiMedia.fxWallBreak, targ->r.currentOrigin, up );
-		break;
-	case SS_RAITON:
-		if ( targ->client && targ->s.number < MAX_CLIENTS && !Shinobi_CCImmune( targ ) ) {
-			targ->client->ps.electrifyTime = level.time + 300;
-			if ( targ->client->ps.weaponTime < 300 )
-				targ->client->ps.weaponTime = 300;
-			Shinobi_CCGrant( targ, level.time + 300 );
-		}
-		if ( targ->classname && !strcmp( targ->classname, "shinobi_earthwall" ) )
-			damage *= 2; // lightning cuts through earth
-		Shinobi_EffectDir( shinobiMedia.fxChidoriHit[0], targ->r.currentOrigin, dir );
-		break;
-	default:
-		damage = damage * 125 / 100;
-		Shinobi_EffectDir( shinobiMedia.fxRasenganHit[0], targ->r.currentOrigin, dir );
-		break;
-	}
+	damage = damage * SHINOBI_RAIEDGE_BONUS / 100;
+	if ( targ->classname && !strcmp( targ->classname, "shinobi_earthwall" ) )
+		damage *= SHINOBI_RAIEDGE_STONE; // lightning cuts through stone
 	return damage;
+}
+
+// thrown back by a Wind Wall: it becomes newOwner's plain kunai (a mark doesn't survive the wind)
+void Shinobi_KunaiReflect( gentity_t *k, gentity_t *newOwner ) {
+	KUNAI_MARKED( k ) = 0;
+	KUNAI_ON( k ) = 0;
+	KUNAI_EXPIRE( k ) = level.time + 3000;
+	k->s.generic1 = SHINOBI_ENT_KUNAI;
+	k->r.ownerNum = newOwner->s.number;
+	k->parent = newOwner;
 }

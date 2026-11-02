@@ -373,6 +373,12 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 
 	Shinobi_CurseThink( ent );
 
+	// Sky Step (passive): cheap jumps and wall runs (read by pmove)
+	if ( Shinobi_BuildHas( &client->pers.shinobiBuild, SJ_SKYSTEP ) )
+		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_SKYSTEP;
+	else
+		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_SKYSTEP;
+
 	// --- Sharingan / Byakugan ---
 	if ( client->shinobi.eyes && ( !alive || client->shinobi.eyes != perk ) )
 		Shinobi_EyesOff( ent, NULL );

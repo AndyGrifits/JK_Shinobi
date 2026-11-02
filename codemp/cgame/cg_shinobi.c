@@ -39,7 +39,7 @@ static struct {
 
 // loose-particle effects for elements (one-shots come from the server)
 static struct {
-	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash, mist;
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash, mist, quakeDust;
 } shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
@@ -155,6 +155,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.flame      = CG_ShinobiRegisterFx( SHINOBI_FX_FLAME );
 	shinobiFx.ash        = CG_ShinobiRegisterFx( SHINOBI_FX_ASH );
 	shinobiFx.mist       = CG_ShinobiRegisterFx( SHINOBI_FX_MIST );
+	shinobiFx.quakeDust  = CG_ShinobiRegisterFx( SHINOBI_FX_QUAKE_DUST );
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
 	shinobiShaders.fogScreen  = trap->R_RegisterShader( "gfx/shinobi/fogscreen" );
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
@@ -231,6 +232,8 @@ void CG_ShinobiCastDown_f( void ) {
 		return;
 	if ( shinobiSel.index >= b->numJutsu )
 		shinobiSel.index = 0;
+	if ( SHINOBI_JUTSU_PASSIVE( b->jutsu[shinobiSel.index] ) )
+		return; // works by itself
 	CG_ShinobiJutsuDown( b->jutsu[shinobiSel.index] );
 }
 
@@ -249,10 +252,16 @@ void CG_ShinobiCastUp_f( void ) {
 }
 
 static void CG_ShinobiSelect( int step ) {
-	const int n = CG_ShinobiBuild()->numJutsu;
+	const shinobiBuild_t *b = CG_ShinobiBuild();
+	const int n = b->numJutsu;
+	int tries;
 	if ( !n )
 		return;
-	shinobiSel.index = ( shinobiSel.index + step + n ) % n;
+	for ( tries = 0; tries < n; tries++ ) { // passives are skipped
+		shinobiSel.index = ( shinobiSel.index + step + n ) % n;
+		if ( !SHINOBI_JUTSU_PASSIVE( b->jutsu[shinobiSel.index] ) )
+			break;
+	}
 	shinobiSel.changeTime = cg.time;
 	trap->S_StartLocalSound( cgs.media.selectSound, CHAN_LOCAL_SOUND );
 }
@@ -831,6 +840,96 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	}
 }
 
+/*
+Earthquake: a faint circle shows the whole area at once; cracks (a ring of
+dust) race out to it; then the ground heaves, the camera shakes for those
+standing in it, and the dust settles.
+*/
+static void CG_ShinobiQuake( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const float    R = s->angles2[0];
+	const int      t0 = s->time, t1 = s->time2;
+	vec3_t         up = { 0, 0, 1 }, p;
+
+	if ( R <= 0 || t1 <= t0 )
+		return;
+	if ( cg.time < t1 ) {
+		const float f = Com_Clamp( 0.05f, 1, (float)( cg.time - t0 ) / ( t1 - t0 ) );
+		CG_ShinobiGroundDecal( cent->lerpOrigin, R, 0, shinobiShaders.ring, 0.35f, 0.25f, 0.12f, 0.5f );       // the area
+		CG_ShinobiGroundDecal( cent->lerpOrigin, R * f, cg.time * 0.05f, shinobiShaders.ring, 0.8f, 0.55f, 0.25f, 1.0f ); // the cracks
+		CG_ShinobiGroundDecal( cent->lerpOrigin, R * f, 0, shinobiShaders.mud, 0.7f, 0.6f, 0.5f, 0.6f * f );
+		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+			const float a = flrand( 0, 2 * M_PI );
+			VectorSet( p, cent->lerpOrigin[0] + cosf( a ) * R * f, cent->lerpOrigin[1] + sinf( a ) * R * f, cent->lerpOrigin[2] + 4 );
+			trap->FX_PlayEffectID( shinobiFx.quakeDust, p, up, -1, -1, qfalse );
+			cent->shinobiHandFxTime = cg.time + 25;
+		}
+		return;
+	}
+	{ // the strike: cracked ground fading, dust settling
+		const float fade = Com_Clamp( 0, 1, 1.0f - (float)( cg.time - t1 ) / SHINOBI_QUAKE_LINGER );
+		CG_ShinobiGroundDecal( cent->lerpOrigin, R, 0, shinobiShaders.mud, 0.75f, 0.65f, 0.55f, 0.8f * fade );
+		if ( cent->shinobiAuraFxTime != t1 ) { // once: shake whoever stands in it
+			vec3_t d;
+			cent->shinobiAuraFxTime = t1;
+			VectorSubtract( cg.predictedPlayerState.origin, cent->lerpOrigin, d );
+			if ( fabs( d[2] ) < 160 ) {
+				d[2] = 0;
+				if ( VectorLength( d ) < R * 1.4f )
+					CGCam_Shake( 2.0f + 4.0f * R / 480.0f, 700 );
+			}
+		}
+		if ( fade > 0.4f && ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) ) {
+			const float a = flrand( 0, 2 * M_PI ), r = flrand( 0, R );
+			VectorSet( p, cent->lerpOrigin[0] + cosf( a ) * r, cent->lerpOrigin[1] + sinf( a ) * r, cent->lerpOrigin[2] + 4 );
+			trap->FX_PlayEffectID( shinobiFx.quakeDust, p, up, -1, -1, qfalse );
+			cent->shinobiHandFxTime = cg.time + 20;
+		}
+	}
+}
+
+/*
+Wind Wall: pale swirls and rising streaks of air standing across the caster's front.
+*/
+static void CG_ShinobiWindWall( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const float    halfW = s->angles2[1];
+	const float    life = (float)( s->time2 - s->time );
+	const float    fadeIn = Com_Clamp( 0, 1, ( cg.time - s->time ) / 200.0f );
+	const float    fadeOut = Com_Clamp( 0, 1, ( s->time2 - cg.time ) / 300.0f );
+	const float    a = fadeIn * fadeOut;
+	const float    t = cg.time * 0.001f;
+	vec3_t         yaw, fwd, right, p, q, haze = { 0.75f, 0.9f, 0.95f };
+	int            k;
+
+	if ( halfW <= 0 || life <= 0 || a <= 0 )
+		return;
+	VectorSet( yaw, 0, s->angles2[0], 0 );
+	AngleVectors( yaw, fwd, right, NULL );
+
+	for ( k = 0; k <= 6; k++ ) {
+		const float along = -halfW + 2 * halfW * k / 6.0f;
+		int h;
+		for ( h = 0; h < 3; h++ ) {
+			VectorMA( cent->lerpOrigin, along, right, p );
+			p[2] += 24 + 46 * h + 6 * sinf( t * 5 + k + h );
+			CG_ShinobiSpriteA( p, 34, t * ( ( k + h ) & 1 ? 300 : -300 ) + k * 40, shinobiShaders.swirl,
+				haze[0], haze[1], haze[2], 0.22f * a );
+		}
+	}
+	// streaks of air racing up the wall
+	for ( k = 0; k < 5; k++ ) {
+		const float ph = fmodf( t * 1.6f + k * 0.37f, 1.0f );
+		const float along = -halfW + 2 * halfW * fmodf( k * 0.618f + t * 0.3f, 1.0f );
+		VectorMA( cent->lerpOrigin, along, right, p );
+		p[2] += SHINOBI_WINDWALL_HEIGHT * ph;
+		VectorCopy( p, q );
+		q[2] += 30;
+		trap->FX_AddLine( p, q, 3.0f, 1.0f, 0.0f, 0.5f * a, 0.0f, 0.0f, haze, haze, 0.0f, 50,
+			shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
+}
+
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -860,6 +959,14 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_SHADOW ) {
 		CG_ShinobiShadow( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_QUAKE ) {
+		CG_ShinobiQuake( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_WINDWALL ) {
+		CG_ShinobiWindWall( cent );
 		return qtrue;
 	}
 	if ( s->generic1 >= SHINOBI_ENT_BLADE && s->generic1 < SHINOBI_ENT_BLADE + SHINOBI_MAX_LEVEL ) {
@@ -977,7 +1084,7 @@ static void CG_ShinobiDrawJutsuList( void ) {
 		const int    j = b->jutsu[i];
 		const char  *title = shinobiJutsuTitles[j];
 		const float  w = CG_Text_Width( title, scale, FONT_MEDIUM );
-		const qboolean selected = ( i == shinobiSel.index );
+		const qboolean selected = ( i == shinobiSel.index ) && !SHINOBI_JUTSU_PASSIVE( j );
 		const qboolean affordable = chakra >= Shinobi_JutsuCost( j, 1 );
 		vec4_t       color;
 
@@ -994,6 +1101,10 @@ static void CG_ShinobiDrawJutsuList( void ) {
 		if ( !affordable ) {
 			color[1] *= 0.5f;
 			color[2] *= 0.5f;
+		}
+		if ( SHINOBI_JUTSU_PASSIVE( j ) ) { // always on: a dim green
+			VectorSet( color, 0.5f, 0.8f, 0.55f );
+			color[3] = 0.5f;
 		}
 		CG_Text_Paint( x, y, scale, color, title, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 		x += w + gap;
@@ -1294,17 +1405,6 @@ void CG_ShinobiDrawHUD( void ) {
 
 	CG_ShinobiDrawJutsuList();
 
-	{ // Shift held with fists or the blade: which nature the next hit carries
-		usercmd_t cmd;
-		if ( ( ps->weapon == WP_MELEE || ps->weapon == WP_SABER )
-			&& trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd ) ) {
-			static const char * const nature[SS_COUNT] = { "chakra", "fire", "water", "wind", "earth", "lightning", "chakra" };
-			const char  *label = va( "Shift+attack: %s (%i chakra)", nature[Shinobi_BuildElement( CG_ShinobiBuild() )], SHINOBI_INFUSE_COST );
-			const float  w = CG_Text_Width( label, 0.45f, FONT_MEDIUM );
-			vec4_t       c = { 0.9f, 0.85f, 0.5f, 0.85f };
-			CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 262, 0.45f, c, label, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
-		}
-	}
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
 		CG_ShinobiDrawChargeBars();
@@ -1370,6 +1470,16 @@ void CG_ShinobiDrawHUD( void ) {
 	else if ( SHINOBI_HAND_ARMED( ps ) ) {
 		text = va( "%s Lv %i - ATTACK!", chidori ? "CHIDORI" : "RASENGAN", SHINOBI_HAND_LEVEL( ps ) );
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.012f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_WINDEDGE ) {
+		text = "Wind Edge - slashes fly ahead, cut through guards";
+		VectorSet( color, 0.6f, 0.9f, 0.9f );
+		color[3] = 0.7f;
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_RAIEDGE ) {
+		text = "Lightning Edge - hits 20% harder, 3x on stone";
+		VectorSet( color, 0.6f, 0.75f, 1.0f );
+		color[3] = 0.7f;
 	}
 
 	if ( text ) {

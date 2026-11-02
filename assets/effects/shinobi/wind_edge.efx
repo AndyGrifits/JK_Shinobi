@@ -1,0 +1,34 @@
+repeatDelay				0
+
+// Wind Edge: thin pale wisps of air peeling off the hands / blade.
+
+Particle
+{
+	name				wisps
+	count				2 3
+	life				200 350
+	rotation			0 360
+	rotationDelta		-20 20
+	spawnFlags			orgOnSphere
+	radius				4 12
+	vel					-30 -30 20 30 30 80
+	size
+	{
+		start			6 10
+		end				14 20
+	}
+	rgb
+	{
+		start			0.55 0.75 0.8
+		end				0.2 0.3 0.35
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/swirl
+	]
+}
