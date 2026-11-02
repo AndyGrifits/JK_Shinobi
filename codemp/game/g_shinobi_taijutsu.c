@@ -100,16 +100,6 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 	}
 }
 
-// a combo kick that only does damage: the stock kick knockdown is skipped
-// (only the kick and the sweep finishers knock down)
-qboolean Shinobi_ComboPlainKick( gentity_t *ent ) {
-	int kind;
-	if ( !ent->client || ent->s.number >= MAX_CLIENTS || ent->client->ps.weapon != WP_MELEE )
-		return qfalse;
-	kind = SHINOBI_COMBO_KIND( &ent->client->ps );
-	return ( kind != SCK_KICK && kind != SCK_SWEEP ) ? qtrue : qfalse;
-}
-
 // every client frame, before Pmove
 void Shinobi_TaijutsuThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;

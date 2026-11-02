@@ -7620,10 +7620,6 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 				//	G_ThrownDeathAnimForDeathAnim( hitEnt, trace.endpos );
 					G_TossTheMofo(hitEnt, kickDir, kickPush*4.0f);
 				}
-				else if ( Shinobi_ComboPlainKick( ent ) )
-				{ // JK_Shinobi: a combo hit that is just damage
-					Shinobi_ComboHit( ent, hitEnt );
-				}
 				else
 				{
 					/*
