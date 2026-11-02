@@ -156,6 +156,25 @@ gfx/shinobi/mud
 	}
 }
 
+// a frozen puddle (SZ_ICE decal): frost plus a moving glint
+gfx/shinobi/ice
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/ice
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+	{
+		map gfx/shinobi/ice
+		blendFunc GL_ONE GL_ONE
+		rgbGen wave sin 0.15 0.08 0 0.4
+		tcGen environment
+	}
+}
+
 // loose earth left by Doton (SZ_DUST decal)
 gfx/shinobi/sand
 {

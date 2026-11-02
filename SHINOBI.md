@@ -22,6 +22,25 @@ rigid on the `cranium` bone (bolt now x inverse bind pose from `_humanoid.gla`, 
 axis/scale fix between the gla's and the glm's frames - see `Shinobi_AccPlace`). Export a
 .glm and convert: `python3 tools/glm2acc.py model.glm texture.png <name>`.
 
+## Wind and water: ice (not canon, but fun)
+
+- The wind freezes puddles: a Wind Wall freezes those on it and a little before / behind
+  it, Storm Wind those in its cone. Ice (12 s) is slippery (no friction, little control);
+  fire on it melts it back to water.
+- Your own water bullets flying out through your own Wind Wall freeze into icicles:
+  x1.3 speed, x1.6 damage, no soaking, they shatter instead of leaving a puddle.
+- Your own fireball flying out through your own Wind Wall grows twice as big (hitbox and
+  look; the blast stays the same).
+- Enemy projectiles are still thrown back at whoever threw them.
+
+## Item models
+
+The kunai, explosive kunai, explosive tag, fuma shuriken and the healing / chakra pills
+are the artist's models (OBJ from Blender, converted with
+`tools/glm2acc.py <model.obj> - <name> --out assets/models/shinobi --game-dir models/shinobi`
+plus `--fit` / `--center` / `--turn` / `--zscale`; each .obj material keeps its own
+texture). Sizes: kunai 28, explosive kunai 40, shuriken 48 (x4 thicker), tag 12, pills 10.
+
 ## Dust and mud
 
 Doton leaves loose earth (a sandy patch, 20 s): the Earthquake over its whole area,

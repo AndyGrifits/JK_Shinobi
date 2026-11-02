@@ -11172,6 +11172,8 @@ void PmoveSingle (pmove_t *pmove) {
 
 	// set groundentity
 	PM_GroundTrace();
+	if ( pm->ps->clientNum < MAX_CLIENTS && ( pm->ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ICE ) )
+		pml.groundTrace.surfaceFlags |= SURF_SLICK; // JK_Shinobi: frozen puddle
 	if ( pm_flying == FLY_HOVER )
 	{//never stick to the ground
 		PM_HoverTrace();
@@ -11417,6 +11419,8 @@ void PmoveSingle (pmove_t *pmove) {
 
 	// set groundentity, watertype, and waterlevel
 	PM_GroundTrace();
+	if ( pm->ps->clientNum < MAX_CLIENTS && ( pm->ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ICE ) )
+		pml.groundTrace.surfaceFlags |= SURF_SLICK; // JK_Shinobi: frozen puddle
 	if ( pm_flying == FLY_HOVER )
 	{//never stick to the ground
 		PM_HoverTrace();

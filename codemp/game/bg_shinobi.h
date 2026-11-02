@@ -431,6 +431,7 @@ typedef enum {
 	SZ_ASH,       // ash cloud: blinds, chokes; any fire makes it explode
 	SZ_MIST,      // hidden mist: thick fog, puts out fire, only shapes show
 	SZ_DUST,      // loose earth and sand left by Doton; water on it (or it on water) makes mud
+	SZ_ICE,       // a puddle frozen by the wind: slippery; fire melts it back to water
 	SZ_COUNT
 } shinobiZone_t;
 
@@ -447,6 +448,14 @@ static const int shinobiFireZoneLife[3]   = {   0, 5000, 7000 };
 #define SHINOBI_STEAM_MS           4000
 #define SHINOBI_MUD_MS             12000
 #define SHINOBI_DUST_MS            20000
+#define SHINOBI_ICE_MS             12000
+// Wind + water = ice (not canon, but fun): the wind (Wind Wall, Storm Wind)
+// freezes puddles; your own water bullets through your own Wind Wall freeze
+// into icicles (harder, faster, no soaking); your own fireball through it
+// grows twice as big (the same damage, just a bigger ball)
+#define SHINOBI_ICE_DAMAGE         1.6f
+#define SHINOBI_ICE_SPEED          1.3f
+#define SHINOBI_FIREBALL_WIND_SCALE 200  // %
 #define SHINOBI_BURROW_DUST_STEP   64    // a patch of dust every this many units underground
 #define SHINOBI_BURROW_DUST_RADIUS 56
 #define SHINOBI_MUD_SLOW           0.5f
@@ -662,6 +671,8 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 
 // Extra predicted status bits that only the player himself needs
 #define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
+#define STAT_SHINOBI2              13    // a second one (STAT_SHINOBI is full)
+#define SHINOBI_STAT2_ICE          1     // standing on ice: slides
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed
@@ -754,6 +765,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_ENT_PILLARCAST     232  // rock pillar rumbling; s.time2 = eruption
 #define SHINOBI_ENT_SHADOWPATCH    233  // the dark patch of someone hidden in their shadow
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
+#define SHINOBI_ENT_ICESHARD       207  // 207..209 = a water bullet frozen into an icicle (level 1..3)
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
 

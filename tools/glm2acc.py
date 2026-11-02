@@ -89,11 +89,50 @@ def read_glm(path):
     return surfaces
 
 
+def obj_materials(path):
+    """material name -> texture file (map_Kd), looked up next to the .obj when the
+    path written by the exporter isn't there."""
+    mtl, textures, cur = None, {}, None
+    for line in open(path, encoding="utf-8", errors="replace"):
+        if line.startswith("mtllib"):
+            mtl = os.path.join(os.path.dirname(path), line.split(None, 1)[1].strip())
+            break
+    if not mtl or not os.path.exists(mtl):
+        return textures
+    for line in open(mtl, encoding="utf-8", errors="replace"):
+        p = line.strip().split(None, 1)
+        if not p:
+            continue
+        if p[0] == "newmtl" and len(p) > 1:
+            cur = p[1].strip()
+        elif p[0] == "map_Kd" and len(p) > 1 and cur:
+            tex = p[1].strip()
+            near = os.path.join(os.path.dirname(path), os.path.basename(tex.replace("\\", "/")))
+            textures[cur] = tex if os.path.exists(tex) else near
+    return textures
+
+
+def obj_texture(path):
+    """The first texture the .obj's materials name."""
+    t = list(obj_materials(path).values())
+    return t[0] if t else None
+
+
 def read_obj(path):
-    """A Wavefront .obj (Blender's own exporter, no add-on): one surface, polygons fanned
-    into triangles. OBJ's texture v grows upward, the game's downward: flipped."""
+    """A Wavefront .obj (Blender's own exporter, no add-on): one surface per material
+    (its texture from the .mtl), polygons fanned into triangles. OBJ's texture v grows
+    upward, the game's downward: flipped. Returns [(verts, normals, uvs, tris, texture)]."""
     pos, tex, nor = [], [], []
-    verts, normals, uvs, tris, index = [], [], [], [], {}
+    textures = obj_materials(path)
+    surfaces, cur = {}, None
+    order = []
+
+    def surface(mat):
+        if mat not in surfaces:
+            surfaces[mat] = ([], [], [], [], {}, textures.get(mat))
+            order.append(mat)
+        return surfaces[mat]
+
     for line in open(path, encoding="utf-8", errors="replace"):
         p = line.split()
         if not p:
@@ -104,7 +143,10 @@ def read_obj(path):
             tex.append((float(p[1]), 1.0 - float(p[2]) if len(p) > 2 else 0.0))
         elif p[0] == "vn":
             nor.append(tuple(float(c) for c in p[1:4]))
+        elif p[0] == "usemtl":
+            cur = p[1] if len(p) > 1 else None
         elif p[0] == "f":
+            verts, normals, uvs, tris, index, _ = surface(cur)
             corner = []
             for c in p[1:]:
                 ids = (c.split("/") + ["", ""])[:3]
@@ -118,28 +160,10 @@ def read_obj(path):
                 corner.append(index[key])
             for k in range(1, len(corner) - 1):
                 tris.append((corner[0], corner[k], corner[k + 1]))
-    if not tris:
+    out = [(surfaces[m][0], surfaces[m][1], surfaces[m][2], surfaces[m][3], surfaces[m][5]) for m in order if surfaces[m][3]]
+    if not out:
         raise ValueError("no faces in %s" % path)
-    return [(verts, normals, uvs, tris)]
-
-
-def obj_texture(path):
-    """The texture the .obj's material names (map_Kd), looked up next to the .obj too."""
-    mtl = None
-    for line in open(path, encoding="utf-8", errors="replace"):
-        if line.startswith("mtllib"):
-            mtl = os.path.join(os.path.dirname(path), line.split(None, 1)[1].strip())
-            break
-    if not mtl or not os.path.exists(mtl):
-        return None
-    for line in open(mtl, encoding="utf-8", errors="replace"):
-        if line.strip().startswith("map_Kd"):
-            tex = line.strip().split(None, 1)[1].strip()
-            for cand in (tex, os.path.join(os.path.dirname(path), os.path.basename(tex.replace("\\", "/")))):
-                if os.path.exists(cand):
-                    return cand
-            return os.path.join(os.path.dirname(path), os.path.basename(tex.replace("\\", "/")))
-    return None
+    return out
 
 
 def split(surface):
@@ -215,16 +239,33 @@ def write_texture(tex, out_base):
     return path
 
 
-def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/head", fit=0.0, center=False, zscale=1.0):
-    """Converts; returns (md3 path, texture path). Raises ValueError on bad input.
-    game_dir: where the files sit inside the game (the shader name follows it).
+def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/head", fit=0.0, center=False,
+            zscale=1.0, turn=0):
+    """Converts; returns (md3 path, [texture paths]). Raises ValueError on bad input.
+    tex: the texture for every surface, or None = each .obj material's own (from the .mtl).
+    game_dir: where the files sit inside the game (the shader names follow it).
     fit: scale so the biggest extent becomes this many units (0 = keep).
     center: move the model's middle to the origin (props, thrown things).
-    zscale: stretch the height (Z) only - a flat thing made thicker."""
+    zscale: stretch the height (Z) only - a flat thing made thicker.
+    turn: quarter turns about Z (90 degrees each, counter-clockwise from above)."""
     if not NAME_RE.match(name):
         raise ValueError("name must be 1-31 of a-z 0-9 _ (it goes over the network): %r" % name)
-    shader = game_dir.rstrip("/") + "/" + name
-    surfaces = read_obj(glm) if glm.lower().endswith(".obj") else read_glm(glm)
+    if glm.lower().endswith(".obj"):
+        surfaces = read_obj(glm)
+    else:
+        surfaces = [s + (None,) for s in read_glm(glm)]
+    surfaces = [(s[0], s[1], s[2], s[3], tex or s[4]) for s in surfaces]
+    for s in surfaces:
+        if not s[4] or not os.path.exists(s[4]):
+            raise ValueError("texture not found: %r - put it next to the model" % s[4])
+
+    def tz(v, q):  # quarter turns about Z
+        x, y, z = v
+        for _ in range(q % 4):
+            x, y = -y, x
+        return (x, y, z)
+    if turn:
+        surfaces = [([tz(v, turn) for v in s[0]], [tz(n, turn) for n in s[1]], s[2], s[3], s[4]) for s in surfaces]
     if fit or center or zscale != 1.0:
         allp = [v for s in surfaces for v in s[0]]
         lo = [min(v[i] for v in allp) for i in range(3)]
@@ -233,48 +274,56 @@ def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/he
         k = fit / max(hi[i] - lo[i] for i in range(3)) if fit else 1.0
         kz = k * zscale
         surfaces = [([((v[0] - mid[0]) * k, (v[1] - mid[1]) * k, (v[2] - mid[2]) * kz) for v in s[0]],
-                     [(n[0] * zscale, n[1] * zscale, n[2]) for n in s[1]], s[2], s[3]) for s in surfaces]
-    chunks = [c for s in surfaces for c in split(s)]
-    allv = [v for c in chunks for v in c[0]]
+                     [(n[0] * zscale, n[1] * zscale, n[2]) for n in s[1]], s[2], s[3], s[4]) for s in surfaces]
+
+    # one texture file (and shader) per distinct source texture: <name>, <name>_2, ...
+    os.makedirs(out_dir, exist_ok=True)
+    shaders, written = {}, []
+    for s in surfaces:
+        src = os.path.abspath(s[4])
+        if src not in shaders:
+            base = name if not shaders else "%s_%d" % (name, len(shaders) + 1)
+            shaders[src] = game_dir.rstrip("/") + "/" + base
+            written.append(write_texture(src, os.path.join(out_dir, base)))
+    chunks = [(c, shaders[os.path.abspath(s[4])]) for s in surfaces for c in split(s[:4])]
+    allv = [v for c, _ in chunks for v in c[0]]
     mins = [min(v[i] for v in allv) for i in range(3)]
     maxs = [max(v[i] for v in allv) for i in range(3)]
     if max(max(abs(m) for m in mins), max(abs(m) for m in maxs)) > MAX_COORD:
-        raise ValueError("coordinates beyond +-%d units: was it exported in the skeleton's scale?" % MAX_COORD)
+        raise ValueError("coordinates beyond +-%d units: use --fit, or check the export scale" % MAX_COORD)
     radius = max(math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2) for v in allv)
-    surfaces = b"".join(md3_surface("acc%d" % i, shader, *c) for i, c in enumerate(chunks))
+    data = b"".join(md3_surface("s%d" % i, sh, *c) for i, (c, sh) in enumerate(chunks))
     frame = struct.pack("<3f3f3ff", *mins, *maxs, 0, 0, 0, radius) + pad("frame0", 16)
     header_size = 4 + 4 + MAX_QPATH + 4 * 9
     ofs_frames = header_size
     ofs_surf = ofs_frames + len(frame)
-    header = (MD3_IDENT + struct.pack("<i", MD3_VERSION) + pad(shader + ".md3")
-              + struct.pack("<9i", 0, 1, 0, len(chunks), 0, ofs_frames, ofs_surf, ofs_surf, ofs_surf + len(surfaces)))
-    os.makedirs(out_dir, exist_ok=True)
+    header = (MD3_IDENT + struct.pack("<i", MD3_VERSION) + pad(game_dir.rstrip("/") + "/" + name + ".md3")
+              + struct.pack("<9i", 0, 1, 0, len(chunks), 0, ofs_frames, ofs_surf, ofs_surf, ofs_surf + len(data)))
     md3 = os.path.join(out_dir, name + ".md3")
     with open(md3, "wb") as f:
-        f.write(header + frame + surfaces)
-    texture = write_texture(tex, os.path.join(out_dir, name))
-    print("%s: %d surfaces, %d verts, %d tris, z %.1f..%.1f; texture %s" % (
-        md3, len(chunks), len(allv), sum(len(c[3]) for c in chunks), mins[2], maxs[2], texture))
-    return md3, texture
+        f.write(header + frame + data)
+    print("%s: %d surfaces, %d verts, %d tris, %.1f x %.1f x %.1f; textures %s" % (
+        md3, len(chunks), len(allv), sum(len(c[3]) for c, _ in chunks),
+        maxs[0] - mins[0], maxs[1] - mins[1], maxs[2] - mins[2], ", ".join(os.path.basename(w) for w in written)))
+    return md3, written
 
 
 def main():
     ap = argparse.ArgumentParser(description="Ghoul2 head accessory (.glm) -> JK_Shinobi MD3")
     ap.add_argument("model", help=".glm (Ghoul2 add-on) or .obj (Blender's own exporter)")
-    ap.add_argument("texture", help="the texture; '-' = the one the .obj's material names")
+    ap.add_argument("texture", help="the texture for everything; '-' = each .obj material's own")
     ap.add_argument("name", help="a-z 0-9 _ only, up to 31")
     ap.add_argument("--out", default=DEFAULT_OUT, help="output folder (default: the repo's accessory assets)")
     ap.add_argument("--game-dir", default="models/accessories/head", help="folder inside the game (shader name)")
     ap.add_argument("--fit", type=float, default=0.0, help="scale so the biggest extent is this many units")
     ap.add_argument("--center", action="store_true", help="put the model's middle at the origin")
     ap.add_argument("--zscale", type=float, default=1.0, help="stretch the height only (thicker flat things)")
+    ap.add_argument("--turn", type=int, default=0, help="quarter turns about Z (counter-clockwise)")
     a = ap.parse_args()
-    tex = a.texture
-    if tex == "-":
-        tex = obj_texture(a.model) if a.model.lower().endswith(".obj") else None
-        if not tex or not os.path.exists(tex):
-            raise SystemExit("no texture found (the material names %r) - put it next to the model" % tex)
-    convert(a.model, tex, a.name, a.out, a.game_dir, a.fit, a.center, a.zscale)
+    tex = None if a.texture == "-" else a.texture
+    if tex is None and not a.model.lower().endswith(".obj"):
+        raise SystemExit("a .glm needs its texture named")
+    convert(a.model, tex, a.name, a.out, a.game_dir, a.fit, a.center, a.zscale, a.turn)
 
 
 if __name__ == "__main__":

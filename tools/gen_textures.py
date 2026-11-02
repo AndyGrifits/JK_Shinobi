@@ -302,6 +302,19 @@ def water_tile(n=128):
     return np.clip(rgb, 0, 1)
 
 
+def ice(n=128):
+    """A frozen puddle: pale blue-white, frosty, with a few cracks; ragged edge."""
+    _, _, r, _ = grid(n)
+    disc = ragged_disc(n, 91, edge=0.82, rough=0.1)
+    frost = 0.6 * value_noise(n, 10, 92) + 0.4 * value_noise(n, 40, 93)
+    ridged = np.abs(value_noise(n, 6, 94) - 0.5)
+    cracks = np.clip(1.0 - ridged / 0.015, 0, 1) * 0.5
+    v = np.clip(0.7 + 0.3 * frost + cracks * 0.4, 0, 1)
+    rgb = np.dstack([v * 0.82, v * 0.92, v])
+    alpha = disc * np.clip(0.6 + 0.3 * frost + cracks * 0.3, 0, 1)
+    return np.clip(rgb, 0, 1), alpha
+
+
 def scorch(n=128):
     _, _, r, _ = grid(n)
     disc = ragged_disc(n, 61, edge=0.85, rough=0.16)
@@ -450,6 +463,7 @@ def main():
     save_rgba("mud", *mud())
     save_rgba("scorch", *scorch())
     save_rgba("sand", *sand())
+    save_rgba("ice", *ice())
     Image.fromarray((water_tile() * 255).astype(np.uint8), "RGB").save(os.path.join(OUT, "watertile.tga"))
     save_rgba("watersphere", *water_sphere())
     save_rgba("droplet", *droplet())
@@ -460,11 +474,6 @@ def main():
     os.makedirs(models, exist_ok=True)
     Image.fromarray((rock() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(models, "earth_rock.tga"))
     Image.fromarray((log_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "log.tga"))
-    Image.fromarray((kunai_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "kunai.tga"))
-    Image.fromarray((exkunai_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "exkunai.tga"))
-    Image.fromarray((tag_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "tag.tga"))
-    Image.fromarray((pill_texture((0.3, 0.85, 0.35)) * 255).astype(np.uint8), "RGB").save(os.path.join(models, "pill_heal.tga"))
-    Image.fromarray((pill_texture((0.3, 0.55, 1.0)) * 255).astype(np.uint8), "RGB").save(os.path.join(models, "pill_chakra.tga"))
     for kind in ("heal", "chakra", "exkunai", "tag", "shuriken"):
         Image.fromarray(icon(kind), "RGBA").save(os.path.join(OUT, "icon_" + kind + ".tga"))
     print("textures written to", OUT, "and", models)

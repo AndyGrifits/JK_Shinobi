@@ -495,17 +495,8 @@ def build_sphere(radius=5.0, rings=6, segs=10):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    verts, uvs, normals, tris = build_kunai()
-    write_md3(os.path.join(OUT, "kunai.md3"), "models/shinobi/kunai.md3", verts, uvs, normals, tris, shader=KUNAI_SHADER)
-    print("models/shinobi/kunai.md3", len(verts), "verts", len(tris), "tris")
-    verts, uvs, normals, tris = build_kunai()
-    write_md3(os.path.join(OUT, "exkunai.md3"), "models/shinobi/exkunai.md3", verts, uvs, normals, tris, shader="models/shinobi/exkunai")
-    # (shuriken.md3 now comes from the artist's model: tools/glm2acc.py --game-dir models/shinobi)
-    for name, mesh, shader in (("tag", build_box(0.3, 2.4, 5.0), "models/shinobi/tag"),
-                               ("pill_heal", build_sphere(), "models/shinobi/pill_heal"),
-                               ("pill_chakra", build_sphere(), "models/shinobi/pill_chakra")):
-        write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh, shader=shader)
-        print("models/shinobi/" + name + ".md3", len(mesh[0]), "verts", len(mesh[3]), "tris")
+    # kunai, explosive kunai, tag, pills and shuriken come from the artist's models now
+    # (tools/glm2acc.py --game-dir models/shinobi; see SHINOBI.md)
     verts, uvs, normals, tris = build_log()
     write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
     print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")

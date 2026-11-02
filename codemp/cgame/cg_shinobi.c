@@ -15,6 +15,7 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 
 static void CG_ShinobiDumpWaterShaders( void );
 static void CG_ShinobiRaiDashForm( centity_t *cent );
+static void CG_ShinobiIceShard( centity_t *cent );
 #include "fx_local.h"
 #include "ui/keycodes.h"
 
@@ -25,7 +26,7 @@ static void CG_ShinobiRaiDashForm( centity_t *cent );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell;
+	qhandle_t sand, puddleWater, stoneShell, ice;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -167,6 +168,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
+	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
 		// (shinobi_puddleShader names any other shader)
 		char         name[MAX_QPATH];
@@ -841,6 +843,25 @@ static void CG_ShinobiWaterball( centity_t *cent ) {
 	}
 }
 
+// a water bullet frozen by its caster's Wind Wall: a pale, sharp icicle
+static void CG_ShinobiIceShard( centity_t *cent ) {
+	const int   li = cent->currentState.generic1 - SHINOBI_ENT_ICESHARD;
+	const float R = shinobiWaterVisual[li], len = R * 3.2f;
+	vec3_t      dir, p;
+	int         k;
+
+	VectorCopy( cent->currentState.pos.trDelta, dir );
+	if ( VectorNormalize( dir ) == 0 )
+		VectorSet( dir, 0, 0, 1 );
+	for ( k = 0; k <= 6; k++ ) { // thick at the back, a point at the front
+		const float f = k / 6.0f;
+		VectorMA( cent->lerpOrigin, ( f - 0.6f ) * len, dir, p );
+		CG_ShinobiSpriteA( p, R * ( 0.75f - 0.6f * f ), 0, shinobiShaders.glow, 0.75f, 0.92f, 1.0f, 0.9f );
+	}
+	CG_ShinobiSpriteA( cent->lerpOrigin, R * 0.9f, cg.time * 0.2f, shinobiShaders.waterSphere, 0.85f, 0.95f, 1.0f, 0.5f );
+	trap->R_AddLightToScene( cent->lerpOrigin, 60, 0.6f, 0.8f, 1.0f );
+}
+
 /*
 Fire Breath: a widening cone of flame sprites along the stream, gushing particles.
 */
@@ -1063,6 +1084,19 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	}
 	case SZ_MUD:
 		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
+		break;
+	case SZ_ICE: // a frozen puddle: pale, glinting
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.ice, 0.85f, 0.95f, 1.0f, 0.95f * a );
+		{ // a few glints that come and go
+			int k;
+			for ( k = 0; k < 4; k++ ) {
+				const int   seed = s->number * 31 + k * 97 + cg.time / 600;
+				const float ang = ( seed * 2.399963f ), d = R * 0.8f * ( ( seed * 7919 ) % 100 ) / 100.0f;
+				const float tw = 0.5f + 0.5f * sinf( cg.time * 0.012f + k * 1.7f );
+				VectorSet( p, org[0] + cosf( ang ) * d, org[1] + sinf( ang ) * d, org[2] + 2 );
+				CG_ShinobiSpriteA( p, 2.5f * tw, 0, shinobiShaders.glow, 0.9f, 0.95f, 1.0f, 0.8f * tw * a );
+			}
+		}
 		break;
 	case SZ_DUST: // loose earth: sand on the floor, a puff of dust now and then
 		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.sand, 1, 1, 1, 0.9f * a );
@@ -1325,11 +1359,15 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 		CG_ShinobiWaterball( cent );
 		return qtrue;
 	}
+	if ( s->generic1 >= SHINOBI_ENT_ICESHARD && s->generic1 < SHINOBI_ENT_ICESHARD + SHINOBI_MAX_LEVEL ) {
+		CG_ShinobiIceShard( cent );
+		return qtrue;
+	}
 	if ( s->generic1 < SHINOBI_ENT_FIREBALL || s->generic1 >= SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL ) {
 		return qfalse;
 	}
 	li = s->generic1 - SHINOBI_ENT_FIREBALL;
-	R = shinobiFireballVisual[li];
+	R = shinobiFireballVisual[li] * ( s->iModelScale ? s->iModelScale / 100.0f : 1.0f ); // (grown by its caster's wind)
 	flick = 0.9f + 0.1f * flrand( 0.0f, 1.0f );
 
 	CG_ShinobiSprite( cent->lerpOrigin, R * 2.3f * flick, 0, shinobiShaders.glow, 0.45f, 0.16f, 0.02f );           // heat haze glow

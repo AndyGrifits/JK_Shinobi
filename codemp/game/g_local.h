@@ -842,6 +842,7 @@ struct gclient_s {
 		int		prisonEnd, prisonTick;
 		int		stunEnd;		// stunned after a Water Prison until
 		int		puddleEnd;		// slowed by a puddle until
+		int		iceEnd;			// sliding on ice until
 		int		burstLeft, burstNext; // Water Bullets still to fire
 		int		bladeNext;		// Wind Blade cooldown end
 		int		curseTick;		// Curse Seal health drain

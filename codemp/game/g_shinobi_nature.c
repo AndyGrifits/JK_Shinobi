@@ -26,6 +26,7 @@ int shinobiHitElement = SE_NONE;
 #define ZONE_RADIUS(z)    ( (z)->s.angles2[0] )
 
 #define WATERBALL_LEVEL(b) ( (b)->genericValue2 )
+#define WATERBALL_ICE(b)   ( (b)->genericValue3 )   // frozen into an icicle
 #define FIREBALL_LEVEL(b)  ( (b)->genericValue2 )
 
 void Shinobi_NatureInit( void ) {
@@ -293,6 +294,10 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_SetRawBit( &client->ps.userVec2[0], client->shinobi.prisonCaster != 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[1], client->shinobi.prisonTarget != 0 );
 	Shinobi_SetRawBit( &client->ps.userVec2[2], client->shinobi.stunEnd > level.time );
+	if ( client->shinobi.iceEnd > level.time && ent->health > 0 )
+		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ICE;
+	else
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_ICE;
 	if ( client->shinobi.puddleEnd > level.time )
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_PUDDLE;
 	else
@@ -345,6 +350,9 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 			break;
 		case SZ_MUD:
 			p->client->shinobi.mudEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
+			break;
+		case SZ_ICE:
+			p->client->shinobi.iceEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
 			break;
 		case SZ_STEAM:
 		case SZ_MIST:
@@ -453,6 +461,14 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 			type = SZ_MUD;
 			continue;
 		}
+		if ( type == SZ_FIRE && ZONE_TYPE( other ) == SZ_ICE ) { // fire on ice: it melts, the flames die in the water
+			vec3_t above;
+			VectorCopy( origin, above );
+			above[2] += 16;
+			Shinobi_ZoneSetType( other, SZ_WATER, shinobiPuddleLife[1] );
+			Shinobi_SteamAt( above, 0 );
+			return NULL;
+		}
 		if ( type == SZ_FIRE && ( ZONE_TYPE( other ) == SZ_WATER || ZONE_TYPE( other ) == SZ_ELECTRIC
 			|| ZONE_TYPE( other ) == SZ_STEAM ) ) {
 			vec3_t above;
@@ -541,7 +557,7 @@ Fireball levels (wind feeds them, water eats them)
 ===========================================================================
 */
 void Shinobi_FireballSetLevel( gentity_t *ball, int lvl, float speedScale ) {
-	const int size = shinobiFireballSize[lvl - 1];
+	const int size = shinobiFireballSize[lvl - 1] * ( ball->s.iModelScale ? ball->s.iModelScale : 100 ) / 100; // (grown by its caster's wind)
 	vec3_t    pos;
 
 	BG_EvaluateTrajectory( &ball->s.pos, level.time, pos );
@@ -574,8 +590,10 @@ static void Shinobi_WaterballImpact( gentity_t *ball, vec3_t pos, vec3_t normal,
 	if ( hitEnt >= 0 && hitEnt < ENTITYNUM_WORLD ) {
 		gentity_t *other = &g_entities[hitEnt];
 		if ( other->takedamage && !Shinobi_DamageBlocked( other, owner ) ) {
-			shinobiHitElement = SE_WATER;
-			G_Damage( other, ball, owner, dir, pos, shinobiWaterDamage[li], DAMAGE_NO_KNOCKBACK, MOD_WATER );
+			const qboolean ice = WATERBALL_ICE( ball );
+			shinobiHitElement = ice ? SE_NONE : SE_WATER; // an icicle cuts, it doesn't soak
+			G_Damage( other, ball, owner, dir, pos, ice ? (int)( shinobiWaterDamage[li] * SHINOBI_ICE_DAMAGE + 0.5f )
+				: shinobiWaterDamage[li], DAMAGE_NO_KNOCKBACK, ice ? MOD_MELEE : MOD_WATER );
 			shinobiHitElement = SE_NONE;
 			if ( other->inuse && other->client && other->health > 0 ) {
 				vec3_t push;
@@ -591,6 +609,13 @@ static void Shinobi_WaterballImpact( gentity_t *ball, vec3_t pos, vec3_t normal,
 		}
 	}
 
+	if ( WATERBALL_ICE( ball ) ) { // the icicle shatters
+		Shinobi_EffectDir( shinobiMedia.fxWaterImpact, pos, normal );
+		Shinobi_EffectDir( shinobiMedia.fxSparkBurst, pos, normal );
+		G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndWallBreak );
+		G_FreeEntity( ball );
+		return;
+	}
 	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[li], pos, normal );
 	Shinobi_EffectDir( shinobiMedia.fxWaterImpact, pos, normal );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndSplash );
@@ -1150,6 +1175,10 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 			}
 			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH || ZONE_TYPE( e ) == SZ_MIST ) { // blown away
 				Shinobi_ZoneKill( e );
+			}
+			else if ( ZONE_TYPE( e ) == SZ_WATER || ZONE_TYPE( e ) == SZ_ELECTRIC ) { // the wind freezes puddles
+				Shinobi_ZoneSetType( e, SZ_ICE, SHINOBI_ICE_MS );
+				G_SoundAtLoc( e->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWind2 );
 			}
 		}
 	}
@@ -1711,7 +1740,7 @@ static void Shinobi_WindWallThink( gentity_t *w ) {
 		vec3_t     d, vel;
 		float      along, depth;
 
-		if ( !p->inuse || !p->classname || p->enemy == w || p->r.ownerNum == w->r.ownerNum )
+		if ( !p->inuse || !p->classname || p->enemy == w )
 			continue;
 		if ( strcmp( p->classname, "shinobi_fireball" ) && strcmp( p->classname, "shinobi_waterball" )
 			&& strcmp( p->classname, "shinobi_kunai" ) && strcmp( p->classname, "shinobi_exkunai" )
@@ -1727,9 +1756,39 @@ static void Shinobi_WindWallThink( gentity_t *w ) {
 		if ( along < -halfW || along > halfW || depth < -SHINOBI_WINDWALL_DEPTH || depth > SHINOBI_WINDWALL_DEPTH * 2 )
 			continue;
 		BG_EvaluateTrajectoryDelta( &p->s.pos, level.time, vel );
+		if ( p->r.ownerNum == w->r.ownerNum ) { // the caster's own, flying out through it: the wind joins in
+			if ( DotProduct( vel, face ) <= 0 )
+				continue;
+			p->enemy = w; // (once)
+			if ( !strcmp( p->classname, "shinobi_fireball" ) && !p->s.iModelScale ) {
+				p->s.iModelScale = SHINOBI_FIREBALL_WIND_SCALE; // twice the ball (not the blast)
+				Shinobi_FireballSetLevel( p, FIREBALL_LEVEL( p ), 1.0f );
+				Shinobi_EffectDir( shinobiMedia.fxWindGust[0], p->r.currentOrigin, face );
+			}
+			else if ( !strcmp( p->classname, "shinobi_waterball" ) && !WATERBALL_ICE( p ) ) {
+				vec3_t pos;
+				const int size = shinobiWaterSize[WATERBALL_LEVEL( p ) - 1];
+				WATERBALL_ICE( p ) = 1; // frozen into an icicle: faster, harder
+				p->s.generic1 = SHINOBI_ENT_ICESHARD + WATERBALL_LEVEL( p ) - 1;
+				BG_EvaluateTrajectory( &p->s.pos, level.time, pos );
+				VectorCopy( pos, p->s.pos.trBase );
+				p->s.pos.trTime = level.time;
+				VectorScale( p->s.pos.trDelta, SHINOBI_ICE_SPEED, p->s.pos.trDelta );
+				VectorSet( p->r.mins, -size * 0.6f, -size * 0.6f, -size * 0.6f );
+				VectorSet( p->r.maxs, size * 0.6f, size * 0.6f, size * 0.6f );
+				trap->LinkEntity( (sharedEntity_t *)p );
+				G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndWind2 );
+			}
+			continue;
+		}
 		if ( DotProduct( vel, face ) >= 0 )
 			continue; // flying away from the caster: let it be
 		Shinobi_WindWallReflect( w, p, p->r.currentOrigin, face );
+	}
+	// puddles in its way freeze (on the wall and a little before / behind it)
+	if ( w->genericValue5 <= level.time ) {
+		w->genericValue5 = level.time + 250;
+		Shinobi_FreezeZones( w->r.currentOrigin, 0, face, halfW );
 	}
 	w->nextthink = level.time + FRAMETIME;
 }
@@ -1787,4 +1846,38 @@ void Shinobi_DustAt( vec3_t pos, float radius, int ownerNum ) {
 	vec3_t floor;
 	if ( Shinobi_FloorBelow( pos, 400, floor ) )
 		Shinobi_SpawnZone( SZ_DUST, floor, radius, SHINOBI_DUST_MS, ownerNum );
+}
+
+/*
+The wind freezes puddles: radius > 0 = a disc; radius 0 = a Wind Wall's strip
+(centre at its bottom middle, face = the way the wind blows, halfW wide).
+*/
+void Shinobi_FreezeZones( vec3_t center, float radius, const vec3_t face, float halfW ) {
+	vec3_t right;
+	int    i;
+
+	if ( !radius )
+		VectorSet( right, -face[1], face[0], 0 );
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *z = &g_entities[i];
+		vec3_t     d;
+
+		if ( !Shinobi_IsZone( z ) || ( ZONE_TYPE( z ) != SZ_WATER && ZONE_TYPE( z ) != SZ_ELECTRIC ) )
+			continue;
+		VectorSubtract( z->r.currentOrigin, center, d );
+		if ( fabs( d[2] ) > 64 )
+			continue;
+		if ( radius ) {
+			d[2] = 0;
+			if ( VectorLength( d ) > radius + ZONE_RADIUS( z ) * 0.5f )
+				continue;
+		}
+		else {
+			const float along = DotProduct( d, right ), depth = DotProduct( d, face );
+			if ( fabs( along ) > halfW + ZONE_RADIUS( z ) * 0.5f || depth < -64 - ZONE_RADIUS( z ) * 0.5f
+				|| depth > 160 + ZONE_RADIUS( z ) * 0.5f )
+				continue;
+		}
+		Shinobi_ZoneSetType( z, SZ_ICE, SHINOBI_ICE_MS );
+	}
 }
