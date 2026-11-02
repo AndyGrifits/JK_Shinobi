@@ -196,6 +196,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiSel.index = 0;
 	shinobiActiveSet = qfalse;
 	trap->Cvar_Register( &shinobiBuildCvar, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
+	trap->Cvar_Register( NULL, "shinobi_acc_rot", "0 0 0", CVAR_ARCHIVE ); // head accessory turn fix: pitch yaw roll
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
@@ -1690,6 +1691,7 @@ static void CG_ShinobiLoadCranium( void ) {
 void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body ) {
 	mdxaBone_t  m;
 	refEntity_t ent;
+	char        yawStr[64];
 	int         r, c;
 
 	if ( !ci || !ci->shinobiAccModel || !cent->ghoul2 )
@@ -1712,22 +1714,30 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		cg.time, cgs.gameModels, cent->modelScale ) )
 		return;
 
-	{ // C = inverse bind pose * yaw fix: the exported model space is turned against the
-	  // skeleton's (shinobi_acc_yaw degrees about the vertical, 90 by default)
-		char        yawStr[16];
-		const float yaw = ( trap->Cvar_VariableStringBuffer( "shinobi_acc_yaw", yawStr, sizeof( yawStr ) ), yawStr[0] )
-			? (float)atof( yawStr ) : 90.0f;
-		const float cy = cosf( DEG2RAD( yaw ) ), sy = sinf( DEG2RAD( yaw ) );
-		const float rz[3][3] = { { cy, -sy, 0 }, { sy, cy, 0 }, { 0, 0, 1 } };
-		float       C[3][4];
-		int         k;
+	{ // C = inverse bind pose * R, R = a correction turn about the cranium's bind position,
+	  // in model space (shinobi_acc_rot "pitch yaw roll", degrees)
+		vec3_t ang, rax[3], pivot;
+		float  R[3][4], C[3][4];
+		int    k;
+		trap->Cvar_VariableStringBuffer( "shinobi_acc_rot", yawStr, sizeof( yawStr ) );
+		VectorClear( ang );
+		sscanf( yawStr, "%f %f %f", &ang[PITCH], &ang[YAW], &ang[ROLL] );
+		AnglesToAxis( ang, rax );
+		// pivot = cranium bind position = -Binv_rot^T * Binv_t
+		for ( r = 0; r < 3; r++ )
+			pivot[r] = -( shinobiCranium.inv[0][r] * shinobiCranium.inv[0][3] + shinobiCranium.inv[1][r] * shinobiCranium.inv[1][3]
+				+ shinobiCranium.inv[2][r] * shinobiCranium.inv[2][3] );
+		for ( r = 0; r < 3; r++ ) { // R v = pivot + rot ( v - pivot )
+			for ( c = 0; c < 3; c++ )
+				R[r][c] = rax[c][r];
+			R[r][3] = pivot[r] - ( R[r][0] * pivot[0] + R[r][1] * pivot[1] + R[r][2] * pivot[2] );
+		}
 		for ( r = 0; r < 3; r++ ) {
-			for ( c = 0; c < 3; c++ ) {
-				C[r][c] = 0;
+			for ( c = 0; c < 4; c++ ) {
+				C[r][c] = ( c == 3 ) ? shinobiCranium.inv[r][3] : 0;
 				for ( k = 0; k < 3; k++ )
-					C[r][c] += shinobiCranium.inv[r][k] * rz[k][c];
+					C[r][c] += shinobiCranium.inv[r][k] * R[k][c];
 			}
-			C[r][3] = shinobiCranium.inv[r][3];
 		}
 		memset( &ent, 0, sizeof( ent ) );
 		ent.hModel = ci->shinobiAccModel;
@@ -1736,6 +1746,22 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 			for ( c = 0; c < 3; c++ )
 				ent.axis[c][r] = m.matrix[r][0] * C[0][c] + m.matrix[r][1] * C[1][c] + m.matrix[r][2] * C[2][c];
 			ent.origin[r] = m.matrix[r][0] * C[0][3] + m.matrix[r][1] * C[1][3] + m.matrix[r][2] * C[2][3] + m.matrix[r][3];
+		}
+	}
+
+	// diagnostics: where the model's axes point, in the player's own frame (forward, left, up)
+	if ( cent->currentState.number == cg.snap->ps.clientNum ) {
+		static int next, told;
+		if ( cg.time >= next && told < 3 ) {
+			told++;
+			vec3_t pax[3], yawOnly;
+			int    a;
+			next = cg.time + 2000;
+			VectorSet( yawOnly, 0, cent->turAngles[YAW], 0 );
+			AnglesToAxis( yawOnly, pax );
+			for ( a = 0; a < 3; a++ )
+				trap->Print( "[shinobi] acc model %c -> fwd %.2f left %.2f up %.2f\n", "XYZ"[a],
+					DotProduct( ent.axis[a], pax[0] ), DotProduct( ent.axis[a], pax[1] ), DotProduct( ent.axis[a], pax[2] ) );
 		}
 	}
 	VectorCopy( ent.origin, ent.oldorigin );
