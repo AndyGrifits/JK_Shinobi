@@ -673,6 +673,32 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
 #define STAT_SHINOBI2              13    // a second one (STAT_SHINOBI is full)
 #define SHINOBI_STAT2_ICE          1     // standing on ice: slides
+#define SHINOBI_STAT2_DIVE         2     // diving kick on the way down
+#define SHINOBI_STAT2_DIVELAND     4     // ... just landed (the server makes it hit, then clears it)
+#define SHINOBI_STAT2_BLOCKHELD    8     // (to tell a new press of block / attack from a held one)
+#define SHINOBI_STAT2_ATTACKHELD   16
+
+/*
+Taijutsu combo (fists): attack chains jab - cross - kick, each step within
+SHINOBI_COMBO_WINDOW of the last; after the third, a finisher:
+  attack            heavy blow (shoulder ram): knocked back, staggered
+  forward + attack  launcher: thrown up into the air
+  block (tap)       front kick: knocked down and away
+  back + block      sweep: knocked down on the spot
+Attack in the air (anywhere, combo or not): a diving kick straight down that
+hits around where you land. Each combo hit staggers a little, so the chain
+connects; a blocked hit breaks it.
+*/
+#define STAT_SHINOBI_COMBO         14    // hit number (bits 0-2) and kind (bits 3-5) of the current move
+#define STAT_SHINOBI_COMBOT        15    // ms left to chain the next hit
+#define SHINOBI_COMBO_WINDOW       450
+#define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
+#define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
+enum { SCK_NONE, SCK_HIT, SCK_HEAVY, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE };
+#define SHINOBI_COMBO_STAGGER      350   // a chain hit: the victim reels this long
+#define SHINOBI_DIVE_SPEED         950
+#define SHINOBI_DIVE_RADIUS        90
+#define SHINOBI_DIVE_DAMAGE        14
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed

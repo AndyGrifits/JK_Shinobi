@@ -1513,6 +1513,7 @@ qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
+void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );

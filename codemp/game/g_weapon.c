@@ -3549,6 +3549,7 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 			}
 
 			G_Damage( tr_ent, ent, ent, forward, tr.endpos, dmg, DAMAGE_NO_ARMOR, MOD_MELEE );
+			Shinobi_ComboHit( ent, tr_ent ); // JK_Shinobi: what this step of the combo does
 		}
 	}
 }

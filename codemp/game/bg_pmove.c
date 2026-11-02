@@ -6658,6 +6658,8 @@ Generates weapon events and modifes the weapon counter
 ==============
 */
 extern int PM_KickMoveForConditions(void);
+static qboolean PM_ShinobiMeleeCombo( void ); // JK_Shinobi (below)
+
 static void PM_Weapon( void )
 {
 	int		addTime;
@@ -7584,6 +7586,13 @@ static void PM_Weapon( void )
 				}
 				pm->ps->weaponTime = 0;
 				return;
+			}
+			else if ( PM_ShinobiMeleeCombo() )
+			{ // JK_Shinobi: a kick move of the taijutsu combo (the kick traces hit)
+				return;
+			}
+			else if ( pm->ps->clientNum < MAX_CLIENTS )
+			{ // JK_Shinobi: a punch of the combo - its anim is set, the punch event follows
 			}
 			else
 			{ //just punch
@@ -10294,6 +10303,157 @@ void BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd )
 	}
 }
 
+/*
+JK_Shinobi taijutsu combo (see bg_shinobi.h). The state lives in ps.stats so the
+client predicts it exactly like the server runs it.
+*/
+static void PM_ShinobiComboSet( int hit, int kind, int timeMs )
+{
+	pm->ps->stats[STAT_SHINOBI_COMBO] = ( hit & 7 ) | ( ( kind & 7 ) << 3 );
+	pm->ps->stats[STAT_SHINOBI_COMBOT] = timeMs > 0 ? timeMs : 0;
+}
+
+// a kick-type move (the server's kick traces do the hitting); qtrue = it started
+static qboolean PM_ShinobiComboKick( int anim, int hit, int kind, qboolean lunge )
+{
+	PM_SetAnim( SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+	if ( pm->ps->legsAnim != anim )
+		return qfalse;
+	pm->ps->weaponTime = pm->ps->legsTimer;
+	PM_ShinobiComboSet( hit, kind, pm->ps->legsTimer + SHINOBI_COMBO_WINDOW );
+	if ( lunge && pm->ps->groundEntityNum != ENTITYNUM_NONE )
+	{
+		vec3_t fwd, ang;
+		VectorSet( ang, 0, pm->ps->viewangles[YAW], 0 );
+		AngleVectors( ang, fwd, NULL, NULL );
+		VectorMA( pm->ps->velocity, 140, fwd, pm->ps->velocity );
+	}
+	return qtrue;
+}
+
+static void PM_ShinobiComboPre( void )
+{
+	playerState_t *ps = pm->ps;
+	const int      msec = pm->cmd.serverTime - ps->commandTime;
+	qboolean       blockNew, attackNew;
+
+	if ( ps->clientNum >= MAX_CLIENTS || ps->pm_type != PM_NORMAL )
+		return;
+	if ( ps->stats[STAT_SHINOBI_COMBOT] > 0 && msec > 0 )
+	{
+		ps->stats[STAT_SHINOBI_COMBOT] -= msec;
+		if ( ps->stats[STAT_SHINOBI_COMBOT] <= 0 )
+			PM_ShinobiComboSet( 0, SCK_NONE, 0 );
+	}
+	blockNew = ( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK ) && !( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_BLOCKHELD );
+	attackNew = ( pm->cmd.buttons & BUTTON_ATTACK ) && !( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ATTACKHELD );
+	ps->stats[STAT_SHINOBI2] &= ~( SHINOBI_STAT2_BLOCKHELD | SHINOBI_STAT2_ATTACKHELD );
+	if ( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK )
+		ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_BLOCKHELD;
+	if ( pm->cmd.buttons & BUTTON_ATTACK )
+		ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ATTACKHELD;
+
+	if ( ps->weapon != WP_MELEE || ps->stats[STAT_HEALTH] <= 0 )
+	{
+		ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVE;
+		return;
+	}
+
+	// the diving kick: down fast, hits around where it lands
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
+	{
+		if ( ps->groundEntityNum != ENTITYNUM_NONE )
+		{
+			ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVE;
+			ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVELAND;
+			ps->weaponTime = 300;
+			PM_SetAnim( SETANIM_BOTH, BOTH_LAND1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+		}
+		else
+		{
+			if ( ps->velocity[2] > -SHINOBI_DIVE_SPEED )
+				ps->velocity[2] = -SHINOBI_DIVE_SPEED;
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
+		return;
+	}
+	if ( attackNew && ps->groundEntityNum == ENTITYNUM_NONE && ps->weaponTime <= 0
+		&& !( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_BURROW
+			| SHINOBI_STAT_SHADOWHIDE | SHINOBI_STAT_RAIDASH ) ) )
+	{
+		trace_t tr;
+		vec3_t  down, fwd, ang;
+		VectorCopy( ps->origin, down );
+		down[2] -= 56;
+		pm->trace( &tr, ps->origin, pm->mins, pm->maxs, down, ps->clientNum, pm->tracemask );
+		if ( tr.fraction >= 1.0f )
+		{ // high enough to dive
+			PM_SetAnim( SETANIM_BOTH, BOTH_A7_KICK_F_AIR, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+			ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVE;
+			ps->weaponTime = 3000; // until it lands
+			PM_ShinobiComboSet( 0, SCK_DIVE, 0 );
+			VectorSet( ang, 0, ps->viewangles[YAW], 0 );
+			AngleVectors( ang, fwd, NULL, NULL );
+			ps->velocity[0] = fwd[0] * 180;
+			ps->velocity[1] = fwd[1] * 180;
+			ps->velocity[2] = -SHINOBI_DIVE_SPEED;
+			pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+			return;
+		}
+	}
+
+	// after three hits: block (tapped) is a kick, not a guard
+	if ( SHINOBI_COMBO_HIT( ps ) >= 3 && ps->stats[STAT_SHINOBI_COMBOT] > 0 && ( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK ) )
+	{
+		pm->cmd.buttons &= ~SHINOBI_BUTTON_BLOCK;
+		if ( blockNew && ps->weaponTime <= 0 && ps->groundEntityNum != ENTITYNUM_NONE )
+		{
+			if ( pm->cmd.forwardmove < 0 )
+				PM_ShinobiComboKick( BOTH_A7_KICK_S, 4, SCK_SWEEP, qfalse );
+			else
+				PM_ShinobiComboKick( BOTH_A7_KICK_F, 4, SCK_KICK, qtrue );
+			ps->stats[STAT_SHINOBI_COMBOT] = 0; // the chain is over
+		}
+	}
+}
+
+// attack with fists: the next step of the chain. qtrue = done (a kick move, no punch event)
+static qboolean PM_ShinobiMeleeCombo( void )
+{
+	playerState_t *ps = pm->ps;
+	const int      hit = ps->stats[STAT_SHINOBI_COMBOT] > 0 ? SHINOBI_COMBO_HIT( ps ) : 0;
+
+	if ( ps->clientNum >= MAX_CLIENTS )
+		return qfalse;
+	if ( hit >= 3 )
+	{ // finisher
+		qboolean ok;
+		if ( pm->cmd.forwardmove > 0 )
+			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, 4, SCK_LAUNCH, qtrue );
+		else
+			ok = PM_ShinobiComboKick( BOTH_A7_HILT, 4, SCK_HEAVY, qtrue );
+		ps->stats[STAT_SHINOBI_COMBOT] = 0;
+		return ok;
+	}
+	if ( hit == 2 ) // the third: a kick
+		return PM_ShinobiComboKick( BOTH_A7_KICK_R, 3, SCK_HIT, qtrue );
+
+	// a punch: left, then right (the punch event follows in PM_Weapon)
+	PM_StartTorsoAnim( hit == 0 ? BOTH_MELEE1 : BOTH_MELEE2 );
+	if ( ps->torsoAnim == ( hit == 0 ? BOTH_MELEE1 : BOTH_MELEE2 ) )
+		ps->weaponTime = ps->torsoTimer;
+	PM_ShinobiComboSet( hit + 1, SCK_HIT, ps->weaponTime + SHINOBI_COMBO_WINDOW );
+	if ( ps->groundEntityNum != ENTITYNUM_NONE )
+	{
+		vec3_t fwd, ang;
+		VectorSet( ang, 0, ps->viewangles[YAW], 0 );
+		AngleVectors( ang, fwd, NULL, NULL );
+		VectorMA( ps->velocity, 90, fwd, ps->velocity );
+	}
+	return qfalse;
+}
+
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 {
 	if ( !( buttons & SHINOBI_BUTTON_BLOCK ) || ps->pm_type != PM_NORMAL || ps->clientNum >= MAX_CLIENTS )
@@ -10522,6 +10682,7 @@ void PmoveSingle (pmove_t *pmove) {
 	pm = pmove;
 
 	BG_ShinobiBlockAttack( pm->ps, &pm->cmd ); // JK_Shinobi: block + attack = special attack
+	PM_ShinobiComboPre(); // JK_Shinobi: taijutsu combo timers, finishers on block, the diving kick
 
 	if (pm->cmd.buttons & BUTTON_ATTACK && pm->cmd.buttons & BUTTON_USE_HOLDABLE)
 	{

@@ -7641,6 +7641,7 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 					{
 						G_TossTheMofo(hitEnt, kickDir, kickPush);
 					}
+					Shinobi_ComboHit( ent, hitEnt ); // JK_Shinobi: the combo's kicks decide what happens
 				}
 			}
 		}
