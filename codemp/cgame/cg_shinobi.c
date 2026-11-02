@@ -1721,7 +1721,8 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		So C = BasePoseMatInv * G, where G turns and scales back about the cranium's bind
 		position p: G v = p + s * Pt * Rot * ( v - p ). Rot = shinobi_acc_rot (pitch yaw roll).
 		*/
-		static const float Pt[3][3] = { { 0, 0, 1 }, { -1, 0, 0 }, { 0, -1, 0 } };
+		// (and the glm faces -Y, the game +X: a quarter turn more, so a hat's front faces forward)
+		static const float Pt[3][3] = { { 0, 0, 1 }, { 0, 1, 0 }, { -1, 0, 0 } };
 		const float ( *B )[4] = shinobiCranium.inv;
 		vec3_t ang, rax[3], pivot;
 		float  L[3][3], G[3][4], C[3][4], det, inv3[3][3], len, sc;
