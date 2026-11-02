@@ -112,6 +112,7 @@ void      Shinobi_KunaiInit( void );
 qboolean  Shinobi_CastHiraishin( gentity_t *ent );
 qboolean  Shinobi_CastRaiTrap( gentity_t *ent );
 qboolean  Shinobi_CastShadowTrap( gentity_t *ent );
+void      Shinobi_HealStop( gentity_t *ent );
 void      Shinobi_ShadowTrapRelease( gentity_t *victim );
 void      Shinobi_ShadowTrapVictimThink( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd );

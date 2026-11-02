@@ -134,7 +134,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 15, 15, 15 }, // Lightning Dash (held: + 40/s)
 	{ 15, 15, 15 }, // Shadow Hide (to start; then it drains while held)
 	{ 25, 25, 25 }, // Flash
-	{ 25, 40, 55 }, // Healing
+	{  5,  5,  5 }, // Healing (to start; then held, chakra into health one for one)
 	{ 20, 20, 20 }, // Shadow Trap (to start; then each caught enemy drains it)
 };
 
@@ -144,7 +144,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
 #define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
@@ -378,9 +378,9 @@ static const int shinobiRockHeight[3]   = { 72, 112, 160 };  // ...and how tall 
 #define SHINOBI_FLASH_BLIND_MS     2500
 #define SHINOBI_FLASH_FACING       0.2f  // victims looking at least this much toward you
 #define SHINOBI_FLASH_COOLDOWN     10000
-// Healing
-static const int shinobiHealAmount[3] = { 20, 35, 50 };
-#define SHINOBI_HEAL_COOLDOWN      10000
+// Healing (held): chakra into health, one for one, as long as the key is held
+#define SHINOBI_HEAL_TICK_MS       100
+#define SHINOBI_HEAL_PER_TICK      2      // 20 chakra -> 20 health a second
 #define SHINOBI_WALL_MAX_PILLARS   7
 static const int shinobiWallPillars[3]   = {   3,   5,   7 };      // width
 static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by the whole wall (Lv1 Rasengan = 70% of Lv2)
@@ -698,7 +698,8 @@ step within SHINOBI_COMBO_WINDOW of the last - then a finisher picked by the
 direction held at that moment:
   nothing   front kick: pushed away and knocked down
   forward   launcher: thrown up into the air
-  back      sweep: knocked down on the spot
+  back      sweep: a forward roll into his legs, knocked down on the spot
+  left / right  spin kick all around: just damage (a second chance to land one)
 Chain hits are plain damage; kicks keep the stock kick knockdown. Attack next to
 someone lying in front of you: a downward blow (the saber stab-down animation).
 Attack in the air (anywhere, combo or not): a kick forward and down (45 degrees) that hits
@@ -709,7 +710,9 @@ around where you land. Block + attack: the stock grab.
 #define SHINOBI_COMBO_WINDOW       450
 #define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
-enum { SCK_NONE, SCK_HIT, SCK_HEAVY, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
+enum { SCK_NONE, SCK_HIT, SCK_SPIN, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
+#define SHINOBI_SWEEP_DAMAGE       12    // the rolling sweep, to each one it bowls over
+#define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
@@ -775,6 +778,12 @@ Perks (perk command, key C):
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
+// Storm Wind cast with back held: the gust pulls everyone in the cone toward you
+// instead, in a short hop that ends about at your feet
+#define SHINOBI_WIND_PULL_STOP     64     // lands this far in front of you
+#define SHINOBI_WIND_PULL_AIR      0.5f   // seconds in the air (with the hop below)
+#define SHINOBI_WIND_PULL_UP       200
+#define SHINOBI_WIND_PULL_MAX      1000
 #define SHINOBI_WIND_CONE          0.82f // cos of the half angle (~35 degrees)
 static const int shinobiWindRange[3]  = { 320,  480,  640 };
 static const int shinobiWindPush[3]   = { 450,  700, 1000 };
@@ -976,7 +985,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"Shift + Space: blink where you look",
 	"X: a double takes your place, you vanish",
 	"1-3 fast water bullets in a burst; small puddles",
-	"storm wind: throws people back, fans flames, blows steam away",
+	"storm wind: throws people back, fans flames, blows steam away; cast holding back (S): it pulls them in to you",
 	"hold F: trap an enemy in a ball of water (drains chakra)",
 	"low wave rolling along the floor; clear it with a force jump",
 	"wide arc of wind at chest height; jump over it",
@@ -1000,7 +1009,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: become a bolt of lightning racing ahead (steer with the mouse), zapping whoever you pass; 40 chakra/s",
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
-	"chakra into health: 20 / 35 / 50 back",
+	"hold F: chakra turns into health, one for one (20 a second); you walk slowly",
 	"shadows reach out from your marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him"
 };
 

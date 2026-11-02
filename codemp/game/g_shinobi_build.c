@@ -433,3 +433,44 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_TIRED;
 	}
 }
+
+/*
+"shinobi_dps 1": every attacker's damage in windows of 5 s (a new window also starts
+when he switches between fists, blade and jutsu) - to compare fists with blades
+*/
+static void Shinobi_DpsFlush( gentity_t *attacker ) {
+	gclient_t *c = attacker->client;
+	static const char * const kinds[3] = { "fists", "blade", "jutsu/other" };
+	const float secs = ( c->shinobi.dpsLast - c->shinobi.dpsStart ) / 1000.0f;
+
+	if ( c->shinobi.dpsHits > 1 && secs > 0.2f )
+		G_LogPrintf( "[dps] %s, %s: %i damage, %i hits in %.1f s -> %.1f per second (%.1f per hit)\n",
+			c->pers.netname, kinds[c->shinobi.dpsKind], c->shinobi.dpsTotal, c->shinobi.dpsHits, secs,
+			// (first to last hit spans hits-1 gaps)
+			c->shinobi.dpsTotal * ( c->shinobi.dpsHits - 1.0f ) / c->shinobi.dpsHits / secs,
+			(float)c->shinobi.dpsTotal / c->shinobi.dpsHits );
+	c->shinobi.dpsHits = c->shinobi.dpsTotal = 0;
+}
+
+void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
+	gclient_t *c;
+	int        kind;
+
+	if ( take <= 0 || !attacker || !attacker->client || attacker->s.number >= MAX_CLIENTS || targ == attacker
+		|| !trap->Cvar_VariableIntegerValue( "shinobi_dps" ) )
+		return;
+	c = attacker->client;
+	if ( ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )
+		kind = c->ps.weapon == WP_SABER ? 1 : 0;
+	else
+		kind = 2;
+	if ( c->shinobi.dpsHits && ( kind != c->shinobi.dpsKind || level.time - c->shinobi.dpsStart > 5000 ) )
+		Shinobi_DpsFlush( attacker );
+	if ( !c->shinobi.dpsHits ) {
+		c->shinobi.dpsStart = level.time;
+		c->shinobi.dpsKind = kind;
+	}
+	c->shinobi.dpsHits++;
+	c->shinobi.dpsTotal += take;
+	c->shinobi.dpsLast = level.time;
+}

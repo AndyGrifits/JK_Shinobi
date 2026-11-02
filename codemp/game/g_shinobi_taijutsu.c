@@ -66,12 +66,6 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 			G_Knockdown( v );
 		Shinobi_CCGrant( v, level.time + 1500 );
 		break;
-	case SCK_SWEEP: // down where he stands
-		VectorClear( v->client->ps.velocity );
-		if ( !Shinobi_CCImmune( v ) )
-			G_Knockdown( v );
-		Shinobi_CCGrant( v, level.time + 1500 );
-		break;
 	default:
 		break;
 	}
@@ -131,9 +125,47 @@ static void Shinobi_GroundBlow( gentity_t *ent ) {
 	}
 }
 
+// the spin kick (left / right finisher) only does damage: no stock kick knockdown
+qboolean Shinobi_ComboPlainKick( gentity_t *ent ) {
+	return ( ent->client && ent->s.number < MAX_CLIENTS && ent->client->ps.weapon == WP_MELEE
+		&& SHINOBI_COMBO_KIND( &ent->client->ps ) == SCK_SPIN ) ? qtrue : qfalse;
+}
+
+// the rolling sweep (back finisher): bowls over whoever it rolls into
+static void Shinobi_SweepRoll( gentity_t *ent ) {
+	vec3_t up = { 0, 0, 1 };
+	int    i;
+
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+
+		if ( !Shinobi_ComboTarget( ent, v ) || BG_InKnockDown( v->client->ps.legsAnim )
+			|| v->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN )
+			continue;
+		VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, d );
+		if ( fabs( d[2] ) > 48 )
+			continue;
+		d[2] = 0;
+		if ( VectorLength( d ) > SHINOBI_SWEEP_RADIUS + 16 )
+			continue;
+		G_Damage( v, ent, ent, up, v->r.currentOrigin, SHINOBI_SWEEP_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		if ( !v->inuse || v->health <= 0 || !v->client || shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED )
+			continue;
+		VectorClear( v->client->ps.velocity );
+		if ( !Shinobi_CCImmune( v ) )
+			G_Knockdown( v );
+		Shinobi_CCGrant( v, level.time + 1500 );
+	}
+}
+
 // every client frame, before Pmove
 void Shinobi_TaijutsuThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+
+	if ( client->ps.weapon == WP_MELEE && SHINOBI_COMBO_KIND( &client->ps ) == SCK_SWEEP
+		&& client->ps.legsAnim == BOTH_ROLL_F && client->ps.legsTimer > 0 && ent->health > 0 )
+		Shinobi_SweepRoll( ent );
 
 	if ( client->ps.weapon == WP_MELEE && SHINOBI_COMBO_KIND( &client->ps ) == SCK_GROUND
 		&& SHINOBI_COMBO_HIT( &client->ps ) == 0 && client->ps.legsAnim == BOTH_STABDOWN

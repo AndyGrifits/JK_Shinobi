@@ -4,8 +4,8 @@ JK_Shinobi - Kagemane no Jutsu (Shadow Bind), Yin/Yang school.
 
 Held: your shadow crawls forward along the floor in a straight line (it can't
 cross gaps or go through walls). An enemy standing on it - not one in the air -
-is caught: until you let go, he copies your moves, jumps and attacks and
-turns as you turn. Costs chakra while held; getting hit, running dry or
+is caught: until you let go, he moves the way you move over the ground (you back
+off - he comes after you), swings when you swing and turns as you turn. Costs chakra while held; getting hit, running dry or
 Kawarimi breaks it.
 ===========================================================================
 */
@@ -228,8 +228,15 @@ void Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 		return;
 	}
 	ucmd->generic_cmd = 0; // no force powers, saber style changes... of his own
-	ucmd->forwardmove = binder->client->pers.cmd.forwardmove;
-	ucmd->rightmove = binder->client->pers.cmd.rightmove;
+	{ // the binder's keys turned into his own frame: he goes the same way over the
+	  // ground as the binder (the binder backs off - he comes after him), facing as he faces
+		const float a = DEG2RAD( client->shinobi.shadowYaw );
+		const float f = binder->client->pers.cmd.forwardmove, r = binder->client->pers.cmd.rightmove;
+		const float nf = f * cosf( a ) - r * sinf( a );
+		const float nr = f * sinf( a ) + r * cosf( a );
+		ucmd->forwardmove = (signed char)Com_Clamp( -127, 127, nf );
+		ucmd->rightmove = (signed char)Com_Clamp( -127, 127, nr );
+	}
 	ucmd->upmove = binder->client->pers.cmd.upmove < 0 ? binder->client->pers.cmd.upmove : 0; // crouches with him, never jumps
 	ucmd->buttons = ( ucmd->buttons & ~( mirrored | BUTTON_USE | BUTTON_FORCEPOWER | BUTTON_FORCEGRIP
 		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | BUTTON_WALKING ) )
@@ -240,14 +247,10 @@ void Shinobi_ShadowVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 	angles[ROLL] = 0;
 	SetClientViewAngle( ent, angles );
 
-	// and the same speed, turned by the angle between us: even if something
-	// else feeds this player moves, he goes where the binder goes
-	{
-		const float a = DEG2RAD( client->shinobi.shadowYaw );
-		const float bx = binder->client->ps.velocity[0], by = binder->client->ps.velocity[1];
-		client->ps.velocity[0] = bx * cosf( a ) - by * sinf( a );
-		client->ps.velocity[1] = bx * sinf( a ) + by * cosf( a );
-	}
+	// and the binder's very speed over the ground: even if something else feeds
+	// this player moves, he goes where the binder goes
+	client->ps.velocity[0] = binder->client->ps.velocity[0];
+	client->ps.velocity[1] = binder->client->ps.velocity[1];
 	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BOUND;
 
 	if ( client->shinobi.debugNext <= level.time && trap->Cvar_VariableIntegerValue( "shinobi_debug" ) ) {

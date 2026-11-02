@@ -167,11 +167,11 @@ gfx/shinobi/ice
 		rgbGen vertex
 		alphaGen vertex
 	}
-	{
+	{	// a slow shimmer over the ice itself (weighted by its alpha: no square around it)
 		map gfx/shinobi/ice
-		blendFunc GL_ONE GL_ONE
-		rgbGen wave sin 0.15 0.08 0 0.4
-		tcGen environment
+		blendFunc GL_SRC_ALPHA GL_ONE
+		rgbGen wave sin 0.18 0.1 0 0.4
+		alphaGen vertex
 	}
 }
 

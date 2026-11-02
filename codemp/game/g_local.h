@@ -830,6 +830,10 @@ struct gclient_s {
 		qboolean kawarimiPending; // waiting for the double to appear before hiding
 		qboolean kawarimiPhase;	// non-solid until clear of other bodies
 		int		shunshinBack;	// Shunshin charge goes backward
+		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
+		int		healing;		// Healing held: chakra into health
+		int		healTick;
+		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
 		// elements (g_shinobi_nature.c)
 		int		burnEnd, burnTick, burnAttacker; // on fire until; attacker num + 1
 		int		wetEnd;
@@ -1515,6 +1519,8 @@ int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *att
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
+qboolean Shinobi_ComboPlainKick( gentity_t *ent );
+void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ); // g_shinobi_build.c
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );

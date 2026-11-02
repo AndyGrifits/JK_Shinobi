@@ -5438,6 +5438,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 				take /= (targ->client->ps.fd.forcePowerLevel[FP_RAGE]+1);
 			}
 		}
+		Shinobi_DpsLog( targ, attacker, take, mod ); // JK_Shinobi: "shinobi_dps 1" - damage per second in the log
 		targ->health = targ->health - take;
 
 		if ( (targ->flags&FL_UNDYING) )

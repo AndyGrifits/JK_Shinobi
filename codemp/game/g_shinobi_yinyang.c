@@ -181,24 +181,67 @@ qboolean Shinobi_CastHeal( gentity_t *ent, int lvl ) {
 	gclient_t *client = ent->client;
 	vec3_t     up = { 0, 0, 1 };
 
-	if ( client->shinobi.healNext > level.time ) {
-		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		trap->SendServerCommand( ent - g_entities, va( "cp \"Healing ready in %.1f s\"",
-			( client->shinobi.healNext - level.time ) / 1000.0f ) );
+	if ( client->shinobi.healing )
 		return qfalse;
-	}
 	if ( ent->health >= client->ps.stats[STAT_MAX_HEALTH] ) {
 		trap->SendServerCommand( ent - g_entities, "cp \"Not hurt\"" );
 		return qfalse;
 	}
-	client->shinobi.healNext = level.time + SHINOBI_HEAL_COOLDOWN;
-	ent->health += shinobiHealAmount[lvl - 1];
-	if ( ent->health > client->ps.stats[STAT_MAX_HEALTH] )
-		ent->health = client->ps.stats[STAT_MAX_HEALTH];
-	client->ps.stats[STAT_HEALTH] = ent->health;
+	client->shinobi.healing = 1;
+	client->shinobi.healTick = level.time + SHINOBI_HEAL_TICK_MS;
 	G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndHeal );
 	return qtrue;
+}
+
+void Shinobi_HealStop( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if ( !client->shinobi.healing )
+		return;
+	client->shinobi.healing = 0;
+	client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_CHANNEL;
+	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT && client->ps.forceDodgeAnim == BOTH_FORCEHEAL_QUICK )
+		client->ps.forceHandExtend = HANDEXTEND_NONE;
+}
+
+// held Healing, every client frame: chakra flows into health
+static void Shinobi_HealThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 };
+
+	if ( !client->shinobi.healing )
+		return;
+	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR || !Shinobi_CanAct( ent )
+		|| client->shinobi.blocking || ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_ALT_ATTACK ) ) ) {
+		Shinobi_HealStop( ent );
+		return;
+	}
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	while ( client->shinobi.healTick <= level.time ) {
+		client->shinobi.healTick += SHINOBI_HEAL_TICK_MS;
+		if ( ent->health >= client->ps.stats[STAT_MAX_HEALTH] ) {
+			trap->SendServerCommand( ent - g_entities, "cp \"Fully healed\"" );
+			Shinobi_HealStop( ent );
+			return;
+		}
+		if ( client->ps.fd.forcePower < SHINOBI_HEAL_PER_TICK ) {
+			trap->SendServerCommand( ent - g_entities, "cp \"Out of chakra\"" );
+			Shinobi_HealStop( ent );
+			return;
+		}
+		client->ps.fd.forcePower -= SHINOBI_HEAL_PER_TICK;
+		ent->health += SHINOBI_HEAL_PER_TICK;
+		if ( ent->health > client->ps.stats[STAT_MAX_HEALTH] )
+			ent->health = client->ps.stats[STAT_MAX_HEALTH];
+		client->ps.stats[STAT_HEALTH] = ent->health;
+		if ( ( client->shinobi.healTick / SHINOBI_HEAL_TICK_MS ) % 8 == 0 )
+			G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
+	}
+	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_CHANNEL; // walking slowly
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCEHEAL_QUICK;
+	client->ps.forceHandExtendTime = level.time + 150;
 }
 
 /*
@@ -321,6 +364,7 @@ void Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 
 	Shinobi_RaiDashThink( ent );
+	Shinobi_HealThink( ent, ucmd );
 
 	if ( client->shinobi.blindEnd > level.time && ent->health > 0 )
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BLIND;

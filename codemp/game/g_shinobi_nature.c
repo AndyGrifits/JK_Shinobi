@@ -236,6 +236,8 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 		Shinobi_ShadowRelease( ent );
 	if ( client->shinobi.shadowTrapEnt )
 		Shinobi_ShadowTrapRelease( ent );
+	if ( client->shinobi.healing )
+		Shinobi_HealStop( ent );
 	Shinobi_SetRawBit( &client->ps.userVec1[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );
@@ -1093,6 +1095,7 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 	gclient_t *client = ent->client;
 	const int  li = lvl - 1;
 	const float range = (float)shinobiWindRange[li];
+	const qboolean pull = client->shinobi.castBack; // cast with back held: the wind sucks them in
 	vec3_t     angles, fwd, eye, fxOrg;
 	int        i;
 
@@ -1136,11 +1139,26 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 			shinobiHitElement = SE_NONE;
 			if ( !e->inuse || !e->client || e->health <= 0 )
 				continue;
-			VectorCopy( fwd, push );
-			push[2] = 0;
-			VectorNormalize( push );
-			VectorScale( push, shinobiWindPush[li], e->client->ps.velocity );
-			e->client->ps.velocity[2] = 120 + shinobiWindPush[li] * 0.15f;
+			if ( pull ) { // a short hop that lands them about at our feet
+				float dist;
+				VectorSubtract( client->ps.origin, center, push );
+				push[2] = 0;
+				dist = VectorNormalize( push ) - SHINOBI_WIND_PULL_STOP;
+				if ( dist < 0 )
+					dist = 0;
+				dist = dist / SHINOBI_WIND_PULL_AIR;
+				if ( dist > SHINOBI_WIND_PULL_MAX )
+					dist = SHINOBI_WIND_PULL_MAX;
+				VectorScale( push, dist, e->client->ps.velocity );
+				e->client->ps.velocity[2] = SHINOBI_WIND_PULL_UP;
+			}
+			else {
+				VectorCopy( fwd, push );
+				push[2] = 0;
+				VectorNormalize( push );
+				VectorScale( push, shinobiWindPush[li], e->client->ps.velocity );
+				e->client->ps.velocity[2] = 120 + shinobiWindPush[li] * 0.15f;
+			}
 			e->client->ps.groundEntityNum = ENTITYNUM_NONE;
 			e->client->ps.otherKiller = ent->s.number;
 			e->client->ps.otherKillerTime = level.time + 5000;
@@ -1189,8 +1207,16 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 		}
 	}
 
-	VectorMA( eye, 32, fwd, fxOrg );
-	Shinobi_EffectDir( shinobiMedia.fxStorm[li], fxOrg, fwd );
+	if ( pull ) { // the gust starts out there and rushes back to us
+		vec3_t back;
+		VectorMA( eye, range * 0.85f, fwd, fxOrg );
+		VectorScale( fwd, -1, back );
+		Shinobi_EffectDir( shinobiMedia.fxStorm[li], fxOrg, back );
+	}
+	else {
+		VectorMA( eye, 32, fwd, fxOrg );
+		Shinobi_EffectDir( shinobiMedia.fxStorm[li], fxOrg, fwd );
+	}
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 	G_SoundAtLoc( fxOrg, CHAN_AUTO, shinobiMedia.sndWind2 );
 	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;

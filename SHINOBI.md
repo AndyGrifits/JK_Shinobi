@@ -31,7 +31,8 @@ last move's end, then a finisher picked by the direction held at that moment:
 |---|---|---|
 | nothing | front kick | pushed away and knocked down |
 | forward | rising kick | thrown up into the air |
-| back | sweep | knocked down on the spot |
+| back | sweep: a forward roll into his legs | 12 damage, knocked down on the spot, to each one it rolls into |
+| left / right | spin kick | all around you, just damage (no push, no knockdown): a second chance to land a hit |
 
 The punches are plain damage; the kicks keep the stock kick knockdown. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
@@ -40,6 +41,9 @@ two-handed blow down at him (the saber stab-down animation, 30 damage). Attack i
 a kick forward and down at 45 degrees, steered with the view (no falling damage), 14 damage to everyone within 90 u of where you
 land. Block + attack: the stock grab. Taijutsu stat, Gates, Edges and the Gentle Fist
 apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
+
+`shinobi_dps 1` (server) logs every attacker's damage per second in 5 s windows, split into
+fists / blade / jutsu, to the console and qconsole.log (`[dps] ...`).
 
 ## Wind and water: ice (not canon, but fun)
 
@@ -213,7 +217,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Kawarimi | an AI double with your looks takes your place and goes for the nearest enemy; you turn invisible to everyone else and can only creep. Any action (attack, jump, use, jutsu) or taking damage reveals you, and the double turns into a log. Hitting the double turns it into a log too. 12 s max, 10 s cooldown | 35 |
 | Water Bullets | 1/2/3 fast bullets in a burst (charge level = number of bullets), 12 damage each, small push; each leaves a small puddle, puts out fire, wears fireballs down | 10/18/26 |
 | Water Wave | a low wave rolling along the floor (width 140/200/260, 400/550/700 units): 10/18/28 damage, throws people back, soaks, puts out fire and fireballs, leaves puddles. Too high to step over, clear it with a force jump | 20/35/50 |
-| Storm Wind | Daitoppa: wind in a cone (320/480/640 units) throws people back; fans burning ground, levels up fireballs, blows steam away | 15/25/40 |
+| Storm Wind | Daitoppa: wind in a cone (320/480/640 units) throws people back; fans burning ground, levels up fireballs, blows steam away. Let go of the key while holding back (S): the gust pulls everyone in the cone to you instead (a short hop that lands them ~64 u in front of you) | 15/25/40 |
 | Wind Blade | a wide arc of wind (~110 degrees) sweeping out to 450/600/800 units at chest height: 20/30/45 damage; hard to sidestep, jump over it; walls stop it | 15/25/40 |
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
@@ -231,8 +235,8 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Lightning Dash | `raido`, Raiton, hold F: you become a bolt of lightning (body hidden) racing ahead at 3x speed, steered with the mouse, no jumping or attacks; 40 chakra/s, up to 4 s. Whoever you pass within ~48 u takes 10 (no stun; once per 0.8 s); puddles you cross are electrified. 3 s cooldown after | 15 + 40/s |
 | Shadow Hide | `kagegakure`, Yin, hold F: melt into your shadow (4 chakra/s, up to 6 s, 0.7x speed): others see only a dark patch (the Byakugan sees you); fists, blades and missiles pass over it, fire and lightning drive you out. Let go or attack to rise. 8 s cooldown | 15 |
 | Flash | `senko`, Yang, instant: everyone within 550 u who can see you and looks your way is blinded for 2.5 s (bots and NPCs reel); Kawarimi and Shadow Hide around you are flushed out. 10 s cooldown | 25 |
-| Healing | `shosen`, Yang: 20 / 35 / 50 health back. 10 s cooldown | 25 / 40 / 55 |
-| Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (900 u/s) (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
+| Healing | `shosen`, Yang, hold F: chakra turns into health one for one, 20 a second, while you walk slowly; attacking, blocking, full health or an empty pool stops it | 5 + 20/s |
+| Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (900 u/s) (not over gaps or through walls). An enemy standing on it is caught and moves the way you move over the ground (you back off - he comes after you), turns and attacks with you while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |
 | Shadow Trap | `kagewana`, Yin/Yang. From each marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |

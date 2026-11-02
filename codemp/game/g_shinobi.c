@@ -592,7 +592,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
-			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd ) )
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
+			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -626,6 +627,8 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_ShadowRelease( ent );
 		else if ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
 			Shinobi_RaiDashEnd( ent );
+		else if ( jutsu == SJ_HEAL && client->shinobi.healing )
+			Shinobi_HealStop( ent );
 		return;
 	}
 	if ( level.time - client->shinobi.chargeStart
@@ -636,6 +639,7 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 	}
 	if ( jutsu == SJ_SHUNSHIN ) // Shift + back + jump blinks backward
 		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
+	client->shinobi.castBack = client->pers.cmd.forwardmove < 0; // the alternative cast (Storm Wind pulls)
 	Shinobi_Cast( ent, jutsu, Shinobi_ChargeLevelCast( jutsu, level.time - client->shinobi.chargeStart, Shinobi_CastStat( ent ) ) );
 }
 

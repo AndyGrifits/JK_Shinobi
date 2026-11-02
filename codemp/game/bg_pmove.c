@@ -10480,8 +10480,10 @@ static qboolean PM_ShinobiMeleeCombo( void )
 		qboolean ok;
 		if ( pm->cmd.forwardmove > 0 )
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, hit + 1, SCK_LAUNCH, qtrue );
-		else if ( pm->cmd.forwardmove < 0 )
-			ok = PM_ShinobiComboKick( BOTH_A7_KICK_S, hit + 1, SCK_SWEEP, qfalse );
+		else if ( pm->cmd.forwardmove < 0 && ps->groundEntityNum != ENTITYNUM_NONE )
+			ok = PM_ShinobiComboKick( BOTH_ROLL_F, hit + 1, SCK_SWEEP, qfalse ); // a roll into his legs (the stock roll moves us)
+		else if ( pm->cmd.rightmove )
+			ok = PM_ShinobiComboKick( BOTH_A7_KICK_S, hit + 1, SCK_SPIN, qfalse );
 		else
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F, hit + 1, SCK_KICK, qtrue );
 		ps->stats[STAT_SHINOBI_COMBOT] = 0; // the chain is over

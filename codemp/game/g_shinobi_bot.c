@@ -195,10 +195,12 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 		return qtrue;
 	}
 
+	client->shinobi.castBack = 0;
 	if ( Shinobi_Cast( ent, jutsu, lvl ) ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
-			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd ) ) {
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
+			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) ) {
 			client->shinobi.chargeJutsu = jutsu; // held: let go a bit later (Shinobi_BotThink)
 			client->shinobi.botHoldEnd = level.time + ( jutsu == SJ_RAIDASH ? Q_irand( 500, 1100 ) : Q_irand( 1200, 2800 ) );
 		}
