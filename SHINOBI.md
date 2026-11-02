@@ -36,9 +36,10 @@ last move's end, then a finisher picked by the direction held at that moment:
 
 Each hit of the chain hits harder: punches 15 / 22 / 30, then the finisher - the four together
 about what four blade swings do, so a chain is worth stepping away from or guarding against.
-Each chain punch makes the victim flinch for 0.45 s - about until the next one lands: no
-attacks, throws or jutsu (a blade swing in progress bounces, a charge is dropped), but he can
-still walk away or raise the guard, and Kawarimi breaks out. The finisher has no flinch.
+Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
+time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
+progress bounces, a charge is dropped); only raising the guard (which breaks the chain) or
+Kawarimi gets him out. The finisher has no flinch.
 The kicks keep the stock kick knockdown. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air
@@ -232,7 +233,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, a fog sheet covers the view; only the mist's maker sees people within 450 u as dark silhouettes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
-| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
+| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s) standing still, radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
 | Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 4 / 6 / 8 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
 | Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |

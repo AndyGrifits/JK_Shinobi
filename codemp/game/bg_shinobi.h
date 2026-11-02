@@ -698,7 +698,8 @@ static const char * const shinobiHitTextNames[STX_COUNT] = {
 	"", "Flinch", "Stagger", "Knockdown", "Launch", "Stunned", "Shadow Trap", "Shadow Bind",
 	"Block", "Parry!", "Guard break!", "Water Prison"
 };
-#define SHINOBI_STAT2_FLINCH       128   // flinching from a combo hit: no attacks / jutsu (moving and the guard still work)
+#define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
+#define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
 
 /*
 Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
@@ -728,7 +729,11 @@ static const int shinobiComboPunch[3] = { 15, 22, 30 };  // jab, cross, jab
 #define SHINOBI_SWEEP_DAMAGE       40    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
-#define SHINOBI_COMBO_FLINCH_MS    450   // a chain punch: no hitting back this long (about until the next one lands)
+// a chain punch roots the victim and stops him hitting back until the attacker's next
+// hit can land (his weapon time + this); only the guard or Kawarimi gets him out
+#define SHINOBI_COMBO_FLINCH_MS    250
+#define SHINOBI_COMBO_FLINCH_MIN   400
+#define SHINOBI_COMBO_FLINCH_MAX   900
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        14

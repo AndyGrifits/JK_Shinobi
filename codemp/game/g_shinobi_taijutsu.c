@@ -56,9 +56,15 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	v->client->ps.otherKillerDebounceTime = level.time + 100;
 
 	switch ( kind ) {
-	case SCK_HIT: // a chain punch: a flinch - no hitting back before the next one (the finisher has none)
-		Shinobi_Flinch( v, SHINOBI_COMBO_FLINCH_MS );
+	case SCK_HIT: { // a chain punch: held until the next one can land (the finisher has none)
+		int ms = client->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
+		if ( ms < SHINOBI_COMBO_FLINCH_MIN )
+			ms = SHINOBI_COMBO_FLINCH_MIN;
+		if ( ms > SHINOBI_COMBO_FLINCH_MAX )
+			ms = SHINOBI_COMBO_FLINCH_MAX;
+		Shinobi_Flinch( v, ms );
 		break;
+	}
 	case SCK_LAUNCH: // up into the air - jump after him and dive
 		Shinobi_HitText( v, STX_LAUNCH, 0 );
 		Shinobi_ComboPush( v, dir, 60, 520 );

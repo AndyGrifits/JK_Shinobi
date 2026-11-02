@@ -10578,10 +10578,31 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~SHINOBI_BUTTON_MIRROR;
 	}
 
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ROOTED )
+	{ // charging an Earthquake: feet planted
+		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+	}
+
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
-	{ // flinching from a combo punch: no hitting back (walking and the guard still work)
+	{ // caught in a combo: rooted, no hitting back - only the guard (or Kawarimi) gets you out
+		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_FORCEPOWER
 			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+		if ( ( ps->forceHandExtend == HANDEXTEND_NONE || ps->forceHandExtend == HANDEXTEND_TAUNT )
+			&& !( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK ) )
+		{ // reeling from the blows (the guard, raised, takes over the pose)
+			ps->forceHandExtend = HANDEXTEND_TAUNT;
+			ps->forceDodgeAnim = SHINOBI_STAGGER_ANIM;
+			ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+		}
 	}
 
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP )

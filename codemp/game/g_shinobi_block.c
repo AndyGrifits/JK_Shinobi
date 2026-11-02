@@ -30,8 +30,8 @@ void Shinobi_Stagger( gentity_t *ent, int ms ) {
 		client->shinobi.chargeJutsu = SJ_NONE;
 }
 
-// a combo punch landed: no hitting back for a moment (a swing in progress bounces,
-// a charge is dropped); walking away and raising the guard still work
+// a combo punch landed: rooted, no hitting back for a moment (a swing in progress
+// bounces, a charge is dropped); raising the guard and Kawarimi still work
 void Shinobi_Flinch( gentity_t *ent, int ms ) {
 	gclient_t *client = ent->client;
 
@@ -79,6 +79,10 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
 	else
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_FLINCH;
+	if ( client->shinobi.chargeJutsu == SJ_QUAKE && ent->health > 0 )
+		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ROOTED; // the Earthquake charges standing still
+	else
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_ROOTED;
 
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		client->shinobi.blocking = qfalse;
