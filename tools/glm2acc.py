@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""JK_Shinobi: turn a head accessory exported from Blender as a Ghoul2 .glm
-into the MD3 the game draws on players' heads.
+"""JK_Shinobi: turn a model exported from Blender (Ghoul2 .glm or plain .obj)
+into an MD3 for the game: head accessories (default) or props / items
+(--game-dir models/shinobi --fit <size> --center).
 
 The accessory must be modelled in the bind pose of the stock _humanoid
 skeleton, sitting where it belongs on the head (weights don't matter: the
@@ -88,6 +89,59 @@ def read_glm(path):
     return surfaces
 
 
+def read_obj(path):
+    """A Wavefront .obj (Blender's own exporter, no add-on): one surface, polygons fanned
+    into triangles. OBJ's texture v grows upward, the game's downward: flipped."""
+    pos, tex, nor = [], [], []
+    verts, normals, uvs, tris, index = [], [], [], [], {}
+    for line in open(path, encoding="utf-8", errors="replace"):
+        p = line.split()
+        if not p:
+            continue
+        if p[0] == "v":
+            pos.append(tuple(float(c) for c in p[1:4]))
+        elif p[0] == "vt":
+            tex.append((float(p[1]), 1.0 - float(p[2]) if len(p) > 2 else 0.0))
+        elif p[0] == "vn":
+            nor.append(tuple(float(c) for c in p[1:4]))
+        elif p[0] == "f":
+            corner = []
+            for c in p[1:]:
+                ids = (c.split("/") + ["", ""])[:3]
+                key = tuple(int(i) if i else 0 for i in ids)
+                if key not in index:
+                    vi, ti, ni = key
+                    index[key] = len(verts)
+                    verts.append(pos[vi - 1 if vi > 0 else vi])
+                    uvs.append(tex[ti - 1 if ti > 0 else ti] if ti else (0.0, 0.0))
+                    normals.append(nor[ni - 1 if ni > 0 else ni] if ni else (0.0, 0.0, 1.0))
+                corner.append(index[key])
+            for k in range(1, len(corner) - 1):
+                tris.append((corner[0], corner[k], corner[k + 1]))
+    if not tris:
+        raise ValueError("no faces in %s" % path)
+    return [(verts, normals, uvs, tris)]
+
+
+def obj_texture(path):
+    """The texture the .obj's material names (map_Kd), looked up next to the .obj too."""
+    mtl = None
+    for line in open(path, encoding="utf-8", errors="replace"):
+        if line.startswith("mtllib"):
+            mtl = os.path.join(os.path.dirname(path), line.split(None, 1)[1].strip())
+            break
+    if not mtl or not os.path.exists(mtl):
+        return None
+    for line in open(mtl, encoding="utf-8", errors="replace"):
+        if line.strip().startswith("map_Kd"):
+            tex = line.strip().split(None, 1)[1].strip()
+            for cand in (tex, os.path.join(os.path.dirname(path), os.path.basename(tex.replace("\\", "/")))):
+                if os.path.exists(cand):
+                    return cand
+            return os.path.join(os.path.dirname(path), os.path.basename(tex.replace("\\", "/")))
+    return None
+
+
 def split(surface):
     """Chunks of at most MAX_VERTS vertices."""
     verts, normals, uvs, tris = surface
@@ -161,12 +215,23 @@ def write_texture(tex, out_base):
     return path
 
 
-def convert(glm, tex, name, out_dir=DEFAULT_OUT):
-    """Converts; returns (md3 path, texture path). Raises ValueError on bad input."""
+def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/head", fit=0.0, center=False):
+    """Converts; returns (md3 path, texture path). Raises ValueError on bad input.
+    game_dir: where the files sit inside the game (the shader name follows it).
+    fit: scale so the biggest extent becomes this many units (0 = keep).
+    center: move the model's middle to the origin (props, thrown things)."""
     if not NAME_RE.match(name):
         raise ValueError("name must be 1-31 of a-z 0-9 _ (it goes over the network): %r" % name)
-    shader = "models/accessories/head/" + name
-    chunks = [c for s in read_glm(glm) for c in split(s)]
+    shader = game_dir.rstrip("/") + "/" + name
+    surfaces = read_obj(glm) if glm.lower().endswith(".obj") else read_glm(glm)
+    if fit or center:
+        allp = [v for s in surfaces for v in s[0]]
+        lo = [min(v[i] for v in allp) for i in range(3)]
+        hi = [max(v[i] for v in allp) for i in range(3)]
+        mid = [(lo[i] + hi[i]) / 2 if center else 0.0 for i in range(3)]
+        k = fit / max(hi[i] - lo[i] for i in range(3)) if fit else 1.0
+        surfaces = [([tuple((v[i] - mid[i]) * k for i in range(3)) for v in s[0]], s[1], s[2], s[3]) for s in surfaces]
+    chunks = [c for s in surfaces for c in split(s)]
     allv = [v for c in chunks for v in c[0]]
     mins = [min(v[i] for v in allv) for i in range(3)]
     maxs = [max(v[i] for v in allv) for i in range(3)]
@@ -192,12 +257,20 @@ def convert(glm, tex, name, out_dir=DEFAULT_OUT):
 
 def main():
     ap = argparse.ArgumentParser(description="Ghoul2 head accessory (.glm) -> JK_Shinobi MD3")
-    ap.add_argument("glm")
-    ap.add_argument("texture")
+    ap.add_argument("model", help=".glm (Ghoul2 add-on) or .obj (Blender's own exporter)")
+    ap.add_argument("texture", help="the texture; '-' = the one the .obj's material names")
     ap.add_argument("name", help="a-z 0-9 _ only, up to 31")
-    ap.add_argument("--out", default=DEFAULT_OUT, help="output folder (default: the repo's assets)")
+    ap.add_argument("--out", default=DEFAULT_OUT, help="output folder (default: the repo's accessory assets)")
+    ap.add_argument("--game-dir", default="models/accessories/head", help="folder inside the game (shader name)")
+    ap.add_argument("--fit", type=float, default=0.0, help="scale so the biggest extent is this many units")
+    ap.add_argument("--center", action="store_true", help="put the model's middle at the origin")
     a = ap.parse_args()
-    convert(a.glm, a.texture, a.name, a.out)
+    tex = a.texture
+    if tex == "-":
+        tex = obj_texture(a.model) if a.model.lower().endswith(".obj") else None
+        if not tex or not os.path.exists(tex):
+            raise SystemExit("no texture found (the material names %r) - put it next to the model" % tex)
+    convert(a.model, tex, a.name, a.out, a.game_dir, a.fit, a.center)
 
 
 if __name__ == "__main__":
