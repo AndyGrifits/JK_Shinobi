@@ -500,8 +500,8 @@ def main():
     print("models/shinobi/kunai.md3", len(verts), "verts", len(tris), "tris")
     verts, uvs, normals, tris = build_kunai()
     write_md3(os.path.join(OUT, "exkunai.md3"), "models/shinobi/exkunai.md3", verts, uvs, normals, tris, shader="models/shinobi/exkunai")
-    for name, mesh, shader in (("shuriken", build_shuriken(), KUNAI_SHADER),
-                               ("tag", build_box(0.3, 2.4, 5.0), "models/shinobi/tag"),
+    # (shuriken.md3 now comes from the artist's model: tools/glm2acc.py --game-dir models/shinobi)
+    for name, mesh, shader in (("tag", build_box(0.3, 2.4, 5.0), "models/shinobi/tag"),
                                ("pill_heal", build_sphere(), "models/shinobi/pill_heal"),
                                ("pill_chakra", build_sphere(), "models/shinobi/pill_chakra")):
         write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh, shader=shader)
