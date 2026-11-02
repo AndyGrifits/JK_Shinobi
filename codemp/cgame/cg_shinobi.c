@@ -1714,29 +1714,73 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		cg.time, cgs.gameModels, cent->modelScale ) )
 		return;
 
-	{ // C = inverse bind pose * R, R = a correction turn about the cranium's bind position,
-	  // in model space (shinobi_acc_rot "pitch yaw roll", degrees)
+	{
+		/*
+		T = bolt * BasePoseMatInv maps the model space only up to a fixed turn and scale: the
+		gla's frames are not the glm's (measured: model X -> up, Y -> back, Z -> right, x1.56).
+		So C = BasePoseMatInv * G, where G turns and scales back about the cranium's bind
+		position p: G v = p + s * Pt * Rot * ( v - p ). Rot = shinobi_acc_rot (pitch yaw roll).
+		*/
+		static const float Pt[3][3] = { { 0, 0, 1 }, { -1, 0, 0 }, { 0, -1, 0 } };
+		const float ( *B )[4] = shinobiCranium.inv;
 		vec3_t ang, rax[3], pivot;
-		float  R[3][4], C[3][4];
+		float  L[3][3], G[3][4], C[3][4], det, inv3[3][3], len, sc;
 		int    k;
+
 		trap->Cvar_VariableStringBuffer( "shinobi_acc_rot", yawStr, sizeof( yawStr ) );
 		VectorClear( ang );
 		sscanf( yawStr, "%f %f %f", &ang[PITCH], &ang[YAW], &ang[ROLL] );
 		AnglesToAxis( ang, rax );
-		// pivot = cranium bind position = -Binv_rot^T * Binv_t
+
+		// p = -B_lin^-1 * B_t (the model point that B sends to the bone's origin)
+		det = B[0][0] * ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) - B[0][1] * ( B[1][0] * B[2][2] - B[1][2] * B[2][0] )
+			+ B[0][2] * ( B[1][0] * B[2][1] - B[1][1] * B[2][0] );
+		if ( fabs( det ) < 1e-6f )
+			return;
+		inv3[0][0] = ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) / det;
+		inv3[0][1] = ( B[0][2] * B[2][1] - B[0][1] * B[2][2] ) / det;
+		inv3[0][2] = ( B[0][1] * B[1][2] - B[0][2] * B[1][1] ) / det;
+		inv3[1][0] = ( B[1][2] * B[2][0] - B[1][0] * B[2][2] ) / det;
+		inv3[1][1] = ( B[0][0] * B[2][2] - B[0][2] * B[2][0] ) / det;
+		inv3[1][2] = ( B[0][2] * B[1][0] - B[0][0] * B[1][2] ) / det;
+		inv3[2][0] = ( B[1][0] * B[2][1] - B[1][1] * B[2][0] ) / det;
+		inv3[2][1] = ( B[0][1] * B[2][0] - B[0][0] * B[2][1] ) / det;
+		inv3[2][2] = ( B[0][0] * B[1][1] - B[0][1] * B[1][0] ) / det;
 		for ( r = 0; r < 3; r++ )
-			pivot[r] = -( shinobiCranium.inv[0][r] * shinobiCranium.inv[0][3] + shinobiCranium.inv[1][r] * shinobiCranium.inv[1][3]
-				+ shinobiCranium.inv[2][r] * shinobiCranium.inv[2][3] );
-		for ( r = 0; r < 3; r++ ) { // R v = pivot + rot ( v - pivot )
-			for ( c = 0; c < 3; c++ )
-				R[r][c] = rax[c][r];
-			R[r][3] = pivot[r] - ( R[r][0] * pivot[0] + R[r][1] * pivot[1] + R[r][2] * pivot[2] );
+			pivot[r] = -( inv3[r][0] * B[0][3] + inv3[r][1] * B[1][3] + inv3[r][2] * B[2][3] );
+
+		// s: undo the scale the bolt * B carries (its column length), keeping the model's own scale
+		len = 0;
+		for ( c = 0; c < 3; c++ ) {
+			vec3_t col;
+			for ( r = 0; r < 3; r++ )
+				col[r] = m.matrix[r][0] * B[0][c] + m.matrix[r][1] * B[1][c] + m.matrix[r][2] * B[2][c];
+			len += VectorLength( col ) / 3.0f;
 		}
+		sc = ( cent->modelScale[0] > 0.01f ) ? cent->modelScale[0] : 1.0f;
+		if ( len < 1e-4f )
+			return;
+		sc /= len;
+
+		// L = s * Pt * Rot (Rot's columns are rax[])
 		for ( r = 0; r < 3; r++ ) {
-			for ( c = 0; c < 4; c++ ) {
-				C[r][c] = ( c == 3 ) ? shinobiCranium.inv[r][3] : 0;
+			for ( c = 0; c < 3; c++ ) {
+				L[r][c] = 0;
 				for ( k = 0; k < 3; k++ )
-					C[r][c] += shinobiCranium.inv[r][k] * R[k][c];
+					L[r][c] += Pt[r][k] * rax[c][k];
+				L[r][c] *= sc;
+			}
+		}
+		for ( r = 0; r < 3; r++ ) { // G v = L v + ( p - L p )
+			for ( c = 0; c < 3; c++ )
+				G[r][c] = L[r][c];
+			G[r][3] = pivot[r] - ( L[r][0] * pivot[0] + L[r][1] * pivot[1] + L[r][2] * pivot[2] );
+		}
+		for ( r = 0; r < 3; r++ ) { // C = B * G
+			for ( c = 0; c < 4; c++ ) {
+				C[r][c] = ( c == 3 ) ? B[r][3] : 0;
+				for ( k = 0; k < 3; k++ )
+					C[r][c] += B[r][k] * G[k][c];
 			}
 		}
 		memset( &ent, 0, sizeof( ent ) );
@@ -1762,6 +1806,12 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 			for ( a = 0; a < 3; a++ )
 				trap->Print( "[shinobi] acc model %c -> fwd %.2f left %.2f up %.2f\n", "XYZ"[a],
 					DotProduct( ent.axis[a], pax[0] ), DotProduct( ent.axis[a], pax[1] ), DotProduct( ent.axis[a], pax[2] ) );
+			{ // where the model's origin went, against the feet (the hat at z ~60 should sit on the head)
+				vec3_t d;
+				VectorSubtract( ent.origin, cent->lerpOrigin, d );
+				trap->Print( "[shinobi] acc origin: fwd %.1f left %.1f up %.1f\n",
+					DotProduct( d, pax[0] ), DotProduct( d, pax[1] ), DotProduct( d, pax[2] ) );
+			}
 		}
 	}
 	VectorCopy( ent.origin, ent.oldorigin );
