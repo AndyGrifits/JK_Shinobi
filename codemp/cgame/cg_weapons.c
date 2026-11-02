@@ -1517,6 +1517,8 @@ CG_Weapon_f
 void CG_Weapon_f( void ) {
 	int		num;
 
+	CG_ShinobiToolPutAway(); // JK_Shinobi: a weapon key puts the picked tool away
+
 	if ( !cg.snap ) {
 		return;
 	}
