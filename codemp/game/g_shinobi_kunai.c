@@ -135,7 +135,7 @@ void Cmd_Kunai_f( gentity_t *ent ) {
 	if ( client->shinobi.blocking || client->shinobi.burrowEnd || client->shinobi.shadowHideEnd )
 		return; // guard up / out of sight
 
-	if ( !Shinobi_CanAct( ent ) || client->shinobi.prisonCaster || client->shinobi.shadowBy
+	if ( !Shinobi_CanAct( ent ) || client->shinobi.prisonCaster || client->shinobi.shadowBy || client->shinobi.shadowTrapEnt
 		|| client->shinobi.stunEnd > level.time || SHINOBI_HAND_ANY( &client->ps ) )
 		return;
 	if ( client->shinobi.kunaiNext > level.time )
@@ -333,6 +333,250 @@ qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
 		trap->SendServerCommand( ent - g_entities, "cp \"No marked kunai to discharge (Shift+Z)\"" );
 		return qfalse;
 	}
+	return qtrue;
+}
+
+/*
+===========================================================================
+Shadow Trap (Yin/Yang): from each marked kunai a shadow reaches out along the
+floor to the nearest enemy in range and holds him where he stands while its
+maker pays for it (up to SHINOBI_SHADOWTRAP_MS). Any damage to him breaks it,
+and Kawarimi gets him out. The trap entity is drawn like a Shadow Bind: from
+its origin (where the kunai was) to s.angles2 (the shadow's tip).
+===========================================================================
+*/
+#define STRAP_VICTIM(t)  ( (t)->genericValue1 )   // client num + 1
+#define STRAP_CAUGHT(t)  ( (t)->genericValue2 )
+#define STRAP_START(t)   ( (t)->genericValue3 )
+#define STRAP_DRAIN(t)   ( (t)->genericValue4 )
+#define STRAP_END(t)     ( (t)->genericValue5 )
+
+static qboolean Shinobi_IsShadowTrap( gentity_t *t ) {
+	return ( t && t->inuse && t->classname && !strcmp( t->classname, "shinobi_shadowtrap" ) ) ? qtrue : qfalse;
+}
+
+void Shinobi_ShadowTrapRelease( gentity_t *victim ) {
+	gclient_t *client = victim->client;
+	gentity_t *t;
+
+	if ( !client || !client->shinobi.shadowTrapEnt )
+		return;
+	t = &g_entities[client->shinobi.shadowTrapEnt - 1];
+	client->shinobi.shadowTrapEnt = 0;
+	client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_SHADOWTRAP;
+	Shinobi_CCGrant( victim, level.time );
+	if ( Shinobi_IsShadowTrap( t ) && STRAP_VICTIM( t ) == victim->s.number + 1 )
+		G_FreeEntity( t );
+}
+
+// may the trap of 'ent' take v?
+static qboolean Shinobi_ShadowTrapTarget( gentity_t *ent, gentity_t *v ) {
+	if ( !v->inuse || !v->client || v == ent || v->s.number >= MAX_CLIENTS || v->health <= 0
+		|| v->client->sess.sessionTeam == TEAM_SPECTATOR )
+		return qfalse;
+	if ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) )
+		return qfalse;
+	if ( Shinobi_DamageBlocked( v, ent ) || SHINOBI_UNSEEN( &v->client->ps ) || Shinobi_Burrowed( v ) )
+		return qfalse;
+	if ( v->client->shinobi.shadowTrapEnt || v->client->shinobi.shadowBy || v->client->shinobi.prisonCaster )
+		return qfalse;
+	return qtrue;
+}
+
+static void Shinobi_ShadowTrapThink( gentity_t *t ) {
+	gentity_t *owner = &g_entities[t->r.ownerNum];
+	gentity_t *v = STRAP_VICTIM( t ) ? &g_entities[STRAP_VICTIM( t ) - 1] : NULL;
+	vec3_t     feet, tip;
+
+	if ( !v || !v->inuse || !v->client || v->health <= 0 || v->client->sess.sessionTeam == TEAM_SPECTATOR
+		|| !owner->inuse || !owner->client || owner->health <= 0 ) {
+		if ( v && v->client && v->client->shinobi.shadowTrapEnt == t->s.number + 1 )
+			Shinobi_ShadowTrapRelease( v );
+		else
+			G_FreeEntity( t );
+		return;
+	}
+	VectorCopy( v->client->ps.origin, feet );
+	feet[2] += v->r.mins[2];
+	VectorCopy( t->s.angles2, tip );
+
+	if ( !STRAP_CAUGHT( t ) ) {
+		// reaching out along the floor
+		vec3_t  d, next, from, to, floor;
+		float   dist, step = SHINOBI_SHADOWTRAP_SPEED * ( FRAMETIME / 1000.0f );
+		trace_t tr;
+
+		if ( level.time - STRAP_START( t ) > SHINOBI_SHADOWTRAP_REACH_MS
+			|| Distance( feet, t->r.currentOrigin ) > SHINOBI_SHADOWTRAP_RANGE * 1.5f || !Shinobi_ShadowTrapTarget( owner, v ) ) {
+			G_FreeEntity( t ); // got away: the shadow pulls back
+			return;
+		}
+		VectorSubtract( feet, tip, d );
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > 0.5f ) {
+			VectorMA( tip, dist < step ? dist : step, d, next );
+			VectorCopy( tip, from );
+			from[2] += 16;
+			VectorCopy( next, to );
+			to[2] = feet[2] > tip[2] ? feet[2] + 16 : tip[2] + 16;
+			trap->Trace( &tr, from, NULL, NULL, to, ENTITYNUM_NONE, MASK_SOLID, qfalse, 0, 0 );
+			if ( tr.fraction >= 1.0f ) {
+				if ( Shinobi_FloorBelow( to, 64, floor ) )
+					VectorCopy( floor, tip );
+				else
+					VectorCopy( next, tip ); // over a gap: on the same level
+			}
+		}
+		VectorSubtract( feet, tip, d );
+		d[2] = 0;
+		if ( VectorLength( d ) <= 24 && feet[2] - tip[2] < 40 && !Shinobi_CCImmune( v ) ) {
+			gclient_t *vc = v->client;
+			STRAP_CAUGHT( t ) = 1;
+			STRAP_END( t ) = level.time + SHINOBI_SHADOWTRAP_MS;
+			STRAP_DRAIN( t ) = level.time + SHINOBI_SHADOWTRAP_DRAIN_MS;
+			vc->shinobi.shadowTrapEnt = t->s.number + 1;
+			vc->shinobi.chargeJutsu = SJ_NONE;
+			vc->ps.userInt1 = vc->ps.userInt2 = vc->ps.userInt3 = 0; // drops a Rasengan / Chidori
+			if ( vc->shinobi.flameEnt )
+				Shinobi_FlameStop( v );
+			vc->ps.velocity[0] = vc->ps.velocity[1] = 0;
+			G_Sound( v, CHAN_AUTO, shinobiMedia.sndShadow );
+			trap->SendServerCommand( v - g_entities, "cp \"^0Shadow Trap!^7\nheld in place - any hit frees you, Kawarimi gets you out\"" );
+			trap->SendServerCommand( owner - g_entities, "cp \"Shadow Trap: caught!\"" );
+		}
+	}
+	else {
+		if ( v->client->shinobi.shadowTrapEnt != t->s.number + 1 ) {
+			G_FreeEntity( t ); // let go elsewhere
+			return;
+		}
+		if ( level.time >= STRAP_END( t ) ) {
+			Shinobi_ShadowTrapRelease( v );
+			return;
+		}
+		owner->client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+		if ( STRAP_DRAIN( t ) <= level.time ) {
+			STRAP_DRAIN( t ) = level.time + SHINOBI_SHADOWTRAP_DRAIN_MS;
+			if ( owner->client->ps.fd.forcePower < SHINOBI_SHADOWTRAP_DRAIN ) {
+				trap->SendServerCommand( owner - g_entities, "cp \"Out of chakra: the shadow trap lets go\"" );
+				Shinobi_ShadowTrapRelease( v );
+				return;
+			}
+			owner->client->ps.fd.forcePower -= SHINOBI_SHADOWTRAP_DRAIN;
+		}
+		VectorCopy( feet, tip );
+	}
+	VectorCopy( tip, t->s.angles2 );
+	trap->LinkEntity( (sharedEntity_t *)t );
+	t->nextthink = level.time + FRAMETIME;
+}
+
+// the caught one, every client frame before Pmove: stands where he is
+void Shinobi_ShadowTrapVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	gentity_t *t = &g_entities[client->shinobi.shadowTrapEnt - 1];
+
+	if ( !Shinobi_IsShadowTrap( t ) || STRAP_VICTIM( t ) != ent->s.number + 1 || !STRAP_CAUGHT( t ) ) {
+		client->shinobi.shadowTrapEnt = 0;
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_SHADOWTRAP;
+		return;
+	}
+	ucmd->forwardmove = ucmd->rightmove = 0;
+	if ( ucmd->upmove > 0 )
+		ucmd->upmove = 0;
+	ucmd->generic_cmd = 0;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER | BUTTON_FORCEGRIP
+		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | SHINOBI_BUTTON_BLOCK );
+	client->ps.velocity[0] = client->ps.velocity[1] = 0;
+	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_SHADOWTRAP;
+}
+
+qboolean Shinobi_CastShadowTrap( gentity_t *ent ) {
+	int i, marks = 0, n = 0;
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *k = &g_entities[i];
+		gentity_t *best = NULL, *t;
+		vec3_t     pos, start;
+		float      bestDist = SHINOBI_SHADOWTRAP_RANGE;
+		int        j;
+
+		if ( !Shinobi_IsMark( k, ent->s.number ) || ( !KUNAI_STUCK( k ) && !KUNAI_ON( k ) ) )
+			continue;
+		marks++;
+		VectorCopy( k->r.currentOrigin, pos );
+		if ( KUNAI_ON( k ) ) { // riding on the enemy it marked: him
+			gentity_t *v = &g_entities[KUNAI_ON( k ) - 1];
+			if ( Shinobi_ShadowTrapTarget( ent, v ) )
+				best = v;
+		}
+		else {
+			for ( j = 0; j < MAX_CLIENTS; j++ ) {
+				gentity_t *v = &g_entities[j];
+				trace_t    tr;
+				float      d;
+				int        m;
+				qboolean   taken = qfalse;
+
+				if ( !Shinobi_ShadowTrapTarget( ent, v ) )
+					continue;
+				d = Distance( v->r.currentOrigin, pos );
+				if ( d > bestDist )
+					continue;
+				for ( m = MAX_CLIENTS; m < level.num_entities && !taken; m++ ) // another shadow is already on its way to him
+					taken = Shinobi_IsShadowTrap( &g_entities[m] ) && STRAP_VICTIM( &g_entities[m] ) == v->s.number + 1;
+				if ( taken )
+					continue;
+				trap->Trace( &tr, pos, NULL, NULL, v->r.currentOrigin, k->s.number, MASK_SOLID, qfalse, 0, 0 );
+				if ( tr.fraction < 1.0f && tr.entityNum != v->s.number )
+					continue;
+				best = v;
+				bestDist = d;
+			}
+		}
+		if ( !best )
+			continue;
+
+		if ( KUNAI_ON( k ) ) {
+			VectorCopy( best->client->ps.origin, start );
+			start[2] += best->r.mins[2];
+		}
+		else if ( !Shinobi_FloorBelow( pos, 256, start ) )
+			VectorCopy( pos, start );
+		t = G_Spawn();
+		if ( !t )
+			break;
+		t->classname = "shinobi_shadowtrap";
+		t->s.eType = ET_GENERAL;
+		t->s.generic1 = SHINOBI_ENT_SHADOW;
+		t->r.ownerNum = ent->s.number;
+		t->r.contents = 0;
+		t->r.svFlags |= SVF_BROADCAST;
+		G_SetOrigin( t, start );
+		VectorCopy( start, t->s.angles2 );
+		STRAP_VICTIM( t ) = best->s.number + 1;
+		STRAP_START( t ) = level.time;
+		t->think = Shinobi_ShadowTrapThink;
+		t->nextthink = level.time + FRAMETIME;
+		trap->LinkEntity( (sharedEntity_t *)t );
+		G_SoundAtLoc( start, CHAN_AUTO, shinobiMedia.sndShadow );
+		G_FreeEntity( k ); // the kunai goes into the shadow
+		n++;
+	}
+	if ( !marks ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"No marked kunai to trap with (Shift+Z)\"" );
+		return qfalse;
+	}
+	if ( !n ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"Shadow Trap: no enemy near your marked kunai\"" );
+		return qfalse;
+	}
+	ent->client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	ent->client->ps.forceDodgeAnim = BOTH_FORCEHEAL_QUICK;
+	ent->client->ps.forceHandExtendTime = level.time + 400;
 	return qtrue;
 }
 

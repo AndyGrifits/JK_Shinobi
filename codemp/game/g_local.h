@@ -865,6 +865,7 @@ struct gclient_s {
 		int		shadowEnt;		// Shadow Bind entity num + 1
 		int		shadowTarget;	// caught client num + 1
 		int		shadowBy;		// we are caught by this client num + 1
+		int		shadowTrapEnt;	// held by this Shadow Trap entity num + 1
 		float	shadowLen;		// how far the shadow has crawled
 		vec3_t	shadowStart, shadowDir;
 		float	shadowYaw;		// victim yaw minus binder yaw when caught

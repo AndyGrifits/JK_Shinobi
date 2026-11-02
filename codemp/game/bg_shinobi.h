@@ -71,6 +71,7 @@ typedef enum {
 	SJ_SHADOWHIDE,// shadow hide (held): melt into your shadow
 	SJ_FLASH,     // flash: blinds whoever looks at you, light chases out what hides
 	SJ_HEAL,      // healing: chakra into health
+	SJ_SHADOWTRAP,// shadow trap: shadows reach out from your marked kunai and hold whoever they catch
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -82,19 +83,19 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen", "kagewana"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
 	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_PILLAR, SJ_BURROW, SJ_ARMOR, SJ_EARTHCLONE, SJ_CHIDORI, SJ_RAIEDGE, SJ_RAIDASH, SJ_RAICLONE,
-	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_HIRAISHIN
+	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_SHADOWTRAP, SJ_HIRAISHIN, SJ_SHADOWHIDE, SJ_FLASH, SJ_HEAL
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -134,10 +135,11 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 15, 15, 15 }, // Shadow Hide (to start; then it drains while held)
 	{ 25, 25, 25 }, // Flash
 	{ 25, 40, 55 }, // Healing
+	{ 20, 20, 20 }, // Shadow Trap (to start; then each caught enemy drains it)
 };
 
 // jutsu that cast on key press, without charging
-#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP \
+#define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP || (j) == SJ_SHADOWTRAP \
 	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE || (j) == SJ_ARMOR || (j) == SJ_EARTHCLONE || (j) == SJ_RAICLONE || (j) == SJ_FLASH )
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
@@ -525,7 +527,7 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 // Shadow Bind: held; a shadow crawls forward along the ground. An enemy standing
 // on it is caught and copies every move you make (attacks included) until you
 // let go. Jump over the shadow to dodge.
-#define SHINOBI_SHADOW_SPEED       450
+#define SHINOBI_SHADOW_SPEED       900
 #define SHINOBI_SHADOW_RANGE       600
 #define SHINOBI_SHADOW_HOLD_RANGE  900
 #define SHINOBI_SHADOW_WIDTH       28
@@ -652,6 +654,15 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_RAITRAP_RADIUS     110
 #define SHINOBI_RAITRAP_DAMAGE     25
 #define SHINOBI_RAITRAP_STUN_MS    800
+// Shadow Trap: from each marked kunai a shadow reaches out along the floor to the
+// nearest enemy in range and holds him where he stands (no moving, no attacks, no
+// jutsu but Kawarimi) while its maker pays for it. Any damage to him breaks it.
+#define SHINOBI_SHADOWTRAP_RANGE    420
+#define SHINOBI_SHADOWTRAP_SPEED    1500   // how fast the shadow reaches him
+#define SHINOBI_SHADOWTRAP_REACH_MS 1500   // not caught by then: it pulls back
+#define SHINOBI_SHADOWTRAP_MS       15000  // the longest hold
+#define SHINOBI_SHADOWTRAP_DRAIN_MS 300
+#define SHINOBI_SHADOWTRAP_DRAIN    2      // chakra per tick per caught enemy (~7/s)
 #define SHINOBI_KUNAI_MODEL        "models/shinobi/kunai.md3"
 
 // Shift + attack: chakra flows into fists, kicks and the blade (5 chakra a hit)
@@ -679,6 +690,7 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_STAT2_ATTACKHELD   16
 
 #define SHINOBI_STAT2_DIVEREQ      32    // attack pressed in the air: dive as soon as it can
+#define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
 
 /*
 Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
@@ -900,6 +912,7 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Shadow Hide
 	SS_YINYANG, // Flash
 	SS_YINYANG, // Healing
+	SS_YINYANG, // Shadow Trap
 };
 
 // the fixed stock force levels of every player (after "rank-side-"): heal lev
@@ -975,7 +988,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
 	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through",
 	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it and leaves dust (water makes it mud). Jump!",
-	"a wall of wind ahead (2-4 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
+	"a wall of wind ahead (4-8 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
 	"passive: jumps and wall runs cost half the chakra, no falling damage",
 	"15 s: fists and blade throw air slashes a few metres ahead and cut through guards (not a perfect parry)",
 	"15 s: fists and blade hit 20% harder, 3x against earth walls and other stone",
@@ -987,7 +1000,8 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: become a bolt of lightning racing ahead (steer with the mouse), zapping whoever you pass; 40 chakra/s",
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
-	"chakra into health: 20 / 35 / 50 back"
+	"chakra into health: 20 / 35 / 50 back",
+	"shadows reach out from your marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue };

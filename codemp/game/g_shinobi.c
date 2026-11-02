@@ -433,8 +433,8 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		|| ( client->shinobi.raiDashEnd && jutsu != SJ_RAIDASH ) )
 		return qfalse; // under the ground / in the shadow / a bolt of lightning: come out first
 	if ( jutsu != SJ_KAWARIMI ) {
-		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
-			return qfalse; // in a Water Prison or a Shadow Bind only Kawarimi works
+		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy || client->shinobi.shadowTrapEnt )
+			return qfalse; // in a Water Prison, a Shadow Bind or a Shadow Trap only Kawarimi works
 		Shinobi_Reveal( ent ); // any jutsu ends a substitution
 	}
 
@@ -489,6 +489,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
 	case SJ_HIRAISHIN: cast = Shinobi_CastHiraishin( ent ); break;
 	case SJ_RAITRAP:  cast = Shinobi_CastRaiTrap( ent ); break;
+	case SJ_SHADOWTRAP: cast = Shinobi_CastShadowTrap( ent ); break;
 	default: break;
 	}
 
@@ -579,7 +580,7 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;
 	}
-	if ( client->shinobi.shadowBy || client->shinobi.prisonCaster )
+	if ( client->shinobi.shadowBy || client->shinobi.prisonCaster || client->shinobi.shadowTrapEnt )
 		return; // bound or imprisoned: no seals
 	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
@@ -685,7 +686,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
 
 	// --- Chakra charging: hold USE while standing still on the ground ---
-	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.prisonCaster && !client->shinobi.blocking
+	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.shadowTrapEnt && !client->shinobi.prisonCaster && !client->shinobi.blocking
 		&& !client->shinobi.burrowEnd && !client->shinobi.shadowHideEnd
 		&& !ucmd->forwardmove && !ucmd->rightmove && ucmd->upmove <= 0
 		&& client->ps.groundEntityNum != ENTITYNUM_NONE
@@ -827,6 +828,8 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 		Shinobi_PrisonRelease( ent );
 	if ( client->shinobi.shadowBy )
 		Shinobi_ShadowRelease( ent );
+	if ( client->shinobi.shadowTrapEnt )
+		Shinobi_ShadowTrapRelease( ent );
 	client->shinobi.stunEnd = 0;
 
 	// drop whatever we were doing - the double carries on instead
@@ -896,6 +899,8 @@ void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker ) {
 	if ( !targ || !targ->client || targ->s.number >= MAX_CLIENTS )
 		return;
 	Shinobi_Reveal( targ );
+	if ( targ->client->shinobi.shadowTrapEnt )
+		Shinobi_ShadowTrapRelease( targ ); // any hit breaks a Shadow Trap
 	if ( targ->client->shinobi.prisonTarget && attacker != targ )
 		Shinobi_PrisonRelease( targ ); // hit while holding a Water Prison: it bursts
 	if ( targ->client->shinobi.shadowEnt && attacker != targ )

@@ -234,6 +234,8 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 		Shinobi_FlameStop( ent );
 	if ( client->shinobi.shadowEnt || client->shinobi.shadowBy )
 		Shinobi_ShadowRelease( ent );
+	if ( client->shinobi.shadowTrapEnt )
+		Shinobi_ShadowTrapRelease( ent );
 	Shinobi_SetRawBit( &client->ps.userVec1[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );
@@ -267,6 +269,10 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_PrisonThink( ent, ucmd );
 	if ( client->shinobi.shadowBy )
 		Shinobi_ShadowVictimThink( ent, ucmd );
+	if ( client->shinobi.shadowTrapEnt )
+		Shinobi_ShadowTrapVictimThink( ent, ucmd );
+	else
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_SHADOWTRAP;
 	if ( client->shinobi.prisonCaster ) {
 		// held in the water: no moving, no attacking, no force (Kawarimi still works)
 		gentity_t *caster = &g_entities[client->shinobi.prisonCaster - 1];

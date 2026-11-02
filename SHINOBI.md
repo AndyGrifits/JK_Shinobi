@@ -232,9 +232,10 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Shadow Hide | `kagegakure`, Yin, hold F: melt into your shadow (4 chakra/s, up to 6 s, 0.7x speed): others see only a dark patch (the Byakugan sees you); fists, blades and missiles pass over it, fire and lightning drive you out. Let go or attack to rise. 8 s cooldown | 15 |
 | Flash | `senko`, Yang, instant: everyone within 550 u who can see you and looks your way is blinded for 2.5 s (bots and NPCs reel); Kawarimi and Shadow Hide around you are flushed out. 10 s cooldown | 25 |
 | Healing | `shosen`, Yang: 20 / 35 / 50 health back. 10 s cooldown | 25 / 40 / 55 |
-| Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
+| Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (900 u/s) (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |
+| Shadow Trap | `kagewana`, Yin/Yang. From each marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |
 
 ### Elements
 

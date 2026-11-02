@@ -1980,6 +1980,11 @@ void CG_ShinobiDrawHUD( void ) {
 		VectorSet( color, 0.4f, 1.0f, 0.5f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.012f );
 	}
+	else if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP ) {
+		text = "Shadow Trap! Held in place - any hit frees you, Kawarimi (X) to escape";
+		VectorSet( color, 0.7f, 0.7f, 0.75f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
+	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) {
 		text = "Shadow Bind! You copy his moves - Kawarimi (X) to escape";
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
