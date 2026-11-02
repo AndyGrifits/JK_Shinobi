@@ -650,6 +650,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	qboolean   attackPressed;
 
 	Shinobi_StripGuns( ent ); // no blasters for anyone
+	BG_ShinobiBlockAttack( &client->ps, ucmd ); // block + attack = the blade's special attack, not a guard
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
 		Shinobi_StatusClear( ent );
 	else

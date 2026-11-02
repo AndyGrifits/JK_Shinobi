@@ -10284,6 +10284,16 @@ static void PM_ShinobiWallRun( void )
 	}
 }
 
+// guard up and attack with a blade in hand: the blade's special attack (stock attack + alt attack, "kata")
+void BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd )
+{
+	if ( ( cmd->buttons & SHINOBI_BUTTON_BLOCK ) && ( cmd->buttons & BUTTON_ATTACK ) && ps->weapon == WP_SABER )
+	{
+		cmd->buttons |= BUTTON_ALT_ATTACK;
+		cmd->buttons &= ~SHINOBI_BUTTON_BLOCK;
+	}
+}
+
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 {
 	if ( !( buttons & SHINOBI_BUTTON_BLOCK ) || ps->pm_type != PM_NORMAL || ps->clientNum >= MAX_CLIENTS )
@@ -10510,6 +10520,8 @@ void PmoveSingle (pmove_t *pmove) {
 	int savedGravity = 0;
 
 	pm = pmove;
+
+	BG_ShinobiBlockAttack( pm->ps, &pm->cmd ); // JK_Shinobi: block + attack = special attack
 
 	if (pm->cmd.buttons & BUTTON_ATTACK && pm->cmd.buttons & BUTTON_USE_HOLDABLE)
 	{

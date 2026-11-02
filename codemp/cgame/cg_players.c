@@ -11080,6 +11080,7 @@ stillDoSaber:
 	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
 	CG_ShinobiStoneShell( cent, &legs ); // JK_Shinobi: Stone Skin / Earth Clone
 	CG_ShinobiAccessory( cent, ci, &legs ); // JK_Shinobi: hat / mask / headband on the head
+	CG_ShinobiHandTool( cent, ci, &legs ); // JK_Shinobi: the explosive kunai / tag / shuriken in hand
 
 	// Electricity
 	//------------------------------------------------

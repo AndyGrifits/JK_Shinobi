@@ -215,22 +215,25 @@ def write_texture(tex, out_base):
     return path
 
 
-def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/head", fit=0.0, center=False):
+def convert(glm, tex, name, out_dir=DEFAULT_OUT, game_dir="models/accessories/head", fit=0.0, center=False, zscale=1.0):
     """Converts; returns (md3 path, texture path). Raises ValueError on bad input.
     game_dir: where the files sit inside the game (the shader name follows it).
     fit: scale so the biggest extent becomes this many units (0 = keep).
-    center: move the model's middle to the origin (props, thrown things)."""
+    center: move the model's middle to the origin (props, thrown things).
+    zscale: stretch the height (Z) only - a flat thing made thicker."""
     if not NAME_RE.match(name):
         raise ValueError("name must be 1-31 of a-z 0-9 _ (it goes over the network): %r" % name)
     shader = game_dir.rstrip("/") + "/" + name
     surfaces = read_obj(glm) if glm.lower().endswith(".obj") else read_glm(glm)
-    if fit or center:
+    if fit or center or zscale != 1.0:
         allp = [v for s in surfaces for v in s[0]]
         lo = [min(v[i] for v in allp) for i in range(3)]
         hi = [max(v[i] for v in allp) for i in range(3)]
         mid = [(lo[i] + hi[i]) / 2 if center else 0.0 for i in range(3)]
         k = fit / max(hi[i] - lo[i] for i in range(3)) if fit else 1.0
-        surfaces = [([tuple((v[i] - mid[i]) * k for i in range(3)) for v in s[0]], s[1], s[2], s[3]) for s in surfaces]
+        kz = k * zscale
+        surfaces = [([((v[0] - mid[0]) * k, (v[1] - mid[1]) * k, (v[2] - mid[2]) * kz) for v in s[0]],
+                     [(n[0] * zscale, n[1] * zscale, n[2]) for n in s[1]], s[2], s[3]) for s in surfaces]
     chunks = [c for s in surfaces for c in split(s)]
     allv = [v for c in chunks for v in c[0]]
     mins = [min(v[i] for v in allv) for i in range(3)]
@@ -264,13 +267,14 @@ def main():
     ap.add_argument("--game-dir", default="models/accessories/head", help="folder inside the game (shader name)")
     ap.add_argument("--fit", type=float, default=0.0, help="scale so the biggest extent is this many units")
     ap.add_argument("--center", action="store_true", help="put the model's middle at the origin")
+    ap.add_argument("--zscale", type=float, default=1.0, help="stretch the height only (thicker flat things)")
     a = ap.parse_args()
     tex = a.texture
     if tex == "-":
         tex = obj_texture(a.model) if a.model.lower().endswith(".obj") else None
         if not tex or not os.path.exists(tex):
             raise SystemExit("no texture found (the material names %r) - put it next to the model" % tex)
-    convert(a.model, tex, a.name, a.out, a.game_dir, a.fit, a.center)
+    convert(a.model, tex, a.name, a.out, a.game_dir, a.fit, a.center, a.zscale)
 
 
 if __name__ == "__main__":

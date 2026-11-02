@@ -256,6 +256,10 @@ const char *Shinobi_ToolName( int tool ) {
 	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? shinobiToolNames[tool] : "";
 }
 
+const char *Shinobi_ToolModel( int tool ) {
+	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? shinobiToolModels[tool] : "";
+}
+
 const char *Shinobi_ToolTitle( int tool ) {
 	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken" };
 	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? titles[tool] : "";

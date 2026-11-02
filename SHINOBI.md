@@ -124,7 +124,9 @@ reads them) and let go at the bar of the level they want; held jutsu are let go 
 
 Hold the right mouse button (`+button13`; Ctrl works too) for a guard stance. It replaces
 the stock alt-attack on that button: no saber throw (the force setup has none anyway) and no
-attack+alt-attack special moves (katas). Guard stance: slow steps, no jumping, no attacks, no
+attack+alt-attack special moves as such - instead, attacking with a blade while holding
+block does the blade's special attack (the stock kata: standing still, on the ground, costs
+chakra). Guard stance: slow steps, no jumping, no attacks, no
 jutsu (raising it lets go of fire breath / shadow bind). Hits from the front (~150°)
 go into the guard - the shield bar (100) - instead of health: fists, kicks and blades
 fully, jutsu half (the other half hurts). An empty guard breaks: 1 s stagger. A full

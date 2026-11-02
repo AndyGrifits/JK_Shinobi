@@ -547,6 +547,7 @@ The shield no longer soaks damage on its own.
 #define SHINOBI_BLOCK_ANIM         BOTH_P1_S1_T_
 #define SHINOBI_STAGGER_ANIM       BOTH_H1_S1_T_
 
+void     BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd );
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove.c
 
 /*
@@ -589,6 +590,9 @@ int  Shinobi_ToolForItem( const char *classname, int *amount );
 int  Shinobi_CanGrabTool( const char *classname, const playerState_t *ps );
 const char *Shinobi_ToolName( int tool );   // "2 Explosive Kunai" (pickup line)
 const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
+const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in flight, in the hand)
+#define SHINOBI_TOOL_FOR_WEAPON(w) ( (w) == SHINOBI_WP_EXKUNAI ? STOOL_EXKUNAI : (w) == SHINOBI_WP_TAG ? STOOL_TAG \
+	: (w) == SHINOBI_WP_SHURIKEN ? STOOL_SHURIKEN : STOOL_NONE )
 
 // Explosive Kunai: sticks where it lands (or in whom it hits), then goes off
 #define SHINOBI_EXKUNAI_FUSE       1000
@@ -697,7 +701,7 @@ Perks (perk command, key C):
 #define SHINOBI_DOJUTSU_COST           5
 #define SHINOBI_SHARINGAN_DRAIN_MS     333     // 1 chakra per tick (3/s), and no natural regen meanwhile
 #define SHINOBI_BYAKUGAN_DRAIN_MS      125     // 8/s (it also gives the Gentle Fist)
-#define SHINOBI_SHARINGAN_RANGE        2000
+#define SHINOBI_SHARINGAN_RANGE        1400
 #define SHINOBI_SHARINGAN_HIDDEN_RANGE 1500
 #define SHINOBI_BYAKUGAN_RANGE         1400
 #define SHINOBI_PERK_INFO_MS           200     // sinfo updates to the eye user

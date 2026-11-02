@@ -2425,6 +2425,14 @@ void CG_CopyG2WeaponInstance(centity_t *cent, int weaponNum, void *toGhoul2)
 {
 	//rww - the -1 is because there is no "weapon" for WP_NONE
 	assert(weaponNum < MAX_WEAPONS);
+	if ( SHINOBI_IS_TOOL_WEAPON( weaponNum ) )
+	{ // JK_Shinobi: an explosive kunai / tag / shuriken - empty the hand (the cgame draws the tool there)
+		if ( trap->G2API_HasGhoul2ModelOnIndex( &(toGhoul2), 2 ) )
+			trap->G2API_RemoveGhoul2Model( &(toGhoul2), 2 );
+		if ( trap->G2API_HasGhoul2ModelOnIndex( &(toGhoul2), 1 ) )
+			trap->G2API_RemoveGhoul2Model( &(toGhoul2), 1 );
+		return;
+	}
 	if (CG_G2WeaponInstance(cent, weaponNum/*-1*/))
 	{
 		if (weaponNum == WP_SABER)

@@ -2197,7 +2197,7 @@ Ghoul2 Insert End
 	}
 
 	// increase the size of the weapons when they are presented as items
-	if ( item->giType == IT_WEAPON ) {
+	if ( item->giType == IT_WEAPON && Shinobi_ToolForItem( item->classname, NULL ) == STOOL_NONE ) { // (JK_Shinobi: not the tools)
 		VectorScale( ent.axis[0], 1.5, ent.axis[0] );
 		VectorScale( ent.axis[1], 1.5, ent.axis[1] );
 		VectorScale( ent.axis[2], 1.5, ent.axis[2] );

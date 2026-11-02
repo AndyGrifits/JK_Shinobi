@@ -1704,6 +1704,42 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 	}
 }
 
+// the tool in hand (the stock weapon model is emptied for it)
+void CG_ShinobiHandTool( centity_t *cent, clientInfo_t *ci, refEntity_t *body ) {
+	static qhandle_t models[STOOL_COUNT];
+	const int        tool = SHINOBI_TOOL_FOR_WEAPON( cent->currentState.weapon );
+	mdxaBone_t       m;
+	refEntity_t      ent;
+	int              r;
+
+	if ( tool == STOOL_NONE || !ci || !cent->ghoul2 || ci->bolt_rhand < 0 )
+		return;
+	if ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW | SHINOBI_EF_RAIDASH ) )
+		return;
+	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )
+		return;
+	if ( !models[tool] )
+		models[tool] = trap->R_RegisterModel( Shinobi_ToolModel( tool ) );
+	if ( !trap->G2API_GetBoltMatrix( cent->ghoul2, 0, ci->bolt_rhand, &m, cent->turAngles, cent->lerpOrigin,
+		cg.time, cgs.gameModels, cent->modelScale ) )
+		return;
+	memset( &ent, 0, sizeof( ent ) );
+	ent.hModel = models[tool];
+	for ( r = 0; r < 3; r++ ) {
+		ent.origin[r] = m.matrix[r][3];
+		ent.axis[0][r] = m.matrix[r][0];
+		ent.axis[1][r] = m.matrix[r][1];
+		ent.axis[2][r] = m.matrix[r][2];
+	}
+	VectorCopy( ent.origin, ent.oldorigin );
+	ent.nonNormalizedAxes = qtrue;
+	VectorCopy( cent->lerpOrigin, ent.lightingOrigin );
+	ent.renderfx = RF_LIGHTING_ORIGIN | ( body->renderfx & ( RF_THIRD_PERSON | RF_FORCE_ENT_ALPHA ) );
+	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
+	ent.shaderRGBA[3] = body->shaderRGBA[3] ? body->shaderRGBA[3] : 255;
+	trap->R_AddRefEntityToScene( &ent );
+}
+
 // Lightning Dash: a crackling bolt where the body would be
 static void CG_ShinobiRaiDashForm( centity_t *cent ) {
 	vec3_t org, head, feet, a, b;
