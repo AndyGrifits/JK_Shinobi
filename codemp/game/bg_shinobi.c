@@ -282,7 +282,10 @@ void Shinobi_PatchItems( void ) {
 		if ( tool == STOOL_NONE )
 			continue;
 		item->world_model[0] = (char *)shinobiToolModels[tool];
-		item->world_model[1] = item->world_model[2] = item->world_model[3] = NULL;
+		// (the cgame draws thermals, trip mines and det packs lying around with world_model[1];
+		// for health and powerups it would be a second, spinning copy)
+		item->world_model[1] = item->giType == IT_WEAPON ? (char *)shinobiToolModels[tool] : NULL;
+		item->world_model[2] = item->world_model[3] = NULL;
 		// (the view model stays: the cgame builds weapon file names from it)
 		item->icon = (char *)shinobiToolIcons[tool];
 		item->pickup_sound = tool == STOOL_HEAL ? "sound/player/pickuphealth.wav" : "sound/player/pickupenergy.wav";

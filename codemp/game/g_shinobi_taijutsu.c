@@ -11,6 +11,7 @@ to whoever it hit. The diving kick's landing is resolved here.
 #include "g_shinobi_local.h"
 
 extern void G_Knockdown( gentity_t *victim ); // g_combat.c
+extern qboolean BG_InKnockDown( int anim ); // bg_pmove.c
 
 static qboolean Shinobi_ComboTarget( gentity_t *ent, gentity_t *v ) {
 	if ( !v || !v->inuse || !v->client || v == ent || v->health <= 0 || !v->takedamage )
@@ -54,7 +55,11 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	v->client->ps.otherKillerTime = level.time + 5000;
 	v->client->ps.otherKillerDebounceTime = level.time + 100;
 
-	switch ( kind ) { // chain hits, the ram and the launcher are plain damage
+	switch ( kind ) { // chain hits are plain damage
+	case SCK_LAUNCH: // up into the air - jump after him and dive
+		Shinobi_ComboPush( v, dir, 60, 520 );
+		Shinobi_CCGrant( v, level.time + 1100 );
+		break;
 	case SCK_KICK: // knocked down and away
 		Shinobi_ComboPush( v, dir, 480, 220 );
 		if ( !Shinobi_CCImmune( v ) )
@@ -100,9 +105,43 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 	}
 }
 
+// the downward blow lands on whoever lies in front
+static void Shinobi_GroundBlow( gentity_t *ent ) {
+	vec3_t fwd, ang, down = { 0, 0, -1 };
+	int    i;
+
+	VectorSet( ang, 0, ent->client->ps.viewangles[YAW], 0 );
+	AngleVectors( ang, fwd, NULL, NULL );
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+
+		if ( !Shinobi_ComboTarget( ent, v ) || !BG_InKnockDown( v->client->ps.legsAnim ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, d );
+		if ( fabs( d[2] ) > 64 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_GROUND_RANGE + 24 || ( dist > 16 && DotProduct( d, fwd ) < 0.5f ) )
+			continue;
+		G_Damage( v, ent, ent, down, v->r.currentOrigin, SHINOBI_GROUND_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		G_Sound( v, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
+	}
+}
+
 // every client frame, before Pmove
 void Shinobi_TaijutsuThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+
+	if ( client->ps.weapon == WP_MELEE && SHINOBI_COMBO_KIND( &client->ps ) == SCK_GROUND
+		&& SHINOBI_COMBO_HIT( &client->ps ) == 0 && client->ps.legsAnim == BOTH_STABDOWN
+		&& client->ps.legsTimer <= BG_AnimLength( ent->localAnimIndex, BOTH_STABDOWN ) / 2
+		&& ent->health > 0 ) {
+		client->ps.stats[STAT_SHINOBI_COMBO] |= 1; // landed (once)
+		Shinobi_GroundBlow( ent );
+	}
 
 	if ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVELAND ) {
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVELAND;

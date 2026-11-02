@@ -1748,12 +1748,32 @@ static void Shinobi_WindWallThink( gentity_t *w ) {
 			continue;
 		if ( p->s.pos.trType == TR_STATIONARY )
 			continue; // a kunai stuck somewhere
-		VectorSubtract( p->r.currentOrigin, w->r.currentOrigin, d );
+		{ // swept: a fast bullet covers more than the wall's depth between two thinks
+			vec3_t    now, prev, dn, dp;
+			float     depthPrev;
+			const int t0 = w->genericValue6 > p->s.pos.trTime ? w->genericValue6 : p->s.pos.trTime;
+
+			BG_EvaluateTrajectory( &p->s.pos, level.time, now );
+			BG_EvaluateTrajectory( &p->s.pos, t0, prev );
+			VectorSubtract( now, w->r.currentOrigin, dn );
+			VectorSubtract( prev, w->r.currentOrigin, dp );
+			depth = DotProduct( dn, face );
+			depthPrev = DotProduct( dp, face );
+			if ( ( depth < -SHINOBI_WINDWALL_DEPTH && depthPrev < -SHINOBI_WINDWALL_DEPTH )
+				|| ( depth > SHINOBI_WINDWALL_DEPTH * 2 && depthPrev > SHINOBI_WINDWALL_DEPTH * 2 ) )
+				continue; // never in the band
+			if ( ( depth > 0 ) != ( depthPrev > 0 ) && fabs( depth - depthPrev ) > 0.01f ) { // where it went through
+				const float f = depthPrev / ( depthPrev - depth );
+				VectorSubtract( dn, dp, d );
+				VectorMA( dp, f, d, d );
+			}
+			else
+				VectorCopy( dn, d );
+		}
 		if ( d[2] < -24 || d[2] > SHINOBI_WINDWALL_HEIGHT )
 			continue;
 		along = DotProduct( d, right );
-		depth = DotProduct( d, face );
-		if ( along < -halfW || along > halfW || depth < -SHINOBI_WINDWALL_DEPTH || depth > SHINOBI_WINDWALL_DEPTH * 2 )
+		if ( along < -halfW || along > halfW )
 			continue;
 		BG_EvaluateTrajectoryDelta( &p->s.pos, level.time, vel );
 		if ( p->r.ownerNum == w->r.ownerNum ) { // the caster's own, flying out through it: the wind joins in
@@ -1785,6 +1805,7 @@ static void Shinobi_WindWallThink( gentity_t *w ) {
 			continue; // flying away from the caster: let it be
 		Shinobi_WindWallReflect( w, p, p->r.currentOrigin, face );
 	}
+	w->genericValue6 = level.time; // (the sweep starts here next time)
 	// puddles in its way freeze (on the wall and a little before / behind it)
 	if ( w->genericValue5 <= level.time ) {
 		w->genericValue5 = level.time + 250;
@@ -1825,6 +1846,7 @@ qboolean Shinobi_CastWindWall( gentity_t *ent, int lvl ) {
 	w->s.time = level.time;
 	w->s.time2 = level.time + shinobiWindWallLife[lvl - 1];
 	WINDWALL_LEVEL( w ) = lvl;
+	w->genericValue6 = level.time;
 	w->r.ownerNum = ent->s.number;
 	w->r.contents = 0;
 	w->r.svFlags |= SVF_BROADCAST;

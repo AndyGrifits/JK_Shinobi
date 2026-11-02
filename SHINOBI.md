@@ -24,27 +24,27 @@ axis/scale fix between the gla's and the glm's frames - see `Shinobi_AccPlace`).
 
 ## Taijutsu combo (fists)
 
-Attack chains jab - cross - roundhouse kick; each next press within ~0.45 s of the last
-move's end. Chain hits are plain damage (no hitstun; the kicks keep the stock kick knockdown); a blocked or
-parried hit breaks the chain. After the third hit, a finisher:
+Hold attack (or keep pressing it): jab - cross - jab, each next one within ~0.45 s of the
+last move's end, then a finisher picked by the direction held at that moment:
 
-| input | finisher | what it does |
+| held | finisher | what it does |
 |---|---|---|
-| attack | shoulder ram (hilt bash) | damage + stock kick knockdown |
-| forward + attack | rising kick | damage + stock kick knockdown |
-| block (tap) | front kick | knocked down and away |
-| back + block (tap) | sweep | knocked down on the spot |
+| nothing | front kick | pushed away and knocked down |
+| forward | rising kick | thrown up into the air |
+| back | sweep | knocked down on the spot |
 
-In that window block doesn't raise the guard. Attack in the air (at least ~1 m up, combo
-or not): a diving kick straight down (no falling damage), 14 damage to everyone within 90 u
-of where you land (the kick itself knocks down like any stock kick). Taijutsu stat, Gates, Edges and the Gentle Fist apply as
-to any fist hit. All stock animations (punches, staff kicks, hilt bash); the state is in
-`ps.stats[13..15]`, predicted.
+The punches are plain damage; the kicks keep the stock kick knockdown. A blocked or parried
+hit breaks the chain. Attack with someone lying right in front of you (up to ~96 u): a
+two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air
+(at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
+a kick straight down (no falling damage), 14 damage to everyone within 90 u of where you
+land. Block + attack: the stock grab. Taijutsu stat, Gates, Edges and the Gentle Fist
+apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
 
 ## Wind and water: ice (not canon, but fun)
 
 - The wind freezes puddles: a Wind Wall freezes those on it and a little before / behind
-  it, Storm Wind those in its cone. Ice (12 s) is slippery (no friction, little control);
+  it, Storm Wind those in its cone. Ice (24 s) is slippery (no friction, little control);
   fire on it melts it back to water.
 - Your own water bullets flying out through your own Wind Wall freeze into icicles:
   x1.3 speed, x1.6 damage, no soaking, they shatter instead of leaving a puddle.
@@ -58,11 +58,12 @@ The kunai, explosive kunai, explosive tag, fuma shuriken and the healing / chakr
 are the artist's models (OBJ from Blender, converted with
 `tools/glm2acc.py <model.obj> - <name> --out assets/models/shinobi --game-dir models/shinobi`
 plus `--fit` / `--center` / `--turn` / `--zscale`; each .obj material keeps its own
-texture). Sizes: kunai 28, explosive kunai 40, shuriken 48 (x4 thicker), tag 12, pills 10.
+texture). Sizes: kunai 28, explosive kunai 40, shuriken 48 (x2 thicker), tag 12, pills 10.
+OBJ faces are turned to the game's winding (clockwise from outside), or the back side would show.
 
 ## Dust and mud
 
-Doton leaves loose earth (a sandy patch, 20 s): the Earthquake over its whole area,
+Doton leaves loose earth (a sandy patch, 40 s): the Earthquake over its whole area,
 Burrow along its trail, broken earth walls / Rock Pillar blocks where they stood.
 Water on dust or dust on water makes mud (slows), whichever comes first.
 
@@ -217,8 +218,8 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, a fog sheet covers the view; only the mist's maker sees people within 450 u as dark silhouettes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
-| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (20 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
-| Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 2 / 3 / 4 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
+| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
+| Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 4 / 6 / 8 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
 | Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |

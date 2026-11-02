@@ -1703,6 +1703,9 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 	refEntity_t ent;
 	int         i;
 
+	if ( cent->currentState.eType == ET_NPC && cent->currentState.owner >= 0 && cent->currentState.owner < MAX_CLIENTS
+		&& cgs.clientinfo[cent->currentState.owner].infoValid )
+		ci = &cgs.clientinfo[cent->currentState.owner]; // a clone / Kawarimi double: its maker's accessories
 	if ( !ci || !ci->shinobiAccCount || !cent->ghoul2 )
 		return;
 	if ( cent->currentState.eFlags & ( SHINOBI_EF_RAIDASH | EF_NODRAW ) || ( cent->currentState.powerups & ( 1 << PW_CLOAKED ) ) )

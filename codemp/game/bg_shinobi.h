@@ -306,7 +306,7 @@ static const int shinobiQuakeDamage[3] = { 15, 30, 45 };
 // Wind Wall: a standing wall of wind in front of the caster. Projectiles
 // flying into its face are thrown back at whoever threw them (they become
 // the caster's); a fireball grows a level on the way back.
-static const int shinobiWindWallLife[3]  = { 2000, 3000, 4000 };
+static const int shinobiWindWallLife[3]  = { 4000, 6000, 8000 };
 static const int shinobiWindWallHalfW[3] = { 80, 100, 120 };
 #define SHINOBI_WINDWALL_DISTANCE  64
 #define SHINOBI_WINDWALL_HEIGHT    140
@@ -446,9 +446,9 @@ static const int shinobiFireZoneLife[3]   = {   0, 5000, 7000 };
 #define SHINOBI_BURN_DAMAGE        3
 #define SHINOBI_WET_MS             6000
 #define SHINOBI_STEAM_MS           4000
-#define SHINOBI_MUD_MS             12000
-#define SHINOBI_DUST_MS            20000
-#define SHINOBI_ICE_MS             12000
+#define SHINOBI_MUD_MS             24000
+#define SHINOBI_DUST_MS            40000
+#define SHINOBI_ICE_MS             24000
 // Wind + water = ice (not canon, but fun): the wind (Wind Wall, Storm Wind)
 // freezes puddles; your own water bullets through your own Wind Wall freeze
 // into icicles (harder, faster, no soaking); your own fireball through it
@@ -474,7 +474,7 @@ static const int   shinobiWaterSize[3]    = {    6,    9,   12 };
 static const int   shinobiWaterDamage[3]  = {   12,   20,   30 };
 static const int   shinobiWaterPush[3]    = {  150,  250,  350 };
 static const int   shinobiPuddleRadius[3] = {   45,   60,   80 };
-static const int   shinobiPuddleLife[3]   = { 6000, 7000, 8000 };
+static const int   shinobiPuddleLife[3]   = { 12000, 14000, 16000 };
 static const float shinobiWaterVisual[3]  = { 7.0f, 10.0f, 14.0f };
 #define SHINOBI_PUDDLE_SLOW        0.8f  // puddles slow a little
 
@@ -678,27 +678,32 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_STAT2_BLOCKHELD    8     // (to tell a new press of block / attack from a held one)
 #define SHINOBI_STAT2_ATTACKHELD   16
 
+#define SHINOBI_STAT2_DIVEREQ      32    // attack pressed in the air: dive as soon as it can
+
 /*
-Taijutsu combo (fists): attack chains jab - cross - kick, each step within
-SHINOBI_COMBO_WINDOW of the last; after the third, a finisher:
-  attack            heavy blow (shoulder ram): knocked back, staggered
-  forward + attack  launcher: thrown up into the air
-  block (tap)       front kick: knocked down and away
-  back + block      sweep: knocked down on the spot
-Attack in the air (anywhere, combo or not): a diving kick straight down that
-hits around where you land. Each combo hit staggers a little, so the chain
-connects; a blocked hit breaks it.
+Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
+step within SHINOBI_COMBO_WINDOW of the last - then a finisher picked by the
+direction held at that moment:
+  nothing   front kick: pushed away and knocked down
+  forward   launcher: thrown up into the air
+  back      sweep: knocked down on the spot
+Chain hits are plain damage; kicks keep the stock kick knockdown. Attack next to
+someone lying in front of you: a downward blow (the saber stab-down animation).
+Attack in the air (anywhere, combo or not): a kick straight down that hits
+around where you land. Block + attack: the stock grab.
 */
 #define STAT_SHINOBI_COMBO         14    // hit number (bits 0-2) and kind (bits 3-5) of the current move
 #define STAT_SHINOBI_COMBOT        15    // ms left to chain the next hit
 #define SHINOBI_COMBO_WINDOW       450
 #define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
-enum { SCK_NONE, SCK_HIT, SCK_HEAVY, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE };
-#define SHINOBI_COMBO_STAGGER      350   // a chain hit: the victim reels this long
+enum { SCK_NONE, SCK_HIT, SCK_HEAVY, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
+#define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
 #define SHINOBI_DIVE_SPEED         950
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        14
+#define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be
+#define SHINOBI_GROUND_DAMAGE      30
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed

@@ -253,6 +253,7 @@ static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 		return NULL;
 
 	clone->shinobiCloneOwner = owner->s.number + 1;
+	clone->s.owner = owner->s.number; // (the cgame draws its maker's accessories on it)
 	clone->shinobiCloneExpire = level.time + SHINOBI_CLONE_LIFETIME;
 	clone->shinobiCloneThink = 0;
 	clone->shinobiCloneReady = qfalse;
@@ -470,7 +471,7 @@ static void Shinobi_WaterClonePop( gentity_t *clone ) {
 		G_PlayEffectID( shinobiMedia.fxWaterImpact, clone->r.currentOrigin, up );
 		G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndSplash );
 		if ( Shinobi_FloorBelow( clone->r.currentOrigin, 96, floor ) )
-			Shinobi_SpawnZone( SZ_WATER, floor, 70, 8000, clone->shinobiCloneOwner );
+			Shinobi_SpawnZone( SZ_WATER, floor, 70, 16000, clone->shinobiCloneOwner );
 	}
 	clone->shinobiCloneOwner = 0;
 	clone->shinobiCloneWater = qfalse;

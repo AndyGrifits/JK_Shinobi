@@ -159,7 +159,8 @@ def read_obj(path):
                     normals.append(nor[ni - 1 if ni > 0 else ni] if ni else (0.0, 0.0, 1.0))
                 corner.append(index[key])
             for k in range(1, len(corner) - 1):
-                tris.append((corner[0], corner[k], corner[k + 1]))
+                # OBJ faces wind counter-clockwise seen from outside, the game's clockwise
+                tris.append((corner[0], corner[k + 1], corner[k]))
     out = [(surfaces[m][0], surfaces[m][1], surfaces[m][2], surfaces[m][3], surfaces[m][5]) for m in order if surfaces[m][3]]
     if not out:
         raise ValueError("no faces in %s" % path)
