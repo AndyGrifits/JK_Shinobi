@@ -47,6 +47,11 @@ a kick forward and down at 45 degrees, steered with the view (no falling damage)
 land. Block + attack: the stock grab. Taijutsu stat, Gates, Edges and the Gentle Fist
 apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
 
+`shinobi_hitnumbers` (server, on by default) shows floating combat text over everyone hit:
+the damage (`-37`; red over yourself) and what the hit did - Flinch, Stagger, Knockdown, Launch,
+Stunned, Shadow Trap / Bind, Water Prison, Block (and how much the guard took), Parry, Guard
+break. `shinobi_hitnumbers 0` turns it off.
+
 `shinobi_dps 1` (server) logs every attacker's damage per second in 5 s windows, split into
 fists / blade / jutsu, to the console and qconsole.log (`[dps] ...`).
 

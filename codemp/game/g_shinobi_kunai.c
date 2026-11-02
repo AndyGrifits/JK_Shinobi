@@ -442,6 +442,7 @@ static void Shinobi_ShadowTrapThink( gentity_t *t ) {
 				Shinobi_FlameStop( v );
 			vc->ps.velocity[0] = vc->ps.velocity[1] = 0;
 			G_Sound( v, CHAN_AUTO, shinobiMedia.sndShadow );
+			Shinobi_HitText( v, STX_TRAPPED, 0 );
 			trap->SendServerCommand( v - g_entities, "cp \"^0Shadow Trap!^7\nheld in place - any hit frees you, Kawarimi gets you out\"" );
 			trap->SendServerCommand( owner - g_entities, "cp \"Shadow Trap: caught!\"" );
 		}

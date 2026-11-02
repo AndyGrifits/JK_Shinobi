@@ -130,6 +130,7 @@ void      Shinobi_PerkThink( gentity_t *ent );
 void      Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_Stagger( gentity_t *ent, int ms );
 void      Shinobi_Flinch( gentity_t *ent, int ms );
+void      Shinobi_HitText( gentity_t *targ, int kind, int value );
 void      Shinobi_TaijutsuThink( gentity_t *ent );
 #define SBR_NONE    0
 #define SBR_BLOCKED 1

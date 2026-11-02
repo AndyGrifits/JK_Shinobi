@@ -452,9 +452,19 @@ static void Shinobi_DpsFlush( gentity_t *attacker ) {
 	c->shinobi.dpsHits = c->shinobi.dpsTotal = 0;
 }
 
+// floating combat text over a target, for everyone who can see it (shinobi_hitnumbers)
+void Shinobi_HitText( gentity_t *targ, int kind, int value ) {
+	if ( !shinobi_hitnumbers.integer || !targ || !targ->inuse || kind < 0 || kind >= STX_COUNT )
+		return;
+	trap->SendServerCommand( -1, va( "stx %i %i %i", targ->s.number, kind, value ) );
+}
+
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	gclient_t *c;
 	int        kind;
+
+	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker )
+		Shinobi_HitText( targ, STX_DAMAGE, take ); // the damage number over him
 
 	if ( take <= 0 || !attacker || !attacker->client || attacker->s.number >= MAX_CLIENTS || targ == attacker
 		|| !trap->Cvar_VariableIntegerValue( "shinobi_dps" ) )

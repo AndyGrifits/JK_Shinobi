@@ -95,6 +95,7 @@ void Shinobi_Paralyse( gentity_t *v, int ms ) {
 	if ( !v || !v->client || v->health <= 0 || Shinobi_CCImmune( v ) )
 		return;
 	v->client->ps.electrifyTime = level.time + ms;
+	Shinobi_HitText( v, STX_STUN, 0 );
 	if ( v->client->ps.weaponTime < ms )
 		v->client->ps.weaponTime = ms;
 	if ( v->s.number < MAX_CLIENTS ) {

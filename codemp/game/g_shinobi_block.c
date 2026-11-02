@@ -20,6 +20,7 @@ void Shinobi_Stagger( gentity_t *ent, int ms ) {
 	if ( client->shinobi.staggerEnd < level.time + ms )
 		client->shinobi.staggerEnd = level.time + ms;
 	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_STAGGER;
+	Shinobi_HitText( ent, STX_STAGGER, 0 );
 	if ( client->ps.weaponTime < ms )
 		client->ps.weaponTime = ms;
 	if ( client->ps.weapon == WP_SABER && BG_SaberInAttack( client->ps.saberMove ) )
@@ -39,6 +40,7 @@ void Shinobi_Flinch( gentity_t *ent, int ms ) {
 	if ( client->shinobi.flinchEnd < level.time + ms )
 		client->shinobi.flinchEnd = level.time + ms;
 	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
+	Shinobi_HitText( ent, STX_FLINCH, 0 );
 	if ( client->ps.weaponTime < ms )
 		client->ps.weaponTime = ms;
 	if ( client->ps.weapon == WP_SABER && BG_SaberInAttack( client->ps.saberMove ) )
@@ -57,6 +59,7 @@ static void Shinobi_GuardBreak( gentity_t *ent ) {
 	client->shinobi.guardRegen = level.time + SHINOBI_GUARD_BREAK_MS + SHINOBI_GUARD_REGEN_DELAY;
 	Shinobi_Stagger( ent, SHINOBI_GUARD_BREAK_MS );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGuardBreak );
+	Shinobi_HitText( ent, STX_GUARDBREAK, 0 );
 	trap->SendServerCommand( ent - g_entities, "cp \"^1Guard broken!\"" );
 }
 
@@ -208,6 +211,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 	if ( perfect ) {
 		shinobiBlockResult = SBR_PARRIED;
 		Shinobi_BlockFeedback( targ, src, qtrue );
+		Shinobi_HitText( targ, STX_PARRY, 0 );
 		if ( attacker->client && attacker->s.number < MAX_CLIENTS
 			&& Distance( attacker->r.currentOrigin, targ->r.currentOrigin ) <= SHINOBI_PARRY_REACH ) {
 			Shinobi_Stagger( attacker, SHINOBI_PARRY_STAGGER_MS );
@@ -241,6 +245,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 	}
 	client->ps.stats[STAT_ARMOR] = guard - cost;
 	Shinobi_ShieldShell( targ, src, absorb );
+	Shinobi_HitText( targ, STX_BLOCK, absorb );
 	shinobiBlockResult = SBR_BLOCKED;
 	return damage - absorb;
 }

@@ -1805,6 +1805,7 @@ void CG_ShinobiFrame( void );
 void CG_ShinobiSetBuild_f( void );
 void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
+void CG_ShinobiHitText_f( void );
 
 void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body );
 void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body );

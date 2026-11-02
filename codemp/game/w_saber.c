@@ -7527,6 +7527,7 @@ static void G_TossTheMofo(gentity_t *ent, vec3_t tossDir, float tossStr)
 		BG_KnockDownable(&ent->client->ps) &&
 		G_KickDownable(ent))
 	{ //if they are alive, knock them down I suppose
+		Shinobi_HitText( ent, STX_KNOCKDOWN, 0 ); // JK_Shinobi
 		ent->client->ps.forceHandExtend = HANDEXTEND_KNOCKDOWN;
 		ent->client->ps.forceHandExtendTime = level.time + 700;
 		ent->client->ps.forceDodgeAnim = 0; //this toggles between 1 and 0, when it's 1 we should play the get up anim

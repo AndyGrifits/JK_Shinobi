@@ -1312,6 +1312,7 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 	client->shinobi.prisonNext = level.time + SHINOBI_PRISON_COOLDOWN;
 
 	target->client->shinobi.prisonCaster = ent->s.number + 1;
+	Shinobi_HitText( target, STX_IMPRISONED, 0 );
 	target->client->shinobi.chargeJutsu = SJ_NONE;
 	target->client->ps.userInt1 = target->client->ps.userInt2 = target->client->ps.userInt3 = 0; // drops a Rasengan / Chidori
 	VectorClear( target->client->ps.velocity );

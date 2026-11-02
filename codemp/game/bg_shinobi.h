@@ -691,6 +691,13 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 
 #define SHINOBI_STAT2_DIVEREQ      32    // attack pressed in the air: dive as soon as it can
 #define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
+// floating combat text over a target ("stx <ent> <kind> <value>", shinobi_hitnumbers 1)
+enum { STX_DAMAGE, STX_FLINCH, STX_STAGGER, STX_KNOCKDOWN, STX_LAUNCH, STX_STUN, STX_TRAPPED, STX_BOUND,
+	STX_BLOCK, STX_PARRY, STX_GUARDBREAK, STX_IMPRISONED, STX_COUNT };
+static const char * const shinobiHitTextNames[STX_COUNT] = {
+	"", "Flinch", "Stagger", "Knockdown", "Launch", "Stunned", "Shadow Trap", "Shadow Bind",
+	"Block", "Parry!", "Guard break!", "Water Prison"
+};
 #define SHINOBI_STAT2_FLINCH       128   // flinching from a combo hit: no attacks / jutsu (moving and the guard still work)
 
 /*

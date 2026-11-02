@@ -60,6 +60,7 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 		Shinobi_Flinch( v, SHINOBI_COMBO_FLINCH_MS );
 		break;
 	case SCK_LAUNCH: // up into the air - jump after him and dive
+		Shinobi_HitText( v, STX_LAUNCH, 0 );
 		Shinobi_ComboPush( v, dir, 60, 520 );
 		Shinobi_CCGrant( v, level.time + 1100 );
 		break;

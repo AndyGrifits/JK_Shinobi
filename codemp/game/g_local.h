@@ -1524,6 +1524,7 @@ qboolean Shinobi_ComboPlainKick( gentity_t *ent );
 int Shinobi_ComboPunchDamage( gentity_t *ent );
 int Shinobi_ComboKickDamage( gentity_t *ent );
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ); // g_shinobi_build.c
+void Shinobi_HitText( gentity_t *targ, int kind, int value );
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );

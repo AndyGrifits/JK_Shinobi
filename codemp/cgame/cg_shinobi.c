@@ -1911,6 +1911,92 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 	}
 }
 
+/*
+Floating combat text: damage numbers and what a hit did (Flinch, Knockdown...) rising
+over the target for a second ("stx <ent> <kind> <value>" from the server).
+*/
+#define SHINOBI_HITTEXT_MAX   48
+#define SHINOBI_HITTEXT_MS    1100
+static struct {
+	int   ent, kind, value, time;
+	float xofs;
+} shinobiHitText[SHINOBI_HITTEXT_MAX];
+static int shinobiHitTextNext;
+
+void CG_ShinobiHitText_f( void ) {
+	const int ent = atoi( CG_Argv( 1 ) ), kind = atoi( CG_Argv( 2 ) ), value = atoi( CG_Argv( 3 ) );
+	int       i, n = 0;
+
+	if ( ent < 0 || ent >= MAX_GENTITIES || kind < 0 || kind >= STX_COUNT )
+		return;
+	for ( i = 0; i < SHINOBI_HITTEXT_MAX; i++ ) // a few at once over the same head: spread them out
+		if ( shinobiHitText[i].ent == ent && cg.time - shinobiHitText[i].time < 250 )
+			n++;
+	i = shinobiHitTextNext;
+	shinobiHitTextNext = ( shinobiHitTextNext + 1 ) % SHINOBI_HITTEXT_MAX;
+	shinobiHitText[i].ent = ent;
+	shinobiHitText[i].kind = kind;
+	shinobiHitText[i].value = value;
+	shinobiHitText[i].time = cg.time;
+	shinobiHitText[i].xofs = ( n % 2 ? 1.0f : -1.0f ) * ( 6.0f + 14.0f * n ) + flrand( -4, 4 );
+}
+
+static void CG_ShinobiDrawHitText( void ) {
+	int i;
+
+	for ( i = 0; i < SHINOBI_HITTEXT_MAX; i++ ) {
+		const int   age = cg.time - shinobiHitText[i].time;
+		const int   ent = shinobiHitText[i].ent;
+		const int   kind = shinobiHitText[i].kind;
+		const float f = age / (float)SHINOBI_HITTEXT_MS;
+		const qboolean me = ent == cg.snap->ps.clientNum;
+		vec4_t      color;
+		vec3_t      org;
+		float       x, y, scale, w;
+		const char *text;
+
+		if ( !shinobiHitText[i].time || age < 0 || age >= SHINOBI_HITTEXT_MS )
+			continue;
+		if ( kind == STX_DAMAGE ) {
+			text = va( "-%i", shinobiHitText[i].value );
+			if ( me )
+				VectorSet( color, 1.0f, 0.25f, 0.2f );
+			else
+				VectorSet( color, 1.0f, 0.85f, 0.3f );
+			scale = 0.55f + 0.25f * ( shinobiHitText[i].value >= 30 ? 1.0f : shinobiHitText[i].value / 30.0f );
+		}
+		else {
+			text = kind == STX_BLOCK && shinobiHitText[i].value > 0
+				? va( "%s %i", shinobiHitTextNames[kind], shinobiHitText[i].value ) : shinobiHitTextNames[kind];
+			if ( kind == STX_BLOCK || kind == STX_PARRY )
+				VectorSet( color, 0.5f, 1.0f, 0.55f );
+			else if ( kind == STX_GUARDBREAK )
+				VectorSet( color, 1.0f, 0.45f, 0.2f );
+			else
+				VectorSet( color, 0.75f, 0.9f, 1.0f );
+			scale = 0.5f;
+		}
+		color[3] = f < 0.7f ? 1.0f : 1.0f - ( f - 0.7f ) / 0.3f;
+
+		if ( me && !cg.renderingThirdPerson ) { // our own: under the crosshair
+			x = 320 + shinobiHitText[i].xofs;
+			y = ( kind == STX_DAMAGE ? 290 : 270 ) - 40 * f;
+		}
+		else {
+			centity_t *cent = &cg_entities[ent];
+			if ( !cent->currentValid && !me )
+				continue;
+			VectorCopy( me ? cg.predictedPlayerState.origin : cent->lerpOrigin, org );
+			org[2] += ( kind == STX_DAMAGE ? 52 : 66 ) + 36 * f;
+			if ( !CG_WorldCoordToScreenCoordFloat( org, &x, &y ) )
+				continue;
+			x += shinobiHitText[i].xofs;
+		}
+		w = CG_Text_Width( text, scale, FONT_MEDIUM );
+		CG_Text_Paint( x - w * 0.5f, y, scale, color, text, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	}
+}
+
 void CG_ShinobiDrawHUD( void ) {
 	playerState_t *ps = &cg.predictedPlayerState;
 	const char    *text = NULL;
@@ -1931,6 +2017,7 @@ void CG_ShinobiDrawHUD( void ) {
 		}
 	}
 
+	CG_ShinobiDrawHitText(); // damage numbers and hit effects over heads
 	if ( !CG_ShinobiCanCharge() ) {
 		shinobiCharge.jutsu = SJ_NONE;
 		return;

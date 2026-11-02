@@ -4390,6 +4390,8 @@ void G_Knockdown( gentity_t *victim )
 {
 	if ( victim && victim->client && BG_KnockDownable(&victim->client->ps) )
 	{
+		if ( victim->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN )
+			Shinobi_HitText( victim, STX_KNOCKDOWN, 0 ); // JK_Shinobi
 		victim->client->ps.forceHandExtend = HANDEXTEND_KNOCKDOWN;
 		victim->client->ps.forceDodgeAnim = 0;
 		victim->client->ps.forceHandExtendTime = level.time + 1100;

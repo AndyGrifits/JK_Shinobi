@@ -1637,6 +1637,7 @@ static serverCommand_t	commands[] = {
 	{ "scores",				CG_ParseScores },
 	{ "sinfo",				CG_ShinobiEyeInfo_f },
 	{ "spc",				CG_SiegeProfileMenu_f },
+	{ "stx",				CG_ShinobiHitText_f },
 	{ "sxd",				CG_ParseSiegeExtendedData },
 	{ "tchat",				CG_Chat_f },
 	{ "tinfo",				CG_ParseTeamInfo },
