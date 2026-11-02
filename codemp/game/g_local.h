@@ -879,6 +879,7 @@ struct gclient_s {
 		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
+		int		toolNext;		// next explosive kunai / tag / shuriken
 		int		armorEnd, armorNext, armorFx; // Stone Skin
 		int		hiraishinNext;	// Hiraishin cooldown end
 		int		infuseUntil;	// Wind / Lightning Edge until
@@ -1493,6 +1494,10 @@ void  Cmd_Perk_f( gentity_t *ent );
 qboolean Shinobi_Burrowed( gentity_t *ent );
 qboolean Shinobi_BotForce( gentity_t *ent, int forcePower );
 qboolean Shinobi_ShadowHideDamage( gentity_t *targ );
+int      Shinobi_PickupItem( gentity_t *ent, gentity_t *other );
+void     Cmd_ExKunai_f( gentity_t *ent );
+void     Cmd_ExTag_f( gentity_t *ent );
+void     Cmd_Fuma_f( gentity_t *ent );
 qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit

@@ -173,3 +173,117 @@ void Shinobi_BuildString( const shinobiBuild_t *b, char *out, int size ) {
 	Q_strcat( buf, sizeof( buf ), va( "/%s", shinobiPerkNames[b->perk >= 0 && b->perk < SP_COUNT ? b->perk : 0] ) );
 	Q_strncpyz( out, buf, size );
 }
+
+/*
+===========================================================================
+Ninja tools: the stock pickups, reworked (see bg_shinobi.h)
+===========================================================================
+*/
+typedef struct {
+	const char *classname;
+	int         tool;
+	int         amount;   // health / chakra for pills, count for throwables
+} shinobiItemMap_t;
+
+static const shinobiItemMap_t shinobiItemMap[] = {
+	{ "item_medpak_instant",        STOOL_HEAL,     30 },
+	{ "item_medpac",                STOOL_HEAL,     30 },
+	{ "item_medpac_big",            STOOL_HEAL,     50 },
+	{ "ammo_force",                 STOOL_CHAKRA,   40 },
+	{ "item_force_boon",            STOOL_CHAKRA,   60 },
+	{ "item_force_enlighten_light", STOOL_CHAKRA,   60 },
+	{ "item_force_enlighten_dark",  STOOL_CHAKRA,   60 },
+	{ "item_ysalimari",             STOOL_CHAKRA,   40 },
+	{ "ammo_blaster",               STOOL_CHAKRA,   30 },
+	{ "ammo_powercell",             STOOL_CHAKRA,   30 },
+	{ "ammo_metallic_bolts",        STOOL_CHAKRA,   30 },
+	{ "ammo_rockets",               STOOL_CHAKRA,   30 },
+	{ "ammo_all",                   STOOL_CHAKRA,   50 },
+	{ "item_jetpack",               STOOL_CHAKRA,   40 },
+	{ "item_cloak",                 STOOL_CHAKRA,   40 },
+	{ "item_binoculars",            STOOL_CHAKRA,   30 },
+	{ "item_healthdisp",            STOOL_HEAL,     30 },
+	{ "item_ammodisp",              STOOL_CHAKRA,   30 },
+	{ "weapon_thermal",             STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "ammo_thermal",               STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_blaster_pistol",      STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_bryar_pistol",        STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_blaster",             STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_stun_baton",          STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_trip_mine",           STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "ammo_tripmine",              STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "weapon_det_pack",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "ammo_detpack",               STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "item_seeker",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "item_sentry_gun",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "item_shield",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "item_eweb_holdable",         STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "weapon_rocket_launcher",     STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_repeater",            STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_flechette",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_concussion_rifle",    STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_disruptor",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_bowcaster",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+};
+
+static const char * const shinobiToolNames[STOOL_COUNT] = {
+	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "2 Fuma Shuriken"
+};
+static const char * const shinobiToolModels[STOOL_COUNT] = {
+	"", "models/shinobi/pill_heal.md3", "models/shinobi/pill_chakra.md3", "models/shinobi/exkunai.md3",
+	"models/shinobi/tag.md3", "models/shinobi/shuriken.md3"
+};
+static const char * const shinobiToolIcons[STOOL_COUNT] = {
+	"", "gfx/shinobi/icon_heal", "gfx/shinobi/icon_chakra", "gfx/shinobi/icon_exkunai",
+	"gfx/shinobi/icon_tag", "gfx/shinobi/icon_shuriken"
+};
+
+int Shinobi_ToolForItem( const char *classname, int *amount ) {
+	int i;
+	if ( !classname )
+		return STOOL_NONE;
+	for ( i = 0; i < (int)ARRAY_LEN( shinobiItemMap ); i++ ) {
+		if ( !Q_stricmp( classname, shinobiItemMap[i].classname ) ) {
+			if ( amount )
+				*amount = shinobiItemMap[i].amount;
+			return shinobiItemMap[i].tool;
+		}
+	}
+	return STOOL_NONE;
+}
+
+const char *Shinobi_ToolName( int tool ) {
+	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? shinobiToolNames[tool] : "";
+}
+
+// once per module load: new looks, and types that never hand out a gun
+void Shinobi_PatchItems( void ) {
+	static qboolean done = qfalse;
+	int i;
+
+	if ( done )
+		return;
+	done = qtrue;
+	ammoData[SHINOBI_AMMO_EXKUNAI].max = SHINOBI_TOOL_MAX;
+	ammoData[SHINOBI_AMMO_TAG].max = SHINOBI_TOOL_MAX;
+	ammoData[SHINOBI_AMMO_SHURIKEN].max = SHINOBI_TOOL_MAX;
+	for ( i = 1; i < bg_numItems; i++ ) {
+		gitem_t  *item = &bg_itemlist[i];
+		const int tool = Shinobi_ToolForItem( item->classname, NULL );
+		if ( tool == STOOL_NONE )
+			continue;
+		item->world_model[0] = (char *)shinobiToolModels[tool];
+		item->world_model[1] = item->world_model[2] = item->world_model[3] = NULL;
+		item->view_model = NULL;
+		item->icon = (char *)shinobiToolIcons[tool];
+		item->pickup_sound = tool == STOOL_HEAL ? "sound/player/pickuphealth.wav" : "sound/player/pickupenergy.wav";
+		switch ( tool ) {
+		case STOOL_HEAL:     item->giType = IT_HEALTH; item->giTag = 0; break;
+		case STOOL_CHAKRA:   item->giType = IT_AMMO; item->giTag = AMMO_FORCE; break;
+		case STOOL_EXKUNAI:  item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_EXKUNAI; break;
+		case STOOL_TAG:      item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_TAG; break;
+		case STOOL_SHURIKEN: item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_SHURIKEN; break;
+		}
+		Shinobi_ToolForItem( item->classname, &item->quantity );
+	}
+}

@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "cg_local.h"
 #include "fx_local.h"
+#include "game/bg_shinobi.h"
 #include "ui/ui_shared.h"
 #include "ui/ui_public.h"
 
@@ -661,10 +662,15 @@ static void CG_ItemPickup( int itemNum ) {
 	{ //don't print messages for flags, they have their own pickup event broadcasts
 		char	text[1024];
 		char	upperKey[1024];
+		const int tool = Shinobi_ToolForItem( bg_itemlist[itemNum].classname, NULL );
 
 		strcpy(upperKey, bg_itemlist[itemNum].classname);
 
-		if ( trap->SE_GetStringTextString( va("SP_INGAME_%s",Q_strupr(upperKey)), text, sizeof( text )))
+		if ( tool != STOOL_NONE )
+		{ // JK_Shinobi: pills and ninja tools
+			Com_Printf("%s %s\n", CG_GetStringEdString("MP_INGAME", "PICKUPLINE"), Shinobi_ToolName( tool ));
+		}
+		else if ( trap->SE_GetStringTextString( va("SP_INGAME_%s",Q_strupr(upperKey)), text, sizeof( text )))
 		{
 			Com_Printf("%s %s\n", CG_GetStringEdString("MP_INGAME", "PICKUPLINE"), text);
 		}

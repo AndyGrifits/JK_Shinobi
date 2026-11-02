@@ -125,6 +125,7 @@ void CG_ShinobiDiag_f( void ) {
 }
 
 void CG_ShinobiRegisterMedia( void ) {
+	Shinobi_PatchItems(); // pickups -> pills and ninja tools (must match the server)
 	cgs.effects.shinobiRasenganHand  = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_HAND );
 	cgs.effects.shinobiRasenganForm  = CG_ShinobiRegisterFx( SHINOBI_FX_RASENGAN_FORM );
 	cgs.effects.shinobiChidoriHand   = CG_ShinobiRegisterFx( SHINOBI_FX_CHIDORI_HAND );
@@ -972,6 +973,32 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 		CG_ShinobiWave( cent );
 		return qtrue;
 	}
+	if ( s->generic1 == SHINOBI_ENT_EXKUNAI ) { // the tag on it smoulders, then sizzles
+		const qboolean lit = s->time2 != 0;
+		const float    f = lit ? 0.6f + 0.4f * flrand( 0, 1 ) : 0.5f + 0.2f * sinf( cg.time * 0.01f );
+		CG_ShinobiSprite( cent->lerpOrigin, ( lit ? 8 : 4 ) * f, 0, shinobiShaders.glow, 1.0f * f, 0.45f * f, 0.1f * f );
+		if ( lit ) {
+			trap->R_AddLightToScene( cent->lerpOrigin, 70 * f, 1.0f, 0.5f, 0.15f );
+			if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+				vec3_t up = { 0, 0, 1 };
+				trap->FX_PlayEffectID( shinobiFx.zoneSpark, cent->lerpOrigin, up, -1, -1, qfalse );
+				cent->shinobiHandFxTime = cg.time + 90;
+			}
+		}
+		return qfalse;
+	}
+	if ( s->generic1 == SHINOBI_ENT_TAG ) { // armed: a faint red seal; triggered: blinking fast
+		if ( s->time2 ) {
+			const float f = ( ( cg.time / 60 ) & 1 ) ? 1.0f : 0.3f;
+			CG_ShinobiSprite( cent->lerpOrigin, 10 * f, 0, shinobiShaders.glow, 1.0f * f, 0.25f * f, 0.1f * f );
+			trap->R_AddLightToScene( cent->lerpOrigin, 80 * f, 1.0f, 0.3f, 0.1f );
+		}
+		else if ( cg.time >= s->time ) {
+			const float f = 0.25f + 0.15f * sinf( cg.time * 0.004f );
+			CG_ShinobiSprite( cent->lerpOrigin, 4, 0, shinobiShaders.glow, 0.9f * f, 0.15f * f, 0.05f * f );
+		}
+		return qfalse;
+	}
 	if ( s->generic1 == SHINOBI_ENT_KUNAI_MARKED ) { // the seal glows; the model is drawn as usual
 		const float pulse = 0.7f + 0.3f * sinf( cg.time * 0.01f );
 		CG_ShinobiSprite( cent->lerpOrigin, 7 * pulse, 0, shinobiShaders.glow, 1.0f * pulse, 0.8f * pulse, 0.25f * pulse );
@@ -1096,6 +1123,30 @@ static void CG_ShinobiDrawChargeBars( void ) {
 }
 
 // the row of selectable jutsu at the bottom of the screen
+// what we carry: explosive kunai (G), tags (H), fuma shuriken (J)
+static void CG_ShinobiDrawTools( void ) {
+	static const struct { int slot; const char *key, *name; } tools[] = {
+		{ SHINOBI_AMMO_EXKUNAI, "G", "Exp. Kunai" },
+		{ SHINOBI_AMMO_TAG, "H", "Exp. Tag" },
+		{ SHINOBI_AMMO_SHURIKEN, "J", "Fuma Shuriken" },
+	};
+	const playerState_t *ps = &cg.predictedPlayerState;
+	char  line[128];
+	int   i;
+
+	line[0] = 0;
+	for ( i = 0; i < (int)ARRAY_LEN( tools ); i++ ) {
+		if ( ps->ammo[tools[i].slot] <= 0 )
+			continue;
+		Q_strcat( line, sizeof( line ), va( "%s^3%s^7 %s x%i", line[0] ? "    " : "", tools[i].key, tools[i].name, ps->ammo[tools[i].slot] ) );
+	}
+	if ( line[0] ) {
+		vec4_t      c = { 0.9f, 0.85f, 0.75f, 0.85f };
+		const float w = CG_Text_Width( line, 0.38f, FONT_MEDIUM );
+		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 432, 0.38f, c, line, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	}
+}
+
 static void CG_ShinobiDrawJutsuList( void ) {
 	const float scale = 0.42f, gap = 10, y = 448;
 	const int   chakra = cg.predictedPlayerState.fd.forcePower;
@@ -1448,6 +1499,7 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawEyeInfo();
 
 	CG_ShinobiDrawJutsuList();
+	CG_ShinobiDrawTools();
 
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {

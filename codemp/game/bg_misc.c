@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "qcommon/q_shared.h"
 #include "bg_public.h"
+#include "bg_shinobi.h"
 
 #if defined(_GAME)
 	#include "g_local.h"
@@ -2135,6 +2136,9 @@ qboolean BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 		if (item->giTag == -1)
 		{ //special case for "all ammo" packs
 			return qtrue;
+		}
+		if ( item->giTag == AMMO_FORCE ) { // JK_Shinobi: a Chakra Pill - only when short of chakra
+			return ps->fd.forcePower < ps->fd.forcePowerMax;
 		}
 		if ( ps->ammo[item->giTag] >= ammoData[item->giTag].max) {
 			return qfalse;		// can't hold any more

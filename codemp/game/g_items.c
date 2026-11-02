@@ -2518,7 +2518,10 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	predict = other->client->pers.predictItemPickup;
 
 	// call the item-specific pickup function
-	switch( ent->item->giType ) {
+	respawn = Shinobi_PickupItem( ent, other ); // JK_Shinobi: pills and ninja tools
+	if ( respawn >= 0 )
+		predict = qtrue;
+	else switch( ent->item->giType ) {
 	case IT_WEAPON:
 		respawn = Pickup_Weapon(ent, other);
 //		predict = qfalse;

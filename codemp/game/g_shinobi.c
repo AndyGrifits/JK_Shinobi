@@ -33,6 +33,11 @@ void Shinobi_Init( void ) {
 	shinobiMedia_t *m = &shinobiMedia;
 	int lvl;
 
+	Shinobi_PatchItems(); // pickups -> pills and ninja tools (before the map spawns them)
+	m->exKunaiModel  = G_ModelIndex( "models/shinobi/exkunai.md3" );
+	m->tagModel      = G_ModelIndex( "models/shinobi/tag.md3" );
+	m->shurikenModel = G_ModelIndex( "models/shinobi/shuriken.md3" );
+
 	for ( lvl = 1; lvl <= SHINOBI_MAX_LEVEL; lvl++ ) {
 		m->fxRasenganHit[lvl - 1] = Shinobi_LevelEffect( SHINOBI_FX_RASENGAN_HIT, lvl );
 		m->fxChidoriHit[lvl - 1]  = Shinobi_LevelEffect( SHINOBI_FX_CHIDORI_HIT, lvl );

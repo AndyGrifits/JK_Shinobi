@@ -354,11 +354,123 @@ def build_log(seed=7, sides=10, length=52.0, radius=7.0, segments=4):
     return verts, uvs, normals, tris
 
 
+def finish(verts, tris, outward):
+    """Orient triangles away from outward(centroid) and compute smooth normals."""
+    out_tris = []
+    for a, b, c in tris:
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        cen = [(verts[a][j] + verts[b][j] + verts[c][j]) / 3.0 for j in range(3)]
+        h = outward(cen)
+        out_tris.append((a, b, c) if n[0] * h[0] + n[1] * h[1] + n[2] * h[2] >= 0 else (a, c, b))
+    acc = [[0.0, 0.0, 0.0] for _ in verts]
+    for a, b, c in out_tris:
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        ln = math.sqrt(n[0] ** 2 + n[1] ** 2 + n[2] ** 2) or 1.0
+        for idx in (a, b, c):
+            for j in range(3):
+                acc[idx][j] += n[j] / ln
+    return [tuple(v) for v in acc], out_tris
+
+
+def build_shuriken(radius=16.0, thick=1.4, hole=2.2):
+    """A fuma shuriken lying flat in the XY plane: four curved blades round a hole.
+    Uses the kunai texture's steel half (u < 0.5)."""
+    verts, uvs, tris = [], [], []
+    pts = 48
+    outline = []
+    for k in range(pts):
+        ang = 2 * math.pi * k / pts
+        # four blades, each swept a little (a hooked edge)
+        ph = (ang * 2) % math.pi
+        blade = max(0.0, math.cos(ph - 0.35)) ** 5
+        r = radius * (0.3 + 0.7 * blade)
+        outline.append((math.cos(ang) * r, math.sin(ang) * r))
+    inner = [(math.cos(2 * math.pi * k / pts) * hole, math.sin(2 * math.pi * k / pts) * hole) for k in range(pts)]
+    def uv(x, y):
+        return (0.05 + 0.4 * (x / radius * 0.5 + 0.5), 0.5 + 0.5 * y / radius)
+    top_o = [len(verts) + i for i in range(pts)]
+    for x, y in outline:
+        verts.append((x, y, thick / 2)); uvs.append(uv(x, y))
+    bot_o = [len(verts) + i for i in range(pts)]
+    for x, y in outline:
+        verts.append((x, y, -thick / 2)); uvs.append(uv(x, y))
+    top_i = [len(verts) + i for i in range(pts)]
+    for x, y in inner:
+        verts.append((x, y, thick / 2)); uvs.append(uv(x, y))
+    bot_i = [len(verts) + i for i in range(pts)]
+    for x, y in inner:
+        verts.append((x, y, -thick / 2)); uvs.append(uv(x, y))
+    kinds = []
+    for k in range(pts):
+        k2 = (k + 1) % pts
+        tris += [(top_o[k], top_o[k2], top_i[k]), (top_i[k], top_o[k2], top_i[k2])]; kinds += ["up", "up"]
+        tris += [(bot_o[k], bot_i[k], bot_o[k2]), (bot_i[k], bot_i[k2], bot_o[k2])]; kinds += ["down", "down"]
+        tris += [(top_o[k], bot_o[k], top_o[k2]), (top_o[k2], bot_o[k], bot_o[k2])]; kinds += ["out", "out"]
+        tris += [(top_i[k], top_i[k2], bot_i[k]), (top_i[k2], bot_i[k2], bot_i[k])]; kinds += ["in", "in"]
+    oriented = []
+    for t, kd in zip(tris, kinds):
+        a, b, c = t
+        n = cross(sub(verts[b], verts[a]), sub(verts[c], verts[a]))
+        cen = [(verts[a][j] + verts[b][j] + verts[c][j]) / 3.0 for j in range(3)]
+        h = {"up": (0, 0, 1), "down": (0, 0, -1), "out": (cen[0], cen[1], 0), "in": (-cen[0], -cen[1], 0)}[kd]
+        oriented.append(t if n[0] * h[0] + n[1] * h[1] + n[2] * h[2] >= 0 else (a, c, b))
+    normals, tris = finish(verts, oriented, lambda c: (c[0], c[1], c[2]))
+    # flat faces read better with face normals on the caps
+    normals = [(0.0, 0.0, 1.0) if i in set(top_o + top_i) else ((0.0, 0.0, -1.0) if i in set(bot_o + bot_i) else n)
+               for i, n in enumerate(normals)]
+    return verts, uvs, normals, oriented
+
+
+def build_box(hx, hy, hz):
+    """A box centred on the origin, the texture over the +X / -X faces (a paper tag lies in YZ)."""
+    verts, uvs, tris = [], [], []
+    faces = [((1, 0, 0), ( 0, 1, 0), (0, 0, 1)), ((-1, 0, 0), (0, -1, 0), (0, 0, 1)),
+             ((0, 1, 0), (-1, 0, 0), (0, 0, 1)), ((0, -1, 0), (1, 0, 0), (0, 0, 1)),
+             ((0, 0, 1), (0, 1, 0), (-1, 0, 0)), ((0, 0, -1), (0, 1, 0), (1, 0, 0))]
+    h = (hx, hy, hz)
+    for n, u, v in faces:
+        base = len(verts)
+        for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            p = tuple(n[j] * h[j] + u[j] * su * h[j] + v[j] * sv * h[j] for j in range(3))
+            verts.append(p)
+            uvs.append(((su + 1) / 2, 1 - (sv + 1) / 2))
+        tris += [(base, base + 1, base + 2), (base, base + 2, base + 3)]
+    normals, tris = finish(verts, tris, lambda c: c)
+    return verts, uvs, normals, tris
+
+
+def build_sphere(radius=5.0, rings=6, segs=10):
+    verts, uvs, tris = [], [], []
+    for i in range(rings + 1):
+        th = math.pi * i / rings
+        for j in range(segs + 1):
+            ph = 2 * math.pi * j / segs
+            verts.append((radius * math.sin(th) * math.cos(ph), radius * math.sin(th) * math.sin(ph) * 0.8,
+                          radius * math.cos(th) * 0.7))
+            uvs.append((j / segs, i / rings))
+    for i in range(rings):
+        for j in range(segs):
+            a = i * (segs + 1) + j
+            b = a + segs + 1
+            tris += [(a, b, a + 1), (a + 1, b, b + 1)]
+    tris = [t for t in tris if len(set(verts[k] for k in t)) == 3]
+    normals, tris = finish(verts, tris, lambda c: c)
+    return verts, uvs, normals, tris
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     verts, uvs, normals, tris = build_kunai()
     write_md3(os.path.join(OUT, "kunai.md3"), "models/shinobi/kunai.md3", verts, uvs, normals, tris, shader=KUNAI_SHADER)
     print("models/shinobi/kunai.md3", len(verts), "verts", len(tris), "tris")
+    verts, uvs, normals, tris = build_kunai()
+    write_md3(os.path.join(OUT, "exkunai.md3"), "models/shinobi/exkunai.md3", verts, uvs, normals, tris, shader="models/shinobi/exkunai")
+    for name, mesh, shader in (("shuriken", build_shuriken(), KUNAI_SHADER),
+                               ("tag", build_box(0.3, 2.4, 5.0), "models/shinobi/tag"),
+                               ("pill_heal", build_sphere(), "models/shinobi/pill_heal"),
+                               ("pill_chakra", build_sphere(), "models/shinobi/pill_chakra")):
+        write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh, shader=shader)
+        print("models/shinobi/" + name + ".md3", len(mesh[0]), "verts", len(mesh[3]), "tris")
     verts, uvs, normals, tris = build_log()
     write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
     print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")

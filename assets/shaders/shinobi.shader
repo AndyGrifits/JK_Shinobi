@@ -258,3 +258,51 @@ gfx/shinobi/mistshell
 		alphaGen entity
 	}
 }
+
+// Explosive kunai (models/shinobi/exkunai.md3): the kunai with a tag round the grip
+models/shinobi/exkunai
+{
+	cull none
+	{
+		map models/shinobi/exkunai
+		rgbGen lightingDiffuse
+	}
+}
+
+// Explosive tag (models/shinobi/tag.md3)
+models/shinobi/tag
+{
+	cull none
+	polygonOffset
+	{
+		map models/shinobi/tag
+		rgbGen lightingDiffuse
+	}
+}
+
+// pills on the ground: a soft glow so they can be spotted
+models/shinobi/pill_heal
+{
+	{
+		map models/shinobi/pill_heal
+		rgbGen lightingDiffuse
+	}
+	{
+		map models/shinobi/pill_heal
+		blendFunc GL_ONE GL_ONE
+		rgbGen wave sin 0.25 0.15 0 0.7
+	}
+}
+
+models/shinobi/pill_chakra
+{
+	{
+		map models/shinobi/pill_chakra
+		rgbGen lightingDiffuse
+	}
+	{
+		map models/shinobi/pill_chakra
+		blendFunc GL_ONE GL_ONE
+		rgbGen wave sin 0.25 0.15 0 0.7
+	}
+}

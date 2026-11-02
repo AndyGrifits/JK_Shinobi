@@ -532,6 +532,64 @@ The shield no longer soaks damage on its own.
 
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove.c
 
+/*
+---------------------------------------------------------------------------
+Ninja tools on the maps: the stock pickups are turned into these at load
+(Shinobi_PatchItems, in both the game and the cgame, so item numbers match).
+  Healing Pill    health at once          (medkits, bacta)
+  Chakra Pill     chakra at once          (force items, ammo packs, gadgets)
+  Explosive Kunai 2 to throw (G)          (thermals, pistols, blaster)
+  Explosive Tag   2 to stick as traps (H) (mines, det packs, droids, turrets)
+  Fuma Shuriken   2 big ones to throw (J) (heavy guns)
+Counts ride in ps.ammo[] (shown by our HUD).
+---------------------------------------------------------------------------
+*/
+typedef enum {
+	STOOL_NONE,
+	STOOL_HEAL,
+	STOOL_CHAKRA,
+	STOOL_EXKUNAI,
+	STOOL_TAG,
+	STOOL_SHURIKEN,
+	STOOL_COUNT
+} shinobiTool_t;
+
+#define SHINOBI_AMMO_EXKUNAI       AMMO_THERMAL
+#define SHINOBI_AMMO_TAG           AMMO_TRIPMINE
+#define SHINOBI_AMMO_SHURIKEN      AMMO_ROCKETS
+#define SHINOBI_TOOL_MAX           6     // carried of each throwable
+#define SHINOBI_TOOL_PICKUP        2     // given by one pickup
+
+void Shinobi_PatchItems( void );                       // bg_shinobi.c
+int  Shinobi_ToolForItem( const char *classname, int *amount );
+const char *Shinobi_ToolName( int tool );
+
+// Explosive Kunai (G): sticks where it lands (or in whom it hits), then goes off
+#define SHINOBI_EXKUNAI_FUSE       1000
+#define SHINOBI_EXKUNAI_RADIUS     140
+#define SHINOBI_EXKUNAI_DAMAGE     45
+#define SHINOBI_EXKUNAI_COOLDOWN   700
+// Explosive Tag (H): stuck on a wall or the floor; armed after a moment, it
+// goes off shortly after an enemy comes near (or fire / a blast reaches it)
+#define SHINOBI_TAG_ARM_MS         1000
+#define SHINOBI_TAG_TRIGGER        90
+#define SHINOBI_TAG_FUSE           400
+#define SHINOBI_TAG_RADIUS         170
+#define SHINOBI_TAG_DAMAGE         55
+#define SHINOBI_TAG_LIFE           90000
+#define SHINOBI_TAG_MAX            2     // stuck at once (the oldest goes)
+#define SHINOBI_TAG_REACH          96    // how far from the eye it can be placed
+#define SHINOBI_TAG_COOLDOWN       700
+// Fuma Shuriken (J): a big spinning star, straight and hard
+#define SHINOBI_SHURIKEN_SPEED     1100
+#define SHINOBI_SHURIKEN_DAMAGE    45
+#define SHINOBI_SHURIKEN_LIFE      2000
+#define SHINOBI_SHURIKEN_COOLDOWN  900
+
+#define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)
+#define SHINOBI_ENT_TAG            235   // explosive tag; s.time = armed at, s.time2 = blast time (0 = waiting)
+#define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
+
 // Water Clone: one clone made of water that fights like a shadow clone and casts,
 // on its own, the jutsu that comes after Water Clone in your build (Water Prison:
 // it holds the prison for you). Its jutsu cost your chakra. One hit: a puddle.

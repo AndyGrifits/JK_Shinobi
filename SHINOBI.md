@@ -29,6 +29,22 @@ Press **B** for the build screen (it also opens by itself the first time):
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
 
+## Items on the maps
+
+The stock pickups are turned into ninja items at load (same item slots, new models,
+icons and names; no guns are handed out any more):
+
+| Item | Replaces | Effect |
+|---|---|---|
+| Healing Pill | medkits, bacta, health dispenser | +30 health at once (big bacta +50); not picked up at full health |
+| Chakra Pill | force items, all ammo packs, jetpack, cloak, binoculars, ysalamiri | +30..60 chakra at once; not picked up at full chakra |
+| Explosive Kunai x2 (`G`, `exkunai`) | thermals, pistols, blaster, stun baton | thrown like a kunai; sticks where it lands (or in whom it hits) and goes off 1 s later: 45 fire damage in 140 u |
+| Explosive Tag x2 (`H`, `extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
+| Fuma Shuriken x2 (`J`, `fuma`) | rocket launcher, repeater, flechette, concussion, disruptor, bowcaster | a big spinning star flying straight: 45 damage and a knock; sticks in walls |
+
+Up to 6 of each throwable; respawn 20 s (pills) / 30 s (tools). Wind Wall throws
+explosive kunai and shuriken back too. Shields (armor) still refill the block guard.
+
 ## Clones
 
 Any clone (shadow, water, earth, lightning, the Kawarimi double) hits in melee with 30%

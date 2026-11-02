@@ -1641,9 +1641,16 @@ static void Shinobi_WindWallReflect( gentity_t *w, gentity_t *p, const vec3_t at
 	else if ( !strcmp( p->classname, "shinobi_waterball" ) ) {
 		p->genericValue1 = level.time + SHINOBI_WATER_LIFE;
 	}
-	else {
+	else if ( !strcmp( p->classname, "shinobi_kunai" ) ) {
 		p->s.pos.trDelta[2] += 40; // kunai arc
 		Shinobi_KunaiReflect( p, owner );
+	}
+	else if ( !strcmp( p->classname, "shinobi_exkunai" ) ) {
+		p->s.pos.trDelta[2] += 40;
+		p->genericValue1 = level.time + 3000;
+	}
+	else { // the shuriken
+		p->genericValue1 = level.time + SHINOBI_SHURIKEN_LIFE;
 	}
 	trap->LinkEntity( (sharedEntity_t *)p );
 	Shinobi_EffectDir( shinobiMedia.fxWindGust[0], (float *)at, aim );
@@ -1670,7 +1677,8 @@ static void Shinobi_WindWallThink( gentity_t *w ) {
 		if ( !p->inuse || !p->classname || p->enemy == w || p->r.ownerNum == w->r.ownerNum )
 			continue;
 		if ( strcmp( p->classname, "shinobi_fireball" ) && strcmp( p->classname, "shinobi_waterball" )
-			&& strcmp( p->classname, "shinobi_kunai" ) )
+			&& strcmp( p->classname, "shinobi_kunai" ) && strcmp( p->classname, "shinobi_exkunai" )
+			&& strcmp( p->classname, "shinobi_shuriken" ) )
 			continue;
 		if ( p->s.pos.trType == TR_STATIONARY )
 			continue; // a kunai stuck somewhere

@@ -326,6 +326,85 @@ def kunai_texture(n=64):
     return np.clip(img, 0, 1)
 
 
+def exkunai_texture(n=64):
+    """The kunai, with an explosive tag (paper, red seal) wrapped round the grip."""
+    img = kunai_texture(n)
+    h = n // 2
+    yy, xx = np.mgrid[0:n, 0:h].astype(np.float32)
+    paper = np.ones((n, h, 3)) * np.array([0.93, 0.88, 0.72])
+    seal = (np.abs(np.sin(yy / n * math.pi * 6)) > 0.8) | (np.abs(xx - h / 2) < 2)
+    paper[seal] = np.array([0.75, 0.08, 0.05])
+    img[:, h:] = paper
+    return img
+
+
+def tag_texture(w=32, h=64):
+    """An explosive tag: old paper with a red brush seal."""
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    img = np.ones((h, w, 3)) * np.array([0.92, 0.86, 0.68])
+    img *= (0.9 + 0.1 * value_noise(64, 8, 23)[:h, :w])[..., None]
+    red = np.array([0.72, 0.06, 0.04])
+    cx = w / 2
+    stroke = np.abs(xx - cx) < 2.2                                   # the main vertical stroke
+    for yc in (16, 30, 44):                                            # cross strokes
+        stroke |= ( np.abs(yy - yc) < 1.6 ) & ( np.abs(xx - cx) < 9 )
+    stroke |= ( ( xx - cx ) ** 2 + ( yy - 54 ) ** 2 ) < 18             # the seal dot
+    border = ( xx < 2 ) | ( xx > w - 3 ) | ( yy < 2 ) | ( yy > h - 3 )
+    img[stroke] = red
+    img[border] = img[border] * 0.7
+    return np.clip(img, 0, 1)
+
+
+def pill_texture(color, n=32):
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32) / n
+    shade = 0.75 + 0.25 * np.sin(yy * math.pi)
+    img = shade[..., None] * np.array(color)[None, None, :]
+    img += 0.35 * np.exp(-(((xx - 0.3) ** 2 + (yy - 0.3) ** 2) / 0.01))[..., None]
+    return np.clip(img, 0, 1)
+
+
+def icon(kind, n=64):
+    """HUD / pickup icons: a simple shape on transparency."""
+    x, y, r, a = grid(n)
+    rgb = np.zeros((n, n, 3))
+    alpha = np.zeros((n, n))
+    if kind in ("heal", "chakra"):
+        col = np.array([0.35, 0.95, 0.4]) if kind == "heal" else np.array([0.35, 0.65, 1.0])
+        m = r < 0.62
+        rgb[m] = col * (0.75 + 0.25 * (1 - r[m]))[:, None]
+        hi = ((x + 0.25) ** 2 + (y + 0.25) ** 2) < 0.03
+        rgb[hi & m] = 1.0
+        alpha[m] = 1.0
+        if kind == "heal":
+            cross = ((np.abs(x) < 0.1) & (np.abs(y) < 0.38)) | ((np.abs(y) < 0.1) & (np.abs(x) < 0.38))
+            rgb[cross] = 1.0
+    elif kind == "shuriken":
+        star = r < (0.25 + 0.7 * np.abs(np.cos(2 * a)) ** 6)
+        m = star & (r > 0.12)
+        rgb[m] = np.array([0.8, 0.83, 0.9]) * (0.7 + 0.3 * (1 - r[m]))[:, None]
+        alpha[m] = 1.0
+    elif kind == "tag":
+        m = (np.abs(x) < 0.32) & (np.abs(y) < 0.85)
+        rgb[m] = np.array([0.93, 0.87, 0.7])
+        red = m & ((np.abs(x) < 0.07) | ((np.abs(y - 0.0) < 0.06) & (np.abs(x) < 0.22)) | ((np.abs(y + 0.45) < 0.06) & (np.abs(x) < 0.22)))
+        rgb[red] = np.array([0.8, 0.08, 0.05])
+        alpha[m] = 1.0
+    elif kind == "exkunai":
+        # diagonal kunai: blade towards the top right, a red tag on the grip
+        u = (x - y) / math.sqrt(2)      # along the kunai
+        v = (x + y) / math.sqrt(2)      # across
+        blade = (u > -0.05) & (u < 0.85) & (np.abs(v) < 0.22 * (0.85 - u) / 0.9 + 0.02)
+        grip = (u <= -0.05) & (u > -0.75) & (np.abs(v) < 0.08)
+        tag = (u <= -0.1) & (u > -0.55) & (np.abs(v) < 0.18)
+        rgb[blade] = np.array([0.82, 0.85, 0.9])
+        rgb[grip] = np.array([0.2, 0.18, 0.16])
+        rgb[tag] = np.array([0.93, 0.87, 0.7])
+        rgb[tag & (np.abs(v) < 0.05)] = np.array([0.8, 0.08, 0.05])
+        alpha[blade | grip | tag] = 1.0
+    rgba = np.dstack([np.clip(rgb, 0, 1), alpha])
+    return (rgba * 255).astype(np.uint8)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray((fire() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(OUT, "fire.tga"))
@@ -351,6 +430,12 @@ def main():
     Image.fromarray((rock() * 255).astype(np.uint8), "RGBA").convert("RGB").save(os.path.join(models, "earth_rock.tga"))
     Image.fromarray((log_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "log.tga"))
     Image.fromarray((kunai_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "kunai.tga"))
+    Image.fromarray((exkunai_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "exkunai.tga"))
+    Image.fromarray((tag_texture() * 255).astype(np.uint8), "RGB").save(os.path.join(models, "tag.tga"))
+    Image.fromarray((pill_texture((0.3, 0.85, 0.35)) * 255).astype(np.uint8), "RGB").save(os.path.join(models, "pill_heal.tga"))
+    Image.fromarray((pill_texture((0.3, 0.55, 1.0)) * 255).astype(np.uint8), "RGB").save(os.path.join(models, "pill_chakra.tga"))
+    for kind in ("heal", "chakra", "exkunai", "tag", "shuriken"):
+        Image.fromarray(icon(kind), "RGBA").save(os.path.join(OUT, "icon_" + kind + ".tga"))
     print("textures written to", OUT, "and", models)
 
 
