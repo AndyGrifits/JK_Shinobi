@@ -25,19 +25,19 @@ axis/scale fix between the gla's and the glm's frames - see `Shinobi_AccPlace`).
 ## Taijutsu combo (fists)
 
 Attack chains jab - cross - roundhouse kick; each next press within ~0.45 s of the last
-move's end. Every chain hit staggers the victim for 0.35 s, so the chain connects (a
-blocked or parried hit breaks it). After the third hit, a finisher:
+move's end. Chain hits are plain damage (no hitstun, no stock kick knockdown); a blocked or
+parried hit breaks the chain. After the third hit, a finisher:
 
 | input | finisher | what it does |
 |---|---|---|
-| attack | shoulder ram | thrown back, staggered 0.7 s |
-| forward + attack | launcher (rising kick) | thrown up into the air, staggered 1.1 s |
+| attack | shoulder ram | damage |
+| forward + attack | rising kick | damage |
 | block (tap) | front kick | knocked down and away |
 | back + block (tap) | sweep | knocked down on the spot |
 
 In that window block doesn't raise the guard. Attack in the air (at least ~1 m up, combo
-or not): a diving kick straight down (no falling damage), knocking down everyone within
-90 u of where you land (14 damage). Taijutsu stat, Gates, Edges and the Gentle Fist apply as
+or not): a diving kick straight down (no falling damage), 14 damage to everyone within 90 u
+of where you land, nothing more. Taijutsu stat, Gates, Edges and the Gentle Fist apply as
 to any fist hit. All stock animations (punches, staff kicks, hilt bash); the state is in
 `ps.stats[13..15]`, predicted.
 

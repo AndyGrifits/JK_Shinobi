@@ -54,23 +54,7 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	v->client->ps.otherKillerTime = level.time + 5000;
 	v->client->ps.otherKillerDebounceTime = level.time + 100;
 
-	switch ( kind ) {
-	case SCK_HIT: // a chain hit: reeling for a moment, so the next one connects
-		if ( !Shinobi_CCImmune( v ) )
-			Shinobi_Stagger( v, SHINOBI_COMBO_STAGGER );
-		break;
-	case SCK_HEAVY: // the shoulder ram: thrown back
-		if ( !Shinobi_CCImmune( v ) )
-			Shinobi_Stagger( v, 700 );
-		Shinobi_ComboPush( v, dir, 380, 160 );
-		Shinobi_CCGrant( v, level.time + 700 );
-		break;
-	case SCK_LAUNCH: // up into the air - jump after him and dive
-		if ( !Shinobi_CCImmune( v ) )
-			Shinobi_Stagger( v, 1100 );
-		Shinobi_ComboPush( v, dir, 60, 520 );
-		Shinobi_CCGrant( v, level.time + 1100 );
-		break;
+	switch ( kind ) { // chain hits, the ram and the launcher are plain damage
 	case SCK_KICK: // knocked down and away
 		Shinobi_ComboPush( v, dir, 480, 220 );
 		if ( !Shinobi_CCImmune( v ) )
@@ -112,14 +96,18 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 		d[2] = 0;
 		if ( VectorLength( d ) > SHINOBI_DIVE_RADIUS )
 			continue;
-		G_Damage( v, ent, ent, up, v->r.currentOrigin, dmg, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
-		if ( !v->inuse || v->health <= 0 || !v->client || shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED )
-			continue;
-		Shinobi_ComboPush( v, d, 220, 180 );
-		if ( !Shinobi_CCImmune( v ) )
-			G_Knockdown( v );
-		Shinobi_CCGrant( v, level.time + 1500 );
+		G_Damage( v, ent, ent, up, v->r.currentOrigin, dmg, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // just damage
 	}
+}
+
+// a combo kick that only does damage: the stock kick knockdown is skipped
+// (only the kick and the sweep finishers knock down)
+qboolean Shinobi_ComboPlainKick( gentity_t *ent ) {
+	int kind;
+	if ( !ent->client || ent->s.number >= MAX_CLIENTS || ent->client->ps.weapon != WP_MELEE )
+		return qfalse;
+	kind = SHINOBI_COMBO_KIND( &ent->client->ps );
+	return ( kind != SCK_KICK && kind != SCK_SWEEP ) ? qtrue : qfalse;
 }
 
 // every client frame, before Pmove
