@@ -36,7 +36,7 @@ last move's end, then a finisher picked by the direction held at that moment:
 
 Each hit of the chain hits harder: punches 11 / 15 / 21, then the finisher - the four together
 a bit less than four blade swings, so a chain is worth stepping away from or guarding against.
-Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
+Punches reach ~60 u from you (stock fists: ~35, you had to be in his face). Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
 time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
 progress bounces, a charge is dropped); only raising the guard (which breaks the chain) or
 Kawarimi gets him out. The finisher has no flinch.

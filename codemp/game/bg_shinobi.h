@@ -729,6 +729,8 @@ static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab
 #define SHINOBI_SWEEP_DAMAGE       28    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
+#define SHINOBI_PUNCH_RANGE        34    // a punch reaches this far past the fist's start (stock 8)
+#define SHINOBI_PUNCH_BOX          10    // half size of the punch trace (stock 6)
 // a chain punch roots the victim and stops him hitting back until the attacker's next
 // hit can land (his weapon time + this); only the guard or Kawarimi gets him out
 #define SHINOBI_COMBO_FLINCH_MS    250

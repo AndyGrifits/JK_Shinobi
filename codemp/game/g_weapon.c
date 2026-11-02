@@ -3505,9 +3505,11 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 	VectorMA(muzzlePunch, 20.0f, forward, muzzlePunch);
 	VectorMA(muzzlePunch, 4.0f, vright, muzzlePunch);
 
-	VectorMA( muzzlePunch, MELEE_RANGE, forward, end );
+	// JK_Shinobi: fists reach like a short blade (stock: 8 past the muzzle, a 6-unit box -
+	// you had to be in his face to land the first punch of a combo)
+	VectorMA( muzzlePunch, ent->client ? SHINOBI_PUNCH_RANGE : MELEE_RANGE, forward, end );
 
-	VectorSet( maxs, 6, 6, 6 );
+	VectorSet( maxs, ent->client ? SHINOBI_PUNCH_BOX : 6, ent->client ? SHINOBI_PUNCH_BOX : 6, ent->client ? SHINOBI_PUNCH_BOX : 6 );
 	VectorScale( maxs, -1, mins );
 
 	trap->Trace ( &tr, muzzlePunch, mins, maxs, end, ent->s.number, MASK_SHOT, qfalse, 0, 0 );
