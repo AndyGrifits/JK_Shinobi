@@ -121,6 +121,22 @@ static void Shinobi_BlockFeedback( gentity_t *targ, const vec3_t src, qboolean p
 		G_Sound( targ, CHAN_AUTO, shinobiMedia.sndBlockFist[Q_irand( 0, 2 )] );
 }
 
+// the stock green shield shell, seen by everyone around (blocker and attacker)
+static void Shinobi_ShieldShell( gentity_t *targ, const vec3_t src, int amount ) {
+	gentity_t *ev;
+	vec3_t     dir;
+
+	if ( amount <= 0 )
+		return;
+	VectorSubtract( targ->r.currentOrigin, src, dir );
+	if ( VectorNormalize( dir ) < 0.01f )
+		VectorSet( dir, 0, 0, -1 );
+	ev = G_TempEntity( targ->r.currentOrigin, EV_SHIELD_HIT );
+	ev->s.otherEntityNum = targ->s.number;
+	ev->s.eventParm = DirToByte( dir );
+	ev->s.time2 = amount;
+}
+
 /*
 From G_Damage (after element and build modifiers). Returns what still goes
 to health; 0 means the hit is fully stopped.
@@ -174,6 +190,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 			trap->SendServerCommand( attacker - g_entities, "cp \"^3Parried!\"" );
 		}
 		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
+		Shinobi_ShieldShell( targ, src, damage );
 		return 0;
 	}
 	if ( taijutsu && Shinobi_WindEdgeActive( attacker ) ) {
@@ -195,9 +212,11 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 		const int held = cost > 0 ? absorb * guard / cost : 0;
 		Shinobi_GuardBreak( targ );
 		shinobiBlockResult = SBR_BROKEN;
+		Shinobi_ShieldShell( targ, src, held );
 		return damage - held;
 	}
 	client->ps.stats[STAT_ARMOR] = guard - cost;
+	Shinobi_ShieldShell( targ, src, absorb );
 	shinobiBlockResult = SBR_BLOCKED;
 	return damage - absorb;
 }
