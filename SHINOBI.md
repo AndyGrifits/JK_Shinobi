@@ -36,7 +36,10 @@ last move's end, then a finisher picked by the direction held at that moment:
 
 Each hit of the chain hits harder: punches 15 / 22 / 30, then the finisher - the four together
 about what four blade swings do, so a chain is worth stepping away from or guarding against.
-The punches are plain damage; the kicks keep the stock kick knockdown. A blocked or parried
+Each chain punch makes the victim flinch for 0.45 s - about until the next one lands: no
+attacks, throws or jutsu (a blade swing in progress bounces, a charge is dropped), but he can
+still walk away or raise the guard, and Kawarimi breaks out. The finisher has no flinch.
+The kicks keep the stock kick knockdown. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):

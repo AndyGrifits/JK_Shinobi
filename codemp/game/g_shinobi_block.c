@@ -29,6 +29,26 @@ void Shinobi_Stagger( gentity_t *ent, int ms ) {
 		client->shinobi.chargeJutsu = SJ_NONE;
 }
 
+// a combo punch landed: no hitting back for a moment (a swing in progress bounces,
+// a charge is dropped); walking away and raising the guard still work
+void Shinobi_Flinch( gentity_t *ent, int ms ) {
+	gclient_t *client = ent->client;
+
+	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+		return;
+	if ( client->shinobi.flinchEnd < level.time + ms )
+		client->shinobi.flinchEnd = level.time + ms;
+	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
+	if ( client->ps.weaponTime < ms )
+		client->ps.weaponTime = ms;
+	if ( client->ps.weapon == WP_SABER && BG_SaberInAttack( client->ps.saberMove ) )
+		client->ps.saberBlocked = BLOCKED_ATK_BOUNCE;
+	if ( client->shinobi.chargeJutsu != SJ_NONE && !SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) ) {
+		client->shinobi.chargeJutsu = SJ_NONE;
+		Shinobi_StopCharging( client );
+	}
+}
+
 static void Shinobi_GuardBreak( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
@@ -52,6 +72,10 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_STAGGER;
 	else
 		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_STAGGER;
+	if ( client->shinobi.flinchEnd > level.time && ent->health > 0 )
+		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
+	else
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_FLINCH;
 
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		client->shinobi.blocking = qfalse;

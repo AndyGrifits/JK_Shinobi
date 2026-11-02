@@ -55,7 +55,10 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	v->client->ps.otherKillerTime = level.time + 5000;
 	v->client->ps.otherKillerDebounceTime = level.time + 100;
 
-	switch ( kind ) { // chain hits are plain damage
+	switch ( kind ) {
+	case SCK_HIT: // a chain punch: a flinch - no hitting back before the next one (the finisher has none)
+		Shinobi_Flinch( v, SHINOBI_COMBO_FLINCH_MS );
+		break;
 	case SCK_LAUNCH: // up into the air - jump after him and dive
 		Shinobi_ComboPush( v, dir, 60, 520 );
 		Shinobi_CCGrant( v, level.time + 1100 );

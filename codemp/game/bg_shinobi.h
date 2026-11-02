@@ -691,6 +691,7 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 
 #define SHINOBI_STAT2_DIVEREQ      32    // attack pressed in the air: dive as soon as it can
 #define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
+#define SHINOBI_STAT2_FLINCH       128   // flinching from a combo hit: no attacks / jutsu (moving and the guard still work)
 
 /*
 Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
@@ -720,6 +721,7 @@ static const int shinobiComboPunch[3] = { 15, 22, 30 };  // jab, cross, jab
 #define SHINOBI_SWEEP_DAMAGE       40    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
+#define SHINOBI_COMBO_FLINCH_MS    450   // a chain punch: no hitting back this long (about until the next one lands)
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        14

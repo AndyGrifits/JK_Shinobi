@@ -862,6 +862,7 @@ struct gclient_s {
 		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)
 		int		guardRegen;		// guard starts coming back at
 		int		staggerEnd;		// reeling (guard broken / parried) until
+		int		flinchEnd;		// flinching from a combo punch until (no attacks / jutsu)
 		int		ccImmuneEnd;	// immune to hard crowd control until
 		int		flameEnt;		// Fire Breath stream entity num + 1 (0 = not breathing)
 		vec3_t	flameAngles;	// where the stream points (turns slowly toward the view)

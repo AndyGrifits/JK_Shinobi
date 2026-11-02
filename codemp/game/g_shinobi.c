@@ -423,6 +423,8 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 
 	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return qfalse;
+	if ( client->shinobi.flinchEnd > level.time && jutsu != SJ_KAWARIMI )
+		return qfalse; // flinching from a combo punch: only Kawarimi breaks out
 	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s is not in your build\"", shinobiJutsuTitles[jutsu] ) );
 		return qfalse;
@@ -576,6 +578,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 
 	if ( client->shinobi.blocking )
 		return; // guard up: no seals
+	if ( client->shinobi.flinchEnd > level.time && jutsu != SJ_KAWARIMI )
+		return; // flinching from a combo punch
 	if ( SHINOBI_JUTSU_INSTANT( jutsu ) ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		return;

@@ -44,7 +44,7 @@ static qboolean Shinobi_ToolReady( gentity_t *ent, int slot ) {
 	gclient_t *client = ent->client;
 
 	if ( !Shinobi_CanAct( ent ) || client->shinobi.blocking || client->shinobi.burrowEnd || client->shinobi.shadowHideEnd
-		|| client->shinobi.prisonCaster || client->shinobi.shadowBy || client->shinobi.shadowTrapEnt || client->shinobi.stunEnd > level.time
+		|| client->shinobi.prisonCaster || client->shinobi.shadowBy || client->shinobi.shadowTrapEnt || client->shinobi.stunEnd > level.time || client->shinobi.flinchEnd > level.time
 		|| SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.toolNext > level.time )
 		return qfalse;
 	if ( client->ps.ammo[slot] <= 0 ) {

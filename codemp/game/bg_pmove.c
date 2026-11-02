@@ -10578,6 +10578,12 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~SHINOBI_BUTTON_MIRROR;
 	}
 
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
+	{ // flinching from a combo punch: no hitting back (walking and the guard still work)
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
+	}
+
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP )
 	{ // held by a Shadow Trap: standing where the shadow caught us
 		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
