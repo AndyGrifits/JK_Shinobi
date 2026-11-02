@@ -1643,7 +1643,7 @@ static struct {
 static void CG_ShinobiLoadCranium( void ) {
 	static byte  buf[131072];
 	fileHandle_t f;
-	int          len, ofsSkel, numBones, i;
+	int          len, ofsSkel, numBones, i, pass;
 
 	shinobiCranium.tried = qtrue;
 	len = trap->FS_Open( "models/players/_humanoid/_humanoid.gla", &f, FS_READ );
@@ -1660,17 +1660,29 @@ static void CG_ShinobiLoadCranium( void ) {
 	// mdxaHeader_t: ident, version, name[64], fScale, numFrames, ofsFrames, numBones, ofsCompBonePool, ofsSkel, ofsEnd
 	numBones = *(int *)( buf + 84 );
 	ofsSkel  = *(int *)( buf + 92 );
-	for ( i = 0; i < numBones; i++ ) {
-		const int  o = ofsSkel + *(int *)( buf + ofsSkel + i * 4 );
-		const byte *bone = buf + o;
-		if ( o <= 0 || o + 176 > len )
+	// the bone offsets table follows the 100-byte header; each offset counts from there
+	// (that is how Ghoul2 reads it; ofsSkel is tried too, in case a tool wrote it differently)
+	for ( pass = 0; pass < 2; pass++ ) {
+		const int base = pass ? ofsSkel : 100;
+		if ( pass && ofsSkel == 100 )
 			break;
-		// mdxaSkel_t: name[64], flags, parent, BasePoseMat[3][4], BasePoseMatInv[3][4], numChildren, children[]
-		if ( !Q_stricmp( (const char *)bone, "cranium" ) ) {
-			memcpy( shinobiCranium.inv, bone + 64 + 4 + 4 + 48, sizeof( shinobiCranium.inv ) );
-			shinobiCranium.ok = qtrue;
-			return;
+		for ( i = 0; i < numBones && base + i * 4 + 4 <= len; i++ ) {
+			const int  o = base + *(int *)( buf + base + i * 4 );
+			const byte *bone = buf + o;
+			if ( o <= 0 || o + 176 > len )
+				break;
+			// mdxaSkel_t: name[64], flags, parent, BasePoseMat[3][4], BasePoseMatInv[3][4], numChildren, children[]
+			if ( !Q_stricmp( (const char *)bone, "cranium" ) ) {
+				memcpy( shinobiCranium.inv, bone + 64 + 4 + 4 + 48, sizeof( shinobiCranium.inv ) );
+				shinobiCranium.ok = qtrue;
+				return;
+			}
 		}
+	}
+	{ // tell what is there, to fix this
+		const int o0 = 100 + *(int *)( buf + 100 );
+		trap->Print( "[shinobi] gla: %i bones, ofsSkel %i, first offset %i, first name '%.20s'\n", numBones, ofsSkel,
+			*(int *)( buf + 100 ), ( o0 > 0 && o0 < len - 64 ) ? (const char *)( buf + o0 ) : "?" );
 	}
 	trap->Print( S_COLOR_YELLOW "[shinobi] no cranium bone in _humanoid.gla: head accessories off\n" );
 }
