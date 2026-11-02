@@ -475,6 +475,8 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		client->ps.fd.forcePower -= Shinobi_JutsuCost( jutsu, lvl );
 		Shinobi_StopCharging( client );
 	}
+	Shinobi_Debug( "%i casts %s Lv%i: %s (chakra %i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl,
+		cast ? "ok" : "FAILED", client->ps.fd.forcePower );
 	return cast;
 }
 
