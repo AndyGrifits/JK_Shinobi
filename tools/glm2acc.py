@@ -1,44 +1,76 @@
 #!/usr/bin/env python3
-"""Turn a head accessory exported from Blender as a Ghoul2 .glm into the MD3
-the game draws on players' heads.
+"""JK_Shinobi: turn a head accessory exported from Blender as a Ghoul2 .glm
+into the MD3 the game draws on players' heads.
 
 The accessory must be modelled in the bind pose of the stock _humanoid
-skeleton, sitting where it belongs on the head (weights don't matter: it is
-rigid). The game keeps it on the "cranium" bone: every frame it takes the
-bone's transform times the inverse of its bind pose (read from
-_humanoid.gla), so the MD3 keeps the same model-space coordinates as the glm.
+skeleton, sitting where it belongs on the head (weights don't matter: the
+game keeps it rigid on the "cranium" bone). The MD3 keeps the glm's
+model-space coordinates.
 
-  python3 tools/glm2acc.py <model.glm> <texture.png|tga|jpg> <name>
+Self-contained (standard library only): runs with any Python 3, including
+the one inside Blender. The texture is converted with Pillow when it is
+installed, else with Blender's image API when run inside Blender, else copied
+as it is.
 
-writes assets/models/accessories/head/<name>.md3 and <name>.jpg (.tga with alpha) (the shader
-is the texture: models/accessories/head/<name>). Surfaces over ~1000
-vertices are split (the renderer's per-surface limit).
+Command line:
+  python glm2acc.py <model.glm> <texture.png|tga|jpg> <name> [--out DIR]
+From Python / a Blender add-on:
+  import glm2acc; glm2acc.convert(glm_path, tex_path, name, out_dir)
+
+Writes <out>/<name>.md3 and <out>/<name>.jpg (.tga when the texture has
+alpha). Default out: assets/models/accessories/head next to this script's
+repo. In the game the files must end up in models/accessories/head/ (in a
+pk3, or loose in GameData/shinobi/models/accessories/head/).
 """
+import argparse
+import math
 import os
+import re
+import shutil
 import struct
-import sys
 
-from PIL import Image
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gen_models import MAX_QPATH, MD3_IDENT, MD3_VERSION, XYZ_SCALE, encode_normal, pad  # noqa: E402
+MD3_IDENT = b"IDP3"
+MD3_VERSION = 15
+MAX_QPATH = 64
+XYZ_SCALE = 64.0      # MD3 stores coordinates * 64 as shorts
+MAX_COORD = 511.0     # ... so they must stay within +-511 units
+MAX_VERTS = 990       # the renderer's per-surface limit is 1000
+NAME_RE = re.compile(r"^[a-z0-9_]{1,31}$")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "assets", "models", "accessories", "head")
-MAX_VERTS = 990
+DEFAULT_OUT = os.path.join(ROOT, "assets", "models", "accessories", "head")
+
+
+def encode_normal(n):
+    """Q3 lat/long normal encoding."""
+    x, y, z = n
+    length = math.sqrt(x * x + y * y + z * z) or 1.0
+    x, y, z = x / length, y / length, z / length
+    if x == 0 and y == 0:
+        return 0 if z > 0 else 128
+    lat = int(round(math.atan2(y, x) * 255 / (2 * math.pi))) & 0xFF
+    lng = int(round(math.acos(max(-1.0, min(1.0, z))) * 255 / (2 * math.pi))) & 0xFF
+    return (lat << 8) | lng
+
+
+def pad(name, size=MAX_QPATH):
+    data = name.encode("ascii")
+    if len(data) >= size:
+        raise ValueError("name too long: %s" % name)
+    return data + b"\0" * (size - len(data))
 
 
 def read_glm(path):
+    """LOD 0 surfaces of a Ghoul2 model: [(verts, normals, uvs, tris)]."""
     d = open(path, "rb").read()
     ident, version = struct.unpack_from("<4si", d, 0)
     if ident != b"2LGM":
-        raise SystemExit("not a Ghoul2 model: %s" % path)
+        raise ValueError("not a Ghoul2 model (.glm): %s" % path)
     _, _, num_lods, ofs_lods, num_surf, _, _ = struct.unpack_from("<7i", d, 136)
     surfaces = []
-    lod = ofs_lods
-    offs = struct.unpack_from("<%di" % num_surf, d, lod + 4)
+    offs = struct.unpack_from("<%di" % num_surf, d, ofs_lods + 4)
     for o in offs:
-        s = lod + 4 + o
+        s = ofs_lods + 4 + o
         _, idx, _, nv, ofs_v, nt, ofs_t, _, _, _ = struct.unpack_from("<10i", d, s)
         verts, normals, uvs = [], [], []
         for v in range(nv):
@@ -49,7 +81,10 @@ def read_glm(path):
         for v in range(nv):
             uvs.append(struct.unpack_from("<2f", d, uv_base + v * 8))
         tris = [struct.unpack_from("<3i", d, s + ofs_t + t * 12) for t in range(nt)]
-        surfaces.append((verts, normals, uvs, tris))
+        if tris:
+            surfaces.append((verts, normals, uvs, tris))
+    if not surfaces:
+        raise ValueError("no triangles in %s" % path)
     return surfaces
 
 
@@ -58,8 +93,8 @@ def split(surface):
     verts, normals, uvs, tris = surface
     chunks, remap, cur = [], {}, None
     for tri in tris:
-        new = [v for v in tri if v not in remap] if cur else list(tri)
-        if cur is None or len(cur[0]) + len(set(new)) > MAX_VERTS:
+        new = {v for v in tri if v not in remap}
+        if cur is None or len(cur[0]) + len(new) > MAX_VERTS:
             cur = ([], [], [], [])
             remap = {}
             chunks.append(cur)
@@ -91,16 +126,53 @@ def md3_surface(name, shader, verts, normals, uvs, tris):
             + shaders + tri_data + st_data + xyz_data)
 
 
-def main():
-    if len(sys.argv) != 4:
-        raise SystemExit(__doc__)
-    glm, tex, name = sys.argv[1:]
+def write_texture(tex, out_base):
+    """Returns the file written. Alpha -> .tga, else .jpg."""
+    for ext in (".tga", ".jpg", ".png"):
+        if os.path.exists(out_base + ext):
+            os.remove(out_base + ext)
+    try:
+        from PIL import Image
+        img = Image.open(tex)
+        if img.mode in ("RGBA", "LA", "P"):
+            img.convert("RGBA").save(out_base + ".tga")
+            return out_base + ".tga"
+        img.convert("RGB").save(out_base + ".jpg", quality=92)
+        return out_base + ".jpg"
+    except ImportError:
+        pass
+    try:
+        import bpy  # inside Blender
+        img = bpy.data.images.load(os.path.abspath(tex), check_existing=False)
+        alpha = img.channels == 4 and img.alpha_mode != 'NONE'
+        path = out_base + (".tga" if alpha else ".jpg")
+        img.file_format = 'TARGA' if alpha else 'JPEG'
+        img.filepath_raw = path
+        img.save()
+        bpy.data.images.remove(img)
+        return path
+    except ImportError:
+        pass
+    ext = os.path.splitext(tex)[1].lower()
+    path = out_base + ext
+    shutil.copyfile(tex, path)
+    if ext not in (".jpg", ".jpeg", ".tga"):
+        print("warning: %s copied as it is (no Pillow, not in Blender): the game wants .jpg or .tga" % path)
+    return path
+
+
+def convert(glm, tex, name, out_dir=DEFAULT_OUT):
+    """Converts; returns (md3 path, texture path). Raises ValueError on bad input."""
+    if not NAME_RE.match(name):
+        raise ValueError("name must be 1-31 of a-z 0-9 _ (it goes over the network): %r" % name)
     shader = "models/accessories/head/" + name
     chunks = [c for s in read_glm(glm) for c in split(s)]
     allv = [v for c in chunks for v in c[0]]
     mins = [min(v[i] for v in allv) for i in range(3)]
     maxs = [max(v[i] for v in allv) for i in range(3)]
-    radius = max((v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5 for v in allv)
+    if max(max(abs(m) for m in mins), max(abs(m) for m in maxs)) > MAX_COORD:
+        raise ValueError("coordinates beyond +-%d units: was it exported in the skeleton's scale?" % MAX_COORD)
+    radius = max(math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2) for v in allv)
     surfaces = b"".join(md3_surface("acc%d" % i, shader, *c) for i, c in enumerate(chunks))
     frame = struct.pack("<3f3f3ff", *mins, *maxs, 0, 0, 0, radius) + pad("frame0", 16)
     header_size = 4 + 4 + MAX_QPATH + 4 * 9
@@ -108,19 +180,24 @@ def main():
     ofs_surf = ofs_frames + len(frame)
     header = (MD3_IDENT + struct.pack("<i", MD3_VERSION) + pad(shader + ".md3")
               + struct.pack("<9i", 0, 1, 0, len(chunks), 0, ofs_frames, ofs_surf, ofs_surf, ofs_surf + len(surfaces)))
-    os.makedirs(OUT, exist_ok=True)
-    with open(os.path.join(OUT, name + ".md3"), "wb") as f:
+    os.makedirs(out_dir, exist_ok=True)
+    md3 = os.path.join(out_dir, name + ".md3")
+    with open(md3, "wb") as f:
         f.write(header + frame + surfaces)
-    img = Image.open(tex)
-    for ext in (".tga", ".jpg"):
-        if os.path.exists(os.path.join(OUT, name + ext)):
-            os.remove(os.path.join(OUT, name + ext))
-    if img.mode in ("RGBA", "LA", "P"):  # (cut-outs need the alpha)
-        img.convert("RGBA").save(os.path.join(OUT, name + ".tga"))
-    else:
-        img.convert("RGB").save(os.path.join(OUT, name + ".jpg"), quality=92)
-    print("%s.md3: %d surfaces, %d verts, %d tris, z %.1f..%.1f" % (
-        name, len(chunks), len(allv), sum(len(c[3]) for c in chunks), mins[2], maxs[2]))
+    texture = write_texture(tex, os.path.join(out_dir, name))
+    print("%s: %d surfaces, %d verts, %d tris, z %.1f..%.1f; texture %s" % (
+        md3, len(chunks), len(allv), sum(len(c[3]) for c in chunks), mins[2], maxs[2], texture))
+    return md3, texture
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Ghoul2 head accessory (.glm) -> JK_Shinobi MD3")
+    ap.add_argument("glm")
+    ap.add_argument("texture")
+    ap.add_argument("name", help="a-z 0-9 _ only, up to 31")
+    ap.add_argument("--out", default=DEFAULT_OUT, help="output folder (default: the repo's assets)")
+    a = ap.parse_args()
+    convert(a.glm, a.texture, a.name, a.out)
 
 
 if __name__ == "__main__":
