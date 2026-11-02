@@ -212,8 +212,8 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 	{ "weapon_stun_baton",          STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
 	{ "weapon_trip_mine",           STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "ammo_tripmine",              STOOL_TAG,      SHINOBI_TOOL_PICKUP },
-	{ "weapon_det_pack",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
-	{ "ammo_detpack",               STOOL_TAG,      SHINOBI_TOOL_PICKUP },
+	{ "weapon_det_pack",            STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "ammo_detpack",               STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
 	{ "item_seeker",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_sentry_gun",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_shield",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
@@ -256,6 +256,11 @@ const char *Shinobi_ToolName( int tool ) {
 	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? shinobiToolNames[tool] : "";
 }
 
+const char *Shinobi_ToolTitle( int tool ) {
+	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken" };
+	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? titles[tool] : "";
+}
+
 // once per module load: new looks, and types that never hand out a gun
 void Shinobi_PatchItems( void ) {
 	static qboolean done = qfalse;
@@ -274,15 +279,22 @@ void Shinobi_PatchItems( void ) {
 			continue;
 		item->world_model[0] = (char *)shinobiToolModels[tool];
 		item->world_model[1] = item->world_model[2] = item->world_model[3] = NULL;
-		item->view_model = NULL;
+		// (the view model stays: the cgame builds weapon file names from it)
 		item->icon = (char *)shinobiToolIcons[tool];
 		item->pickup_sound = tool == STOOL_HEAL ? "sound/player/pickuphealth.wav" : "sound/player/pickupenergy.wav";
 		switch ( tool ) {
 		case STOOL_HEAL:     item->giType = IT_HEALTH; item->giTag = 0; break;
 		case STOOL_CHAKRA:   item->giType = IT_AMMO; item->giTag = AMMO_FORCE; break;
-		case STOOL_EXKUNAI:  item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_EXKUNAI; break;
-		case STOOL_TAG:      item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_TAG; break;
-		case STOOL_SHURIKEN: item->giType = IT_AMMO; item->giTag = SHINOBI_AMMO_SHURIKEN; break;
+		case STOOL_EXKUNAI:
+		case STOOL_TAG:
+		case STOOL_SHURIKEN: { // the stock explosive weapon underneath (its weapon_* item stays a weapon)
+			const int wp = tool == STOOL_EXKUNAI ? SHINOBI_WP_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_WP_TAG : SHINOBI_WP_SHURIKEN );
+			if ( item->giType == IT_WEAPON && item->giTag == wp )
+				break;
+			item->giType = IT_AMMO;
+			item->giTag = tool == STOOL_EXKUNAI ? SHINOBI_AMMO_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_AMMO_TAG : SHINOBI_AMMO_SHURIKEN );
+			break;
+		}
 		}
 		Shinobi_ToolForItem( item->classname, &item->quantity );
 	}

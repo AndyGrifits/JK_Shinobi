@@ -538,10 +538,13 @@ Ninja tools on the maps: the stock pickups are turned into these at load
 (Shinobi_PatchItems, in both the game and the cgame, so item numbers match).
   Healing Pill    health at once          (medkits, bacta)
   Chakra Pill     chakra at once          (force items, ammo packs, gadgets)
-  Explosive Kunai 2 to throw (G)          (thermals, pistols, blaster)
-  Explosive Tag   2 to stick as traps (H) (mines, det packs, droids, turrets)
-  Fuma Shuriken   2 big ones to throw (J) (heavy guns)
-Counts ride in ps.ammo[] (shown by our HUD).
+  Explosive Kunai 2 to throw              (thermals, pistols, blaster)
+  Explosive Tag   2 to stick as traps     (trip mines, droids, turrets)
+  Fuma Shuriken   2 big ones to throw     (det packs, heavy guns)
+The throwables are the stock explosive weapons underneath (thermal = kunai,
+trip mine = tag, det pack = shuriken): picked and used like any weapon
+(weapon keys / wheel, attack), counts in ps.ammo[], the stock HUD. Z with
+one of them in hand uses it too; with fists or the blade Z throws a kunai.
 ---------------------------------------------------------------------------
 */
 typedef enum {
@@ -556,20 +559,25 @@ typedef enum {
 
 #define SHINOBI_AMMO_EXKUNAI       AMMO_THERMAL
 #define SHINOBI_AMMO_TAG           AMMO_TRIPMINE
-#define SHINOBI_AMMO_SHURIKEN      AMMO_ROCKETS
+#define SHINOBI_AMMO_SHURIKEN      AMMO_DETPACK
+#define SHINOBI_WP_EXKUNAI         WP_THERMAL
+#define SHINOBI_WP_TAG             WP_TRIP_MINE
+#define SHINOBI_WP_SHURIKEN        WP_DET_PACK
+#define SHINOBI_IS_TOOL_WEAPON(w)  ( (w) == WP_THERMAL || (w) == WP_TRIP_MINE || (w) == WP_DET_PACK )
 #define SHINOBI_TOOL_MAX           6     // carried of each throwable
 #define SHINOBI_TOOL_PICKUP        2     // given by one pickup
 
 void Shinobi_PatchItems( void );                       // bg_shinobi.c
 int  Shinobi_ToolForItem( const char *classname, int *amount );
-const char *Shinobi_ToolName( int tool );
+const char *Shinobi_ToolName( int tool );   // "2 Explosive Kunai" (pickup line)
+const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
 
-// Explosive Kunai (G): sticks where it lands (or in whom it hits), then goes off
+// Explosive Kunai: sticks where it lands (or in whom it hits), then goes off
 #define SHINOBI_EXKUNAI_FUSE       1000
 #define SHINOBI_EXKUNAI_RADIUS     140
 #define SHINOBI_EXKUNAI_DAMAGE     45
 #define SHINOBI_EXKUNAI_COOLDOWN   700
-// Explosive Tag (H): stuck on a wall or the floor; armed after a moment, it
+// Explosive Tag: stuck on a wall or the floor; armed after a moment, it
 // goes off shortly after an enemy comes near (or fire / a blast reaches it)
 #define SHINOBI_TAG_ARM_MS         1000
 #define SHINOBI_TAG_TRIGGER        90
@@ -580,7 +588,7 @@ const char *Shinobi_ToolName( int tool );
 #define SHINOBI_TAG_MAX            2     // stuck at once (the oldest goes)
 #define SHINOBI_TAG_REACH          96    // how far from the eye it can be placed
 #define SHINOBI_TAG_COOLDOWN       700
-// Fuma Shuriken (J): a big spinning star, straight and hard
+// Fuma Shuriken: a big spinning star, straight and hard
 #define SHINOBI_SHURIKEN_SPEED     1100
 #define SHINOBI_SHURIKEN_DAMAGE    45
 #define SHINOBI_SHURIKEN_LIFE      2000

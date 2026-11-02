@@ -130,6 +130,8 @@ void Cmd_Kunai_f( gentity_t *ent ) {
 	trace_t    tr;
 	int        i;
 
+	if ( Shinobi_ZUsesTool( ent ) )
+		return; // an explosive kunai / tag / shuriken in hand: Z uses that
 	if ( client->shinobi.blocking || client->shinobi.burrowEnd || client->shinobi.shadowHideEnd )
 		return; // guard up / out of sight
 

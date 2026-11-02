@@ -4629,16 +4629,20 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			break;
 
 		case WP_THERMAL:
-			WP_FireThermalDetonator( ent, altFire );
-			break;
-
 		case WP_TRIP_MINE:
-			WP_PlaceLaserTrap( ent, altFire );
+		case WP_DET_PACK:
+			if ( Shinobi_FireToolWeapon( ent, ent->s.weapon ) )
+			{ // JK_Shinobi: explosive kunai / tag / fuma shuriken
+				break;
+			}
+			if ( ent->s.weapon == WP_THERMAL )
+				WP_FireThermalDetonator( ent, altFire );
+			else if ( ent->s.weapon == WP_TRIP_MINE )
+				WP_PlaceLaserTrap( ent, altFire );
+			else
+				WP_DropDetPack( ent, altFire );
 			break;
 
-		case WP_DET_PACK:
-			WP_DropDetPack( ent, altFire );
-			break;
 
 		case WP_EMPLACED_GUN:
 			if (ent->client && ent->client->ewebIndex)

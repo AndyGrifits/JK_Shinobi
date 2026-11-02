@@ -33,6 +33,7 @@ int Shinobi_PickupItem( gentity_t *ent, gentity_t *other ) {
 		client->ps.ammo[slot] += amount;
 		if ( client->ps.ammo[slot] > SHINOBI_TOOL_MAX )
 			client->ps.ammo[slot] = SHINOBI_TOOL_MAX;
+		client->ps.stats[STAT_WEAPONS] |= 1 << ( tool == STOOL_EXKUNAI ? SHINOBI_WP_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_WP_TAG : SHINOBI_WP_SHURIKEN ) );
 		return 30;
 	}
 	}
@@ -142,17 +143,11 @@ static void Shinobi_ExKunaiThink( gentity_t *k ) {
 	k->nextthink = level.time + FRAMETIME;
 }
 
-void Cmd_ExKunai_f( gentity_t *ent ) {
+static void Shinobi_SpawnExKunai( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	gentity_t *k;
 	vec3_t     fwd, eye, start;
 	trace_t    tr;
-
-	if ( !Shinobi_ToolReady( ent, SHINOBI_AMMO_EXKUNAI ) )
-		return;
-	Shinobi_Reveal( ent );
-	client->ps.ammo[SHINOBI_AMMO_EXKUNAI]--;
-	client->shinobi.toolNext = level.time + SHINOBI_EXKUNAI_COOLDOWN;
 
 	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
 	VectorCopy( client->ps.origin, eye );
@@ -185,7 +180,6 @@ void Cmd_ExKunai_f( gentity_t *ent ) {
 	k->think = Shinobi_ExKunaiThink;
 	k->nextthink = level.time + FRAMETIME;
 	trap->LinkEntity( (sharedEntity_t *)k );
-	Shinobi_ThrowPose( ent );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 }
 
@@ -254,15 +248,12 @@ static void Shinobi_TagThink( gentity_t *t ) {
 	t->nextthink = level.time + 100;
 }
 
-void Cmd_ExTag_f( gentity_t *ent ) {
+static qboolean Shinobi_PlaceTag( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	gentity_t *t, *oldest = NULL;
 	vec3_t     fwd, eye, end, normal;
 	trace_t    tr;
 	int        i, count = 0;
-
-	if ( !Shinobi_ToolReady( ent, SHINOBI_AMMO_TAG ) )
-		return;
 
 	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
 	VectorCopy( client->ps.origin, eye );
@@ -277,7 +268,7 @@ void Cmd_ExTag_f( gentity_t *ent ) {
 		trap->Trace( &tr, end, NULL, NULL, down, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
 		if ( tr.fraction >= 1.0f || tr.entityNum != ENTITYNUM_WORLD ) {
 			trap->SendServerCommand( ent - g_entities, "cp \"Nowhere to stick it\"" );
-			return;
+			return qfalse;
 		}
 	}
 	VectorCopy( tr.plane.normal, normal );
@@ -294,13 +285,9 @@ void Cmd_ExTag_f( gentity_t *ent ) {
 	if ( count >= SHINOBI_TAG_MAX && oldest )
 		G_FreeEntity( oldest );
 
-	client->ps.ammo[SHINOBI_AMMO_TAG]--;
-	client->shinobi.toolNext = level.time + SHINOBI_TAG_COOLDOWN;
-	Shinobi_Reveal( ent );
-
 	t = G_Spawn();
 	if ( !t )
-		return;
+		return qfalse;
 	t->classname = "shinobi_tag";
 	t->s.eType = ET_GENERAL;
 	t->s.modelindex = shinobiMedia.tagModel;
@@ -326,9 +313,8 @@ void Cmd_ExTag_f( gentity_t *ent ) {
 	t->nextthink = level.time + 100;
 	trap->LinkEntity( (sharedEntity_t *)t );
 
-	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
-	client->ps.forceHandExtendTime = level.time + 300;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndPoof );
+	return qtrue;
 }
 
 /*
@@ -376,17 +362,11 @@ static void Shinobi_ShurikenThink( gentity_t *s ) {
 	s->nextthink = level.time + FRAMETIME;
 }
 
-void Cmd_Fuma_f( gentity_t *ent ) {
+static void Shinobi_SpawnShuriken( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	gentity_t *s;
 	vec3_t     fwd, eye, start;
 	trace_t    tr;
-
-	if ( !Shinobi_ToolReady( ent, SHINOBI_AMMO_SHURIKEN ) )
-		return;
-	Shinobi_Reveal( ent );
-	client->ps.ammo[SHINOBI_AMMO_SHURIKEN]--;
-	client->shinobi.toolNext = level.time + SHINOBI_SHURIKEN_COOLDOWN;
 
 	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
 	VectorCopy( client->ps.origin, eye );
@@ -419,7 +399,71 @@ void Cmd_Fuma_f( gentity_t *ent ) {
 	s->nextthink = level.time + FRAMETIME;
 	trap->LinkEntity( (sharedEntity_t *)s );
 
-	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH;
-	client->ps.forceHandExtendTime = level.time + 350;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
 }
+
+/*
+---------------------------------------------------------------------------
+Using a tool: the stock weapon fire (attack with it in hand: pmove already
+took the ammo and plays the throw), or Z / the console commands (we take the
+ammo, and put the weapon away when the last one is gone).
+---------------------------------------------------------------------------
+*/
+// FireWeapon: the stock explosive weapons fire our tools instead
+qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon ) {
+	if ( !ent->client || !SHINOBI_IS_TOOL_WEAPON( weapon ) )
+		return qfalse;
+	Shinobi_Reveal( ent );
+	if ( weapon == SHINOBI_WP_EXKUNAI )
+		Shinobi_SpawnExKunai( ent );
+	else if ( weapon == SHINOBI_WP_TAG ) {
+		if ( !Shinobi_PlaceTag( ent ) )
+			ent->client->ps.ammo[SHINOBI_AMMO_TAG]++; // nowhere to stick it: keep it
+	}
+	else
+		Shinobi_SpawnShuriken( ent );
+	return qtrue;
+}
+
+static void Shinobi_UseTool( gentity_t *ent, int weapon ) {
+	gclient_t *client = ent->client;
+	const int  slot = weaponData[weapon].ammoIndex;
+	qboolean   used = qtrue;
+
+	if ( !Shinobi_ToolReady( ent, slot ) )
+		return;
+	Shinobi_Reveal( ent );
+	if ( weapon == SHINOBI_WP_EXKUNAI ) {
+		Shinobi_SpawnExKunai( ent );
+		client->shinobi.toolNext = level.time + SHINOBI_EXKUNAI_COOLDOWN;
+	}
+	else if ( weapon == SHINOBI_WP_TAG ) {
+		used = Shinobi_PlaceTag( ent );
+		client->shinobi.toolNext = level.time + SHINOBI_TAG_COOLDOWN;
+	}
+	else {
+		Shinobi_SpawnShuriken( ent );
+		client->shinobi.toolNext = level.time + SHINOBI_SHURIKEN_COOLDOWN;
+	}
+	if ( !used )
+		return;
+	Shinobi_ThrowPose( ent );
+	if ( --client->ps.ammo[slot] <= 0 ) { // the last one: away with the weapon (the cgame picks the next)
+		client->ps.ammo[slot] = 0;
+		client->ps.stats[STAT_WEAPONS] &= ~( 1 << weapon );
+		G_AddEvent( ent, EV_NOAMMO, weapon );
+	}
+}
+
+// Z with a tool in hand (Shinobi's Cmd_Kunai_f asks first)
+qboolean Shinobi_ZUsesTool( gentity_t *ent ) {
+	const int w = ent->client->ps.weapon;
+	if ( !SHINOBI_IS_TOOL_WEAPON( w ) || SHINOBI_MODIFIER( &ent->client->pers.cmd ) )
+		return qfalse;
+	Shinobi_UseTool( ent, w );
+	return qtrue;
+}
+
+void Cmd_ExKunai_f( gentity_t *ent ) { Shinobi_UseTool( ent, SHINOBI_WP_EXKUNAI ); }
+void Cmd_ExTag_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_TAG ); }
+void Cmd_Fuma_f( gentity_t *ent )    { Shinobi_UseTool( ent, SHINOBI_WP_SHURIKEN ); }

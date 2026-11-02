@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // cg_weapons.c -- events and effects dealing with weapons
 #include "cg_local.h"
+#include "game/bg_shinobi.h"
 #include "fx_local.h"
 
 /*
@@ -1363,7 +1364,11 @@ void CG_DrawWeaponSelect( void ) {
 
 		strcpy(upperKey, cg_weapons[ cg.weaponSelect ].item->classname);
 
-		if ( trap->SE_GetStringTextString( va("SP_INGAME_%s",Q_strupr(upperKey)), text, sizeof( text )))
+		if ( Shinobi_ToolForItem( cg_weapons[ cg.weaponSelect ].item->classname, NULL ) != STOOL_NONE )
+		{ // JK_Shinobi: explosive kunai / tag / fuma shuriken
+			CG_DrawProportionalString(320, y+45+yOffset, Shinobi_ToolTitle( Shinobi_ToolForItem( cg_weapons[ cg.weaponSelect ].item->classname, NULL ) ), UI_CENTER|UI_SMALLFONT, textColor);
+		}
+		else if ( trap->SE_GetStringTextString( va("SP_INGAME_%s",Q_strupr(upperKey)), text, sizeof( text )))
 		{
 			CG_DrawProportionalString(320, y+45+yOffset, text, UI_CENTER|UI_SMALLFONT, textColor);
 		}
@@ -1517,7 +1522,6 @@ CG_Weapon_f
 void CG_Weapon_f( void ) {
 	int		num;
 
-	CG_ShinobiToolPutAway(); // JK_Shinobi: a weapon key puts the picked tool away
 
 	if ( !cg.snap ) {
 		return;
@@ -2334,8 +2338,8 @@ void CG_InitG2Weapons(void)
 	memset(g2WeaponInstances, 0, sizeof(g2WeaponInstances));
 	for ( item = bg_itemlist + 1 ; item->classname ; item++ )
 	{
-		if ( item->giType == IT_WEAPON )
-		{
+		if ( item->giType == IT_WEAPON && !SHINOBI_IS_TOOL_WEAPON( item->giTag ) )
+		{ // (JK_Shinobi: the explosive kunai / tag / shuriken are held in an empty hand)
 			assert(item->giTag < MAX_WEAPONS);
 
 			// initialise model

@@ -42,11 +42,11 @@ icons and names; no guns are handed out any more):
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
 | Fuma Shuriken x2 (`fuma`) | rocket launcher, repeater, flechette, concussion, disruptor, bowcaster | a big spinning star flying straight: 45 damage and a knock; sticks in walls |
 
-Using them: `Z` throws a plain kunai with fists or the blade in hand; pick a tool with
-`3` / `4` / `5` (explosive kunai / tag / shuriken) or cycle with `[` / `]`, and `Z` uses it
-instead (pressing its number again, `1` or `2` puts it away; it is put away by itself when
-none are left). `Shift + Z` is always the marked kunai. The HUD line above the jutsu list
-shows what you carry and what is picked.
+The throwables are the stock explosive weapons underneath (thermal detonator = explosive
+kunai, trip mine = tag, det pack = shuriken): they show in the stock weapon bar with their
+own icons and names, are picked with the weapon keys (`3` cycles them) or the mouse wheel,
+and used with attack - or with `Z`, which throws a plain kunai when fists or the blade are
+in hand. `Shift + Z` is always the marked kunai. They are held in an empty hand.
 
 Up to 6 of each throwable; respawn 20 s (pills) / 30 s (tools). Wind Wall throws
 explosive kunai and shuriken back too. Shields (armor) still refill the block guard.

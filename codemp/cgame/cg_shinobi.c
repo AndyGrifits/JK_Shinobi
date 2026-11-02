@@ -270,100 +270,10 @@ static void CG_ShinobiSelect( int step ) {
 void CG_ShinobiNext_f( void ) { CG_ShinobiSelect( 1 ); }
 void CG_ShinobiPrev_f( void ) { CG_ShinobiSelect( -1 ); }
 
-/*
-===========================================================================
-Ninja tools: Z throws a plain kunai with fists or the blade in hand; with a
-tool picked (3 / 4 / 5, or [ / ]) it throws / sticks / uses that tool
-instead. Shift + Z is always the marked kunai. 1 / 2 put the tool away.
-===========================================================================
-*/
-static const struct { int slot; const char *cmd, *name; } shinobiTools[] = {
-	{ SHINOBI_AMMO_EXKUNAI,  "exkunai", "Explosive Kunai" },
-	{ SHINOBI_AMMO_TAG,      "extag",   "Explosive Tag" },
-	{ SHINOBI_AMMO_SHURIKEN, "fuma",    "Fuma Shuriken" },
-};
-#define SHINOBI_NUM_TOOLS ( (int)ARRAY_LEN( shinobiTools ) )
-static int shinobiToolSel; // 0 = none (plain kunai), else index + 1
-
-static int CG_ShinobiToolCount( int idx ) {
-	return cg.snap ? cg.predictedPlayerState.ammo[shinobiTools[idx].slot] : 0;
-}
-
-void CG_ShinobiToolPutAway( void ) {
-	shinobiToolSel = 0;
-}
-
-// "shinobi_tool <n>": pick tool n (1..), again to put it away; 0 = none
-void CG_ShinobiTool_f( void ) {
-	const int n = atoi( CG_Argv( 1 ) );
-
-	if ( n <= 0 || n > SHINOBI_NUM_TOOLS || shinobiToolSel == n ) {
-		shinobiToolSel = 0;
-		return;
-	}
-	if ( CG_ShinobiToolCount( n - 1 ) <= 0 ) {
-		CG_CenterPrint( va( "No %s", shinobiTools[n - 1].name ), SCREEN_HEIGHT * 0.7f, BIGCHAR_WIDTH );
-		return;
-	}
-	shinobiToolSel = n;
-	trap->S_StartLocalSound( cgs.media.selectSound, CHAN_LOCAL_SOUND );
-}
-
-// "shinobi_tool_next" / "shinobi_tool_prev": cycle through what we carry (and none)
-static void CG_ShinobiToolCycle( int step ) {
-	int k, n = shinobiToolSel;
-	for ( k = 0; k <= SHINOBI_NUM_TOOLS; k++ ) {
-		n = ( n + step + SHINOBI_NUM_TOOLS + 1 ) % ( SHINOBI_NUM_TOOLS + 1 );
-		if ( n == 0 || CG_ShinobiToolCount( n - 1 ) > 0 )
-			break;
-	}
-	shinobiToolSel = n;
-	trap->S_StartLocalSound( cgs.media.selectSound, CHAN_LOCAL_SOUND );
-}
-void CG_ShinobiToolNext_f( void ) { CG_ShinobiToolCycle( 1 ); }
-void CG_ShinobiToolPrev_f( void ) { CG_ShinobiToolCycle( -1 ); }
-
-// "shinobi_throw" (Z)
-void CG_ShinobiThrow_f( void ) {
-	usercmd_t cmd;
-	const qboolean shift = trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd );
-
-	if ( shinobiToolSel && !shift && CG_ShinobiToolCount( shinobiToolSel - 1 ) > 0 ) {
-		trap->SendClientCommand( shinobiTools[shinobiToolSel - 1].cmd );
-		return;
-	}
-	if ( shinobiToolSel && !shift )
-		shinobiToolSel = 0; // ran out: back to plain kunai
-	trap->SendClientCommand( "kunai" );
-}
-
-// what we carry, the picked tool highlighted
-static void CG_ShinobiDrawTools( void ) {
-	const playerState_t *ps = &cg.predictedPlayerState;
-	char  line[256];
-	int   i;
-
-	if ( shinobiToolSel && ( ps->stats[STAT_HEALTH] <= 0 || CG_ShinobiToolCount( shinobiToolSel - 1 ) <= 0 ) )
-		shinobiToolSel = 0;
-	Q_strncpyz( line, shinobiToolSel ? "^7Z:" : "^3Z: kunai^7", sizeof( line ) );
-	for ( i = 0; i < SHINOBI_NUM_TOOLS; i++ ) {
-		const int n = ps->ammo[shinobiTools[i].slot];
-		if ( n <= 0 )
-			continue;
-		Q_strcat( line, sizeof( line ), va( "    %s%i %s x%i^7", shinobiToolSel == i + 1 ? "^3>" : "^7", i + 3, shinobiTools[i].name, n ) );
-	}
-	if ( strchr( line, 'x' ) ) {
-		vec4_t      c = { 0.9f, 0.85f, 0.75f, 0.85f };
-		const float w = CG_Text_Width( line, 0.38f, FONT_MEDIUM );
-		CG_Text_Paint( ( SCREEN_WIDTH - w ) * 0.5f, 432, 0.38f, c, line, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
-	}
-}
-
 // "shinobi_melee": switch between fists and the saber
 void CG_ShinobiMelee_f( void ) {
 	int want;
 
-	shinobiToolSel = 0; // hands back to fists / blade
 
 	if ( !cg.snap || cg.snap->ps.pm_type == PM_SPECTATOR )
 		return;
@@ -1566,7 +1476,6 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawEyeInfo();
 
 	CG_ShinobiDrawJutsuList();
-	CG_ShinobiDrawTools();
 
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
