@@ -394,16 +394,3 @@ models/shinobi/pill_chakra
 		rgbGen wave sin 0.25 0.15 0 0.7
 	}
 }
-
-// Wind Wall sheet: streaks of air racing upward (rgbGen vertex sets the strength)
-gfx/shinobi/windsheet
-{
-	cull none
-	nopicmip
-	{
-		map gfx/shinobi/windsheet
-		blendFunc GL_ONE GL_ONE
-		rgbGen vertex
-		tcMod scroll 0.07 -1.6
-	}
-}

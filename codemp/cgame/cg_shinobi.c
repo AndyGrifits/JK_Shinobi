@@ -26,7 +26,7 @@ static void CG_ShinobiIceShard( centity_t *cent );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice, windSheet;
+	qhandle_t sand, puddleWater, stoneShell, ice;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -169,7 +169,6 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
-	shinobiShaders.windSheet   = trap->R_RegisterShader( "gfx/shinobi/windsheet" );
 	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
 		// (shinobi_puddleShader names any other shader)
 		char         name[MAX_QPATH];
@@ -1226,47 +1225,8 @@ static void CG_ShinobiQuake( centity_t *cent ) {
 }
 
 /*
-Wind Wall: a sheet of rushing air standing across the caster's front - streaks racing up
-two layers of it, brighter at the edges so you see where it ends, spinning swirls at both
-ends, and a few spots of bent air in it.
+Wind Wall: pale rising streaks of air standing across the caster's front.
 */
-static void CG_ShinobiWindSheet( const vec3_t base, const vec3_t right, const vec3_t fwd, float halfW,
-	float depth, float a, float sOffset ) {
-	enum { COLS = 8, ROWS = 3 };
-	static const float rowH[ROWS] = { 0.0f, 0.55f, 1.0f };
-	static const float rowI[ROWS] = { 0.45f, 0.5f, 0.0f }; // fades out at the top
-	polyVert_t v[COLS * ( ROWS - 1 ) * 4];
-	int        c, r, n = 0;
-
-	if ( !shinobiShaders.windSheet )
-		return;
-	for ( c = 0; c < COLS; c++ ) {
-		for ( r = 0; r < ROWS - 1; r++ ) {
-			const int cc[4] = { c, c + 1, c + 1, c };
-			const int rr[4] = { r, r, r + 1, r + 1 };
-			int       k;
-			for ( k = 0; k < 4; k++ ) {
-				const float u = (float)cc[k] / COLS;           // 0..1 across
-				const float edge = fabsf( u * 2.0f - 1.0f );   // 0 middle .. 1 ends
-				const float along = -halfW + 2.0f * halfW * u;
-				const float h = SHINOBI_WINDWALL_HEIGHT * rowH[rr[k]];
-				const float in = a * rowI[rr[k]] * ( 0.55f + 0.9f * edge * edge );
-				polyVert_t *pv = &v[n++];
-				VectorMA( base, along, right, pv->xyz );
-				VectorMA( pv->xyz, depth, fwd, pv->xyz );
-				pv->xyz[2] += h;
-				pv->st[0] = along / 64.0f + sOffset;
-				pv->st[1] = h / 128.0f;
-				pv->modulate[0] = (byte)( Com_Clamp( 0, 1, in * 0.8f ) * 255 );
-				pv->modulate[1] = (byte)( Com_Clamp( 0, 1, in * 0.95f ) * 255 );
-				pv->modulate[2] = (byte)( Com_Clamp( 0, 1, in ) * 255 );
-				pv->modulate[3] = 255;
-			}
-		}
-	}
-	trap->R_AddPolysToScene( shinobiShaders.windSheet, 4, v, n / 4 );
-}
-
 static void CG_ShinobiWindWall( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    halfW = s->angles2[1];
@@ -1275,48 +1235,25 @@ static void CG_ShinobiWindWall( centity_t *cent ) {
 	const float    fadeOut = Com_Clamp( 0, 1, ( s->time2 - cg.time ) / 300.0f );
 	const float    a = fadeIn * fadeOut;
 	const float    t = cg.time * 0.001f;
+	const int      count = (int)( halfW * 0.4f ); // ~40 at the widest
 	vec3_t         yaw, fwd, right, p, q, haze = { 0.75f, 0.9f, 0.95f };
-	int            k, side;
+	int            k;
 
 	if ( halfW <= 0 || life <= 0 || a <= 0 )
 		return;
 	VectorSet( yaw, 0, s->angles2[0], 0 );
 	AngleVectors( yaw, fwd, right, NULL );
 
-	// the sheet: two layers a little apart, their streaks out of step
-	CG_ShinobiWindSheet( cent->lerpOrigin, right, fwd, halfW, -6.0f, a, 0.0f );
-	CG_ShinobiWindSheet( cent->lerpOrigin, right, fwd, halfW, 10.0f, a * 0.8f, 0.37f );
-
 	// streaks of air racing up the wall
-	for ( k = 0; k < 22; k++ ) {
+	for ( k = 0; k < count; k++ ) {
 		const float ph = fmodf( t * 1.6f + k * 0.37f, 1.0f );
 		const float along = -halfW + 2 * halfW * fmodf( k * 0.618f + t * 0.3f, 1.0f );
 		VectorMA( cent->lerpOrigin, along, right, p );
 		p[2] += SHINOBI_WINDWALL_HEIGHT * ph;
 		VectorCopy( p, q );
-		q[2] += 34;
+		q[2] += 30;
 		trap->FX_AddLine( p, q, 3.0f, 1.0f, 0.0f, 0.6f * a, 0.0f, 0.0f, haze, haze, 0.0f, 50,
 			shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
-	}
-
-	// the ends: whirling columns, so the edges read at a glance
-	for ( side = -1; side <= 1; side += 2 ) {
-		for ( k = 0; k < 4; k++ ) {
-			const float h = SHINOBI_WINDWALL_HEIGHT * ( 0.12f + 0.25f * k );
-			VectorMA( cent->lerpOrigin, side * halfW, right, p );
-			p[2] += h;
-			CG_ShinobiSpriteA( p, 26.0f - 3.0f * k, side * t * 540.0f + k * 40.0f, shinobiShaders.swirl,
-				0.7f, 0.85f, 0.95f, 0.75f * a );
-		}
-	}
-
-	// a few spots of bent air in the middle of it
-	for ( k = 0; k < 3; k++ ) {
-		const float along = halfW * ( k - 1 ) * 0.6f;
-		const float bob = 8.0f * sinf( t * 2.0f + k * 2.1f );
-		VectorMA( cent->lerpOrigin, along, right, p );
-		p[2] += SHINOBI_WINDWALL_HEIGHT * 0.5f + bob;
-		CG_ShinobiRefract( p, halfW * 0.38f, 140.0f * a );
 	}
 }
 

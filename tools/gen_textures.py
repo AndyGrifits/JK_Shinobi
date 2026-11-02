@@ -349,23 +349,6 @@ def streak(n=64):
     return np.exp(-(y / 0.08) ** 2) * np.clip(np.sin((x + 1) / 2 * math.pi), 0, 1) ** 0.7
 
 
-def windsheet(n=128):
-    """Tiling sheet of rising air for the Wind Wall: thin vertical streaks of varying
-    strength, broken up along their length (additive, scrolled upward by the shader)."""
-    rng = np.random.default_rng(91)
-    x = np.arange(n) / n
-    cols = np.zeros(n)
-    for _ in range(14):  # streaks across, wrapping round so the sheet tiles
-        c, w, k = rng.random(), 0.006 + 0.02 * rng.random(), 0.4 + 0.6 * rng.random()
-        d = np.minimum(np.abs(x - c), 1 - np.abs(x - c))
-        cols += k * np.exp(-(d / w) ** 2)
-    cols = np.clip(cols, 0, 1)
-    along = value_noise(n, 4, 92)  # rows: y, columns: x
-    gusts = np.clip((along - 0.25) / 0.6, 0, 1) ** 1.5
-    haze = 0.10 + 0.08 * value_noise(n, 8, 93)
-    return np.clip(cols[None, :] * (0.25 + 0.75 * gusts) + haze, 0, 1)
-
-
 def shadow_band(n=64):
     """Shadow Bind strip: black, solid in the middle of the width, soft edges."""
     _, y, _, _ = grid(n)
@@ -485,7 +468,6 @@ def main():
     save_rgba("watersphere", *water_sphere())
     save_rgba("droplet", *droplet())
     save("streak", streak())
-    save("windsheet", windsheet())
     save_rgba("shadowband", *shadow_band())
 
     models = os.path.join(ROOT, "assets", "models", "shinobi")
