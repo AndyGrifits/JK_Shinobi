@@ -530,7 +530,6 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 		org[2] += 4;
 		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS, t * 20.0f, shinobiShaders.waterSphere, 0.55f, 0.75f, 1.0f, 0.55f );
 		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 0.92f, -t * 35.0f, shinobiShaders.waterSphere, 0.4f, 0.6f, 0.95f, 0.35f );
-		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 1.05f, t * 50.0f, shinobiShaders.swirl, 0.25f, 0.4f, 0.6f, 1.0f );
 		trap->R_AddLightToScene( org, 120, 0.3f, 0.5f, 0.9f );
 		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
 			trap->FX_PlayEffectID( shinobiFx.bubbles, org, up, -1, -1, qfalse );
@@ -586,7 +585,6 @@ static void CG_ShinobiWaterball( centity_t *cent ) {
 	vec3_t      dir;
 
 	CG_ShinobiSpriteA( cent->lerpOrigin, R * 1.15f, t * 90.0f, shinobiShaders.waterSphere, 0.6f, 0.8f, 1.0f, 0.85f );
-	CG_ShinobiSpriteA( cent->lerpOrigin, R * 0.95f, -t * 160.0f, shinobiShaders.swirl, 0.3f, 0.5f, 0.8f, 1.0f );
 	CG_ShinobiSprite( cent->lerpOrigin, R * 0.5f, 0, shinobiShaders.glow, 0.25f, 0.4f, 0.6f );
 
 	VectorCopy( cent->currentState.pos.trDelta, dir );
@@ -690,9 +688,6 @@ static void CG_ShinobiWave( centity_t *cent ) {
 		VectorMA( cent->lerpOrigin, x, right, pos );
 		pos[2] += H * 0.4f + bob;
 		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.6f );
-		VectorMA( pos, 6, fwd, pos );
-		pos[2] += H * 0.35f;
-		CG_ShinobiSpriteA( pos, H * 0.4f, -t * 120.0f + k * 70, shinobiShaders.swirl, 0.3f, 0.45f, 0.65f, 1.0f );
 	}
 
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
@@ -909,18 +904,8 @@ static void CG_ShinobiWindWall( centity_t *cent ) {
 	VectorSet( yaw, 0, s->angles2[0], 0 );
 	AngleVectors( yaw, fwd, right, NULL );
 
-	for ( k = 0; k <= 6; k++ ) {
-		const float along = -halfW + 2 * halfW * k / 6.0f;
-		int h;
-		for ( h = 0; h < 3; h++ ) {
-			VectorMA( cent->lerpOrigin, along, right, p );
-			p[2] += 24 + 46 * h + 6 * sinf( t * 5 + k + h );
-			CG_ShinobiSpriteA( p, 34, t * ( ( k + h ) & 1 ? 300 : -300 ) + k * 40, shinobiShaders.swirl,
-				haze[0], haze[1], haze[2], 0.22f * a );
-		}
-	}
 	// streaks of air racing up the wall
-	for ( k = 0; k < 5; k++ ) {
+	for ( k = 0; k < 14; k++ ) {
 		const float ph = fmodf( t * 1.6f + k * 0.37f, 1.0f );
 		const float along = -halfW + 2 * halfW * fmodf( k * 0.618f + t * 0.3f, 1.0f );
 		VectorMA( cent->lerpOrigin, along, right, p );

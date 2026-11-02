@@ -55,7 +55,7 @@ Particle
 	}
 	shaders
 	[
-		gfx/shinobi/swirl
+		gfx/shinobi/fire
 		gfx/shinobi/glow
 	]
 }

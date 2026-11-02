@@ -29,6 +29,6 @@ Particle
 	}
 	shaders
 	[
-		gfx/shinobi/swirl
+		gfx/shinobi/wisp
 	]
 }
