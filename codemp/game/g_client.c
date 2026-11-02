@@ -2332,15 +2332,11 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	Q_strcat( buf, sizeof( buf ), va( "c1\\%s\\", color1 ) );
 	Q_strcat( buf, sizeof( buf ), va( "c2\\%s\\", color2 ) );
 	Q_strcat( buf, sizeof( buf ), va( "hc\\%i\\", client->pers.maxHealth ) );
-	{ // JK_Shinobi: head accessory (models/accessories/head/<name>.md3) - a plain name only
-		char acc[32];
-		int  k, n = 0;
-		s = Info_ValueForKey( userinfo, "shinobi_acc" );
-		for ( k = 0; s[k] && n < (int)sizeof( acc ) - 1; k++ ) {
-			if ( ( s[k] >= 'a' && s[k] <= 'z' ) || ( s[k] >= 'A' && s[k] <= 'Z' ) || ( s[k] >= '0' && s[k] <= '9' ) || s[k] == '_' )
-				acc[n++] = s[k];
-		}
-		acc[n] = 0;
+	{ // JK_Shinobi: accessories - re-written from what parses, so nothing odd gets through
+		shinobiAcc_t accs[SHINOBI_ACC_MAX];
+		char         acc[SHINOBI_ACC_STRING + 1];
+		const int    n = Shinobi_AccParse( Info_ValueForKey( userinfo, "shinobi_acc" ), accs, SHINOBI_ACC_MAX );
+		Shinobi_AccString( accs, n, acc, sizeof( acc ) );
 		if ( acc[0] )
 			Q_strcat( buf, sizeof( buf ), va( "acc\\%s\\", acc ) );
 	}

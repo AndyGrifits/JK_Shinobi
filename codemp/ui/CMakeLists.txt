@@ -76,6 +76,7 @@ set(MPUIUIFiles
 	"${MPDir}/ui/ui_main.c"
 	"${MPDir}/ui/ui_saber.c"
 	"${MPDir}/ui/ui_shinobi.c"
+	"${MPDir}/ui/ui_shinobi_char.c"
 	"${MPDir}/ui/ui_shared.c"
 	"${MPDir}/ui/ui_syscalls.c"
 	"${MPDir}/ui/keycodes.h"

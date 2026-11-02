@@ -2,16 +2,25 @@
 
 Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, built on [OpenJK](https://github.com/JACoders/OpenJK) (GPLv2).
 
-## Head accessories
+## Character screen (Appearance)
 
-Hats, masks, headbands: `models/accessories/head/<name>.md3` (+ texture), picked under
-HEADWEAR on the build screen (`shinobi_acc` userinfo, sent to everyone in the player's
-configstring; shown at once). Model them in Blender in the bind pose of the stock
-`_humanoid` skeleton, sitting on the head where they belong (weights don't matter - the
-game keeps them rigid on the `cranium` bone: bolt now x inverse bind pose from
-`_humanoid.gla`). Export a .glm and convert:
-`python3 tools/glm2acc.py model.glm texture.png <name>` (splits surfaces over ~1000
-vertices, writes the texture as .jpg, or .tga when it has alpha).
+**Appearance** on the build screen opens our own character screen instead of the stock
+profile menu: a live 3D preview (drag to turn it), the base (Human Male `jedi_hm` /
+Human Female `jedi_hf`) with all its head / torso / legs skins, the cloth colour (RGB),
+and up to 4 accessories, each with its own fit: size (40-250%), forward / left / up
+(+-15 units) and tilt forward / turn / tilt sideways. Everything goes out at once through
+the userinfo (`model`, `sex`, `char_color_*`, `shinobi_acc`), so all players see it.
+
+`shinobi_acc` / the configstring `acc`: `name[,scale,fwd,left,up,pitch,yaw,roll];...`
+(scale in %, offsets in tenths of a unit, angles in degrees; a bare name = as modelled).
+The server re-writes it from what parses (at most 4, 200 characters).
+
+Accessories are `models/accessories/head/<name>.md3` (+ texture). Model them in Blender
+in the bind pose of the stock `_humanoid` skeleton, sitting on the head where they belong,
+facing the character's front (-Y in the glm). Weights don't matter: the game keeps them
+rigid on the `cranium` bone (bolt now x inverse bind pose from `_humanoid.gla`, plus a fixed
+axis/scale fix between the gla's and the glm's frames - see `Shinobi_AccPlace`). Export a
+.glm and convert: `python3 tools/glm2acc.py model.glm texture.png <name>`.
 
 ## Dust and mud
 

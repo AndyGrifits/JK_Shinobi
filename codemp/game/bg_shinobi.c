@@ -300,3 +300,191 @@ int Shinobi_CanGrabTool( const char *classname, const playerState_t *ps ) {
 	default:             return -1;
 	}
 }
+
+/*
+===========================================================================
+Accessories
+===========================================================================
+*/
+void Shinobi_AccDefault( shinobiAcc_t *a ) {
+	memset( a, 0, sizeof( *a ) );
+	a->scale = 100;
+}
+
+static int Shinobi_AccClamp( int v, int lo, int hi ) {
+	return v < lo ? lo : ( v > hi ? hi : v );
+}
+
+int Shinobi_AccParse( const char *s, shinobiAcc_t *acc, int max ) {
+	int n = 0;
+
+	while ( s && *s && n < max ) {
+		shinobiAcc_t *a = &acc[n];
+		int           v[7], got = 0, k = 0;
+		const char   *p = s;
+
+		Shinobi_AccDefault( a );
+		while ( *p && *p != ',' && *p != ';' && k < (int)sizeof( a->name ) - 1 ) {
+			const char c = *p++;
+			if ( ( c >= 'a' && c <= 'z' ) || ( c >= '0' && c <= '9' ) || c == '_' )
+				a->name[k++] = c;
+		}
+		a->name[k] = 0;
+		while ( *p && *p != ',' && *p != ';' )
+			p++;
+		while ( *p == ',' && got < 7 ) {
+			p++;
+			v[got++] = atoi( p );
+			while ( *p && *p != ',' && *p != ';' )
+				p++;
+		}
+		if ( got >= 1 ) a->scale = Shinobi_AccClamp( v[0], SHINOBI_ACC_SCALE_MIN, SHINOBI_ACC_SCALE_MAX );
+		for ( k = 0; k < 3; k++ ) {
+			if ( got >= 2 + k ) a->ofs[k] = Shinobi_AccClamp( v[1 + k], -SHINOBI_ACC_OFS_MAX, SHINOBI_ACC_OFS_MAX );
+			if ( got >= 5 + k ) a->ang[k] = Shinobi_AccClamp( v[4 + k], -180, 180 );
+		}
+		while ( *p && *p != ';' )
+			p++;
+		if ( *p == ';' )
+			p++;
+		s = p;
+		if ( a->name[0] )
+			n++;
+	}
+	return n;
+}
+
+void Shinobi_AccString( const shinobiAcc_t *acc, int n, char *out, int size ) {
+	int i;
+
+	out[0] = 0;
+	for ( i = 0; i < n; i++ ) {
+		const shinobiAcc_t *a = &acc[i];
+		char                one[96];
+		if ( !a->name[0] )
+			continue;
+		if ( a->scale == 100 && !a->ofs[0] && !a->ofs[1] && !a->ofs[2] && !a->ang[0] && !a->ang[1] && !a->ang[2] )
+			Com_sprintf( one, sizeof( one ), "%s", a->name ); // as it was modelled: just the name
+		else
+			Com_sprintf( one, sizeof( one ), "%s,%i,%i,%i,%i,%i,%i,%i", a->name, a->scale,
+				a->ofs[0], a->ofs[1], a->ofs[2], a->ang[0], a->ang[1], a->ang[2] );
+		if ( out[0] )
+			Q_strcat( out, size, ";" );
+		Q_strcat( out, size, one );
+	}
+}
+
+// a bone's BasePoseMatInv from the start of a .gla (the skeleton comes before the frames)
+qboolean Shinobi_GlaBoneInv( const unsigned char *buf, int len, const char *bone, float inv[3][4] ) {
+	int numBones, ofsSkel, pass, i;
+
+	if ( len < 100 || memcmp( buf, "2LGA", 4 ) )
+		return qfalse;
+	// mdxaHeader_t: ident, version, name[64], fScale, numFrames, ofsFrames, numBones, ofsCompBonePool, ofsSkel, ofsEnd
+	numBones = *(const int *)( buf + 84 );
+	ofsSkel  = *(const int *)( buf + 92 );
+	for ( pass = 0; pass < 2; pass++ ) {
+		// the bone offsets follow the 100-byte header, each counting from there (as Ghoul2 reads it)
+		const int base = pass ? ofsSkel : 100;
+		if ( pass && ofsSkel == 100 )
+			break;
+		for ( i = 0; i < numBones && base + i * 4 + 4 <= len; i++ ) {
+			const int            o = base + *(const int *)( buf + base + i * 4 );
+			const unsigned char *b = buf + o;
+			if ( o <= 0 || o + 176 > len )
+				break;
+			// mdxaSkel_t: name[64], flags, parent, BasePoseMat[3][4], BasePoseMatInv[3][4], ...
+			if ( !Q_stricmp( (const char *)b, bone ) ) {
+				memcpy( inv, b + 64 + 4 + 4 + 48, sizeof( float ) * 12 );
+				return qtrue;
+			}
+		}
+	}
+	return qfalse;
+}
+
+/*
+Where an accessory goes this frame. bolt = the cranium bolt matrix (world),
+inv = the cranium's BasePoseMatInv. bolt * inv maps the model space only up
+to a fixed turn and scale (the gla's frames are not the glm's: model X -> up,
+Y -> back, Z -> right, x1.56, measured), and the glm faces -Y. So:
+  world = bolt * inv * G,  G v = p + L ( v - p ) + s Pt ofs,
+  L = s Pt U k Q
+p the cranium's bind position, s the scale fix, Pt the axis fix, Q the
+quarter turn (glm facing -Y -> forward +X), U the player's turn (pitch yaw
+roll about the head) and k the player's scale; ofs is along the head's
+forward / left / up.
+*/
+void Shinobi_AccPlace( const float bolt[3][4], const float B[3][4], const shinobiAcc_t *a, float modelScale,
+	vec3_t origin, vec3_t axis[3] ) {
+	static const float Pt[3][3] = { { 0, 0, 1 }, { -1, 0, 0 }, { 0, -1, 0 } };
+	static const float Q[3][3]  = { { 0, -1, 0 }, { 1, 0, 0 }, { 0, 0, 1 } };
+	float  inv3[3][3], L[3][3], M1[3][3], M2[3][3], G[3][4], C[3][4], det, len = 0, sc, k;
+	vec3_t pivot, ang, U[3], ofs;
+	int    r, c, j;
+
+	det = B[0][0] * ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) - B[0][1] * ( B[1][0] * B[2][2] - B[1][2] * B[2][0] )
+		+ B[0][2] * ( B[1][0] * B[2][1] - B[1][1] * B[2][0] );
+	if ( fabs( det ) < 1e-6f ) {
+		VectorCopy( bolt[0], origin ); // (never happens with a sane gla)
+		AxisClear( axis );
+		return;
+	}
+	inv3[0][0] = ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) / det;
+	inv3[0][1] = ( B[0][2] * B[2][1] - B[0][1] * B[2][2] ) / det;
+	inv3[0][2] = ( B[0][1] * B[1][2] - B[0][2] * B[1][1] ) / det;
+	inv3[1][0] = ( B[1][2] * B[2][0] - B[1][0] * B[2][2] ) / det;
+	inv3[1][1] = ( B[0][0] * B[2][2] - B[0][2] * B[2][0] ) / det;
+	inv3[1][2] = ( B[0][2] * B[1][0] - B[0][0] * B[1][2] ) / det;
+	inv3[2][0] = ( B[1][0] * B[2][1] - B[1][1] * B[2][0] ) / det;
+	inv3[2][1] = ( B[0][1] * B[2][0] - B[0][0] * B[2][1] ) / det;
+	inv3[2][2] = ( B[0][0] * B[1][1] - B[0][1] * B[1][0] ) / det;
+	for ( r = 0; r < 3; r++ )
+		pivot[r] = -( inv3[r][0] * B[0][3] + inv3[r][1] * B[1][3] + inv3[r][2] * B[2][3] );
+
+	for ( c = 0; c < 3; c++ ) { // the scale bolt * inv carries
+		vec3_t col;
+		for ( r = 0; r < 3; r++ )
+			col[r] = bolt[r][0] * B[0][c] + bolt[r][1] * B[1][c] + bolt[r][2] * B[2][c];
+		len += VectorLength( col ) / 3.0f;
+	}
+	if ( len < 1e-4f )
+		len = 1;
+	sc = ( modelScale > 0.01f ? modelScale : 1.0f ) / len;
+	k = ( a ? a->scale : 100 ) / 100.0f;
+
+	VectorSet( ang, a ? (float)a->ang[0] : 0, a ? (float)a->ang[1] : 0, a ? (float)a->ang[2] : 0 );
+	AnglesToAxis( ang, U ); // columns: the turned forward / left / up
+	for ( r = 0; r < 3; r++ ) // M1 = U k Q
+		for ( c = 0; c < 3; c++ ) {
+			M1[r][c] = 0;
+			for ( j = 0; j < 3; j++ )
+				M1[r][c] += U[j][r] * Q[j][c];
+			M1[r][c] *= k;
+		}
+	for ( r = 0; r < 3; r++ ) // M2 = Pt M1, L = s M2
+		for ( c = 0; c < 3; c++ ) {
+			M2[r][c] = 0;
+			for ( j = 0; j < 3; j++ )
+				M2[r][c] += Pt[r][j] * M1[j][c];
+			L[r][c] = sc * M2[r][c];
+		}
+	VectorSet( ofs, a ? a->ofs[0] * 0.1f : 0, a ? a->ofs[1] * 0.1f : 0, a ? a->ofs[2] * 0.1f : 0 );
+	for ( r = 0; r < 3; r++ ) {
+		for ( c = 0; c < 3; c++ )
+			G[r][c] = L[r][c];
+		G[r][3] = pivot[r] - ( L[r][0] * pivot[0] + L[r][1] * pivot[1] + L[r][2] * pivot[2] )
+			+ sc * ( Pt[r][0] * ofs[0] + Pt[r][1] * ofs[1] + Pt[r][2] * ofs[2] );
+	}
+	for ( r = 0; r < 3; r++ ) // C = B G
+		for ( c = 0; c < 4; c++ ) {
+			C[r][c] = ( c == 3 ) ? B[r][3] : 0;
+			for ( j = 0; j < 3; j++ )
+				C[r][c] += B[r][j] * G[j][c];
+		}
+	for ( r = 0; r < 3; r++ ) { // world = bolt C; MD3: origin + v.x axis[0] + v.y axis[1] + v.z axis[2]
+		for ( c = 0; c < 3; c++ )
+			axis[c][r] = bolt[r][0] * C[0][c] + bolt[r][1] * C[1][c] + bolt[r][2] * C[2][c];
+		origin[r] = bolt[r][0] * C[0][3] + bolt[r][1] * C[1][3] + bolt[r][2] * C[2][3] + bolt[r][3];
+	}
+}

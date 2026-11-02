@@ -1654,9 +1654,9 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 
 	// JK_Shinobi: head accessory
 	v = Info_ValueForKey( configstring, "acc" );
-	Q_strncpyz( newInfo.shinobiAcc, v, sizeof( newInfo.shinobiAcc ) );
-	newInfo.shinobiAccModel = newInfo.shinobiAcc[0]
-		? trap->R_RegisterModel( va( "models/accessories/head/%s.md3", newInfo.shinobiAcc ) ) : 0;
+	newInfo.shinobiAccCount = Shinobi_AccParse( v, newInfo.shinobiAcc, SHINOBI_ACC_MAX );
+	for ( i = 0; i < newInfo.shinobiAccCount; i++ )
+		newInfo.shinobiAccModel[i] = trap->R_RegisterModel( va( "models/accessories/head/%s.md3", newInfo.shinobiAcc[i].name ) );
 
 	// model
 	v = Info_ValueForKey( configstring, "model" );

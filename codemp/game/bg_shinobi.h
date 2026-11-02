@@ -961,6 +961,32 @@ qboolean Shinobi_BuildHas( const shinobiBuild_t *b, int jutsu );
 int      Shinobi_BuildSchools( const shinobiBuild_t *b, int *schools ); // distinct schools used
 int      Shinobi_BuildPoints( const shinobiBuild_t *b );
 
+/*
+Accessories ("shinobi_acc" userinfo, "acc" in the player configstring):
+"name[,scale,fwd,left,up,pitch,yaw,roll];..." - scale in %, offsets in tenths
+of a unit along the head's forward / left / up, angles in degrees. A model is
+models/accessories/head/<name>.md3, modelled in the _humanoid bind pose; it
+rides the "cranium" bone (see Shinobi_AccPlace).
+*/
+#define SHINOBI_ACC_MAX        4
+#define SHINOBI_ACC_STRING     200   // longest "acc" string the server passes on
+#define SHINOBI_ACC_SCALE_MIN  40
+#define SHINOBI_ACC_SCALE_MAX  250
+#define SHINOBI_ACC_OFS_MAX    150   // tenths: 15 units
+typedef struct {
+	char name[32];
+	int  scale;   // %
+	int  ofs[3];  // tenths of a unit: forward, left, up
+	int  ang[3];  // pitch, yaw, roll
+} shinobiAcc_t;
+
+void     Shinobi_AccDefault( shinobiAcc_t *a );
+int      Shinobi_AccParse( const char *s, shinobiAcc_t *acc, int max );   // how many
+void     Shinobi_AccString( const shinobiAcc_t *acc, int n, char *out, int size );
+qboolean Shinobi_GlaBoneInv( const unsigned char *gla, int len, const char *bone, float inv[3][4] );
+void     Shinobi_AccPlace( const float bolt[3][4], const float inv[3][4], const shinobiAcc_t *a, float modelScale,
+	vec3_t origin, vec3_t axis[3] );
+
 // the charge bars, sped up by the Casting speed stat
 static QINLINE int Shinobi_BarEndCast( int jutsu, int bar, int castLvl ) {
 	return Shinobi_BarEnd( jutsu, bar ) * ( 100 - 8 * castLvl ) / 100;

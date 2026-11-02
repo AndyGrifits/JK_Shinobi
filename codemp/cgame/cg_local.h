@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "qcommon/q_shared.h"
 #include "rd-common/tr_types.h"
 #include "game/bg_public.h"
+#include "game/bg_shinobi.h"
 #include "cg_public.h"
 
 // The entire cgame module is unloaded and reloaded on each level change,
@@ -313,8 +314,9 @@ typedef struct clientInfo_s {
 
 	int			superSmoothTime; //do crazy amount of smoothing
 
-	char		shinobiAcc[32];		// JK_Shinobi: head accessory name ("" = none)
-	qhandle_t	shinobiAccModel;
+	shinobiAcc_t shinobiAcc[SHINOBI_ACC_MAX];		// JK_Shinobi: accessories and how they sit
+	qhandle_t	shinobiAccModel[SHINOBI_ACC_MAX];
+	int			shinobiAccCount;
 } clientInfo_t;
 
 //rww - cheap looping sound struct

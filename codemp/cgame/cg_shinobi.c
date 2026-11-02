@@ -196,7 +196,6 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiSel.index = 0;
 	shinobiActiveSet = qfalse;
 	trap->Cvar_Register( &shinobiBuildCvar, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
-	trap->Cvar_Register( NULL, "shinobi_acc_rot", "0 0 0", CVAR_ARCHIVE ); // head accessory turn fix: pitch yaw roll
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
@@ -1644,57 +1643,29 @@ static struct {
 static void CG_ShinobiLoadCranium( void ) {
 	static byte  buf[131072];
 	fileHandle_t f;
-	int          len, ofsSkel, numBones, i, pass;
+	int          len;
 
 	shinobiCranium.tried = qtrue;
 	len = trap->FS_Open( "models/players/_humanoid/_humanoid.gla", &f, FS_READ );
 	if ( len <= 0 || !f ) {
-		trap->Print( S_COLOR_YELLOW "[shinobi] no _humanoid.gla: head accessories off\n" );
+		trap->Print( S_COLOR_YELLOW "[shinobi] no _humanoid.gla: accessories off\n" );
 		return;
 	}
 	if ( len > (int)sizeof( buf ) )
-		len = sizeof( buf ); // the skeleton is at the start, the animation frames come after
+		len = sizeof( buf ); // the skeleton is at the start, the frames come after
 	trap->FS_Read( buf, len, f );
 	trap->FS_Close( f );
-	if ( memcmp( buf, "2LGA", 4 ) )
-		return;
-	// mdxaHeader_t: ident, version, name[64], fScale, numFrames, ofsFrames, numBones, ofsCompBonePool, ofsSkel, ofsEnd
-	numBones = *(int *)( buf + 84 );
-	ofsSkel  = *(int *)( buf + 92 );
-	// the bone offsets table follows the 100-byte header; each offset counts from there
-	// (that is how Ghoul2 reads it; ofsSkel is tried too, in case a tool wrote it differently)
-	for ( pass = 0; pass < 2; pass++ ) {
-		const int base = pass ? ofsSkel : 100;
-		if ( pass && ofsSkel == 100 )
-			break;
-		for ( i = 0; i < numBones && base + i * 4 + 4 <= len; i++ ) {
-			const int  o = base + *(int *)( buf + base + i * 4 );
-			const byte *bone = buf + o;
-			if ( o <= 0 || o + 176 > len )
-				break;
-			// mdxaSkel_t: name[64], flags, parent, BasePoseMat[3][4], BasePoseMatInv[3][4], numChildren, children[]
-			if ( !Q_stricmp( (const char *)bone, "cranium" ) ) {
-				memcpy( shinobiCranium.inv, bone + 64 + 4 + 4 + 48, sizeof( shinobiCranium.inv ) );
-				shinobiCranium.ok = qtrue;
-				return;
-			}
-		}
-	}
-	{ // tell what is there, to fix this
-		const int o0 = 100 + *(int *)( buf + 100 );
-		trap->Print( "[shinobi] gla: %i bones, ofsSkel %i, first offset %i, first name '%.20s'\n", numBones, ofsSkel,
-			*(int *)( buf + 100 ), ( o0 > 0 && o0 < len - 64 ) ? (const char *)( buf + o0 ) : "?" );
-	}
-	trap->Print( S_COLOR_YELLOW "[shinobi] no cranium bone in _humanoid.gla: head accessories off\n" );
+	shinobiCranium.ok = Shinobi_GlaBoneInv( buf, len, "cranium", shinobiCranium.inv );
+	if ( !shinobiCranium.ok )
+		trap->Print( S_COLOR_YELLOW "[shinobi] no cranium bone in _humanoid.gla: accessories off\n" );
 }
 
 void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body ) {
 	mdxaBone_t  m;
 	refEntity_t ent;
-	char        yawStr[64];
-	int         r, c;
+	int         i;
 
-	if ( !ci || !ci->shinobiAccModel || !cent->ghoul2 )
+	if ( !ci || !ci->shinobiAccCount || !cent->ghoul2 )
 		return;
 	if ( cent->currentState.eFlags & ( SHINOBI_EF_RAIDASH | EF_NODRAW ) || ( cent->currentState.powerups & ( 1 << PW_CLOAKED ) ) )
 		return;
@@ -1714,116 +1685,23 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		cg.time, cgs.gameModels, cent->modelScale ) )
 		return;
 
-	{
-		/*
-		T = bolt * BasePoseMatInv maps the model space only up to a fixed turn and scale: the
-		gla's frames are not the glm's (measured: model X -> up, Y -> back, Z -> right, x1.56).
-		So C = BasePoseMatInv * G, where G turns and scales back about the cranium's bind
-		position p: G v = p + s * Pt * Rot * ( v - p ). Rot = shinobi_acc_rot (pitch yaw roll).
-		*/
-		// (and the glm faces -Y, the game +X: a quarter turn more, so a hat's front faces forward)
-		static const float Pt[3][3] = { { 0, 0, 1 }, { 0, 1, 0 }, { -1, 0, 0 } };
-		const float ( *B )[4] = shinobiCranium.inv;
-		vec3_t ang, rax[3], pivot;
-		float  L[3][3], G[3][4], C[3][4], det, inv3[3][3], len, sc;
-		int    k;
-
-		trap->Cvar_VariableStringBuffer( "shinobi_acc_rot", yawStr, sizeof( yawStr ) );
-		VectorClear( ang );
-		sscanf( yawStr, "%f %f %f", &ang[PITCH], &ang[YAW], &ang[ROLL] );
-		AnglesToAxis( ang, rax );
-
-		// p = -B_lin^-1 * B_t (the model point that B sends to the bone's origin)
-		det = B[0][0] * ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) - B[0][1] * ( B[1][0] * B[2][2] - B[1][2] * B[2][0] )
-			+ B[0][2] * ( B[1][0] * B[2][1] - B[1][1] * B[2][0] );
-		if ( fabs( det ) < 1e-6f )
-			return;
-		inv3[0][0] = ( B[1][1] * B[2][2] - B[1][2] * B[2][1] ) / det;
-		inv3[0][1] = ( B[0][2] * B[2][1] - B[0][1] * B[2][2] ) / det;
-		inv3[0][2] = ( B[0][1] * B[1][2] - B[0][2] * B[1][1] ) / det;
-		inv3[1][0] = ( B[1][2] * B[2][0] - B[1][0] * B[2][2] ) / det;
-		inv3[1][1] = ( B[0][0] * B[2][2] - B[0][2] * B[2][0] ) / det;
-		inv3[1][2] = ( B[0][2] * B[1][0] - B[0][0] * B[1][2] ) / det;
-		inv3[2][0] = ( B[1][0] * B[2][1] - B[1][1] * B[2][0] ) / det;
-		inv3[2][1] = ( B[0][1] * B[2][0] - B[0][0] * B[2][1] ) / det;
-		inv3[2][2] = ( B[0][0] * B[1][1] - B[0][1] * B[1][0] ) / det;
-		for ( r = 0; r < 3; r++ )
-			pivot[r] = -( inv3[r][0] * B[0][3] + inv3[r][1] * B[1][3] + inv3[r][2] * B[2][3] );
-
-		// s: undo the scale the bolt * B carries (its column length), keeping the model's own scale
-		len = 0;
-		for ( c = 0; c < 3; c++ ) {
-			vec3_t col;
-			for ( r = 0; r < 3; r++ )
-				col[r] = m.matrix[r][0] * B[0][c] + m.matrix[r][1] * B[1][c] + m.matrix[r][2] * B[2][c];
-			len += VectorLength( col ) / 3.0f;
-		}
-		sc = ( cent->modelScale[0] > 0.01f ) ? cent->modelScale[0] : 1.0f;
-		if ( len < 1e-4f )
-			return;
-		sc /= len;
-
-		// L = s * Pt * Rot (Rot's columns are rax[])
-		for ( r = 0; r < 3; r++ ) {
-			for ( c = 0; c < 3; c++ ) {
-				L[r][c] = 0;
-				for ( k = 0; k < 3; k++ )
-					L[r][c] += Pt[r][k] * rax[c][k];
-				L[r][c] *= sc;
-			}
-		}
-		for ( r = 0; r < 3; r++ ) { // G v = L v + ( p - L p )
-			for ( c = 0; c < 3; c++ )
-				G[r][c] = L[r][c];
-			G[r][3] = pivot[r] - ( L[r][0] * pivot[0] + L[r][1] * pivot[1] + L[r][2] * pivot[2] );
-		}
-		for ( r = 0; r < 3; r++ ) { // C = B * G
-			for ( c = 0; c < 4; c++ ) {
-				C[r][c] = ( c == 3 ) ? B[r][3] : 0;
-				for ( k = 0; k < 3; k++ )
-					C[r][c] += B[r][k] * G[k][c];
-			}
-		}
+	for ( i = 0; i < ci->shinobiAccCount; i++ ) {
+		if ( !ci->shinobiAccModel[i] )
+			continue;
 		memset( &ent, 0, sizeof( ent ) );
-		ent.hModel = ci->shinobiAccModel;
-		// T = bolt * C; the MD3 vertex v lands at origin + v.x*axis[0] + v.y*axis[1] + v.z*axis[2]
-		for ( r = 0; r < 3; r++ ) {
-			for ( c = 0; c < 3; c++ )
-				ent.axis[c][r] = m.matrix[r][0] * C[0][c] + m.matrix[r][1] * C[1][c] + m.matrix[r][2] * C[2][c];
-			ent.origin[r] = m.matrix[r][0] * C[0][3] + m.matrix[r][1] * C[1][3] + m.matrix[r][2] * C[2][3] + m.matrix[r][3];
-		}
+		ent.hModel = ci->shinobiAccModel[i];
+		Shinobi_AccPlace( (const float (*)[4])m.matrix, (const float (*)[4])shinobiCranium.inv, &ci->shinobiAcc[i],
+			cent->modelScale[0], ent.origin, ent.axis );
+		VectorCopy( ent.origin, ent.oldorigin );
+		ent.nonNormalizedAxes = qtrue;
+		VectorCopy( cent->lerpOrigin, ent.lightingOrigin );
+		ent.renderfx = RF_LIGHTING_ORIGIN | ( body->renderfx & ( RF_THIRD_PERSON | RF_FORCE_ENT_ALPHA ) );
+		ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
+		ent.shaderRGBA[3] = body->shaderRGBA[3] ? body->shaderRGBA[3] : 255;
+		if ( cent->currentState.eFlags & SHINOBI_EF_STONE )
+			ent.customShader = shinobiShaders.stoneShell; // stone all over
+		trap->R_AddRefEntityToScene( &ent );
 	}
-
-	// diagnostics: where the model's axes point, in the player's own frame (forward, left, up)
-	if ( cent->currentState.number == cg.snap->ps.clientNum ) {
-		static int next, told;
-		if ( cg.time >= next && told < 3 ) {
-			told++;
-			vec3_t pax[3], yawOnly;
-			int    a;
-			next = cg.time + 2000;
-			VectorSet( yawOnly, 0, cent->turAngles[YAW], 0 );
-			AnglesToAxis( yawOnly, pax );
-			for ( a = 0; a < 3; a++ )
-				trap->Print( "[shinobi] acc model %c -> fwd %.2f left %.2f up %.2f\n", "XYZ"[a],
-					DotProduct( ent.axis[a], pax[0] ), DotProduct( ent.axis[a], pax[1] ), DotProduct( ent.axis[a], pax[2] ) );
-			{ // where the model's origin went, against the feet (the hat at z ~60 should sit on the head)
-				vec3_t d;
-				VectorSubtract( ent.origin, cent->lerpOrigin, d );
-				trap->Print( "[shinobi] acc origin: fwd %.1f left %.1f up %.1f\n",
-					DotProduct( d, pax[0] ), DotProduct( d, pax[1] ), DotProduct( d, pax[2] ) );
-			}
-		}
-	}
-	VectorCopy( ent.origin, ent.oldorigin );
-	ent.nonNormalizedAxes = qtrue;
-	VectorCopy( cent->lerpOrigin, ent.lightingOrigin );
-	ent.renderfx = RF_LIGHTING_ORIGIN | ( body->renderfx & ( RF_THIRD_PERSON | RF_FORCE_ENT_ALPHA ) );
-	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
-	ent.shaderRGBA[3] = body->shaderRGBA[3] ? body->shaderRGBA[3] : 255;
-	if ( cent->currentState.eFlags & SHINOBI_EF_STONE )
-		ent.customShader = shinobiShaders.stoneShell; // stone all over
-	trap->R_AddRefEntityToScene( &ent );
 }
 
 // Lightning Dash: a crackling bolt where the body would be
