@@ -29,6 +29,21 @@ Press **B** for the build screen (it also opens by itself the first time):
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
 
+## Bots
+
+Bots get a random build every life (two random schools, up to five of their jutsu,
+random stats and perk; the build goes to games.log), or the one in the
+`shinobi_botbuild` cvar, e.g. `set shinobi_botbuild "suiro,kagemane/2,2,2,2,2/none"`.
+They also get a spread of force powers they never really use: whenever the stock bot
+AI decides to use one, the closest jutsu of its build is cast instead - push: wind /
+wave / wind wall / earthquake; pull and grip: water prison / shadow bind / pillar;
+lightning: fireball / fire breath / bullets / Chidori / Rasengan / pillar; drain: fire
+breath / ash / mist; rage: edges / stone skin / clones (or the Inner Gates); absorb and
+protect: stone skin / wind wall / Kawarimi / earth wall / mist; mind trick: Kawarimi /
+clones / mist / burrow; speed: Shunshin (backward when hurt) / Hiraishin / burrow;
+sight: Sharingan / Byakugan. Held jutsu are let go after 1.2-2.8 s. Healing is off.
+`shinobi_debug 1` logs each translation.
+
 ## Block (Ctrl)
 
 Hold Ctrl (`+button13`) for a guard stance: slow steps, no jumping, no attacks, no
@@ -89,6 +104,10 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
 | Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
+| Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out), a dust trail follows you. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
+| Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a stone pillar erupts there launching whoever stands on it (20 / 30 / 40, knockdown); the pillar stays 6 s as cover (an earth wall of one: pushable, breakable, Lightning x3). 4 s cooldown | 20 / 30 / 40 |
+| Stone Skin | `tsuchiyoroi`, Doton, instant: 8 s of -40% damage, no knockdowns or knockback, 0.85x speed; Lightning Edge hits ignore it. 20 s cooldown | 25 |
+| Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone for 25 s whose blows hit 30% harder; crumbles into mud. One at a time | 30 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |

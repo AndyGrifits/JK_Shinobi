@@ -4378,6 +4378,11 @@ int WP_DoSpecificPower( gentity_t *self, usercmd_t *ucmd, forcePowers_t forcepow
 
 	powerSucceeded = 1;
 
+	if ( Shinobi_BotForce( self, forcepower ) )
+	{ // JK_Shinobi: bots cast a jutsu instead
+		return 0;
+	}
+
 	// OVERRIDEFIXME
 	if ( !WP_ForcePowerAvailable( self, forcepower, 0 ) )
 	{

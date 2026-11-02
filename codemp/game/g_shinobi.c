@@ -590,6 +590,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
 	Shinobi_BlockThink( ent, ucmd );
 	Shinobi_EarthThink( ent, ucmd ); // burrow, stone skin
+	Shinobi_BotThink( ent );
 
 	if ( !Shinobi_CanAct( ent ) ) {
 		Shinobi_ClearHand( client );

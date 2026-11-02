@@ -135,5 +135,9 @@ void      Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd );
 qboolean  Shinobi_CastPillar( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastEarthClone( gentity_t *ent );
 void      Shinobi_RestoreSolid( gentity_t *ent );
+// g_shinobi_bot.c
+void      Shinobi_BotPrepare( gentity_t *ent );
+void      Shinobi_BotForcePowers( gentity_t *ent );
+void      Shinobi_BotThink( gentity_t *ent );
 void      Shinobi_KunaiReflect( gentity_t *k, gentity_t *newOwner );
 gentity_t *Shinobi_CloneOwner( gentity_t *ent );

@@ -874,6 +874,7 @@ struct gclient_s {
 		int		windWallNext;	// Wind Wall cooldown end
 		int		burrowEnd, burrowTick, burrowFx, burrowNext; // Burrow
 		int		pillarNext;		// Rock Pillar cooldown end
+		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
 		int		armorEnd, armorNext, armorFx; // Stone Skin
 		int		hiraishinNext;	// Hiraishin cooldown end
 		int		infuseUntil;	// Wind / Lightning Edge until
@@ -1486,6 +1487,7 @@ float Shinobi_RegenScale( gentity_t *ent );
 void  Cmd_CurseSeal_f( gentity_t *ent );
 void  Cmd_Perk_f( gentity_t *ent );
 qboolean Shinobi_Burrowed( gentity_t *ent );
+qboolean Shinobi_BotForce( gentity_t *ent, int forcePower );
 qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit

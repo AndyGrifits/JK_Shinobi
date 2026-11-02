@@ -35,6 +35,7 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 	shinobiBuild_t *b;
 	char            str[256];
 
+	Shinobi_BotPrepare( ent ); // bots: a random build each life
 	if ( !client->pers.shinobiBuildSet ) {
 		Shinobi_BuildDefault( &client->pers.shinobiBuildNext );
 		client->pers.shinobiBuildSet = qtrue;
@@ -52,6 +53,7 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 		client->shinobi.staggerEnd = 0;
 	}
 
+	Shinobi_BotForcePowers( ent );
 	Shinobi_BuildString( b, str, sizeof( str ) );
 	trap->SendServerCommand( ent - g_entities, va( "sbuild %s", str ) );
 }
