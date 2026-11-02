@@ -226,6 +226,12 @@ void WP_InitForcePowers( gentity_t *ent ) {
 
 	Q_strncpyz( forcePowers, Info_ValueForKey( userinfo, "forcepowers" ), sizeof( forcePowers ) );
 
+	// JK_Shinobi: no force-rank build any more - every player gets the same
+	// force jump and saber skill, the rest comes from the ninja build
+	if ( ent->s.number < MAX_CLIENTS && !( ent->r.svFlags & SVF_BOT ) )
+		Com_sprintf( forcePowers, sizeof( forcePowers ), "%i-1-%s",
+			Com_Clampi( 0, 7, g_maxForceRank.integer ), SHINOBI_FORCELEVELS ); // the server's rank: no "too high" warning
+
 	if ( strlen( forcePowers ) != DEFAULT_FORCEPOWERS_LEN ) {
 		Q_strncpyz( forcePowers, DEFAULT_FORCEPOWERS, sizeof( forcePowers ) );
 		trap->SendServerCommand( ent-g_entities, "print \"" S_COLOR_RED "Invalid forcepowers string, setting default\n\"" );

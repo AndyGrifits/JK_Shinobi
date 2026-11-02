@@ -1316,6 +1316,12 @@ static void CG_SiegeClassSelect_f( void ) {
 }
 
 static void CG_SiegeProfileMenu_f( void ) {
+	{ // JK_Shinobi: the automatic self-test must not be stopped by the build screen
+		char buf[16];
+		trap->Cvar_VariableStringBuffer( "shinobi_noForceMenu", buf, sizeof( buf ) );
+		if ( atoi( buf ) )
+			return;
+	}
 	if ( !cg.demoPlayback ) {
 		trap->Cvar_Set( "ui_myteam", "3" );
 		trap->OpenUIMenu( UIMENU_PLAYERCONFIG ); //UIMENU_CLASSSEL

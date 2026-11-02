@@ -834,6 +834,11 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Healing
 };
 
+// the fixed stock force levels of every player (after "rank-side-"): heal lev
+// speed push pull tele grip light rage protect absorb teamheal teamforce drain
+// see saberoff saberdef saberthrow - force jump 3, saber 3/3, nothing else
+#define SHINOBI_FORCELEVELS     "030000000000000330"
+
 #define SHINOBI_BUILD_JUTSU     5
 #define SHINOBI_BUILD_SCHOOLS   2
 

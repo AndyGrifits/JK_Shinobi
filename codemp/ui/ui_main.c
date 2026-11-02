@@ -900,6 +900,9 @@ static void UI_BuildPlayerList() {
 void UI_SetActiveMenu( uiMenuCommand_t menu ) {
 	char buf[256];
 
+	if ( menu != UIMENU_PLAYERCONFIG && menu != UIMENU_PLAYERFORCE )
+		UI_ShinobiMenuClose( qfalse ); // JK_Shinobi
+
 	// this should be the ONLY way the menu system is brought up
 	// enusure minumum menu data is cached
 	if (Menu_Count() > 0) {
@@ -960,20 +963,10 @@ void UI_SetActiveMenu( uiMenuCommand_t menu ) {
 			Menus_ActivateByName("ingame");
 			return;
 		case UIMENU_PLAYERCONFIG:
-			// trap->Cvar_Set( "cl_paused", "1" );
-			trap->Key_SetCatcher( KEYCATCH_UI );
-			UI_BuildPlayerList();
-			Menus_CloseAll();
-			Menus_ActivateByName("ingame_player");
-			UpdateForceUsed();
-			return;
 		case UIMENU_PLAYERFORCE:
-			// trap->Cvar_Set( "cl_paused", "1" );
-			trap->Key_SetCatcher( KEYCATCH_UI );
+			// JK_Shinobi: the ninja build screen instead of profile / force ranks
 			UI_BuildPlayerList();
-			Menus_CloseAll();
-			Menus_ActivateByName("ingame_playerforce");
-			UpdateForceUsed();
+			UI_ShinobiMenuOpen();
 			return;
 		case UIMENU_SIEGEMESSAGE:
 			// trap->Cvar_Set( "cl_paused", "1" );
@@ -10036,6 +10029,7 @@ void UI_Refresh( int realtime )
 		// refresh find player list
 		UI_BuildFindPlayerList(qfalse);
 	}
+	UI_ShinobiMenuDraw(); // JK_Shinobi build screen
 	// draw cursor
 	UI_SetColor( NULL );
 	if (Menu_Count() > 0 && (trap->Key_GetCatcher() & KEYCATCH_UI)) {
@@ -10152,6 +10146,8 @@ UI_KeyEvent
 =================
 */
 void UI_KeyEvent( int key, qboolean down ) {
+	if ( UI_ShinobiMenuKey( key, down ) ) // JK_Shinobi build screen
+		return;
 	if (Menu_Count() > 0) {
 		menuDef_t *menu = Menu_GetFocused();
 		if (menu) {

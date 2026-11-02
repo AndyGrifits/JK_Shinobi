@@ -6607,10 +6607,18 @@ qboolean Menus_AnyFullScreenVisible( void ) {
   return qfalse;
 }
 
+#ifdef UI_BUILD
+qboolean UI_ShinobiMenuRedirect( const char *name );
+#endif
 menuDef_t *Menus_ActivateByName(const char *p) {
   int i;
   menuDef_t *m = NULL;
-	menuDef_t *focus = Menu_GetFocused();
+	menuDef_t *focus;
+#ifdef UI_BUILD
+	if ( UI_ShinobiMenuRedirect( p ) ) // JK_Shinobi: the build screen replaces the profile / force menus
+		return NULL;
+#endif
+	focus = Menu_GetFocused();
   for (i = 0; i < menuCount; i++) {
     if (Q_stricmp(Menus[i].window.name, p) == 0) {
 	    m = &Menus[i];

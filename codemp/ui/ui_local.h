@@ -391,6 +391,15 @@ extern uiInfo_t uiInfo;
 qboolean	UI_ConsoleCommand( int realTime );
 void		UI_DrawHandlePic( float x, float y, float w, float h, qhandle_t hShader );
 void		UI_FillRect( float x, float y, float width, float height, const float *color );
+void		_UI_DrawRect( float x, float y, float width, float height, float size, const float *color );
+
+// JK_Shinobi build screen (ui_shinobi.c)
+qboolean	UI_ShinobiMenuIsOpen( void );
+void		UI_ShinobiMenuOpen( void );
+void		UI_ShinobiMenuClose( qboolean releaseKeys );
+qboolean	UI_ShinobiMenuRedirect( const char *name );
+qboolean	UI_ShinobiMenuKey( int key, qboolean down );
+void		UI_ShinobiMenuDraw( void );
 char		*UI_Cvar_VariableString( const char *var_name );
 
 

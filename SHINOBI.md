@@ -4,7 +4,14 @@ Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, buil
 
 ## Ninja build (B)
 
-Press **B** for the build screen (it also opens by itself the first time):
+The build screen replaces the stock profile / force-rank menus: it comes up when you
+enter a server (you wait as a spectator until **Join battle**), on **B**, and wherever the
+game used to show the force screen. School tabs on top, the techniques of the tab with a
+description panel on the left, your 5 slots (order = Q/E cycle, ^ moves up, x drops),
+stats and special on the right. **Apply** saves for the next respawn, **Appearance** opens
+the stock name/model/saber menu (its force half hidden), **Spectate**, **Close**.
+The stock force-rank build is gone: every player gets force jump 3 and saber 3/3,
+nothing else (bots still get their pseudo powers for the AI).
 
 - **Techniques**: up to 5, from at most 2 schools (Katon, Suiton, Futon, Doton, Raiton,
   Yin/Yang). Only these are in the Q/E list and can be cast. Shunshin, Kawarimi,
@@ -202,7 +209,8 @@ tools/build-win64.sh            # -> dist/shinobi/{*.dll, zz_shinobi.pk3}
 - `codemp/game/g_shinobi_elements.c` - Katon fireball and Doton earth wall entities
 - `codemp/game/bg_pmove.c` (`PM_ShinobiPreMove`, `PM_ShinobiWallRun`) - predicted movement/animation, Shift modifier, wall runs
 - `codemp/game/bg_shinobi.c`, `g_shinobi_build.c` - ninja build: parsing/validation, applying stats and perks
-- `codemp/cgame/cg_shinobi.c` - client effects, jutsu selection, HUD and the build screen
+- `codemp/cgame/cg_shinobi.c` - client effects, jutsu selection, HUD
+- `codemp/ui/ui_shinobi.c` - the build screen (UI module, replaces the profile / force menus)
 - `assets/ext_data/NPCs/shinobi.npc` - base NPC definition for clones (model/saber/team overridden in code)
 - `assets/` - effects, shaders, textures, configs (packed into `zz_shinobi.pk3`)
 
