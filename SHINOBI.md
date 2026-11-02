@@ -29,22 +29,22 @@ last move's end, then a finisher picked by the direction held at that moment:
 
 | held | finisher | what it does |
 |---|---|---|
-| nothing | front kick | 50 damage, pushed away and knocked down |
-| forward | rising kick | 45 damage, thrown up into the air |
-| back | sweep: a forward roll into his legs | 40 damage, knocked down on the spot, to each one it rolls into |
-| left / right | spin kick | 35 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
+| nothing | front kick | 35 damage, pushed away and knocked down |
+| forward | rising kick | 32 damage, thrown up into the air |
+| back | sweep: a forward roll into his legs | 28 damage, knocked down on the spot, to each one it rolls into |
+| left / right | spin kick | 25 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
 
-Each hit of the chain hits harder: punches 15 / 22 / 30, then the finisher - the four together
-about what four blade swings do, so a chain is worth stepping away from or guarding against.
+Each hit of the chain hits harder: punches 11 / 15 / 21, then the finisher - the four together
+a bit less than four blade swings, so a chain is worth stepping away from or guarding against.
 Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
 time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
 progress bounces, a charge is dropped); only raising the guard (which breaks the chain) or
 Kawarimi gets him out. The finisher has no flinch.
 The kicks keep the stock kick knockdown. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
-two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air
+two-handed blow down at him (the saber stab-down animation, 21 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
-a kick forward and down at 45 degrees, steered with the view (no falling damage), 14 damage to everyone within 90 u of where you
+a kick forward and down at 45 degrees, steered with the view (no falling damage), 10 damage to everyone within 90 u of where you
 land. Block + attack: the stock grab. Taijutsu stat, Gates, Edges and the Gentle Fist
 apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
 

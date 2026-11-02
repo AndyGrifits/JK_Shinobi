@@ -720,13 +720,13 @@ around where you land. Block + attack: the stock grab.
 #define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
 enum { SCK_NONE, SCK_HIT, SCK_SPIN, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
-// combo damage grows hit by hit, the finisher hardest: the four make about what four
-// blade swings do - get out of the way or raise the guard once a chain starts
-static const int shinobiComboPunch[3] = { 15, 22, 30 };  // jab, cross, jab
-#define SHINOBI_COMBO_KICK_DAMAGE  50    // front kick finisher
-#define SHINOBI_COMBO_LAUNCH_DAMAGE 45   // rising kick
-#define SHINOBI_COMBO_SPIN_DAMAGE  35    // spin kick, to everyone around
-#define SHINOBI_SWEEP_DAMAGE       40    // the rolling sweep, to each one it bowls over
+// combo damage grows hit by hit, the finisher hardest: the four make a bit less than four
+// blade swings (-30% after a play test) - get out of the way or raise the guard once a chain starts
+static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab
+#define SHINOBI_COMBO_KICK_DAMAGE  35    // front kick finisher
+#define SHINOBI_COMBO_LAUNCH_DAMAGE 32   // rising kick
+#define SHINOBI_COMBO_SPIN_DAMAGE  25    // spin kick, to everyone around
+#define SHINOBI_SWEEP_DAMAGE       28    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
 // a chain punch roots the victim and stops him hitting back until the attacker's next
@@ -736,9 +736,9 @@ static const int shinobiComboPunch[3] = { 15, 22, 30 };  // jab, cross, jab
 #define SHINOBI_COMBO_FLINCH_MAX   900
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
-#define SHINOBI_DIVE_DAMAGE        14
+#define SHINOBI_DIVE_DAMAGE        10
 #define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be
-#define SHINOBI_GROUND_DAMAGE      30
+#define SHINOBI_GROUND_DAMAGE      21
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed
