@@ -10785,6 +10785,12 @@ stillDoSaber:
 			legs.renderfx |= RF_FORCE_ENT_ALPHA;
 			legs.shaderRGBA[3] = 70;
 		}
+		else if ( cent->currentState.number == cg.snap->ps.clientNum
+			&& ( cg.predictedPlayerState.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
+		{ // JK_Shinobi: under the ground - a fainter ghost for ourselves
+			legs.renderfx |= RF_FORCE_ENT_ALPHA;
+			legs.shaderRGBA[3] = 45;
+		}
 		trap->R_AddRefEntityToScene(&legs);
 	}
 

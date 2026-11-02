@@ -28,7 +28,7 @@ typedef struct {
 	int fxCurse, fxGates;
 	int sndEyes, sndGates;
 	int sndBlockSaber[3], sndBlockFist[3], sndParry, sndGuardBreak, fxBlock;
-	int fxWindEdge, fxRaiEdge;
+	int fxWindEdge, fxRaiEdge, fxQuakeDust;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
@@ -125,5 +125,15 @@ void      Shinobi_Stagger( gentity_t *ent, int ms );
 qboolean  Shinobi_CastMist( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastQuake( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastWindWall( gentity_t *ent, int lvl );
+// g_shinobi_earth.c
+qboolean  Shinobi_CastBurrow( gentity_t *ent );
+void      Shinobi_BurrowEnd( gentity_t *ent, qboolean strike );
+qboolean  Shinobi_Burrowed( gentity_t *ent );
+qboolean  Shinobi_CastArmor( gentity_t *ent );
+qboolean  Shinobi_Armored( gentity_t *ent );
+void      Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd );
+qboolean  Shinobi_CastPillar( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastEarthClone( gentity_t *ent );
+void      Shinobi_RestoreSolid( gentity_t *ent );
 void      Shinobi_KunaiReflect( gentity_t *k, gentity_t *newOwner );
 gentity_t *Shinobi_CloneOwner( gentity_t *ent );

@@ -2837,7 +2837,7 @@ void ClientThink_real( gentity_t *ent ) {
 	else {
 		pmove.tracemask = MASK_PLAYERSOLID;
 	}
-	if ( SHINOBI_HIDDEN( &client->ps ) ) {
+	if ( SHINOBI_UNSEEN( &client->ps ) ) {
 		pmove.tracemask &= ~CONTENTS_BODY; // JK_Shinobi: Kawarimi slips past bodies (and the double)
 	}
 	pmove.trace = SV_PMTrace;

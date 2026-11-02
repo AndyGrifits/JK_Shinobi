@@ -8399,6 +8399,10 @@ void BG_AdjustClientSpeed(playerState_t *ps, usercmd_t *cmd, int svTime)
 		ps->speed *= 0.75f;
 	}
 
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_ARMOR )
+	{ // JK_Shinobi: Stone Skin is heavy
+		ps->speed *= SHINOBI_ARMOR_SPEED;
+	}
 	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_GATES )
 	{ // JK_Shinobi: Inner Gates open
 		ps->speed *= SHINOBI_GATES_SPEED;
@@ -10225,7 +10229,7 @@ static void PM_ShinobiWallRun( void )
 
 	if ( ps->fd.forcePowerLevel[FP_LEVITATION] <= FORCE_LEVEL_1
 		|| ( ps->weapon != WP_SABER && ps->weapon != WP_MELEE )
-		|| SHINOBI_HAND_ANY( ps ) || SHINOBI_HIDDEN( ps ) || SHINOBI_CHARGING( ps )
+		|| SHINOBI_HAND_ANY( ps ) || SHINOBI_UNSEEN( ps ) || SHINOBI_CHARGING( ps )
 		|| SHINOBI_IMPRISONED( ps ) || SHINOBI_PRISON_CASTER( ps )
 		|| pm->waterlevel >= 2 || ps->gravity <= 0
 		|| ps->forceHandExtend == HANDEXTEND_KNOCKDOWN
@@ -10284,7 +10288,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 		return qfalse;
 	if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_CHANNEL ) )
 		return qfalse;
-	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) || SHINOBI_PRISON_CASTER( ps ) || SHINOBI_HIDDEN( ps ) )
+	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) || SHINOBI_PRISON_CASTER( ps ) || SHINOBI_UNSEEN( ps ) )
 		return qfalse;
 	if ( SHINOBI_HAND_ANY( ps ) || SHINOBI_CHARGING( ps ) )
 		return qfalse;
@@ -10351,6 +10355,17 @@ static void PM_ShinobiPreMove( void )
 		ps->forceHandExtend = HANDEXTEND_TAUNT;
 		ps->forceDodgeAnim = SHINOBI_STAGGER_ANIM;
 		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW )
+	{ // under the ground: no jumping, no swings (attacking bursts you out, on the server)
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_BURROW_SPEED );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_BURROW_SPEED );
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
 	}
 	else if ( BG_ShinobiCanBlock( ps, pm->cmd.buttons ) )
 	{ // guard up: slow steps, no attacks, no jumping

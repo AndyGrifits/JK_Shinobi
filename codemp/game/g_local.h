@@ -410,6 +410,7 @@ struct gentity_s {
 	qboolean	shinobiCloneReady;	// overrides applied after NPC_Begin
 	qboolean	shinobiCloneDecoy;	// Kawarimi double (turns into a log, no chakra drain)
 	qboolean	shinobiCloneWater;	// Water Clone (casts a jutsu, bursts into a puddle)
+	qboolean	shinobiCloneEarth;	// Earth Clone (slow, tough, crumbles into mud)
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -871,6 +872,9 @@ struct gclient_s {
 		int		kunaiNext;		// kunai throw cooldown end
 		int		quakeNext;		// Earthquake cooldown end
 		int		windWallNext;	// Wind Wall cooldown end
+		int		burrowEnd, burrowTick, burrowFx, burrowNext; // Burrow
+		int		pillarNext;		// Rock Pillar cooldown end
+		int		armorEnd, armorNext, armorFx; // Stone Skin
 		int		hiraishinNext;	// Hiraishin cooldown end
 		int		infuseUntil;	// Wind / Lightning Edge until
 		int		infuseType;		// SS_FUTON or SS_RAITON
@@ -1481,6 +1485,8 @@ int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int
 float Shinobi_RegenScale( gentity_t *ent );
 void  Cmd_CurseSeal_f( gentity_t *ent );
 void  Cmd_Perk_f( gentity_t *ent );
+qboolean Shinobi_Burrowed( gentity_t *ent );
+qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)

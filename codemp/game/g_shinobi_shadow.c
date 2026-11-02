@@ -120,7 +120,7 @@ static gentity_t *Shinobi_ShadowCatch( gentity_t *binder, const vec3_t a, const 
 			continue;
 		if ( level.gametype >= GT_TEAM && OnSameTeam( binder, v ) )
 			continue;
-		if ( SHINOBI_HIDDEN( &v->client->ps ) || Shinobi_CCImmune( v ) || v->client->shinobi.shadowBy
+		if ( SHINOBI_UNSEEN( &v->client->ps ) || Shinobi_CCImmune( v ) || v->client->shinobi.shadowBy
 			|| v->client->shinobi.prisonCaster )
 			continue;
 		VectorCopy( v->client->ps.origin, feet );

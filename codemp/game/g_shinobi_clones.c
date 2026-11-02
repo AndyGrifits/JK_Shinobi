@@ -54,7 +54,7 @@ qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other ) {
 	if ( other->s.eType != ET_NPC ) {
 		if ( other->client->sess.sessionTeam == TEAM_SPECTATOR || other->client->tempSpectate >= level.time )
 			return qfalse;
-		if ( SHINOBI_HIDDEN( &other->client->ps ) )
+		if ( SHINOBI_UNSEEN( &other->client->ps ) )
 			return qfalse; // can't fight what you can't see (Kawarimi)
 	}
 
@@ -85,6 +85,17 @@ gentity_t *Shinobi_CreditAttacker( gentity_t *attacker ) {
 static void Shinobi_ClonePoof( gentity_t *clone ) {
 	vec3_t up = { 0, 0, 1 };
 
+	if ( clone->shinobiCloneEarth ) { // an earth clone crumbles into a heap of mud
+		vec3_t floor;
+		G_PlayEffectID( shinobiMedia.fxWallBreak, clone->r.currentOrigin, up );
+		G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWallBreak );
+		if ( Shinobi_FloorBelow( clone->r.currentOrigin, 96, floor ) )
+			Shinobi_SpawnZone( SZ_MUD, floor, 70, 1, clone->shinobiCloneOwner ); // (mud keeps its own lifetime)
+		clone->shinobiCloneEarth = qfalse;
+		clone->shinobiCloneOwner = 0;
+		G_FreeEntity( clone );
+		return;
+	}
 	G_PlayEffectID( shinobiMedia.fxClonePoof, clone->r.currentOrigin, up );
 	G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndPoof ); // not tied to the entity we free next
 	clone->shinobiCloneOwner = 0;
@@ -103,6 +114,10 @@ static void Shinobi_RemoveClones( int ownerNum, qboolean water ) {
 		if ( e->shinobiCloneWater ) {
 			if ( water )
 				Shinobi_WaterClonePop( e );
+		}
+		else if ( e->shinobiCloneEarth ) {
+			if ( water ) // (a new Kage Bunshin leaves the earth clone alone)
+				Shinobi_ClonePoof( e );
 		}
 		else
 			Shinobi_ClonePoof( e );
@@ -657,6 +672,14 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 		clone->client->ps.stats[STAT_HEALTH] = SHINOBI_CLONE_HEALTH;
 		clone->client->ps.stats[STAT_MAX_HEALTH] = SHINOBI_CLONE_HEALTH;
 		clone->client->pers.maxHealth = SHINOBI_CLONE_HEALTH;
+		if ( clone->shinobiCloneEarth ) { // heavy and tough
+			clone->health = clone->client->ps.stats[STAT_HEALTH] = SHINOBI_EARTHCLONE_HEALTH;
+			clone->client->ps.stats[STAT_MAX_HEALTH] = clone->client->pers.maxHealth = SHINOBI_EARTHCLONE_HEALTH;
+			if ( clone->NPC ) {
+				clone->NPC->stats.runSpeed = (int)( clone->NPC->stats.runSpeed * SHINOBI_EARTHCLONE_SPEED );
+				clone->NPC->stats.walkSpeed = (int)( clone->NPC->stats.walkSpeed * SHINOBI_EARTHCLONE_SPEED );
+			}
+		}
 		Shinobi_CloneApplyTeam( clone, owner );
 		clone->client->leader = owner;
 		clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_FOLLOW_LEADER;
@@ -770,4 +793,38 @@ void Shinobi_RunFrame( void ) {
 	}
 
 	Shinobi_CloneDrain( clonesPerOwner );
+}
+
+/*
+Earth Clone (Doton): one at a time - slow, tough (150), its blows hit hard;
+when it falls (or its time is up) it crumbles into a heap of mud.
+*/
+qboolean Shinobi_CastEarthClone( gentity_t *ent ) {
+	static const float yaws[] = { 0, -45, 45, -90, 90, 180 };
+	vec3_t     spot, up = { 0, 0, 1 };
+	gentity_t *clone;
+	int        i;
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->shinobiCloneEarth && e->shinobiCloneOwner == ent->s.number + 1 )
+			Shinobi_ClonePoof( e ); // a new one replaces the old
+	}
+	for ( i = 0; i < (int)ARRAY_LEN( yaws ); i++ ) {
+		if ( Shinobi_CloneSpot( ent, yaws[i], NULL, 0, spot ) )
+			break;
+	}
+	if ( i == (int)ARRAY_LEN( yaws ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"No room for an earth clone\"" );
+		return qfalse;
+	}
+	clone = Shinobi_SpawnClone( ent, spot );
+	if ( !clone )
+		return qfalse;
+	clone->shinobiCloneEarth = qtrue;
+	clone->shinobiCloneExpire = level.time + SHINOBI_EARTHCLONE_LIFE;
+	G_PlayEffectID( shinobiMedia.fxWallRise, spot, up );
+	G_SoundAtLoc( spot, CHAN_AUTO, shinobiMedia.sndWallRise );
+	return qtrue;
 }

@@ -63,6 +63,7 @@ void Shinobi_NatureInit( void ) {
 	m->fxBlock        = G_EffectIndex( "saber/saber_block" );
 	m->fxWindEdge     = G_EffectIndex( SHINOBI_FX_WIND_EDGE );
 	m->fxRaiEdge      = G_EffectIndex( SHINOBI_FX_CHIDORI_HAND );
+	m->fxQuakeDust    = G_EffectIndex( SHINOBI_FX_QUAKE_DUST );
 }
 
 /*
@@ -215,6 +216,9 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
 	client->shinobi.burnEnd = client->shinobi.wetEnd = client->shinobi.mudEnd = 0;
+	if ( client->shinobi.burrowEnd )
+		Shinobi_BurrowEnd( ent, qfalse );
+	client->shinobi.armorEnd = 0;
 	if ( client->shinobi.prisonTarget || client->shinobi.prisonCaster )
 		Shinobi_PrisonRelease( ent );
 	if ( client->shinobi.flameEnt )
@@ -784,7 +788,7 @@ static void Shinobi_WaveThink( gentity_t *wave ) {
 
 		if ( !p->inuse || !p->client || p->health <= 0 || p->client->sess.sessionTeam == TEAM_SPECTATOR )
 			continue;
-		if ( p == owner || ( WAVE_HIT( wave ) & ( 1 << i ) ) || SHINOBI_HIDDEN( &p->client->ps ) )
+		if ( p == owner || ( WAVE_HIT( wave ) & ( 1 << i ) ) || SHINOBI_UNSEEN( &p->client->ps ) )
 			continue;
 		if ( level.gametype >= GT_TEAM && OnSameTeam( owner, p ) )
 			continue;
@@ -915,7 +919,7 @@ static void Shinobi_BladeThink( gentity_t *blade ) {
 			continue;
 		if ( i < MAX_CLIENTS ) {
 			if ( ( BLADE_HIT( blade ) & ( 1 << i ) ) || p->client->sess.sessionTeam == TEAM_SPECTATOR
-				|| SHINOBI_HIDDEN( &p->client->ps ) )
+				|| SHINOBI_UNSEEN( &p->client->ps ) )
 				continue;
 		}
 		if ( Shinobi_DamageBlocked( p, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, p ) ) )
@@ -1148,7 +1152,7 @@ static gentity_t *Shinobi_PrisonFindTarget( gentity_t *ent ) {
 			continue;
 		if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
 			continue;
-		if ( SHINOBI_HIDDEN( &e->client->ps ) || e->client->shinobi.prisonCaster || e->client->shinobi.prisonTarget
+		if ( SHINOBI_UNSEEN( &e->client->ps ) || e->client->shinobi.prisonCaster || e->client->shinobi.prisonTarget
 			|| e->client->shinobi.shadowBy || Shinobi_CCImmune( e ) )
 			continue;
 
@@ -1188,7 +1192,7 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 		// a Water Clone traps the one it is fighting, wherever it faces
 		gentity_t *e = ent->enemy;
 		if ( e->inuse && e->client && e->s.number < MAX_CLIENTS && e->health > 0
-			&& !SHINOBI_HIDDEN( &e->client->ps ) && !e->client->shinobi.prisonCaster && !e->client->shinobi.prisonTarget
+			&& !SHINOBI_UNSEEN( &e->client->ps ) && !e->client->shinobi.prisonCaster && !e->client->shinobi.prisonTarget
 			&& !e->client->shinobi.shadowBy && !Shinobi_CCImmune( e )
 			&& Distance( ent->r.currentOrigin, e->r.currentOrigin ) <= SHINOBI_PRISON_RANGE + 40 )
 			target = e;
@@ -1535,7 +1539,7 @@ static void Shinobi_FlameEntThink( gentity_t *flame ) {
 				continue;
 			if ( Shinobi_DamageBlocked( e, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, e ) ) )
 				continue;
-			if ( i < MAX_CLIENTS && SHINOBI_HIDDEN( &e->client->ps ) )
+			if ( i < MAX_CLIENTS && SHINOBI_UNSEEN( &e->client->ps ) )
 				continue;
 			VectorSubtract( e->r.currentOrigin, mouth, d );
 			dist = VectorNormalize( d );

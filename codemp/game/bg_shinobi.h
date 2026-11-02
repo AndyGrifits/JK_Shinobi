@@ -62,6 +62,10 @@ typedef enum {
 	SJ_SKYSTEP,   // sky step: passive, jumps and wall runs cost half, no falling damage
 	SJ_WINDEDGE,  // wind edge: 15 s, strikes throw air slashes ahead and cut through guards
 	SJ_RAIEDGE,   // lightning edge: 15 s, +20% taijutsu, x3 against stone
+	SJ_BURROW,    // burrow (held): travel under the ground, burst out under the enemy
+	SJ_PILLAR,    // rock pillar: erupts where you look, launching whoever stands there
+	SJ_ARMOR,     // stone skin: 8 s, less damage, no knockdowns, slower
+	SJ_EARTHCLONE,// earth clone: a slow, tough clone that hits hard
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -73,18 +77,18 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
-	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_CHIDORI, SJ_RAIEDGE,
+	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_PILLAR, SJ_BURROW, SJ_ARMOR, SJ_EARTHCLONE, SJ_CHIDORI, SJ_RAIEDGE,
 	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_HIRAISHIN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
@@ -116,15 +120,19 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{  0,  0,  0 }, // Sky Step (passive)
 	{ 20, 20, 20 }, // Wind Edge
 	{ 20, 20, 20 }, // Lightning Edge
+	{ 15, 15, 15 }, // Burrow (to start; then it drains while held)
+	{ 20, 30, 40 }, // Rock Pillar
+	{ 25, 25, 25 }, // Stone Skin
+	{ 30, 30, 30 }, // Earth Clone
 };
 
 // jutsu that cast on key press, without charging
 #define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP \
-	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE )
+	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE || (j) == SJ_ARMOR || (j) == SJ_EARTHCLONE )
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
 #define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
@@ -294,6 +302,35 @@ static const int shinobiWindWallHalfW[3] = { 80, 100, 120 };
 #define SHINOBI_WINDWALL_HEIGHT    140
 #define SHINOBI_WINDWALL_DEPTH     28    // how thick the catching zone is
 #define SHINOBI_WINDWALL_COOLDOWN  6000
+
+// Burrow (held): under the ground, out of sight (Byakugan aside), immune to
+// all but an Earthquake; a dust trail gives you away. Let go (or attack) to
+// burst out: whoever stands right above is launched.
+#define SHINOBI_BURROW_MAX_MS      6000
+#define SHINOBI_BURROW_TICK_MS     200   // 1 chakra per tick
+#define SHINOBI_BURROW_COOLDOWN    8000
+#define SHINOBI_BURROW_SPEED       0.9f
+#define SHINOBI_BURROW_RADIUS      96
+#define SHINOBI_BURROW_DAMAGE      20
+#define SHINOBI_BURROW_LAUNCH      420
+// Rock Pillar: erupts where you look after a short rumble
+static const int shinobiPillarRange[3]  = { 450, 550, 650 };
+static const int shinobiPillarDamage[3] = { 20, 30, 40 };
+static const int shinobiPillarLaunch[3] = { 420, 500, 580 };
+#define SHINOBI_PILLAR_RADIUS      64
+#define SHINOBI_PILLAR_DELAY       350
+#define SHINOBI_PILLAR_LIFE        6000
+#define SHINOBI_PILLAR_COOLDOWN    4000
+// Stone Skin
+#define SHINOBI_ARMOR_MS           8000
+#define SHINOBI_ARMOR_COOLDOWN     20000
+#define SHINOBI_ARMOR_TAKEN        0.6f  // damage taken x
+#define SHINOBI_ARMOR_SPEED        0.85f
+// Earth Clone
+#define SHINOBI_EARTHCLONE_LIFE    25000
+#define SHINOBI_EARTHCLONE_HEALTH  150
+#define SHINOBI_EARTHCLONE_SPEED   0.7f
+#define SHINOBI_EARTHCLONE_HIT     130   // % damage of its blows
 #define SHINOBI_WALL_MAX_PILLARS   7
 static const int shinobiWallPillars[3]   = {   3,   5,   7 };      // width
 static const int shinobiWallHealth[3]    = {  35,  57,  85 };      // shared by the whole wall (Lv1 Rasengan = 70% of Lv2)
@@ -513,6 +550,10 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove
 #define SHINOBI_STAT_WINDEDGE      256   // Wind Edge on the hands / blade
 #define SHINOBI_STAT_RAIEDGE       512   // Lightning Edge on the hands / blade
 #define SHINOBI_STAT_SKYSTEP       1024  // Sky Step in the build: cheap jumps
+#define SHINOBI_STAT_BURROW        2048  // under the ground (Burrow)
+#define SHINOBI_STAT_ARMOR         4096  // Stone Skin
+// out of sight: Kawarimi-hidden or burrowed (no targeting, no body collisions)
+#define SHINOBI_UNSEEN(ps)         ( SHINOBI_HIDDEN( ps ) || ( (ps)->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
 
 // eye techniques, shown to everyone (the two spare eFlags2 bits)
 #define SHINOBI_EF2_SHARINGAN      (1<<8)
@@ -581,6 +622,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_ENT_KUNAI_MARKED   229  // marked kunai: model + seal glow
 #define SHINOBI_ENT_QUAKE          230  // earthquake; s.angles2[0] = radius, s.time = cast, s.time2 = strike
 #define SHINOBI_ENT_WINDWALL       231  // wind wall; origin = bottom centre, s.angles2 = yaw, half width; s.time2 = end
+#define SHINOBI_ENT_PILLARCAST     232  // rock pillar rumbling; s.time2 = eruption
 #define SHINOBI_ENT_WATERBALL      204  // 204..206 = water bullet level 1..3
 #define SHINOBI_ENT_ZONE           210  // 210 + shinobiZone_t; s.angles2[0] = radius,
                                         // s.time = start, s.time2 = end
@@ -675,6 +717,10 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_FUTON,   // Sky Step
 	SS_FUTON,   // Wind Edge
 	SS_RAITON,  // Lightning Edge
+	SS_DOTON,   // Burrow
+	SS_DOTON,   // Rock Pillar
+	SS_DOTON,   // Stone Skin
+	SS_DOTON,   // Earth Clone
 };
 
 #define SHINOBI_BUILD_JUTSU     5
@@ -750,7 +796,11 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"a wall of wind ahead (2-4 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
 	"passive: jumps and wall runs cost half the chakra, no falling damage",
 	"15 s: fists and blade throw air slashes a few metres ahead and cut through guards (not a perfect parry)",
-	"15 s: fists and blade hit 20% harder, 3x against earth walls and other stone"
+	"15 s: fists and blade hit 20% harder, 3x against earth walls and other stone",
+	"hold F: go under the ground (a trail of dust shows where); let go or attack to burst out, launching whoever is above",
+	"a stone pillar erupts where you look, launching whoever stands there; it stays a while as cover",
+	"8 s: 40% less damage, no knockdowns or knockback, a bit slower; Lightning cuts through it",
+	"a slow, tough earth clone (25 s) that hits hard; crumbles into mud"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };

@@ -930,6 +930,24 @@ static void CG_ShinobiWindWall( centity_t *cent ) {
 	}
 }
 
+// Rock Pillar about to erupt: the ground trembles in a small circle
+static void CG_ShinobiPillarCast( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	const float    pulse = 0.75f + 0.25f * sinf( cg.time * 0.05f );
+	vec3_t         up = { 0, 0, 1 }, p;
+
+	if ( cg.time >= s->time2 + 200 )
+		return;
+	CG_ShinobiGroundDecal( cent->lerpOrigin, SHINOBI_PILLAR_RADIUS * pulse, cg.time * 0.1f, shinobiShaders.ring, 0.8f, 0.55f, 0.25f, 1.0f );
+	CG_ShinobiGroundDecal( cent->lerpOrigin, SHINOBI_PILLAR_RADIUS, 0, shinobiShaders.mud, 0.7f, 0.6f, 0.5f, 0.7f );
+	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+		const float a = flrand( 0, 2 * M_PI ), r = flrand( 0, SHINOBI_PILLAR_RADIUS );
+		VectorSet( p, cent->lerpOrigin[0] + cosf( a ) * r, cent->lerpOrigin[1] + sinf( a ) * r, cent->lerpOrigin[2] + 4 );
+		trap->FX_PlayEffectID( shinobiFx.quakeDust, p, up, -1, -1, qfalse );
+		cent->shinobiHandFxTime = cg.time + 40;
+	}
+}
+
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -967,6 +985,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_WINDWALL ) {
 		CG_ShinobiWindWall( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_PILLARCAST ) {
+		CG_ShinobiPillarCast( cent );
 		return qtrue;
 	}
 	if ( s->generic1 >= SHINOBI_ENT_BLADE && s->generic1 < SHINOBI_ENT_BLADE + SHINOBI_MAX_LEVEL ) {
@@ -1420,6 +1442,11 @@ void CG_ShinobiDrawHUD( void ) {
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
 	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) {
+		text = "Under the ground - let go of F (or attack) to burst out";
+		VectorSet( color, 0.8f, 0.65f, 0.45f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.008f );
+	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) {
 		text = "Staggered!";
 		VectorSet( color, 1.0f, 0.6f, 0.3f );
@@ -1470,6 +1497,11 @@ void CG_ShinobiDrawHUD( void ) {
 	else if ( SHINOBI_HAND_ARMED( ps ) ) {
 		text = va( "%s Lv %i - ATTACK!", chidori ? "CHIDORI" : "RASENGAN", SHINOBI_HAND_LEVEL( ps ) );
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.012f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_ARMOR ) {
+		text = "Stone Skin - heavy and hard to hurt";
+		VectorSet( color, 0.8f, 0.7f, 0.5f );
+		color[3] = 0.7f;
 	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_WINDEDGE ) {
 		text = "Wind Edge - slashes fly ahead, cut through guards";

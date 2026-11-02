@@ -70,6 +70,8 @@ int Shinobi_CastStat( gentity_t *ent ) {
 int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod ) {
 	gclient_t *ac;
 
+	if ( attacker && attacker->shinobiCloneEarth && ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )
+		return damage * SHINOBI_EARTHCLONE_HIT / 100; // an earth clone's fists are stone
 	if ( !attacker || !attacker->client || attacker->s.number >= MAX_CLIENTS || shinobiJutsuDamage )
 		return damage;
 	ac = attacker->client;
@@ -294,10 +296,12 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 
 		if ( !Shinobi_EyeTarget( ent, e ) )
 			continue;
-		hidden = !clone && SHINOBI_HIDDEN( &e->client->ps ); // (only now: empty slots have no client)
+		hidden = !clone && SHINOBI_UNSEEN( &e->client->ps ); // (only now: empty slots have no client)
 		dist = Distance( client->ps.origin, e->r.currentOrigin );
 
 		if ( eyes == SP_SHARINGAN ) {
+			if ( hidden && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
+				continue; // under the ground: only the Byakugan sees that far
 			if ( hidden ? dist > SHINOBI_SHARINGAN_HIDDEN_RANGE
 				: ( dist > SHINOBI_SHARINGAN_RANGE || !trap->InPVS( eye, e->r.currentOrigin ) ) )
 				continue;
@@ -338,7 +342,8 @@ for players, every frame for clones): Byakugan eyes in range always do; a
 Kawarimi-hidden player goes only to himself and Sharingan eyes in range.
 */
 void Shinobi_PerkBroadcasts( gentity_t *self ) {
-	const qboolean hidden = self->s.number < MAX_CLIENTS && self->client && SHINOBI_HIDDEN( &self->client->ps );
+	const qboolean kawarimi = self->s.number < MAX_CLIENTS && self->client && SHINOBI_HIDDEN( &self->client->ps );
+	const qboolean hidden = self->s.number < MAX_CLIENTS && self->client && SHINOBI_UNSEEN( &self->client->ps );
 	int i;
 
 	if ( hidden ) {
@@ -359,7 +364,7 @@ void Shinobi_PerkBroadcasts( gentity_t *self ) {
 		if ( other->client->shinobi.eyes == SP_BYAKUGAN )
 			range = SHINOBI_BYAKUGAN_RANGE; // through walls, and through Kawarimi too
 		else
-			range = hidden ? SHINOBI_SHARINGAN_HIDDEN_RANGE : 0;
+			range = kawarimi ? SHINOBI_SHARINGAN_HIDDEN_RANGE : 0; // (not under the ground)
 		if ( range > 0 && DistanceSquared( other->client->ps.origin, self->r.currentOrigin ) < range * range )
 			Q_AddToBitflags( self->r.broadcastClients, i, 32 );
 	}

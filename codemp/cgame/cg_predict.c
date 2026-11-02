@@ -1008,7 +1008,7 @@ void CG_PredictPlayerState( void ) {
 	if ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR || cg.snap->ps.pm_type == PM_SPECTATOR ) {
 		cg_pmove.tracemask &= ~CONTENTS_BODY;	// spectators can fly through bodies
 	}
-	if ( SHINOBI_HIDDEN( &cg.predictedPlayerState ) ) {
+	if ( SHINOBI_UNSEEN( &cg.predictedPlayerState ) ) {
 		cg_pmove.tracemask &= ~CONTENTS_BODY; // JK_Shinobi: hidden by Kawarimi (must match the server)
 	}
 	cg_pmove.noFootsteps = ( cgs.dmflags & DF_NO_FOOTSTEPS ) > 0;

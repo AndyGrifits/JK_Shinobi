@@ -4473,6 +4473,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	{ // JK_Shinobi: shadow clones never hurt their owner (and vice versa)
 		return;
 	}
+	if ( Shinobi_Burrowed( targ ) && mod != MOD_CRUSH )
+	{ // JK_Shinobi: under the ground only an Earthquake reaches you
+		return;
+	}
 	if ( mod == MOD_FALLING && targ->client && targ->s.number < MAX_CLIENTS
 		&& ( targ->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_SKYSTEP ) )
 	{ // JK_Shinobi: Sky Step - lands like a feather
@@ -4486,6 +4490,19 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 		if ( damage <= 0 )
 		{ // stopped by the guard (or a perfect parry)
 			return;
+		}
+		if ( Shinobi_Armored( targ ) )
+		{ // Stone Skin: less damage, no knockback - but Lightning Edge cuts through stone
+			const qboolean lightning = attacker && attacker->client && attacker->s.number < MAX_CLIENTS
+				&& attacker->client->shinobi.infuseType == SS_RAITON && attacker->client->shinobi.infuseUntil > level.time
+				&& ( mod == MOD_MELEE || mod == MOD_SABER );
+			if ( !lightning )
+			{
+				damage = (int)( damage * SHINOBI_ARMOR_TAKEN + 0.5f );
+				if ( damage < 1 )
+					damage = 1;
+			}
+			dflags |= DAMAGE_NO_KNOCKBACK;
 		}
 		Shinobi_Damaged( targ, attacker );
 	}

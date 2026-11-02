@@ -430,7 +430,7 @@ int Shinobi_InfuseHit( gentity_t *targ, gentity_t *attacker, int damage ) {
 	if ( ac->shinobi.infuseUntil <= level.time || ac->shinobi.infuseType != SS_RAITON || !targ || targ == attacker )
 		return damage;
 	damage = damage * SHINOBI_RAIEDGE_BONUS / 100;
-	if ( targ->classname && !strcmp( targ->classname, "shinobi_earthwall" ) )
+	if ( ( targ->classname && !strcmp( targ->classname, "shinobi_earthwall" ) ) || targ->shinobiCloneEarth )
 		damage *= SHINOBI_RAIEDGE_STONE; // lightning cuts through stone
 	return damage;
 }

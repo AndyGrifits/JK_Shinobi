@@ -644,7 +644,7 @@ static void Shinobi_QuakeStrike( gentity_t *q ) {
 			continue; // our own clones keep their feet
 		if ( level.gametype >= GT_TEAM && owner->client && OnSameTeam( owner, v ) )
 			continue;
-		if ( v->client->ps.groundEntityNum == ENTITYNUM_NONE )
+		if ( v->client->ps.groundEntityNum == ENTITYNUM_NONE && !Shinobi_Burrowed( v ) )
 			continue; // in the air: it passes under
 		VectorSubtract( v->r.currentOrigin, center, d );
 		if ( d[2] < -48 || d[2] > 96 )
@@ -654,6 +654,8 @@ static void Shinobi_QuakeStrike( gentity_t *q ) {
 		if ( dist > R )
 			continue;
 
+		if ( Shinobi_Burrowed( v ) )
+			Shinobi_BurrowEnd( v, qfalse ); // shaken out of the ground
 		shinobiHitElement = SE_EARTH;
 		shinobiJutsuDamage = 1;
 		G_Damage( v, q, owner, up, v->r.currentOrigin, shinobiQuakeDamage[li], DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
@@ -728,5 +730,160 @@ qboolean Shinobi_CastQuake( gentity_t *ent, int lvl ) {
 	client->ps.forceDodgeAnim = BOTH_FORCEPUSH;
 	client->ps.forceHandExtendTime = level.time + 600;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallRise );
+	return qtrue;
+}
+
+/*
+===========================================================================
+Rock Pillar (Doton): a rumble where you look, then a stone pillar erupts
+there, launching whoever stands on the spot. It stays a while as cover
+(an earth wall of one pillar: it can be shoved, broken, and Lightning cuts it).
+===========================================================================
+*/
+#define PILLARCAST_STAGE(c)  ( (c)->genericValue1 ) // 0 rumbling, 1 erupted (placing the stone)
+
+static void Shinobi_PillarCastThink( gentity_t *c ) {
+	gentity_t *owner = &g_entities[c->r.ownerNum];
+	const int  lvl = c->count > 0 ? c->count : 1;
+	vec3_t     up = { 0, 0, 1 }, ground;
+	int        i;
+
+	if ( !owner->inuse || !owner->client )
+		owner = c;
+
+	if ( !PILLARCAST_STAGE( c ) ) {
+		if ( level.time < c->s.time2 ) {
+			c->nextthink = level.time + FRAMETIME;
+			return;
+		}
+		PILLARCAST_STAGE( c ) = 1;
+		G_PlayEffectID( shinobiMedia.fxWallRise, c->r.currentOrigin, up );
+		G_SoundAtLoc( c->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWallRise );
+		Shinobi_EarthOnWater( c->r.currentOrigin, SHINOBI_PILLAR_RADIUS );
+		for ( i = 0; i < level.num_entities; i++ ) {
+			gentity_t *v = &g_entities[i];
+			vec3_t     d;
+
+			if ( !v->inuse || !v->client || !v->takedamage || v->health <= 0 || v == owner )
+				continue;
+			if ( v->s.number < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )
+				continue;
+			if ( v->shinobiCloneOwner && v->shinobiCloneOwner == owner->s.number + 1 )
+				continue;
+			if ( level.gametype >= GT_TEAM && owner->client && OnSameTeam( owner, v ) )
+				continue;
+			if ( v->client && SHINOBI_UNSEEN( &v->client->ps ) )
+				continue;
+			VectorSubtract( v->r.currentOrigin, c->r.currentOrigin, d );
+			if ( d[2] < -32 || d[2] > 96 )
+				continue;
+			d[2] = 0;
+			if ( VectorLength( d ) > SHINOBI_PILLAR_RADIUS )
+				continue;
+			shinobiHitElement = SE_EARTH;
+			shinobiJutsuDamage = 1;
+			G_Damage( v, c, owner, up, v->r.currentOrigin, shinobiPillarDamage[lvl - 1], DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
+			shinobiJutsuDamage = 0;
+			shinobiHitElement = SE_NONE;
+			if ( !v->inuse || v->health <= 0 || !v->client || Shinobi_Armored( v ) )
+				continue;
+			// thrown up and off the rising stone
+			if ( VectorNormalize( d ) < 0.1f )
+				VectorSet( d, 1, 0, 0 );
+			VectorScale( d, 160, v->client->ps.velocity );
+			v->client->ps.velocity[2] = shinobiPillarLaunch[lvl - 1];
+			v->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			v->client->ps.otherKiller = owner->s.number;
+			v->client->ps.otherKillerTime = level.time + 5000;
+			v->client->ps.otherKillerDebounceTime = level.time + 100;
+			if ( !Shinobi_CCImmune( v ) ) {
+				G_Knockdown( v );
+				Shinobi_CCGrant( v, level.time + 1500 );
+			}
+		}
+		c->nextthink = level.time + 100; // let them fly clear first
+		return;
+	}
+
+	// stage 1: put the stone there as soon as the spot is clear (give up after a while)
+	if ( Shinobi_WallSpot( owner, c->r.currentOrigin, ground ) ) {
+		gentity_t *wall = G_Spawn();
+		if ( wall ) {
+			gentity_t *p;
+			wall->classname = "shinobi_earthwall_ctrl";
+			wall->r.ownerNum = owner->s.number;
+			WALL_LEVEL( wall ) = lvl;
+			wall->r.svFlags |= SVF_NOCLIENT;
+			wall->health = WALL_MAX_HEALTH( wall ) = shinobiWallHealth[lvl - 1];
+			wall->think = Shinobi_WallSink;
+			wall->nextthink = level.time + SHINOBI_PILLAR_LIFE;
+			p = Shinobi_SpawnPillar( owner, wall, ground, c->s.angles2[0] );
+			if ( p )
+				WALL_PILLAR( wall, WALL_COUNT( wall )++ ) = p->s.number + 1;
+			else
+				G_FreeEntity( wall );
+		}
+		G_FreeEntity( c );
+		return;
+	}
+	if ( level.time > c->s.time2 + 700 ) {
+		G_FreeEntity( c ); // someone is still standing in it: no stone this time
+		return;
+	}
+	c->nextthink = level.time + FRAMETIME;
+}
+
+qboolean Shinobi_CastPillar( gentity_t *ent, int lvl ) {
+	gclient_t *client = ent->client;
+	vec3_t     fwd, eye, end, spot, floor;
+	trace_t    tr;
+	gentity_t *c;
+
+	if ( SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	if ( client->shinobi.pillarNext > level.time ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Rock Pillar ready in %.1f s\"",
+			( client->shinobi.pillarNext - level.time ) / 1000.0f ) );
+		return qfalse;
+	}
+	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight;
+	VectorMA( eye, shinobiPillarRange[lvl - 1], fwd, end );
+	trap->Trace( &tr, eye, NULL, NULL, end, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+	VectorCopy( tr.endpos, spot );
+	if ( tr.fraction < 1.0f )
+		VectorMA( spot, 4, tr.plane.normal, spot ); // off the surface we hit
+	spot[2] += 16;
+	if ( !Shinobi_FloorBelow( spot, 256, floor ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"Rock Pillar: no ground there\"" );
+		return qfalse;
+	}
+
+	c = G_Spawn();
+	if ( !c )
+		return qfalse;
+	c->classname = "shinobi_pillarcast";
+	c->s.eType = ET_GENERAL;
+	c->s.generic1 = SHINOBI_ENT_PILLARCAST;
+	c->s.time = level.time;
+	c->s.time2 = level.time + SHINOBI_PILLAR_DELAY;
+	c->s.angles2[0] = client->ps.viewangles[YAW];
+	c->count = lvl;
+	c->r.ownerNum = ent->s.number;
+	c->r.contents = 0;
+	c->r.svFlags |= SVF_BROADCAST;
+	G_SetOrigin( c, floor );
+	c->think = Shinobi_PillarCastThink;
+	c->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)c );
+
+	client->shinobi.pillarNext = level.time + SHINOBI_PILLAR_COOLDOWN;
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceDodgeAnim = BOTH_FORCEPUSH;
+	client->ps.forceHandExtendTime = level.time + 500;
+	G_SoundAtLoc( floor, CHAN_AUTO, shinobiMedia.sndWallRise );
 	return qtrue;
 }
