@@ -3547,6 +3547,10 @@ void WP_FireMelee( gentity_t *ent, qboolean alt_fire )
 			{ //2x damage for heavy melee class
 				dmg *= 2;
 			}
+			if ( Shinobi_ComboPunchDamage( ent ) )
+			{ // JK_Shinobi: each punch of a combo hits harder than the last
+				dmg = Shinobi_ComboPunchDamage( ent );
+			}
 
 			G_Damage( tr_ent, ent, ent, forward, tr.endpos, dmg, DAMAGE_NO_ARMOR, MOD_MELEE );
 			Shinobi_ComboHit( ent, tr_ent ); // JK_Shinobi: what this step of the combo does

@@ -34,6 +34,14 @@ Suggested first batch: Rasengan, Chidori, Katon, Water Wave, Shadow Bind, Rock P
 Storm Wind (pull), Shunshin (back), Wind Wall (dome). Second: Burrow, Earthquake, water
 wall, earth ring, Wind Blade ring.
 
+## Henge (transformation) - instead of Shadow Hide
+
+Map decoration is mostly compiled into the BSP, so "any object in the scene" won't work.
+Plan: the plain cast takes the looks of another player (model, colours, accessories, name
+over the head); cast holding back turns you into a prop of our own set (rock, log, crate,
+barrel). Hitbox and damage stay yours; an attack, a jutsu or a hit ends it in a puff; the
+Byakugan sees through. Chakra to start, up to 30 s; slow creeping as a prop.
+
 ## Weapons
 
 Weapons submenu (fists / one blade / two blades / double-ended) with real swords as

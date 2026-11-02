@@ -7599,7 +7599,11 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 					hitEnt->client->ps.otherKillerTime = level.time + 10000;
 				}
 
-				if (d_saberKickTweak.integer)
+				if ( Shinobi_ComboKickDamage( ent ) )
+				{ // JK_Shinobi: a combo finisher - the hardest hit of the chain
+					G_Damage( hitEnt, ent, ent, kickDir, trace.endpos, Shinobi_ComboKickDamage( ent ), DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+				}
+				else if (d_saberKickTweak.integer)
 				{
 					G_Damage( hitEnt, ent, ent, kickDir, trace.endpos, kickDamage*0.2f, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 				}

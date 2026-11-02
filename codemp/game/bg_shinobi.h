@@ -711,7 +711,13 @@ around where you land. Block + attack: the stock grab.
 #define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
 enum { SCK_NONE, SCK_HIT, SCK_SPIN, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
-#define SHINOBI_SWEEP_DAMAGE       12    // the rolling sweep, to each one it bowls over
+// combo damage grows hit by hit, the finisher hardest: the four make about what four
+// blade swings do - get out of the way or raise the guard once a chain starts
+static const int shinobiComboPunch[3] = { 15, 22, 30 };  // jab, cross, jab
+#define SHINOBI_COMBO_KICK_DAMAGE  50    // front kick finisher
+#define SHINOBI_COMBO_LAUNCH_DAMAGE 45   // rising kick
+#define SHINOBI_COMBO_SPIN_DAMAGE  35    // spin kick, to everyone around
+#define SHINOBI_SWEEP_DAMAGE       40    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)

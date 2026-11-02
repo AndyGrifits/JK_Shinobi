@@ -29,11 +29,13 @@ last move's end, then a finisher picked by the direction held at that moment:
 
 | held | finisher | what it does |
 |---|---|---|
-| nothing | front kick | pushed away and knocked down |
-| forward | rising kick | thrown up into the air |
-| back | sweep: a forward roll into his legs | 12 damage, knocked down on the spot, to each one it rolls into |
-| left / right | spin kick | all around you, just damage (no push, no knockdown): a second chance to land a hit |
+| nothing | front kick | 50 damage, pushed away and knocked down |
+| forward | rising kick | 45 damage, thrown up into the air |
+| back | sweep: a forward roll into his legs | 40 damage, knocked down on the spot, to each one it rolls into |
+| left / right | spin kick | 35 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
 
+Each hit of the chain hits harder: punches 15 / 22 / 30, then the finisher - the four together
+about what four blade swings do, so a chain is worth stepping away from or guarding against.
 The punches are plain damage; the kicks keep the stock kick knockdown. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air

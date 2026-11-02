@@ -125,6 +125,28 @@ static void Shinobi_GroundBlow( gentity_t *ent ) {
 	}
 }
 
+// a combo punch: its damage by the step of the chain (0: not a combo punch)
+int Shinobi_ComboPunchDamage( gentity_t *ent ) {
+	int hit;
+	if ( !ent->client || ent->s.number >= MAX_CLIENTS || ent->client->ps.weapon != WP_MELEE
+		|| SHINOBI_COMBO_KIND( &ent->client->ps ) != SCK_HIT )
+		return 0;
+	hit = SHINOBI_COMBO_HIT( &ent->client->ps );
+	return ( hit >= 1 && hit <= 3 ) ? shinobiComboPunch[hit - 1] : 0;
+}
+
+// a combo kick (finisher): its damage (0: a stock kick)
+int Shinobi_ComboKickDamage( gentity_t *ent ) {
+	if ( !ent->client || ent->s.number >= MAX_CLIENTS || ent->client->ps.weapon != WP_MELEE )
+		return 0;
+	switch ( SHINOBI_COMBO_KIND( &ent->client->ps ) ) {
+	case SCK_KICK:   return SHINOBI_COMBO_KICK_DAMAGE;
+	case SCK_LAUNCH: return SHINOBI_COMBO_LAUNCH_DAMAGE;
+	case SCK_SPIN:   return SHINOBI_COMBO_SPIN_DAMAGE;
+	default:         return 0;
+	}
+}
+
 // the spin kick (left / right finisher) only does damage: no stock kick knockdown
 qboolean Shinobi_ComboPlainKick( gentity_t *ent ) {
 	return ( ent->client && ent->s.number < MAX_CLIENTS && ent->client->ps.weapon == WP_MELEE

@@ -1520,6 +1520,8 @@ extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
 qboolean Shinobi_ComboPlainKick( gentity_t *ent );
+int Shinobi_ComboPunchDamage( gentity_t *ent );
+int Shinobi_ComboKickDamage( gentity_t *ent );
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ); // g_shinobi_build.c
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
