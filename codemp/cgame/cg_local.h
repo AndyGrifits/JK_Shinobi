@@ -1800,6 +1800,7 @@ void CG_ShinobiSetBuild_f( void );
 void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
 
+void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body );
 void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body );
 void CG_ShinobiSceneOverlay( void );
 void CG_ShinobiEffectPlayed( const char *name, const vec3_t org, const vec3_t dir );

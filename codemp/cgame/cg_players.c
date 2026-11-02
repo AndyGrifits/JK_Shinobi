@@ -10777,8 +10777,8 @@ stillDoSaber:
 		}
 	}
 
-	if (!(cent->currentState.powerups & (1 << PW_CLOAKED)))
-	{ //don't add the normal model if cloaked
+	if (!(cent->currentState.powerups & (1 << PW_CLOAKED)) && !(cent->currentState.eFlags & SHINOBI_EF_RAIDASH))
+	{ //don't add the normal model if cloaked (JK_Shinobi: or turned into lightning)
 		CG_CheckThirdPersonAlpha( cent, &legs );
 		if ( SHINOBI_HIDDEN( &cent->currentState ) )
 		{ // JK_Shinobi: hidden by Kawarimi - only we receive our entity; show a faint ghost
@@ -11072,6 +11072,7 @@ stillDoSaber:
 	}
 
 	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
+	CG_ShinobiStoneShell( cent, &legs ); // JK_Shinobi: Stone Skin / Earth Clone
 
 	// Electricity
 	//------------------------------------------------

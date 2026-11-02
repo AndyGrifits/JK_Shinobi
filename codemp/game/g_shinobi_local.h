@@ -36,6 +36,7 @@ typedef struct {
 
 	int wallModels[SHINOBI_WALL_MODELS];
 	int logModel, exKunaiModel, tagModel, shurikenModel;
+	int rockBlockModel, rockLedgeModel;
 } shinobiMedia_t;
 
 extern shinobiMedia_t shinobiMedia;
@@ -72,6 +73,7 @@ void      Shinobi_NatureInit( void );
 void      Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_StatusClear( gentity_t *ent );
 gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs, int ownerNum );
+void      Shinobi_DustAt( vec3_t pos, float radius, int ownerNum );
 qboolean  Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor );
 void      Shinobi_ElectrifyAt( vec3_t point, int ownerNum );
 void      Shinobi_EarthOnWater( vec3_t center, float radius );
@@ -144,7 +146,8 @@ qboolean  Shinobi_CastShadowHide( gentity_t *ent );
 void      Shinobi_ShadowHideEnd( gentity_t *ent );
 qboolean  Shinobi_CastFlash( gentity_t *ent );
 qboolean  Shinobi_CastHeal( gentity_t *ent, int lvl );
-qboolean  Shinobi_CastRaiDash( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastRaiDash( gentity_t *ent );
+void      Shinobi_RaiDashEnd( gentity_t *ent );
 void      Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd );
 qboolean  Shinobi_CastRaiClone( gentity_t *ent );
 void      Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );

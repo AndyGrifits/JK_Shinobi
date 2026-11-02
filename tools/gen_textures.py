@@ -273,6 +273,35 @@ def mud(n=128):
     return np.clip(rgb + wet, 0, 1), disc * 0.9
 
 
+def sand(n=128):
+    """Loose earth and sand on the floor: grainy, light, a soft ragged edge."""
+    _, _, r, _ = grid(n)
+    disc = ragged_disc(n, 81, edge=0.82, rough=0.16)
+    noise = 0.5 * value_noise(n, 6, 82) + 0.3 * value_noise(n, 20, 83) + 0.2 * value_noise(n, 64, 84)
+    grain = (value_noise(n, 96, 85) - 0.5) * 0.25
+    base = np.array([0.72, 0.6, 0.42])
+    rgb = (0.75 + 0.45 * noise + grain)[..., None] * base[None, None, :]
+    pebbles = (value_noise(n, 40, 86) > 0.78)[..., None] * -0.12
+    alpha = disc * np.clip(0.55 + 0.4 * noise - r * 0.25, 0, 1)
+    return np.clip(rgb + pebbles, 0, 1), alpha
+
+
+def water_tile(n=128):
+    """Tileable rippled water (sum of waves on the torus), for the puddle surface."""
+    y, x = np.mgrid[0:n, 0:n] / n * 2 * math.pi
+    rng = np.random.RandomState(91)
+    h = np.zeros((n, n))
+    for _ in range(9):
+        kx, ky = rng.randint(-4, 5), rng.randint(-4, 5)
+        if kx == 0 and ky == 0:
+            continue
+        h += np.sin(kx * x + ky * y + rng.uniform(0, 2 * math.pi)) / math.hypot(kx, ky)
+    h = (h - h.min()) / (h.max() - h.min())
+    caustic = np.clip(1 - np.abs(h - 0.5) * 6, 0, 1) ** 2  # bright thin lines
+    rgb = np.dstack([0.25 + 0.35 * h + 0.5 * caustic, 0.4 + 0.35 * h + 0.5 * caustic, 0.55 + 0.35 * h + 0.45 * caustic])
+    return np.clip(rgb, 0, 1)
+
+
 def scorch(n=128):
     _, _, r, _ = grid(n)
     disc = ragged_disc(n, 61, edge=0.85, rough=0.16)
@@ -420,6 +449,8 @@ def main():
     save_rgba("puddle", *puddle())
     save_rgba("mud", *mud())
     save_rgba("scorch", *scorch())
+    save_rgba("sand", *sand())
+    Image.fromarray((water_tile() * 255).astype(np.uint8), "RGB").save(os.path.join(OUT, "watertile.tga"))
     save_rgba("watersphere", *water_sphere())
     save_rgba("droplet", *droplet())
     save("streak", streak())

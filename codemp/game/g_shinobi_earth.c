@@ -45,6 +45,7 @@ qboolean Shinobi_CastBurrow( gentity_t *ent ) {
 		client->ps.saberHolstered = 2; // a humming blade under the ground? no
 	}
 	client->shinobi.burrowEnd = level.time + SHINOBI_BURROW_MAX_MS;
+	VectorSet( client->shinobi.burrowDustPos, 1e6f, 1e6f, 0 ); // the first patch right where you go down
 	client->shinobi.burrowTick = level.time + SHINOBI_BURROW_TICK_MS;
 	client->shinobi.burrowFx = level.time;
 	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BURROW;
@@ -158,6 +159,7 @@ void Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->shinobi.armorEnd = 0;
 	if ( client->shinobi.armorEnd ) {
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_ARMOR;
+		client->ps.eFlags |= SHINOBI_EF_STONE;
 		if ( client->shinobi.armorFx <= level.time ) { // grit falling off the stone
 			client->shinobi.armorFx = level.time + 400;
 			G_PlayEffectID( shinobiMedia.fxQuakeDust, feet, up );
@@ -165,6 +167,7 @@ void Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 	else {
 		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_ARMOR;
+		client->ps.eFlags &= ~SHINOBI_EF_STONE;
 	}
 
 	// Burrow
@@ -199,5 +202,14 @@ void Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( client->shinobi.burrowFx <= level.time ) {
 		client->shinobi.burrowFx = level.time + 110;
 		G_PlayEffectID( shinobiMedia.fxQuakeDust, feet, up );
+	}
+	{ // ...and loose earth left on the floor behind (water on it makes mud)
+		vec3_t d;
+		VectorSubtract( feet, client->shinobi.burrowDustPos, d );
+		d[2] = 0;
+		if ( VectorLength( d ) >= SHINOBI_BURROW_DUST_STEP ) {
+			VectorCopy( feet, client->shinobi.burrowDustPos );
+			Shinobi_DustAt( feet, SHINOBI_BURROW_DUST_RADIUS, ent->s.number + 1 );
+		}
 	}
 }

@@ -223,6 +223,8 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 		Shinobi_BurrowEnd( ent, qfalse );
 	if ( client->shinobi.shadowHideEnd )
 		Shinobi_ShadowHideEnd( ent );
+	if ( client->shinobi.raiDashEnd )
+		Shinobi_RaiDashEnd( ent );
 	client->shinobi.armorEnd = 0;
 	client->shinobi.blindEnd = 0;
 	if ( client->shinobi.prisonTarget || client->shinobi.prisonCaster )
@@ -384,6 +386,7 @@ Spawns a zone and resolves what it meets:
   fire on water / steam / map water   -> no fire, steam
   water on fire                       -> the fire goes out, steam there
   water next to an earth wall         -> mud
+  water on dust, dust on water        -> mud
 */
 gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs, int ownerNum ) {
 	gentity_t *z;
@@ -391,8 +394,33 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 
 	if ( radius <= 0 || lifeMs <= 0 )
 		return NULL;
-	if ( radius > SHINOBI_ZONE_MAX_RADIUS && type != SZ_MIST )
+	if ( radius > SHINOBI_ZONE_MAX_RADIUS && type != SZ_MIST && type != SZ_DUST )
 		radius = SHINOBI_ZONE_MAX_RADIUS;
+
+	if ( type == SZ_DUST ) {
+		// earth meets water: the puddles under it turn to mud; on old dust it only freshens it
+		gentity_t *same = NULL;
+		for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+			gentity_t *other = &g_entities[i];
+			vec3_t     d;
+			if ( !Shinobi_IsZone( other ) || !Shinobi_ZonesOverlap( other, origin, radius ) )
+				continue;
+			if ( ZONE_TYPE( other ) == SZ_WATER || ZONE_TYPE( other ) == SZ_ELECTRIC ) {
+				Shinobi_ZoneSetType( other, SZ_MUD, SHINOBI_MUD_MS );
+				continue;
+			}
+			if ( ZONE_TYPE( other ) != SZ_DUST || same )
+				continue;
+			VectorSubtract( other->r.currentOrigin, origin, d );
+			d[2] = 0;
+			if ( VectorLength( d ) < ZONE_RADIUS( other ) * 0.6f && ZONE_RADIUS( other ) >= radius * 0.8f )
+				same = other;
+		}
+		if ( same ) {
+			Shinobi_ZoneSetType( same, SZ_DUST, lifeMs );
+			return same;
+		}
+	}
 
 	if ( type == SZ_FIRE ) {
 		vec3_t above;
@@ -420,6 +448,11 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 		if ( !Shinobi_IsZone( other ) || !Shinobi_ZonesOverlap( other, origin, radius ) )
 			continue;
 
+		if ( type == SZ_WATER && ZONE_TYPE( other ) == SZ_DUST ) {
+			Shinobi_ZoneSetType( other, SZ_MUD, SHINOBI_MUD_MS ); // water on loose earth: mud
+			type = SZ_MUD;
+			continue;
+		}
 		if ( type == SZ_FIRE && ( ZONE_TYPE( other ) == SZ_WATER || ZONE_TYPE( other ) == SZ_ELECTRIC
 			|| ZONE_TYPE( other ) == SZ_STEAM ) ) {
 			vec3_t above;
@@ -1746,4 +1779,11 @@ qboolean Shinobi_CastWindWall( gentity_t *ent, int lvl ) {
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndWind2 );
 	return qtrue;
+}
+
+// Doton leaves loose earth behind: a patch of dust on the floor below a point
+void Shinobi_DustAt( vec3_t pos, float radius, int ownerNum ) {
+	vec3_t floor;
+	if ( Shinobi_FloorBelow( pos, 400, floor ) )
+		Shinobi_SpawnZone( SZ_DUST, floor, radius, SHINOBI_DUST_MS, ownerNum );
 }

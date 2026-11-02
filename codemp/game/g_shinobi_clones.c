@@ -725,6 +725,10 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 				clone->NPC->stats.walkSpeed = (int)( clone->NPC->stats.walkSpeed * SHINOBI_EARTHCLONE_SPEED );
 			}
 		}
+		if ( clone->shinobiCloneLightning && clone->NPC ) { // quick as lightning
+			clone->NPC->stats.runSpeed = (int)( clone->NPC->stats.runSpeed * SHINOBI_RAICLONE_RUN );
+			clone->NPC->stats.walkSpeed = (int)( clone->NPC->stats.walkSpeed * SHINOBI_RAICLONE_RUN );
+		}
 		Shinobi_CloneApplyTeam( clone, owner );
 		clone->client->leader = owner;
 		clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_FOLLOW_LEADER;
@@ -732,6 +736,10 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 	}
 
 	clone->client->leader = owner;
+	if ( clone->shinobiCloneLightning && clone->enemy && clone->NPC ) { // straight at its target
+		clone->client->leader = NULL;
+		clone->NPC->behaviorState = BS_DEFAULT;
+	}
 
 	if ( clone->enemy && !Shinobi_CloneIsHostile( clone, clone->enemy ) ) {
 		G_ClearEnemy( clone );
@@ -833,8 +841,27 @@ void Shinobi_RunFrame( void ) {
 			continue;
 		}
 
+		if ( clone->shinobiCloneEarth && clone->client )
+			clone->client->ps.eFlags |= SHINOBI_EF_STONE; // drawn as stone
+
 		if ( clone->shinobiCloneWater && clone->shinobiCloneReady && !Shinobi_WaterCloneThink( clone, owner ) )
 			continue; // burst
+
+		if ( clone->shinobiCloneLightning && clone->shinobiCloneReady ) {
+			// a living lightning trap: it homes in and goes off next to its enemy
+			gentity_t *enemy = clone->enemy;
+			if ( !enemy || !enemy->inuse || enemy->health <= 0 || !Shinobi_CloneIsHostile( clone, enemy ) ) {
+				enemy = Shinobi_CloneFindEnemy( clone );
+				if ( enemy )
+					G_SetEnemy( clone, enemy );
+			}
+			if ( enemy && Distance( enemy->r.currentOrigin, clone->r.currentOrigin ) <= SHINOBI_RAICLONE_TRIGGER ) {
+				Shinobi_Debug( "lightning clone %i goes off at %i", clone->s.number, enemy->s.number );
+				clone->health = 0;
+				Shinobi_ClonePoof( clone );
+				continue;
+			}
+		}
 
 		if ( owner->s.number < MAX_CLIENTS )
 			clonesPerOwner[owner->s.number]++;
@@ -883,8 +910,9 @@ qboolean Shinobi_CastEarthClone( gentity_t *ent ) {
 }
 
 /*
-Lightning Clone (Raiton): one at a time, 15 s; it fights, crackling. Struck
-down, its lightning breaks loose: everyone around is shocked and paralysed.
+Lightning Clone (Raiton): one at a time, 12 s; it runs at the nearest enemy
+and goes off next to it like a lightning trap (also when struck down):
+everyone around is shocked and paralysed.
 */
 qboolean Shinobi_CastRaiClone( gentity_t *ent ) {
 	static const float yaws[] = { 0, -45, 45, -90, 90, 180 };

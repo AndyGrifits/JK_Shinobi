@@ -67,7 +67,7 @@ typedef enum {
 	SJ_ARMOR,     // stone skin: 8 s, less damage, no knockdowns, slower
 	SJ_EARTHCLONE,// earth clone: a slow, tough clone that hits hard
 	SJ_RAICLONE,  // lightning clone: fights; when struck down it discharges, paralysing
-	SJ_RAIDASH,   // lightning dash: a streak forward, shocking whoever is in the way
+	SJ_RAIDASH,   // lightning dash (held): a bolt of lightning racing ahead
 	SJ_SHADOWHIDE,// shadow hide (held): melt into your shadow
 	SJ_FLASH,     // flash: blinds whoever looks at you, light chases out what hides
 	SJ_HEAL,      // healing: chakra into health
@@ -130,7 +130,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 25, 25 }, // Stone Skin
 	{ 30, 30, 30 }, // Earth Clone
 	{ 30, 30, 30 }, // Lightning Clone
-	{ 20, 30, 40 }, // Lightning Dash
+	{ 15, 15, 15 }, // Lightning Dash (held: + 40/s)
 	{ 15, 15, 15 }, // Shadow Hide (to start; then it drains while held)
 	{ 25, 25, 25 }, // Flash
 	{ 25, 40, 55 }, // Healing
@@ -142,7 +142,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
 #define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
@@ -327,10 +327,17 @@ static const int shinobiWindWallHalfW[3] = { 80, 100, 120 };
 static const int shinobiPillarRange[3]  = { 450, 550, 650 };
 static const int shinobiPillarDamage[3] = { 20, 30, 40 };
 static const int shinobiPillarLaunch[3] = { 420, 500, 580 };
-#define SHINOBI_PILLAR_RADIUS      64
+#define SHINOBI_PILLAR_RADIUS      76    // launch area (the block's footprint)
 #define SHINOBI_PILLAR_DELAY       350
-#define SHINOBI_PILLAR_LIFE        6000
+#define SHINOBI_PILLAR_LIFE        90000 // a lasting platform...
+#define SHINOBI_PILLAR_MAX         3     // ...but at most this many each: a 4th takes the oldest down
 #define SHINOBI_PILLAR_COOLDOWN    4000
+static const int shinobiPillarHealth[3] = { 60, 90, 130 };
+// the stone blocks (axis-aligned: the model is the collision box)
+#define SHINOBI_ROCK_HALF          54    // half width (both ways)
+#define SHINOBI_ROCK_HEIGHT        104   // a pillar standing on the ground
+#define SHINOBI_ROCK_LEDGE_HALF    16    // half thickness of a ledge out of a wall
+#define SHINOBI_ROCK_RISE_MS       300
 // Stone Skin
 #define SHINOBI_ARMOR_MS           8000
 #define SHINOBI_ARMOR_COOLDOWN     20000
@@ -343,16 +350,23 @@ static const int shinobiPillarLaunch[3] = { 420, 500, 580 };
 #define SHINOBI_CLONE_MELEE        0.3f  // any clone's blows: this much of its owner's
 
 // Lightning Clone: struck down, it discharges
-#define SHINOBI_RAICLONE_LIFE      15000
+#define SHINOBI_RAICLONE_LIFE      12000
+#define SHINOBI_RAICLONE_TRIGGER   80    // this close to its enemy it goes off
+#define SHINOBI_RAICLONE_RUN       1.6f  // runs this much faster than a normal clone
 #define SHINOBI_RAICLONE_RADIUS    160
 #define SHINOBI_RAICLONE_DAMAGE    15
 #define SHINOBI_RAICLONE_STUN      1300
-// Lightning Dash
-static const int shinobiRaiDashDist[3] = { 300, 450, 600 };
-#define SHINOBI_RAIDASH_WIDTH      40    // shocks whoever is this close to the streak
-#define SHINOBI_RAIDASH_DAMAGE     12
+// Lightning Dash (held): you become a bolt of lightning racing ahead (steer
+// with the mouse) for as long as you hold it and have the chakra
+#define SHINOBI_RAIDASH_SPEED      3.0f  // x run speed
+#define SHINOBI_RAIDASH_MAX_MS     4000
+#define SHINOBI_RAIDASH_TICK_MS    100
+#define SHINOBI_RAIDASH_DRAIN      4     // chakra per tick (40/s)
+#define SHINOBI_RAIDASH_WIDTH      48    // shocks whoever it passes this close to
+#define SHINOBI_RAIDASH_DAMAGE     10
 #define SHINOBI_RAIDASH_STUN       500
-#define SHINOBI_RAIDASH_COOLDOWN   5000
+#define SHINOBI_RAIDASH_REHIT_MS   800   // the same victim at most this often
+#define SHINOBI_RAIDASH_COOLDOWN   3000
 // Shadow Hide (held)
 #define SHINOBI_SHADOWHIDE_MAX_MS  6000
 #define SHINOBI_SHADOWHIDE_TICK_MS 250   // 1 chakra per tick
@@ -417,6 +431,7 @@ typedef enum {
 	SZ_ELECTRIC,  // electrified puddle: stuns and hurts, back to water later
 	SZ_ASH,       // ash cloud: blinds, chokes; any fire makes it explode
 	SZ_MIST,      // hidden mist: thick fog, puts out fire, only shapes show
+	SZ_DUST,      // loose earth and sand left by Doton; water on it (or it on water) makes mud
 	SZ_COUNT
 } shinobiZone_t;
 
@@ -432,6 +447,9 @@ static const int shinobiFireZoneLife[3]   = {   0, 5000, 7000 };
 #define SHINOBI_WET_MS             6000
 #define SHINOBI_STEAM_MS           4000
 #define SHINOBI_MUD_MS             12000
+#define SHINOBI_DUST_MS            20000
+#define SHINOBI_BURROW_DUST_STEP   64    // a patch of dust every this many units underground
+#define SHINOBI_BURROW_DUST_RADIUS 56
 #define SHINOBI_MUD_SLOW           0.5f
 #define SHINOBI_ELECTRIC_MS        3000
 #define SHINOBI_ELECTRIC_DAMAGE    3     // per zone tick
@@ -477,7 +495,7 @@ static const int shinobiBladePush[3]   = { 150, 250, 350 };
 // rate, sets people and the ground on fire. The breather moves slowly.
 #define SHINOBI_FLAME_RANGE        260
 #define SHINOBI_FLAME_CONE         0.95f  // cos of the half angle (~18 degrees)
-#define SHINOBI_FLAME_TURN         110.0f // degrees per second
+#define SHINOBI_FLAME_TURN         55.0f  // degrees per second (bots and clones turn the same stream)
 #define SHINOBI_FLAME_TICK_MS      150
 #define SHINOBI_FLAME_DAMAGE       3      // per tick (20/s)
 #define SHINOBI_FLAME_DRAIN_MS     250
@@ -656,10 +674,14 @@ const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
 #define SHINOBI_STAT_ARMOR         4096  // Stone Skin
 #define SHINOBI_STAT_SHADOWHIDE    8192  // melted into the shadow
 #define SHINOBI_STAT_BLIND         16384 // blinded by a Flash
+#define SHINOBI_STAT_RAIDASH       32768 // a bolt of lightning (Lightning Dash held)
 // out of sight: Kawarimi-hidden or burrowed (no targeting, no body collisions)
 #define SHINOBI_UNSEEN(ps)         ( SHINOBI_HIDDEN( ps ) || ( (ps)->stats[STAT_SHINOBI] & ( SHINOBI_STAT_BURROW | SHINOBI_STAT_SHADOWHIDE ) ) )
 
 // eye techniques, shown to everyone (the two spare eFlags2 bits)
+// eFlags bits the stock game leaves unused (seen by everyone)
+#define SHINOBI_EF_STONE           (1<<12) // Stone Skin / Earth Clone: drawn as stone
+#define SHINOBI_EF_RAIDASH         (1<<15) // Lightning Dash: drawn as a bolt, the body hidden
 #define SHINOBI_EF2_SHARINGAN      (1<<8)
 #define SHINOBI_EF2_BYAKUGAN       (1<<9)
 
@@ -906,17 +928,17 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
 	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
 	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through",
-	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it; puddles turn to mud. Jump!",
+	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it and leaves dust (water makes it mud). Jump!",
 	"a wall of wind ahead (2-4 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
 	"passive: jumps and wall runs cost half the chakra, no falling damage",
 	"15 s: fists and blade throw air slashes a few metres ahead and cut through guards (not a perfect parry)",
 	"15 s: fists and blade hit 20% harder, 3x against earth walls and other stone",
-	"hold F: go under the ground (a trail of dust shows where); let go or attack to burst out, launching whoever is above",
-	"a stone pillar erupts where you look, launching whoever stands there; it stays a while as cover",
+	"hold F: go under the ground, leaving a trail of dust; let go or attack to burst out, launching whoever is above",
+	"a wide stone block erupts where you look (on a wall: a ledge out of it), launching whoever is there; stays 90 s, 3 at most; broken, it leaves dust",
 	"8 s: 40% less damage, no knockdowns or knockback, a bit slower; Lightning cuts through it",
-	"a slow, tough earth clone (25 s); crumbles into mud",
-	"a clone of lightning (15 s) that fights; struck down, it discharges and paralyses everyone around",
-	"a streak of lightning straight ahead: shocks and stuns whoever is in the way",
+	"a slow, tough clone of stone (25 s); crumbles into mud",
+	"a clone of lightning that runs at the nearest enemy and goes off like a lightning trap: shock and paralysis around it",
+	"hold F: become a bolt of lightning racing ahead (steer with the mouse), shocking whoever you pass; 40 chakra/s",
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
 	"chakra into health: 20 / 35 / 50 back"

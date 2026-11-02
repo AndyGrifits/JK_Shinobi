@@ -2,6 +2,16 @@
 
 Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, built on [OpenJK](https://github.com/JACoders/OpenJK) (GPLv2).
 
+## Dust and mud
+
+Doton leaves loose earth (a sandy patch, 20 s): the Earthquake over its whole area,
+Burrow along its trail, broken earth walls / Rock Pillar blocks where they stood.
+Water on dust or dust on water makes mud (slows), whichever comes first.
+
+Puddles are a low dome of rippling water. The game lists the stock water shaders once
+into `shinobi_water_shaders.txt` (in the shinobi folder); `shinobi_puddleShader <name>`
+puts one of them on the puddles instead (takes effect on the next map load).
+
 ## No guns
 
 Players only ever hold fists, the saber and the three tool weapons (explosive kunai,
@@ -129,7 +139,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Rasengan | ball in hand; attack = dash strike, knockdown. Size, damage (40/60/90) and knockback grow with level. Also hits earth walls | 25/40/60 |
 | Chidori | lightning in hand; attack = long dash (380/495/620 units) leaving a lightning streak, 50/75/105 damage, electrocutes | 25/40/60 |
 | Katon | great fireball, cast at 2 or 3 bars only (letting go earlier cancels): slow and dodgeable, 60+80 / 95+120 damage, blast radius 190/260, leaves the ground burning; flying through ash blows it up | -/30/50 |
-| Fire Breath | hold F: a cone of fire (260 units) that follows your aim at a limited turn rate; 20 damage/s, sets people and the ground alight; you walk slowly | 10 + 12/s |
+| Fire Breath | hold F: a cone of fire (260 units) that follows your aim at a limited turn rate (55°/s, bots and clones too); 20 damage/s, sets people and the ground alight; you walk slowly | 10 + 12/s |
 | Ash Cloud | a cloud of hot ash 200 units ahead (radius 110/150/190, 9 s): blinds (the screen goes dark inside), chokes; any fire (fireball, fire breath, burning ground, Chidori) blows it up for 35/50/70 and leaves burning ground; wind blows it away | 20/30/40 |
 | Doton | earth wall (F again next to your wall: push it - a wave of earth that shoves people 240/320/400 units, 15/25/35 damage, crushes anyone pinned against a wall for 30/45/60 and a knockdown, then crumbles; 15 chakra): 3/5/7 stone pillars, 35/57/85 shared HP (a Lv1 Rasengan takes 70% of a Lv2 wall); at half HP the 1st, 3rd, 5th... pillars crumble | 15/30/50 |
 | Kage Bunshin | 1/2/3 clones in a big smoke cloud, the original lands in a random spot; each clone drains 3 chakra/s | 25/45/70 |
@@ -141,17 +151,17 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Water Prison | hold F: the enemy within reach in front floats in a ball of water for as long as you hold the key and have chakra: no moving, no attacking, slowly drowns (8/s). You must hold still; releasing, attacking, jumping or getting hit lets go. Only Kawarimi gets the victim out. When it bursts the victim gasps for air for 0.5 s (can't move or attack): a free hit | 20 + 8/s |
 | Water Clone | a clone of you made of water (20 s, one hit bursts it into a puddle). It fights like a shadow clone and, on its own, uses the jutsu that comes **after Water Clone in your build list** (Water Prison: it holds the prison for you while you hit the victim; also bullets, wave, winds, Katon, ash, fire breath, shadow bind). Everything it casts costs your chakra. One at a time | 25 |
 | Hidden Mist | `kirigakure`: a bank of fog around you, radius 260 / 340 / 420 for 10 / 13 / 16 s. Inside, a fog sheet covers the view; only the mist's maker sees people within 450 u as dark silhouettes (not through walls); puts out burning people. Storm Wind blows it away; the Byakugan sees through it (the Sharingan does not) | 20 / 30 / 40 |
-| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
+| Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s), radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (20 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
 | Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 2 / 3 / 4 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
 | Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
-| Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out), a dust trail follows you. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
-| Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a stone pillar erupts there launching whoever stands on it (20 / 30 / 40, knockdown); the pillar stays 6 s as cover (an earth wall of one: pushable, breakable, Lightning x3). 4 s cooldown | 20 / 30 / 40 |
-| Stone Skin | `tsuchiyoroi`, Doton, instant: 8 s of -40% damage, no knockdowns or knockback, 0.85x speed; Lightning Edge hits ignore it. 20 s cooldown | 25 |
-| Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone for 25 s ; crumbles into mud. One at a time | 30 |
-| Lightning Clone | `raibunshin`, Raiton, instant: a crackling clone for 15 s that fights; struck down, it discharges: 15 damage and a 1.3 s paralysis to everyone within 160 u, puddles electrified. One at a time | 30 |
-| Lightning Dash | `raido`, Raiton: a streak 300 / 450 / 600 u straight ahead; whoever is within ~40 u of it takes 12 and a 0.5 s stun; puddles on the way are electrified. 5 s cooldown | 20 / 30 / 40 |
+| Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out); a dust trail follows you and leaves patches of dust on the floor every 64 u. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
+| Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a wide stone block (108 x 108, 104 high: jump on it) erupts there, launching whoever is on the spot (20 / 30 / 40, knockdown). Aimed at a wall: a ledge (108 x 108 x 32) sticks out of it instead, shoving people off the wall. Blocks are axis-aligned, stay 90 s, take 60 / 90 / 130 damage (Lightning x3), are not pushable; at most 3 per caster (a 4th takes the oldest down). Broken, they leave dust. 4 s cooldown | 20 / 30 / 40 |
+| Stone Skin | `tsuchiyoroi`, Doton, instant: 8 s of -40% damage, no knockdowns or knockback, 0.85x speed; the body is drawn as stone. Lightning Edge hits ignore it. 20 s cooldown | 25 |
+| Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone of stone (drawn as stone) for 25 s; crumbles into mud. One at a time | 30 |
+| Lightning Clone | `raibunshin`, Raiton, instant: a crackling clone (12 s, runs 1.6x) that homes in on the nearest enemy and goes off within 80 u of it - or when struck down: 15 damage and a 1.3 s paralysis to everyone within 160 u, puddles electrified. One at a time | 30 |
+| Lightning Dash | `raido`, Raiton, hold F: you become a bolt of lightning (body hidden) racing ahead at 3x speed, steered with the mouse, no jumping or attacks; 40 chakra/s, up to 4 s. Whoever you pass within ~48 u takes 10 and a 0.5 s stun (once per 0.8 s); puddles you cross are electrified. 3 s cooldown after | 15 + 40/s |
 | Shadow Hide | `kagegakure`, Yin, hold F: melt into your shadow (4 chakra/s, up to 6 s, 0.7x speed): others see only a dark patch (the Byakugan sees you); fists, blades and missiles pass over it, fire and lightning drive you out. Let go or attack to rise. 8 s cooldown | 15 |
 | Flash | `senko`, Yang, instant: everyone within 550 u who can see you and looks your way is blinded for 2.5 s (bots and NPCs reel); Kawarimi and Shadow Hide around you are flushed out. 10 s cooldown | 25 |
 | Healing | `shosen`, Yang: 20 / 35 / 50 health back. 10 s cooldown | 25 / 40 / 55 |

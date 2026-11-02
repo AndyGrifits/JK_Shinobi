@@ -12,6 +12,9 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 #include "game/bg_shinobi.h"
 #include "ui/menudef.h"
 #include "ui/ui_public.h"
+
+static void CG_ShinobiDumpWaterShaders( void );
+static void CG_ShinobiRaiDashForm( centity_t *cent );
 #include "fx_local.h"
 #include "ui/keycodes.h"
 
@@ -22,6 +25,7 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
+	qhandle_t sand, puddleWater, stoneShell;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -161,6 +165,16 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
 	shinobiShaders.fogScreen  = trap->R_RegisterShader( "gfx/shinobi/fogscreen" );
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
+	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
+	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
+	{ // puddles: a stock water surface when one is named (cvar), our own otherwise
+		char name[MAX_QPATH];
+		trap->Cvar_VariableStringBuffer( "shinobi_puddleShader", name, sizeof( name ) );
+		shinobiShaders.puddleWater = name[0] ? trap->R_RegisterShader( name ) : 0;
+		if ( !shinobiShaders.puddleWater )
+			shinobiShaders.puddleWater = trap->R_RegisterShader( "gfx/shinobi/puddlewater" );
+	}
+	CG_ShinobiDumpWaterShaders();
 
 	memset( &shinobiCharge, 0, sizeof( shinobiCharge ) );
 	shinobiSel.jumpHeld = qfalse;
@@ -469,6 +483,116 @@ static void CG_ShinobiGroundDecal( const vec3_t org, float radius, float rotatio
 	trap->R_AddPolysToScene( shader, 4, v, 1 );
 }
 
+/*
+A puddle: a low dome of water over a ragged outline (rim at the floor, the
+middle a few units up), so it reads as water lying on the ground.
+*/
+static void CG_ShinobiPuddle( const vec3_t org, float R, int seed, float a, float bright ) {
+	enum { N = 18 };
+	polyVert_t  fan[N * 3], ring[N * 4];
+	vec3_t      rim[N], mid[N], top;
+	float       rimR[N];
+	int         i, k;
+	const byte  ca = (byte)( Com_Clamp( 0, 1, a * 0.85f ) * 255 );
+	const byte  ea = (byte)( Com_Clamp( 0, 1, a * 0.35f ) * 255 );
+	const byte  shine = (byte)( Com_Clamp( 0, 1, 0.35f * bright * a ) * 255 ); // the additive sheen
+
+	if ( R <= 0 || a <= 0 || !shinobiShaders.puddleWater )
+		return;
+	for ( i = 0; i < N; i++ ) {
+		const float ang = 2 * M_PI * i / N;
+		const int   h = ( seed * 7919 + i * 104729 ) & 1023;
+		rimR[i] = R * ( 0.82f + 0.18f * ( h / 1023.0f ) );
+		VectorSet( rim[i], org[0] + cosf( ang ) * rimR[i], org[1] + sinf( ang ) * rimR[i], org[2] + 0.8f );
+		VectorSet( mid[i], org[0] + cosf( ang ) * rimR[i] * 0.6f, org[1] + sinf( ang ) * rimR[i] * 0.6f, org[2] + 2.6f );
+	}
+	VectorSet( top, org[0], org[1], org[2] + 3.4f );
+
+#define PV( v, p, alpha ) do { VectorCopy( p, (v).xyz ); (v).st[0] = (p)[0] / 96.0f; (v).st[1] = (p)[1] / 96.0f; \
+	(v).modulate[0] = (v).modulate[1] = (v).modulate[2] = shine; (v).modulate[3] = alpha; } while ( 0 )
+	for ( i = 0, k = 0; i < N; i++ ) {
+		const int j = ( i + 1 ) % N;
+		PV( fan[k], top, ca ); k++;
+		PV( fan[k], mid[i], ca ); k++;
+		PV( fan[k], mid[j], ca ); k++;
+	}
+	trap->R_AddPolysToScene( shinobiShaders.puddleWater, 3, fan, N );
+	for ( i = 0, k = 0; i < N; i++ ) {
+		const int j = ( i + 1 ) % N;
+		PV( ring[k], mid[i], ca ); k++;
+		PV( ring[k], rim[i], ea ); k++;
+		PV( ring[k], rim[j], ea ); k++;
+		PV( ring[k], mid[j], ca ); k++;
+	}
+	trap->R_AddPolysToScene( shinobiShaders.puddleWater, 4, ring, N );
+#undef PV
+}
+
+/*
+Once per install: list the stock water shaders (name + body) into
+shinobi_water_shaders.txt, so a real water surface can be picked for the
+puddles (shinobi_puddleShader).
+*/
+static void CG_ShinobiDumpWaterShaders( void ) {
+	static char  list[16384], text[262144];
+	fileHandle_t out, f;
+	int          n, i, len, total = 0;
+	char        *name;
+
+	if ( trap->FS_Open( "shinobi_water_shaders.txt", &out, FS_READ ) >= 0 && out ) {
+		trap->FS_Close( out );
+		return; // done before
+	}
+	if ( trap->FS_Open( "shinobi_water_shaders.txt", &out, FS_WRITE ) < 0 || !out )
+		return;
+	n = trap->FS_GetFileList( "shaders", ".shader", list, sizeof( list ) );
+	for ( i = 0, name = list; i < n && total < 400000; i++, name += strlen( name ) + 1 ) {
+		char *p, *start;
+		int   depth = 0;
+
+		len = trap->FS_Open( va( "shaders/%s", name ), &f, FS_READ );
+		if ( len <= 0 || !f )
+			continue;
+		if ( len >= (int)sizeof( text ) )
+			len = sizeof( text ) - 1;
+		trap->FS_Read( text, len, f );
+		trap->FS_Close( f );
+		text[len] = 0;
+
+		// top-level blocks whose name mentions water
+		for ( p = start = text; *p; p++ ) {
+			if ( p[0] == '/' && p[1] == '/' ) { // comment
+				while ( *p && *p != '\n' )
+					p++;
+				if ( !*p )
+					break;
+				continue;
+			}
+			if ( *p == '{' ) {
+				depth++; // a top-level block's name lies in start..p
+			}
+			else if ( *p == '}' && depth > 0 && !--depth ) {
+				char head[128];
+				int  hl = 0;
+				char *q = start;
+				while ( q < p && hl < (int)sizeof( head ) - 1 && *q != '{' )
+					head[hl++] = *q++;
+				head[hl] = 0;
+				if ( Q_stristr( head, "water" ) || Q_stristr( head, "liquid" ) ) {
+					const int bl = (int)( p + 1 - start );
+					const char *hdr = va( "\n// ---- %s\n", name );
+					trap->FS_Write( hdr, strlen( hdr ), out );
+					trap->FS_Write( start, bl, out );
+					total += bl;
+				}
+				start = p + 1;
+			}
+		}
+	}
+	trap->FS_Close( out );
+	trap->Print( "[shinobi] stock water shaders listed in shinobi_water_shaders.txt (%i files scanned)\n", n );
+}
+
 // random point on the floor inside a zone
 static void CG_ShinobiZonePoint( const vec3_t org, float radius, vec3_t out ) {
 	const float ang = flrand( 0, 2 * M_PI );
@@ -585,6 +709,9 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 
 	CG_ShinobiDrawEyes( cent, ci );
 
+	if ( s->eFlags & SHINOBI_EF_RAIDASH )
+		CG_ShinobiRaiDashForm( cent );
+
 	if ( SHINOBI_HAND_ANY( s ) ) {
 		const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( s );
 		const qboolean forming = SHINOBI_HAND_FORMING( s );
@@ -622,7 +749,7 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 			cent->shinobiHandFxTime = cg.time + SHINOBI_HAND_FX_INTERVAL;
 		}
 	}
-	else {
+	else if ( !( s->eFlags & SHINOBI_EF_RAIDASH ) ) {
 		cent->shinobiTrailTime = 0;
 	}
 
@@ -791,9 +918,7 @@ static void CG_ShinobiWave( centity_t *cent ) {
 		const float bob = 4.0f * sinf( t * 9.0f + k * 1.7f );
 		VectorMA( cent->lerpOrigin, x, right, pos );
 		pos[2] += H * 0.4f + bob;
-		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.4f );
-		if ( k % 2 == 0 )
-			CG_ShinobiRefract( pos, H * 0.8f, 190 ); // the water bends the floor behind it
+		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.6f );
 	}
 
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
@@ -873,11 +998,11 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		break;
 	}
 	case SZ_WATER:
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.puddle, 0.45f, 0.65f, 0.9f, 0.85f * a );
+		CG_ShinobiPuddle( org, R, s->number, a, 0.6f );
 		break;
 	case SZ_ELECTRIC: {
 		const float f = flrand( 0.5f, 1.0f );
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.puddle, 0.6f, 0.85f, 1.0f, a );
+		CG_ShinobiPuddle( org, R, s->number, a, 1.0f );
 		p[0] = org[0]; p[1] = org[1]; p[2] = org[2] + 16;
 		trap->R_AddLightToScene( p, R * 1.4f * f * a, 0.5f, 0.7f, 1.0f );
 		fx = shinobiFx.zoneSpark;
@@ -886,6 +1011,13 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	}
 	case SZ_MUD:
 		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
+		break;
+	case SZ_DUST: // loose earth: sand on the floor, a puff of dust now and then
+		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.sand, 1, 1, 1, 0.9f * a );
+		fx = shinobiFx.quakeDust;
+		interval = (int)( 900 / ( area < 0.3f ? 0.3f : area ) );
+		if ( interval < 160 )
+			interval = 160; // a wide quake field: still only a few puffs
 		break;
 	case SZ_STEAM:
 		fx = shinobiFx.steam;
@@ -1038,6 +1170,18 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 
 	if ( cg.time >= s->time2 + 200 )
 		return;
+	if ( s->angles2[1] ) { // out of a wall: stone dust bursting from it
+		if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
+			vec3_t dir, right;
+			VectorCopy( s->origin2, dir );
+			PerpendicularVector( right, dir );
+			VectorMA( cent->lerpOrigin, flrand( -SHINOBI_ROCK_HALF, SHINOBI_ROCK_HALF ), right, p );
+			p[2] += flrand( -SHINOBI_ROCK_LEDGE_HALF, SHINOBI_ROCK_LEDGE_HALF );
+			trap->FX_PlayEffectID( shinobiFx.quakeDust, p, dir, -1, -1, qfalse );
+			cent->shinobiHandFxTime = cg.time + 40;
+		}
+		return;
+	}
 	CG_ShinobiGroundDecal( cent->lerpOrigin, SHINOBI_PILLAR_RADIUS * pulse, cg.time * 0.1f, shinobiShaders.ring, 0.8f, 0.55f, 0.25f, 1.0f );
 	CG_ShinobiGroundDecal( cent->lerpOrigin, SHINOBI_PILLAR_RADIUS, 0, shinobiShaders.mud, 0.7f, 0.6f, 0.5f, 0.7f );
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
@@ -1418,6 +1562,42 @@ void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
 	shell.renderfx |= RF_MINLIGHT | RF_NODEPTH | RF_FORCEPOST; // over walls and over the mist
 	shell.customShader = cgs.media.sightShell;
 	trap->R_AddRefEntityToScene( &shell );
+}
+
+// Stone Skin / Earth Clone: the body turned to rough stone
+void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body ) {
+	refEntity_t shell;
+
+	if ( !( cent->currentState.eFlags & SHINOBI_EF_STONE ) || ( cent->currentState.eFlags & ( EF_DEAD | SHINOBI_EF_RAIDASH ) )
+		|| !shinobiShaders.stoneShell )
+		return;
+	shell = *body;
+	shell.customShader = shinobiShaders.stoneShell;
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT );
+	shell.shaderRGBA[0] = shell.shaderRGBA[1] = shell.shaderRGBA[2] = shell.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
+// Lightning Dash: a crackling bolt where the body would be
+static void CG_ShinobiRaiDashForm( centity_t *cent ) {
+	vec3_t org, head, feet, a, b;
+	vec3_t blue = { 0.6f, 0.8f, 1.0f };
+	int    i;
+
+	VectorCopy( cent->lerpOrigin, org );
+	VectorCopy( org, head );
+	head[2] += 28;
+	VectorCopy( org, feet );
+	feet[2] -= 20;
+	CG_ShinobiDrawChidori( org, 26, qfalse );
+	CG_ShinobiChidoriTrail( cent, org, 26 );
+	trap->R_AddLightToScene( org, 220 * flrand( 0.7f, 1.0f ), 0.55f, 0.75f, 1.0f );
+	for ( i = 0; i < 3; i++ ) { // the body's outline flickering as forks of lightning
+		VectorSet( a, feet[0] + flrand( -10, 10 ), feet[1] + flrand( -10, 10 ), feet[2] + flrand( 0, 16 ) );
+		VectorSet( b, head[0] + flrand( -10, 10 ), head[1] + flrand( -10, 10 ), head[2] + flrand( -8, 8 ) );
+		trap->FX_AddLine( a, b, 2.5f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, blue, blue, 0.0f, 60,
+			shinobiShaders.bolt, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
 }
 
 // Sharingan red / Byakugan pale glints at the eyes, seen by everyone

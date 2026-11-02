@@ -410,8 +410,9 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	}
 	if ( client->shinobi.blocking && ent->s.number < MAX_CLIENTS )
 		return qfalse; // guard up: no jutsu
-	if ( ( client->shinobi.burrowEnd && jutsu != SJ_BURROW ) || ( client->shinobi.shadowHideEnd && jutsu != SJ_SHADOWHIDE ) )
-		return qfalse; // under the ground / in the shadow: come out first
+	if ( ( client->shinobi.burrowEnd && jutsu != SJ_BURROW ) || ( client->shinobi.shadowHideEnd && jutsu != SJ_SHADOWHIDE )
+		|| ( client->shinobi.raiDashEnd && jutsu != SJ_RAIDASH ) )
+		return qfalse; // under the ground / in the shadow / a bolt of lightning: come out first
 	if ( jutsu != SJ_KAWARIMI ) {
 		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
 			return qfalse; // in a Water Prison or a Shadow Bind only Kawarimi works
@@ -460,7 +461,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_ARMOR:    cast = Shinobi_CastArmor( ent ); break;
 	case SJ_EARTHCLONE: cast = Shinobi_CastEarthClone( ent ); break;
 	case SJ_RAICLONE: cast = Shinobi_CastRaiClone( ent ); break;
-	case SJ_RAIDASH:  cast = Shinobi_CastRaiDash( ent, lvl ); break;
+	case SJ_RAIDASH:  cast = Shinobi_CastRaiDash( ent ); break;
 	case SJ_SHADOWHIDE: cast = Shinobi_CastShadowHide( ent ); break;
 	case SJ_FLASH:    cast = Shinobi_CastFlash( ent ); break;
 	case SJ_HEAL:     cast = Shinobi_CastHeal( ent, lvl ); break;
@@ -571,7 +572,7 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		Shinobi_Cast( ent, jutsu, 1 );
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
-			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) )
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -603,6 +604,8 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_ShadowHideEnd( ent );
 		else if ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt )
 			Shinobi_ShadowRelease( ent );
+		else if ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
+			Shinobi_RaiDashEnd( ent );
 		return;
 	}
 	if ( level.time - client->shinobi.chargeStart

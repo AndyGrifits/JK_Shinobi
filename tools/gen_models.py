@@ -439,6 +439,41 @@ def build_box(hx, hy, hz):
     return verts, uvs, normals, tris
 
 
+def build_rockbox(hx, hy, z0, z1, seed, grid=4, bump=3.5):
+    """A rough stone block: an axis-aligned box (it is the collision box) whose
+    faces are subdivided and bumped in and out a little, sharp at the edges."""
+    rng = random.Random(seed)
+    verts, uvs, tris = [], [], []
+    cz = (z0 + z1) / 2.0
+    h = (hx, hy, (z1 - z0) / 2.0)
+    faces = [((1, 0, 0), (0, 1, 0), (0, 0, 1)), ((-1, 0, 0), (0, -1, 0), (0, 0, 1)),
+             ((0, 1, 0), (-1, 0, 0), (0, 0, 1)), ((0, -1, 0), (1, 0, 0), (0, 0, 1)),
+             ((0, 0, 1), (1, 0, 0), (0, 1, 0)), ((0, 0, -1), (1, 0, 0), (0, -1, 0))]
+    for n, u, v in faces:
+        base = len(verts)
+        for j in range(grid + 1):
+            for i in range(grid + 1):
+                su = -1 + 2.0 * i / grid
+                sv = -1 + 2.0 * j / grid
+                p = [n[k] * h[k] + u[k] * su * h[k] + v[k] * sv * h[k] for k in range(3)]
+                if 0 < i < grid and 0 < j < grid:
+                    d = rng.uniform(-bump, bump * 0.6)
+                    for k in range(3):
+                        p[k] += n[k] * d
+                p[2] += cz
+                verts.append(tuple(p))
+                # world-scaled texture coordinates (128 units per repeat)
+                uu = sum(u[k] * su * h[k] for k in range(3)) / 128.0
+                vv = -sum(v[k] * sv * h[k] for k in range(3)) / 128.0
+                uvs.append((uu, vv))
+        for j in range(grid):
+            for i in range(grid):
+                a = base + j * (grid + 1) + i
+                tris += [(a, a + 1, a + grid + 2), (a, a + grid + 2, a + grid + 1)]
+    normals, tris = finish(verts, tris, lambda c: (c[0], c[1], c[2] - cz))
+    return verts, uvs, normals, tris
+
+
 def build_sphere(radius=5.0, rings=6, segs=10):
     verts, uvs, tris = [], [], []
     for i in range(rings + 1):
@@ -474,6 +509,11 @@ def main():
     verts, uvs, normals, tris = build_log()
     write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
     print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")
+    # Rock Pillar blocks (collision boxes in bg_shinobi.h: SHINOBI_ROCK_*)
+    for name, mesh in (("rock_block", build_rockbox(54, 54, -16, 104, 301)),
+                       ("rock_ledge", build_rockbox(54, 54, -16, 16, 302, grid=4, bump=2.5))):
+        write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh)
+        print("models/shinobi/" + name + ".md3", len(mesh[0]), "verts", len(mesh[3]), "tris")
     for i in range(1, 4):
         verts, uvs, normals, tris = build_pillar(seed=100 + i, sides=6 + i % 3)
         name = "models/shinobi/earth_pillar%d.md3" % i

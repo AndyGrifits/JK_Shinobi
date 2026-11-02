@@ -179,9 +179,9 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	if ( Shinobi_Cast( ent, jutsu, lvl ) ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
-			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) ) {
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd ) ) {
 			client->shinobi.chargeJutsu = jutsu; // held: let go a bit later (Shinobi_BotThink)
-			client->shinobi.botHoldEnd = level.time + Q_irand( 1200, 2800 );
+			client->shinobi.botHoldEnd = level.time + ( jutsu == SJ_RAIDASH ? Q_irand( 500, 1100 ) : Q_irand( 1200, 2800 ) );
 		}
 		client->shinobi.botJutsuNext = level.time + Q_irand( 1500, 3000 );
 		Shinobi_Debug( "bot %i: force %i -> %s Lv%i", ent->s.number, forcePower, shinobiJutsuTitles[jutsu], lvl );

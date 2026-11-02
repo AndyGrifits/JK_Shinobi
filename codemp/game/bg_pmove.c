@@ -8399,6 +8399,10 @@ void BG_AdjustClientSpeed(playerState_t *ps, usercmd_t *cmd, int svTime)
 		ps->speed *= 0.75f;
 	}
 
+	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_RAIDASH )
+	{ // JK_Shinobi: Lightning Dash
+		ps->speed *= SHINOBI_RAIDASH_SPEED;
+	}
 	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_ARMOR )
 	{ // JK_Shinobi: Stone Skin is heavy
 		ps->speed *= SHINOBI_ARMOR_SPEED;
@@ -10355,6 +10359,17 @@ static void PM_ShinobiPreMove( void )
 		ps->forceHandExtend = HANDEXTEND_TAUNT;
 		ps->forceDodgeAnim = SHINOBI_STAGGER_ANIM;
 		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_RAIDASH )
+	{ // a bolt of lightning: always racing ahead, steered with the view; no jumping, no swings
+		pm->cmd.forwardmove = 127;
+		pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
+			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | SHINOBI_BUTTON_BLOCK );
 	}
 	else if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_BURROW | SHINOBI_STAT_SHADOWHIDE ) )
 	{ // under the ground / in the shadow: no jumping, no swings (attacking brings you out, on the server)

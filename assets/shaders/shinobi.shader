@@ -156,6 +156,53 @@ gfx/shinobi/mud
 	}
 }
 
+// loose earth left by Doton (SZ_DUST decal)
+gfx/shinobi/sand
+{
+	cull none
+	polygonOffset
+	{
+		map gfx/shinobi/sand
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// puddle surface (a raised lens drawn by the cgame): rippling water + a moving sheen.
+// Vertex colour = how bright the sheen is, vertex alpha = how solid the water is.
+gfx/shinobi/puddlewater
+{
+	cull none
+	sort 9
+	{
+		map gfx/shinobi/watertile
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen const ( 0.55 0.7 0.85 )
+		alphaGen vertex
+		tcMod turb 0 0.03 0 0.12
+		tcMod scroll 0.03 0.015
+	}
+	{
+		map gfx/shinobi/watertile
+		blendFunc GL_ONE GL_ONE
+		rgbGen vertex
+		tcGen environment
+		tcMod scroll -0.02 0.03
+	}
+}
+
+// Stone Skin / Earth Clone: the body drawn over as rough stone
+gfx/shinobi/stoneshell
+{
+	deformVertexes wave 100 sin 0.6 0 0 0
+	{
+		map models/shinobi/earth_rock
+		rgbGen lightingDiffuse
+		tcMod scale 2 2
+	}
+}
+
 gfx/shinobi/scorch
 {
 	cull none

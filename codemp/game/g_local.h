@@ -879,6 +879,10 @@ struct gclient_s {
 		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
+		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)
+		int		raiShockAt;		// last shocked by a Lightning Dash (victim)
+		vec3_t	burrowDustPos;	// where the burrow trail left its last dust
+		int		pillars[SHINOBI_PILLAR_MAX]; // Rock Pillar controllers (num + 1), oldest first
 		int		toolNext;		// next explosive kunai / tag / shuriken
 		int		armorEnd, armorNext, armorFx; // Stone Skin
 		int		hiraishinNext;	// Hiraishin cooldown end

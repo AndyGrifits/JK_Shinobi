@@ -203,18 +203,17 @@ qboolean Shinobi_CastHeal( gentity_t *ent, int lvl ) {
 
 /*
 ---------------------------------------------------------------------------
-Lightning Dash (Raiton): a streak straight ahead; whoever is in the way is
-shocked (damage, a short stun). Puddles along it are electrified.
+Lightning Dash (Raiton, held): you become a bolt of lightning racing ahead
+(Pmove forces the run, 3x speed, steered with the mouse) for as long as the
+key is held and the chakra lasts. Whoever you pass close to is shocked
+(damage, a short stun); puddles you cross are electrified.
 ---------------------------------------------------------------------------
 */
-qboolean Shinobi_CastRaiDash( gentity_t *ent, int lvl ) {
+qboolean Shinobi_CastRaiDash( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	vec3_t     yaw, fwd, start, end, d, p, up = { 0, 0, 1 };
-	trace_t    tr;
-	float      len, k;
-	int        i;
+	vec3_t     up = { 0, 0, 1 };
 
-	if ( SHINOBI_HAND_ANY( &client->ps ) )
+	if ( SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.raiDashEnd )
 		return qfalse;
 	if ( client->shinobi.raiDashNext > level.time ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
@@ -222,38 +221,74 @@ qboolean Shinobi_CastRaiDash( gentity_t *ent, int lvl ) {
 			( client->shinobi.raiDashNext - level.time ) / 1000.0f ) );
 		return qfalse;
 	}
-	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
-	AngleVectors( yaw, fwd, NULL, NULL );
-	VectorCopy( client->ps.origin, start );
-	start[2] += 1;
-	VectorMA( start, shinobiRaiDashDist[lvl - 1], fwd, end );
-	trap->Trace( &tr, start, ent->r.mins, ent->r.maxs, end, ent->s.number, MASK_PLAYERSOLID & ~CONTENTS_BODY, qfalse, 0, 0 );
-	if ( tr.startsolid || tr.allsolid ) {
-		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		return qfalse;
-	}
-	VectorSubtract( tr.endpos, start, d );
-	len = VectorLength( d );
-	if ( len < 64 ) {
-		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		return qfalse;
-	}
-	// don't end up inside someone: step back along the streak until clear
-	VectorCopy( tr.endpos, end );
-	for ( k = 0; k < len - 32; k += 24 ) {
-		trace_t clear;
-		trap->Trace( &clear, end, ent->r.mins, ent->r.maxs, end, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
-		if ( !clear.startsolid && !clear.allsolid )
-			break;
-		VectorMA( end, -24, fwd, end );
-	}
-	client->shinobi.raiDashNext = level.time + SHINOBI_RAIDASH_COOLDOWN;
+	client->shinobi.raiDashEnd = level.time + SHINOBI_RAIDASH_MAX_MS;
+	client->shinobi.raiDashTick = level.time + SHINOBI_RAIDASH_TICK_MS;
+	client->shinobi.raiDashFx = 0;
+	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_RAIDASH;
+	client->ps.eFlags |= SHINOBI_EF_RAIDASH;
+	G_PlayEffectID( shinobiMedia.fxChidoriHit[1], client->ps.origin, up );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndChidoriDash );
+	return qtrue;
+}
 
-	// shock whoever stands along the streak
+void Shinobi_RaiDashEnd( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 };
+
+	if ( !client->shinobi.raiDashEnd )
+		return;
+	client->shinobi.raiDashEnd = 0;
+	client->shinobi.raiDashNext = level.time + SHINOBI_RAIDASH_COOLDOWN;
+	client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_RAIDASH;
+	client->ps.eFlags &= ~SHINOBI_EF_RAIDASH;
+	if ( client->shinobi.chargeJutsu == SJ_RAIDASH )
+		client->shinobi.chargeJutsu = SJ_NONE;
+	if ( ent->health > 0 )
+		G_PlayEffectID( shinobiMedia.fxChidoriHit[0], client->ps.origin, up );
+}
+
+static void Shinobi_RaiDashThink( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 }, feet;
+	int        i;
+
+	if ( !client->shinobi.raiDashEnd ) {
+		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_RAIDASH;
+		client->ps.eFlags &= ~SHINOBI_EF_RAIDASH;
+		return;
+	}
+	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR || level.time >= client->shinobi.raiDashEnd
+		|| !Shinobi_CanAct( ent ) || client->shinobi.stunEnd > level.time || client->shinobi.prisonCaster
+		|| client->shinobi.shadowBy || ( client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) ) {
+		Shinobi_RaiDashEnd( ent );
+		return;
+	}
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	while ( client->shinobi.raiDashTick <= level.time ) {
+		client->shinobi.raiDashTick += SHINOBI_RAIDASH_TICK_MS;
+		if ( client->ps.fd.forcePower < SHINOBI_RAIDASH_DRAIN ) {
+			client->ps.fd.forcePower = 0;
+			trap->SendServerCommand( ent - g_entities, "cp \"Out of chakra: the lightning fades\"" );
+			Shinobi_RaiDashEnd( ent );
+			return;
+		}
+		client->ps.fd.forcePower -= SHINOBI_RAIDASH_DRAIN;
+	}
+	client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_RAIDASH;
+	client->ps.eFlags |= SHINOBI_EF_RAIDASH;
+
+	// puddles under the bolt crackle
+	VectorCopy( client->ps.origin, feet );
+	feet[2] += ent->r.mins[2] + 2;
+	if ( client->shinobi.raiDashFx <= level.time ) {
+		client->shinobi.raiDashFx = level.time + 150;
+		Shinobi_ElectrifyAt( feet, ent->s.number + 1 );
+	}
+
+	// shock whoever the bolt passes
 	for ( i = 0; i < level.num_entities; i++ ) {
 		gentity_t *v = &g_entities[i];
-		vec3_t     rel, closest;
-		float      along;
+		vec3_t     rel;
 
 		if ( v == ent || !v->inuse || !v->client || !v->takedamage || v->health <= 0 )
 			continue;
@@ -261,20 +296,18 @@ qboolean Shinobi_CastRaiDash( gentity_t *ent, int lvl ) {
 			continue;
 		if ( v->shinobiCloneOwner == ent->s.number + 1 || ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) ) )
 			continue;
-		VectorSubtract( v->r.currentOrigin, start, rel );
-		along = DotProduct( rel, fwd );
-		if ( along < 0 || along > len + 16 )
+		if ( v->client->shinobi.raiShockAt && level.time - v->client->shinobi.raiShockAt < SHINOBI_RAIDASH_REHIT_MS )
 			continue;
-		VectorMA( start, along, fwd, closest );
-		VectorSubtract( v->r.currentOrigin, closest, rel );
+		VectorSubtract( v->r.currentOrigin, client->ps.origin, rel );
 		if ( fabs( rel[2] ) > 64 )
 			continue;
 		rel[2] = 0;
 		if ( VectorLength( rel ) > SHINOBI_RAIDASH_WIDTH + 16 )
 			continue;
+		v->client->shinobi.raiShockAt = level.time;
 		shinobiHitElement = SE_LIGHTNING;
 		shinobiJutsuDamage = 1;
-		G_Damage( v, ent, ent, fwd, v->r.currentOrigin, SHINOBI_RAIDASH_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
+		G_Damage( v, ent, ent, NULL, v->r.currentOrigin, SHINOBI_RAIDASH_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
 		shinobiJutsuDamage = 0;
 		shinobiHitElement = SE_NONE;
 		if ( v->inuse && v->health > 0 && v->client && !Shinobi_CCImmune( v ) ) {
@@ -285,23 +318,13 @@ qboolean Shinobi_CastRaiDash( gentity_t *ent, int lvl ) {
 		}
 		G_PlayEffectID( shinobiMedia.fxChidoriHit[0], v->r.currentOrigin, up );
 	}
-
-	// the streak: sparks all the way, puddles on the way crackle
-	for ( k = 0; k <= len; k += 72 ) {
-		VectorMA( start, k, fwd, p );
-		G_PlayEffectID( shinobiMedia.fxRaiEdge, p, up );
-		p[2] += ent->r.mins[2];
-		Shinobi_ElectrifyAt( p, ent->s.number + 1 );
-	}
-	G_SoundAtLoc( start, CHAN_AUTO, shinobiMedia.sndChidoriDash );
-	Shinobi_TeleportClient( ent, end );
-	G_PlayEffectID( shinobiMedia.fxChidoriHit[1], client->ps.origin, up );
-	return qtrue;
 }
 
 // every client frame, before Pmove
 void Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
+
+	Shinobi_RaiDashThink( ent );
 
 	if ( client->shinobi.blindEnd > level.time && ent->health > 0 )
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BLIND;
