@@ -559,6 +559,7 @@ static void Shinobi_WaterballImpact( gentity_t *ball, vec3_t pos, vec3_t normal,
 	}
 
 	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[li], pos, normal );
+	Shinobi_EffectDir( shinobiMedia.fxWaterImpact, pos, normal );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndSplash );
 	if ( Shinobi_FloorBelow( pos, 128, floor ) )
 		Shinobi_SpawnZone( SZ_WATER, floor, (float)shinobiPuddleRadius[li], shinobiPuddleLife[li],
@@ -1222,6 +1223,7 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 	Shinobi_Wet( target );
 
 	G_PlayEffectID( shinobiMedia.fxWaterSplash[1], target->r.currentOrigin, up );
+	G_PlayEffectID( shinobiMedia.fxWaterImpact, target->r.currentOrigin, up );
 	G_Sound( target, CHAN_AUTO, shinobiMedia.sndPrison );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWaterCast );
 	trap->SendServerCommand( target - g_entities, "cp \"^4Water Prison!^7\nKawarimi gets you out\"" );
@@ -1262,6 +1264,7 @@ void Shinobi_PrisonRelease( gentity_t *ent ) {
 		}
 		if ( target->inuse ) {
 			G_PlayEffectID( shinobiMedia.fxWaterSplash[0], target->r.currentOrigin, up );
+			G_PlayEffectID( shinobiMedia.fxWaterImpact, target->r.currentOrigin, up );
 			G_SoundAtLoc( target->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndSplash );
 		}
 	}

@@ -77,6 +77,8 @@ void Shinobi_BurrowEnd( gentity_t *ent, qboolean strike ) {
 	VectorCopy( client->ps.origin, feet );
 	feet[2] += ent->r.mins[2];
 	G_PlayEffectID( shinobiMedia.fxWallBreak, feet, up );
+	if ( strike )
+		G_PlayEffectID( shinobiMedia.fxRockMed, feet, up );
 	G_SoundAtLoc( feet, CHAN_AUTO, shinobiMedia.sndWallBreak );
 	if ( !strike || ent->health <= 0 )
 		return;

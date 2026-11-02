@@ -90,6 +90,7 @@ static void Shinobi_ClonePoof( gentity_t *clone ) {
 			gentity_t *owner = Shinobi_CloneOwner( clone );
 			int        i;
 			G_PlayEffectID( shinobiMedia.fxChidoriHit[2], clone->r.currentOrigin, up );
+			G_PlayEffectID( shinobiMedia.fxEmp, clone->r.currentOrigin, up );
 			G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndChidoriHit );
 			Shinobi_ElectrifyAt( clone->r.currentOrigin, clone->shinobiCloneOwner );
 			for ( i = 0; i < level.num_entities; i++ ) {
@@ -472,6 +473,7 @@ static void Shinobi_WaterClonePop( gentity_t *clone ) {
 	}
 	if ( clone->shinobiCloneReady ) {
 		Shinobi_EffectDir( shinobiMedia.fxWaterSplash[1], clone->r.currentOrigin, up );
+		G_PlayEffectID( shinobiMedia.fxWaterImpact, clone->r.currentOrigin, up );
 		G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndSplash );
 		if ( Shinobi_FloorBelow( clone->r.currentOrigin, 96, floor ) )
 			Shinobi_SpawnZone( SZ_WATER, floor, 70, 8000, clone->shinobiCloneOwner );
@@ -642,6 +644,7 @@ qboolean Shinobi_CastWaterClone( gentity_t *ent ) {
 	clone->client->shinobi.wcHoldJutsu = SJ_NONE;
 
 	Shinobi_EffectDir( shinobiMedia.fxWaterSplash[2], spot, up );
+	G_PlayEffectID( shinobiMedia.fxWaterImpact, spot, up );
 	G_SoundAtLoc( spot, CHAN_AUTO, shinobiMedia.sndWaterCast );
 	{
 		const int j = Shinobi_WaterCloneJutsu( ent );

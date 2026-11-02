@@ -323,6 +323,7 @@ qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
 		}
 		Shinobi_ElectrifyAt( pos, ent->s.number + 1 );
 		Shinobi_EffectDir( shinobiMedia.fxChidoriHit[1], pos, up );
+		G_PlayEffectID( shinobiMedia.fxEmp, pos, up );
 		G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndChidoriHit );
 		G_FreeEntity( k );
 		n++;

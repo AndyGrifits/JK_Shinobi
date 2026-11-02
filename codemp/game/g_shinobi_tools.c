@@ -73,6 +73,7 @@ static void Shinobi_ToolBlast( gentity_t *src, gentity_t *owner, vec3_t at, int 
 	shinobiHitElement = SE_NONE;
 	Shinobi_IgniteAshAt( at, radius * 0.5f, owner->client ? owner->s.number + 1 : 0 );
 	G_PlayEffectID( shinobiMedia.fxFireballBoom[0], at, up );
+	G_PlayEffectID( shinobiMedia.fxStockExplode, at, up );
 	G_SoundAtLoc( at, CHAN_AUTO, shinobiMedia.sndFireballBoom );
 	G_ScreenShake( at, NULL, 2.0f, 300, qfalse );
 }

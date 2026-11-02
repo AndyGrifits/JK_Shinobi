@@ -343,6 +343,125 @@ static void CG_ShinobiSpriteA( const vec3_t org, float radius, float rotation, q
 	trap->R_AddRefEntityToScene( &ent );
 }
 
+/*
+Air that bends the light: heat haze, a lens of water, a shockwave. The
+stock Force Push trick - a sphere drawn with the refraction shader that
+copies and warps what lies behind it (needs cg_renderToTextureFX 1).
+*/
+static float shinobiRefractModelR;
+
+static void CG_ShinobiRefract( const vec3_t org, float radius, float alpha ) {
+	refEntity_t ent;
+	vec3_t      d, ang;
+	float       vLen, s;
+
+	if ( !cg_renderToTextureFX.integer || !cgs.media.halfShieldModel || !cgs.media.refractionShader
+		|| radius < 2 || alpha < 1 )
+		return;
+	if ( shinobiRefractModelR <= 0 ) {
+		vec3_t mins, maxs;
+		trap->R_ModelBounds( cgs.media.halfShieldModel, mins, maxs );
+		shinobiRefractModelR = 0.5f * ( maxs[0] - mins[0] );
+		if ( shinobiRefractModelR < 1 )
+			shinobiRefractModelR = 32;
+	}
+	VectorSubtract( org, cg.refdef.vieworg, d );
+	vLen = VectorLength( d );
+	if ( vLen < radius * 0.5f || vLen > 3000 )
+		return; // inside it, or too far to matter
+	memset( &ent, 0, sizeof( ent ) );
+	VectorCopy( org, ent.origin );
+	vectoangles( d, ang );
+	ang[ROLL] += 180.0f;
+	AnglesToAxis( ang, ent.axis );
+	// the captured texture size (a power of two)
+	ent.radius = vLen < 128 ? 256 : ( vLen < 256 ? 128 : ( vLen < 512 ? 64 : 32 ) );
+	s = radius / shinobiRefractModelR;
+	VectorScale( ent.axis[0], s, ent.axis[0] );
+	VectorScale( ent.axis[1], s, ent.axis[1] );
+	VectorScale( ent.axis[2], s, ent.axis[2] );
+	ent.nonNormalizedAxes = qtrue;
+	ent.hModel = cgs.media.halfShieldModel;
+	ent.customShader = cgs.media.refractionShader;
+	ent.renderfx = RF_DISTORTION | RF_FORCE_ENT_ALPHA;
+	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
+	ent.shaderRGBA[3] = (byte)( alpha > 255 ? 255 : alpha );
+	trap->R_AddRefEntityToScene( &ent );
+}
+
+// expanding shockwaves of bent air (played by jutsu impacts, see CG_ShinobiEffectPlayed)
+typedef struct {
+	int    start, end;
+	vec3_t org;
+	float  r0, r1, alpha;
+} shinobiShock_t;
+static shinobiShock_t shinobiShocks[24];
+
+static void CG_ShinobiShock( const vec3_t org, float r0, float r1, int ms, float alpha ) {
+	int i, best = 0;
+	for ( i = 0; i < (int)ARRAY_LEN( shinobiShocks ); i++ ) {
+		if ( shinobiShocks[i].end <= cg.time ) {
+			best = i;
+			break;
+		}
+		if ( shinobiShocks[i].end < shinobiShocks[best].end )
+			best = i;
+	}
+	shinobiShocks[best].start = cg.time;
+	shinobiShocks[best].end = cg.time + ms;
+	VectorCopy( org, shinobiShocks[best].org );
+	shinobiShocks[best].r0 = r0;
+	shinobiShocks[best].r1 = r1;
+	shinobiShocks[best].alpha = alpha;
+}
+
+static void CG_ShinobiDrawShocks( void ) {
+	int i;
+	for ( i = 0; i < (int)ARRAY_LEN( shinobiShocks ); i++ ) {
+		const shinobiShock_t *w = &shinobiShocks[i];
+		float f, e;
+		if ( w->end <= cg.time || w->start > cg.time )
+			continue;
+		f = (float)( cg.time - w->start ) / ( w->end - w->start );
+		e = 1.0f - ( 1.0f - f ) * ( 1.0f - f ); // fast out, slow at the end
+		CG_ShinobiRefract( w->org, w->r0 + ( w->r1 - w->r0 ) * e, w->alpha * ( 1.0f - f ) );
+	}
+}
+
+// a server effect just played: the big ones also bend the air
+void CG_ShinobiEffectPlayed( const char *name, const vec3_t org, const vec3_t dir ) {
+	const char *p;
+	int         lvl = 1;
+
+	if ( !name || !( p = strstr( name, "shinobi/" ) ) )
+		return;
+	p += 8;
+	if ( strlen( p ) > 2 && p[strlen( p ) - 2] == '_' )
+		lvl = atoi( p + strlen( p ) - 1 );
+	if ( lvl < 1 || lvl > 3 )
+		lvl = 1;
+	if ( !Q_strncmp( p, "fireball_explode", 16 ) )
+		CG_ShinobiShock( org, 24, 110 + 60 * lvl, 450, 230 );
+	else if ( !Q_strncmp( p, "rasengan_hit", 12 ) )
+		CG_ShinobiShock( org, 12, 80 + 45 * lvl, 420, 245 );
+	else if ( !Q_strncmp( p, "chidori_hit", 11 ) && lvl > 1 )
+		CG_ShinobiShock( org, 10, 50 + 25 * lvl, 260, 170 );
+	else if ( !Q_strncmp( p, "storm_wind", 10 ) ) { // a gust tearing through the air ahead
+		int k;
+		for ( k = 1; k <= 3; k++ ) {
+			vec3_t at;
+			VectorMA( org, k * ( 50 + 20 * lvl ), dir, at );
+			CG_ShinobiShock( at, 20, 50 + 15 * lvl, 300 + 80 * k, 150 );
+		}
+	}
+	else if ( !Q_strncmp( p, "water_splash", 12 ) )
+		CG_ShinobiShock( org, 10, 30 + 18 * lvl, 320, 170 );
+	else if ( !Q_strncmp( p, "flash", 5 ) )
+		CG_ShinobiShock( org, 30, 320, 350, 200 );
+	else if ( !Q_strncmp( p, "hiraishin", 9 ) )
+		CG_ShinobiShock( org, 10, 70, 300, 200 );
+}
+
 // a flat square on the floor (puddle, mud, scorch mark)
 static void CG_ShinobiGroundDecal( const vec3_t org, float radius, float rotation, qhandle_t shader,
 	float r, float g, float b, float a ) {
@@ -421,6 +540,8 @@ opposite directions at different speeds, a white-hot core and a soft halo.
 */
 static void CG_ShinobiDrawRasengan( const vec3_t org, float radius, qboolean forming ) {
 	const float t = cg.time * 0.001f;
+
+	CG_ShinobiRefract( org, radius * ( forming ? 1.6f : 2.1f ), forming ? 90 : 140 ); // the chakra bends the air
 	const float pulse = 1.0f + 0.06f * sinf( t * 25.0f );
 	float r = radius * pulse;
 
@@ -528,8 +649,9 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 		const float t = cg.time * 0.001f;
 		VectorCopy( cent->lerpOrigin, org );
 		org[2] += 4;
-		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS, t * 20.0f, shinobiShaders.waterSphere, 0.55f, 0.75f, 1.0f, 0.55f );
-		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 0.92f, -t * 35.0f, shinobiShaders.waterSphere, 0.4f, 0.6f, 0.95f, 0.35f );
+		CG_ShinobiRefract( org, SHINOBI_PRISON_RADIUS * 1.15f, 230 ); // the ball of water bends what is inside
+		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS, t * 20.0f, shinobiShaders.waterSphere, 0.55f, 0.75f, 1.0f, 0.3f );
+		CG_ShinobiSpriteA( org, SHINOBI_PRISON_RADIUS * 0.92f, -t * 35.0f, shinobiShaders.waterSphere, 0.4f, 0.6f, 0.95f, 0.2f );
 		trap->R_AddLightToScene( org, 120, 0.3f, 0.5f, 0.9f );
 		if ( cent->shinobiAuraFxTime <= cg.time || cent->shinobiAuraFxTime > cg.time + 1000 ) {
 			trap->FX_PlayEffectID( shinobiFx.bubbles, org, up, -1, -1, qfalse );
@@ -584,8 +706,9 @@ static void CG_ShinobiWaterball( centity_t *cent ) {
 	const float R = shinobiWaterVisual[li], t = cg.time * 0.001f;
 	vec3_t      dir;
 
-	CG_ShinobiSpriteA( cent->lerpOrigin, R * 1.15f, t * 90.0f, shinobiShaders.waterSphere, 0.6f, 0.8f, 1.0f, 0.85f );
-	CG_ShinobiSprite( cent->lerpOrigin, R * 0.5f, 0, shinobiShaders.glow, 0.25f, 0.4f, 0.6f );
+	CG_ShinobiRefract( cent->lerpOrigin, R * 1.35f, 210 );        // a lens of clear water
+	CG_ShinobiSpriteA( cent->lerpOrigin, R * 1.1f, t * 90.0f, shinobiShaders.waterSphere, 0.6f, 0.8f, 1.0f, 0.45f );
+	CG_ShinobiSprite( cent->lerpOrigin, R * 0.4f, 0, shinobiShaders.glow, 0.15f, 0.25f, 0.4f );
 
 	VectorCopy( cent->currentState.pos.trDelta, dir );
 	if ( VectorNormalize( dir ) == 0 )
@@ -618,6 +741,11 @@ static void CG_ShinobiFlame( centity_t *cent ) {
 			CG_ShinobiSprite( p, r * 0.6f, 0, shinobiShaders.glow, 0.6f, 0.35f, 0.08f );
 	}
 	CG_ShinobiSprite( cent->lerpOrigin, 8, 0, shinobiShaders.glow, 1.0f, 0.85f, 0.5f );
+	for ( d = len * 0.35f; d < len; d += len * 0.3f ) { // heat haze over the stream
+		VectorMA( cent->lerpOrigin, d, fwd, p );
+		p[2] += 10 + d * 0.15f;
+		CG_ShinobiRefract( p, 12 + d * 0.3f, 110 );
+	}
 	VectorMA( cent->lerpOrigin, len * 0.5f, fwd, p );
 	trap->R_AddLightToScene( p, 200 * ( 0.85f + 0.15f * flrand( 0, 1 ) ), 1.0f, 0.55f, 0.15f );
 
@@ -687,7 +815,9 @@ static void CG_ShinobiWave( centity_t *cent ) {
 		const float bob = 4.0f * sinf( t * 9.0f + k * 1.7f );
 		VectorMA( cent->lerpOrigin, x, right, pos );
 		pos[2] += H * 0.4f + bob;
-		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.6f );
+		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.4f );
+		if ( k % 2 == 0 )
+			CG_ShinobiRefract( pos, H * 0.8f, 190 ); // the water bends the floor behind it
 	}
 
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
@@ -869,6 +999,7 @@ static void CG_ShinobiQuake( centity_t *cent ) {
 		if ( cent->shinobiAuraFxTime != t1 ) { // once: shake whoever stands in it
 			vec3_t d;
 			cent->shinobiAuraFxTime = t1;
+			CG_ShinobiShock( cent->lerpOrigin, R * 0.15f, R * 0.7f, 500, 200 );
 			VectorSubtract( cg.predictedPlayerState.origin, cent->lerpOrigin, d );
 			if ( fabs( d[2] ) < 160 ) {
 				d[2] = 0;
@@ -904,6 +1035,12 @@ static void CG_ShinobiWindWall( centity_t *cent ) {
 	VectorSet( yaw, 0, s->angles2[0], 0 );
 	AngleVectors( yaw, fwd, right, NULL );
 
+	// the wall itself: the air ripples
+	for ( k = 0; k < 3; k++ ) {
+		VectorMA( cent->lerpOrigin, -halfW * 0.66f + halfW * 0.66f * k, right, p );
+		p[2] += 60 + 8 * sinf( t * 6 + k * 2 );
+		CG_ShinobiRefract( p, halfW * 0.5f, 130 * a );
+	}
 	// streaks of air racing up the wall
 	for ( k = 0; k < 14; k++ ) {
 		const float ph = fmodf( t * 1.6f + k * 0.37f, 1.0f );
@@ -1041,6 +1178,11 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	VectorCopy( s->pos.trDelta, dir );
 	if ( VectorNormalize( dir ) == 0 ) {
 		VectorSet( dir, 0, 0, 1 );
+	}
+	{ // heat haze trailing behind
+		vec3_t behind;
+		VectorMA( cent->lerpOrigin, -R * 1.2f, dir, behind );
+		CG_ShinobiRefract( behind, R * 1.7f, 120 );
 	}
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
 		trap->FX_PlayEffectID( cgs.effects.shinobiFireballTrail, cent->lerpOrigin, dir, -1, -1, qfalse );
@@ -1237,6 +1379,8 @@ static int CG_ShinobiMyEyes( void ) {
 void CG_ShinobiSceneOverlay( void ) {
 	refEntity_t ent;
 	float       a;
+
+	CG_ShinobiDrawShocks();
 
 	shinobiMist.lastTime = shinobiMist.time;
 	shinobiMist.lastAmount = shinobiMist.time == cg.time ? shinobiMist.amount : 0;

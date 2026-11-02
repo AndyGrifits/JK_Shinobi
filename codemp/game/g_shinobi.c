@@ -34,6 +34,13 @@ void Shinobi_Init( void ) {
 	int lvl;
 
 	Shinobi_PatchItems(); // pickups -> pills and ninja tools (before the map spawns them)
+	m->fxStockExplode      = G_EffectIndex( "thermal/explosion" );
+	m->fxStockExplodeSmall = G_EffectIndex( "env/small_explode" );
+	m->fxWaterImpact       = G_EffectIndex( "env/water_impact" );
+	m->fxRockMed           = G_EffectIndex( "chunks/rockbreakmed" );
+	m->fxRockLg            = G_EffectIndex( "chunks/rockbreaklg" );
+	m->fxEmp               = G_EffectIndex( "demp2/altDetonate" );
+	m->fxSparkBurst        = G_EffectIndex( "sparks/spark_explosion" );
 	m->exKunaiModel  = G_ModelIndex( "models/shinobi/exkunai.md3" );
 	m->tagModel      = G_ModelIndex( "models/shinobi/tag.md3" );
 	m->shurikenModel = G_ModelIndex( "models/shinobi/shuriken.md3" );
@@ -302,6 +309,8 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 	}
 
 	Shinobi_EffectDir( chidori ? shinobiMedia.fxChidoriHit[li] : shinobiMedia.fxRasenganHit[li], point, dir );
+	if ( chidori )
+		Shinobi_EffectDir( shinobiMedia.fxSparkBurst, point, dir );
 	G_SoundAtLoc( point, CHAN_AUTO, chidori ? shinobiMedia.sndChidoriHit : shinobiMedia.sndRasenganHit );
 	Shinobi_ClearHand( client );
 }

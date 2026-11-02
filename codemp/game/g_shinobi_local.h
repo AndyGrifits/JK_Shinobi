@@ -30,6 +30,8 @@ typedef struct {
 	int sndBlockSaber[3], sndBlockFist[3], sndParry, sndGuardBreak, fxBlock;
 	int fxWindEdge, fxRaiEdge, fxQuakeDust, fxFlash;
 	int sndFlash, sndHeal;
+	// stock effects of the base game (effects/*.efx in its assets)
+	int fxStockExplode, fxStockExplodeSmall, fxWaterImpact, fxRockMed, fxRockLg, fxEmp, fxSparkBurst;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];

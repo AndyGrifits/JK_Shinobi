@@ -74,6 +74,7 @@ static void Shinobi_FireballExplode( gentity_t *ball, vec3_t pos, vec3_t normal,
 	Shinobi_IgniteAshAt( pos, shinobiFireballRadius[li] * 0.5f, owner->client ? owner->s.number + 1 : 0 );
 
 	Shinobi_EffectDir( shinobiMedia.fxFireballBoom[li], pos, normal );
+	Shinobi_EffectDir( li ? shinobiMedia.fxStockExplode : shinobiMedia.fxStockExplodeSmall, pos, normal );
 	// a deep blast plus the crackle of fire, and the ground shakes nearby
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndFireballBoom2 );
@@ -213,6 +214,7 @@ static void Shinobi_PillarCrumble( gentity_t *p ) {
 	VectorCopy( p->r.currentOrigin, center );
 	center[2] += SHINOBI_WALL_HEIGHT * 0.5f;
 	G_PlayEffectID( shinobiMedia.fxWallBreak, center, up );
+	G_PlayEffectID( shinobiMedia.fxRockMed, center, up );
 	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndWallBreak );
 
 	// gone at once for collision and rendering, freed next frame (we may be inside G_Damage)
@@ -621,6 +623,7 @@ static void Shinobi_QuakeStrike( gentity_t *q ) {
 
 	Shinobi_EarthOnWater( center, R );
 	G_PlayEffectID( shinobiMedia.fxWallRise, center, up );
+	G_PlayEffectID( shinobiMedia.fxRockLg, center, up );
 	for ( i = 0; i < 8; i++ ) {
 		const float a = DEG2RAD( i * 45.0f + 22.5f );
 		vec3_t p, floor;
@@ -758,6 +761,7 @@ static void Shinobi_PillarCastThink( gentity_t *c ) {
 		}
 		PILLARCAST_STAGE( c ) = 1;
 		G_PlayEffectID( shinobiMedia.fxWallRise, c->r.currentOrigin, up );
+		G_PlayEffectID( shinobiMedia.fxRockMed, c->r.currentOrigin, up );
 		G_SoundAtLoc( c->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWallRise );
 		Shinobi_EarthOnWater( c->r.currentOrigin, SHINOBI_PILLAR_RADIUS );
 		for ( i = 0; i < level.num_entities; i++ ) {

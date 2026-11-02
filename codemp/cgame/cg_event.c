@@ -3088,6 +3088,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 				{
 					trap->FX_PlayEffectID(efxIndex, position, fxDir, -1, -1, qfalse );
 				}
+				CG_ShinobiEffectPlayed( CG_ConfigString( CS_EFFECTS + es->eventParm ), position, fxDir ); // JK_Shinobi: shockwaves
 			}
 		}
 		break;
