@@ -1,0 +1,58 @@
+repeatDelay				0
+
+// Yang Flash: a blinding burst of light around the caster.
+
+Particle
+{
+	name				burst
+	count				2
+	life				250 350
+	spawnFlags			orgOnSphere
+	radius				0 4
+	size
+	{
+		start			120 160
+		end				320 420
+	}
+	rgb
+	{
+		start			1 0.98 0.85
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}
+
+Particle
+{
+	name				motes
+	count				12 18
+	life				400 700
+	spawnFlags			orgOnSphere axisFromSphere
+	radius				8 24
+	vel					150 0 0 320 0 0
+	size
+	{
+		start			6 10
+		end				1 2
+	}
+	rgb
+	{
+		start			1 1 0.8
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/glow
+	]
+}

@@ -16,12 +16,12 @@ void Cmd_JutsuRelease_f( gentity_t *ent );
 static const int botPush[]      = { SJ_FUTON, SJ_WAVE, SJ_BLADE, SJ_WINDWALL, SJ_QUAKE, SJ_SUITON, 0 };
 static const int botPull[]      = { SJ_SUIRO, SJ_SHADOW, SJ_PILLAR, SJ_HIRAISHIN, 0 };
 static const int botGrip[]      = { SJ_SUIRO, SJ_SHADOW, SJ_PILLAR, SJ_BURROW, 0 };
-static const int botLightning[] = { SJ_KATON, SJ_FLAME, SJ_SUITON, SJ_BLADE, SJ_CHIDORI, SJ_RASENGAN, SJ_PILLAR, SJ_ASH, SJ_RAITRAP, SJ_QUAKE, 0 };
+static const int botLightning[] = { SJ_RAIDASH, SJ_KATON, SJ_FLAME, SJ_SUITON, SJ_BLADE, SJ_CHIDORI, SJ_RASENGAN, SJ_PILLAR, SJ_ASH, SJ_RAITRAP, SJ_QUAKE, 0 };
 static const int botDrain[]     = { SJ_FLAME, SJ_ASH, SJ_MIST, SJ_WAVE, SJ_CHIDORI, SJ_RASENGAN, 0 };
-static const int botRage[]      = { SJ_WINDEDGE, SJ_RAIEDGE, SJ_ARMOR, SJ_EARTHCLONE, SJ_BUNSHIN, SJ_WATERCLONE, 0 };
-static const int botProtect[]   = { SJ_ARMOR, SJ_WINDWALL, SJ_KAWARIMI, SJ_DOTON, SJ_MIST, SJ_EARTHCLONE, 0 };
-static const int botTrick[]     = { SJ_KAWARIMI, SJ_BUNSHIN, SJ_WATERCLONE, SJ_EARTHCLONE, SJ_MIST, SJ_BURROW, 0 };
-static const int botSpeed[]     = { SJ_SHUNSHIN, SJ_HIRAISHIN, SJ_BURROW, 0 };
+static const int botRage[]      = { SJ_RAICLONE, SJ_WINDEDGE, SJ_RAIEDGE, SJ_ARMOR, SJ_EARTHCLONE, SJ_BUNSHIN, SJ_WATERCLONE, 0 };
+static const int botProtect[]   = { SJ_FLASH, SJ_ARMOR, SJ_WINDWALL, SJ_KAWARIMI, SJ_DOTON, SJ_MIST, SJ_EARTHCLONE, 0 };
+static const int botTrick[]     = { SJ_SHADOWHIDE, SJ_FLASH, SJ_RAICLONE, SJ_KAWARIMI, SJ_BUNSHIN, SJ_WATERCLONE, SJ_EARTHCLONE, SJ_MIST, SJ_BURROW, 0 };
+static const int botSpeed[]     = { SJ_RAIDASH, SJ_SHUNSHIN, SJ_HIRAISHIN, SJ_BURROW, 0 };
 
 // the powers a bot "knows" so that the bot AI ever reaches for them
 static const int botPowers[] = { FP_PUSH, FP_PULL, FP_SPEED, FP_SEE, FP_GRIP, FP_LIGHTNING, FP_RAGE, FP_DRAIN,
@@ -92,6 +92,14 @@ void Shinobi_BotForcePowers( gentity_t *ent ) {
 		if ( client->ps.fd.forcePowerLevel[botPowers[i]] < FORCE_LEVEL_1 )
 			client->ps.fd.forcePowerLevel[botPowers[i]] = FORCE_LEVEL_1;
 	}
+	if ( Shinobi_BuildHas( &client->pers.shinobiBuild, SJ_HEAL ) ) { // the AI heals when hurt (needs level 2)
+		client->ps.fd.forcePowersKnown |= ( 1 << FP_HEAL );
+		if ( client->ps.fd.forcePowerLevel[FP_HEAL] < FORCE_LEVEL_2 )
+			client->ps.fd.forcePowerLevel[FP_HEAL] = FORCE_LEVEL_2;
+	}
+	else {
+		client->ps.fd.forcePowersKnown &= ~( 1 << FP_HEAL );
+	}
 	// dark: grip / lightning / rage / drain (offence); light: absorb / protect / trick (tricks)
 	client->ps.fd.forceSide = Q_irand( 0, 9 ) < 6 ? FORCE_DARKSIDE : FORCE_LIGHTSIDE;
 }
@@ -145,8 +153,16 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 			Cmd_Perk_f( ent );
 		client->shinobi.botJutsuNext = level.time + 1000;
 		return qtrue;
+	case FP_HEAL:
+		if ( !Shinobi_BuildHas( &client->pers.shinobiBuild, SJ_HEAL ) )
+			return qtrue;
+		{
+			static const int heal[] = { SJ_HEAL, 0 };
+			list = heal;
+		}
+		break;
 	default:
-		return qtrue; // healing and the rest: not for ninja
+		return qtrue; // the rest: not for ninja
 	}
 
 	jutsu = Shinobi_BotPick( ent, list );
@@ -162,7 +178,8 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 
 	if ( Shinobi_Cast( ent, jutsu, lvl ) ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
-			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd ) ) {
+			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) ) {
 			client->shinobi.chargeJutsu = jutsu; // held: let go a bit later (Shinobi_BotThink)
 			client->shinobi.botHoldEnd = level.time + Q_irand( 1200, 2800 );
 		}

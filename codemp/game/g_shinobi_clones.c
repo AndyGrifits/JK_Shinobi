@@ -85,6 +85,48 @@ gentity_t *Shinobi_CreditAttacker( gentity_t *attacker ) {
 static void Shinobi_ClonePoof( gentity_t *clone ) {
 	vec3_t up = { 0, 0, 1 };
 
+	if ( clone->shinobiCloneLightning ) {
+		if ( clone->health <= 0 ) { // struck down: the lightning breaks loose
+			gentity_t *owner = Shinobi_CloneOwner( clone );
+			int        i;
+			G_PlayEffectID( shinobiMedia.fxChidoriHit[2], clone->r.currentOrigin, up );
+			G_SoundAtLoc( clone->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndChidoriHit );
+			Shinobi_ElectrifyAt( clone->r.currentOrigin, clone->shinobiCloneOwner );
+			for ( i = 0; i < level.num_entities; i++ ) {
+				gentity_t *v = &g_entities[i];
+				if ( v == clone || !v->inuse || !v->client || !v->takedamage || v->health <= 0 || v == owner )
+					continue;
+				if ( v->shinobiCloneOwner && v->shinobiCloneOwner == clone->shinobiCloneOwner )
+					continue;
+				if ( v->s.number < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )
+					continue;
+				if ( owner && level.gametype >= GT_TEAM && OnSameTeam( owner, v ) )
+					continue;
+				if ( Distance( v->r.currentOrigin, clone->r.currentOrigin ) > SHINOBI_RAICLONE_RADIUS )
+					continue;
+				shinobiHitElement = SE_LIGHTNING;
+				shinobiJutsuDamage = 1;
+				G_Damage( v, clone, owner ? owner : clone, up, v->r.currentOrigin, SHINOBI_RAICLONE_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
+				shinobiJutsuDamage = 0;
+				shinobiHitElement = SE_NONE;
+				if ( v->inuse && v->health > 0 && v->client && !Shinobi_CCImmune( v ) ) {
+					v->client->ps.electrifyTime = level.time + SHINOBI_RAICLONE_STUN;
+					if ( v->client->ps.weaponTime < SHINOBI_RAICLONE_STUN )
+						v->client->ps.weaponTime = SHINOBI_RAICLONE_STUN;
+					v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+					v->client->ps.pm_time = SHINOBI_RAICLONE_STUN / 2;
+					Shinobi_CCGrant( v, level.time + SHINOBI_RAICLONE_STUN );
+				}
+			}
+		}
+		else {
+			G_PlayEffectID( shinobiMedia.fxChidoriHit[0], clone->r.currentOrigin, up );
+		}
+		clone->shinobiCloneLightning = qfalse;
+		clone->shinobiCloneOwner = 0;
+		G_FreeEntity( clone );
+		return;
+	}
 	if ( clone->shinobiCloneEarth ) { // an earth clone crumbles into a heap of mud
 		vec3_t floor;
 		G_PlayEffectID( shinobiMedia.fxWallBreak, clone->r.currentOrigin, up );
@@ -115,8 +157,8 @@ static void Shinobi_RemoveClones( int ownerNum, qboolean water ) {
 			if ( water )
 				Shinobi_WaterClonePop( e );
 		}
-		else if ( e->shinobiCloneEarth ) {
-			if ( water ) // (a new Kage Bunshin leaves the earth clone alone)
+		else if ( e->shinobiCloneEarth || e->shinobiCloneLightning ) {
+			if ( water ) // (a new Kage Bunshin leaves the earth / lightning clone alone)
 				Shinobi_ClonePoof( e );
 		}
 		else
@@ -738,6 +780,14 @@ void Shinobi_RunFrame( void ) {
 			continue;
 
 		Shinobi_PerkBroadcasts( clone ); // Byakugan eyes see clones through walls
+		if ( ( clone->shinobiCloneLightning || clone->shinobiCloneEarth ) && clone->shinobiCloneFx <= level.time && clone->health > 0 ) {
+			vec3_t up = { 0, 0, 1 }, feet;
+			clone->shinobiCloneFx = level.time + ( clone->shinobiCloneLightning ? 200 : 500 );
+			VectorCopy( clone->r.currentOrigin, feet );
+			if ( clone->shinobiCloneEarth )
+				feet[2] += clone->r.mins[2] + 2;
+			G_PlayEffectID( clone->shinobiCloneLightning ? shinobiMedia.fxRaiEdge : shinobiMedia.fxQuakeDust, feet, up );
+		}
 		owner = Shinobi_CloneOwner( clone );
 
 		if ( clone->shinobiCloneDecoy ) {
@@ -826,5 +876,41 @@ qboolean Shinobi_CastEarthClone( gentity_t *ent ) {
 	clone->shinobiCloneExpire = level.time + SHINOBI_EARTHCLONE_LIFE;
 	G_PlayEffectID( shinobiMedia.fxWallRise, spot, up );
 	G_SoundAtLoc( spot, CHAN_AUTO, shinobiMedia.sndWallRise );
+	return qtrue;
+}
+
+/*
+Lightning Clone (Raiton): one at a time, 15 s; it fights, crackling. Struck
+down, its lightning breaks loose: everyone around is shocked and paralysed.
+*/
+qboolean Shinobi_CastRaiClone( gentity_t *ent ) {
+	static const float yaws[] = { 0, -45, 45, -90, 90, 180 };
+	vec3_t     spot, up = { 0, 0, 1 };
+	gentity_t *clone;
+	int        i;
+
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->shinobiCloneLightning && e->shinobiCloneOwner == ent->s.number + 1 ) {
+			e->health = 1; // the old one fizzles out quietly
+			Shinobi_ClonePoof( e );
+		}
+	}
+	for ( i = 0; i < (int)ARRAY_LEN( yaws ); i++ ) {
+		if ( Shinobi_CloneSpot( ent, yaws[i], NULL, 0, spot ) )
+			break;
+	}
+	if ( i == (int)ARRAY_LEN( yaws ) ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, "cp \"No room for a lightning clone\"" );
+		return qfalse;
+	}
+	clone = Shinobi_SpawnClone( ent, spot );
+	if ( !clone )
+		return qfalse;
+	clone->shinobiCloneLightning = qtrue;
+	clone->shinobiCloneExpire = level.time + SHINOBI_RAICLONE_LIFE;
+	G_PlayEffectID( shinobiMedia.fxChidoriHit[1], spot, up );
+	G_SoundAtLoc( spot, CHAN_AUTO, shinobiMedia.sndChidoriForm );
 	return qtrue;
 }

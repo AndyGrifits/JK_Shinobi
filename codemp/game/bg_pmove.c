@@ -10356,10 +10356,11 @@ static void PM_ShinobiPreMove( void )
 		ps->forceDodgeAnim = SHINOBI_STAGGER_ANIM;
 		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
 	}
-	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW )
-	{ // under the ground: no jumping, no swings (attacking bursts you out, on the server)
-		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_BURROW_SPEED );
-		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_BURROW_SPEED );
+	else if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_BURROW | SHINOBI_STAT_SHADOWHIDE ) )
+	{ // under the ground / in the shadow: no jumping, no swings (attacking brings you out, on the server)
+		const float f = ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) ? SHINOBI_BURROW_SPEED : SHINOBI_SHADOWHIDE_SPEED;
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * f );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * f );
 		if ( pm->cmd.upmove > 0 )
 		{
 			pm->cmd.upmove = 0;

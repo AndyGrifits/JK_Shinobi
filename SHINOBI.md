@@ -108,6 +108,11 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a stone pillar erupts there launching whoever stands on it (20 / 30 / 40, knockdown); the pillar stays 6 s as cover (an earth wall of one: pushable, breakable, Lightning x3). 4 s cooldown | 20 / 30 / 40 |
 | Stone Skin | `tsuchiyoroi`, Doton, instant: 8 s of -40% damage, no knockdowns or knockback, 0.85x speed; Lightning Edge hits ignore it. 20 s cooldown | 25 |
 | Earth Clone | `tsuchibunshin`, Doton, instant: a slow (0.7x), tough (150) clone for 25 s whose blows hit 30% harder; crumbles into mud. One at a time | 30 |
+| Lightning Clone | `raibunshin`, Raiton, instant: a crackling clone for 15 s that fights; struck down, it discharges: 15 damage and a 1.3 s paralysis to everyone within 160 u, puddles electrified. One at a time | 30 |
+| Lightning Dash | `raido`, Raiton: a streak 300 / 450 / 600 u straight ahead; whoever is within ~40 u of it takes 12 and a 0.5 s stun; puddles on the way are electrified. 5 s cooldown | 20 / 30 / 40 |
+| Shadow Hide | `kagegakure`, Yin, hold F: melt into your shadow (4 chakra/s, up to 6 s, 0.7x speed): others see only a dark patch (the Byakugan sees you); fists, blades and missiles pass over it, fire and lightning drive you out. Let go or attack to rise. 8 s cooldown | 15 |
+| Flash | `senko`, Yang, instant: everyone within 550 u who can see you and looks your way is blinded for 2.5 s (bots and NPCs reel); Kawarimi and Shadow Hide around you are flushed out. 10 s cooldown | 25 |
+| Healing | `shosen`, Yang: 20 / 35 / 50 health back. 10 s cooldown | 25 / 40 / 55 |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (not over gaps or through walls). An enemy standing on it is caught and copies your moves, jumps, turns and attacks while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |

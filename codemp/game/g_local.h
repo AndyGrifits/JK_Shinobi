@@ -411,6 +411,8 @@ struct gentity_s {
 	qboolean	shinobiCloneDecoy;	// Kawarimi double (turns into a log, no chakra drain)
 	qboolean	shinobiCloneWater;	// Water Clone (casts a jutsu, bursts into a puddle)
 	qboolean	shinobiCloneEarth;	// Earth Clone (slow, tough, crumbles into mud)
+	qboolean	shinobiCloneLightning;	// Lightning Clone (discharges when struck down)
+	int			shinobiCloneFx;		// next effect puff on a clone
 };
 
 #define DAMAGEREDIRECT_HEAD		1
@@ -875,6 +877,8 @@ struct gclient_s {
 		int		burrowEnd, burrowTick, burrowFx, burrowNext; // Burrow
 		int		pillarNext;		// Rock Pillar cooldown end
 		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
+		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
+		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		armorEnd, armorNext, armorFx; // Stone Skin
 		int		hiraishinNext;	// Hiraishin cooldown end
 		int		infuseUntil;	// Wind / Lightning Edge until
@@ -1488,6 +1492,7 @@ void  Cmd_CurseSeal_f( gentity_t *ent );
 void  Cmd_Perk_f( gentity_t *ent );
 qboolean Shinobi_Burrowed( gentity_t *ent );
 qboolean Shinobi_BotForce( gentity_t *ent, int forcePower );
+qboolean Shinobi_ShadowHideDamage( gentity_t *targ );
 qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit

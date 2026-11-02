@@ -396,8 +396,8 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	}
 	if ( client->shinobi.blocking && ent->s.number < MAX_CLIENTS )
 		return qfalse; // guard up: no jutsu
-	if ( client->shinobi.burrowEnd && jutsu != SJ_BURROW )
-		return qfalse; // under the ground: burst out first
+	if ( ( client->shinobi.burrowEnd && jutsu != SJ_BURROW ) || ( client->shinobi.shadowHideEnd && jutsu != SJ_SHADOWHIDE ) )
+		return qfalse; // under the ground / in the shadow: come out first
 	if ( jutsu != SJ_KAWARIMI ) {
 		if ( client->shinobi.prisonCaster || client->shinobi.shadowBy )
 			return qfalse; // in a Water Prison or a Shadow Bind only Kawarimi works
@@ -444,6 +444,11 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_PILLAR:   cast = Shinobi_CastPillar( ent, lvl ); break;
 	case SJ_ARMOR:    cast = Shinobi_CastArmor( ent ); break;
 	case SJ_EARTHCLONE: cast = Shinobi_CastEarthClone( ent ); break;
+	case SJ_RAICLONE: cast = Shinobi_CastRaiClone( ent ); break;
+	case SJ_RAIDASH:  cast = Shinobi_CastRaiDash( ent, lvl ); break;
+	case SJ_SHADOWHIDE: cast = Shinobi_CastShadowHide( ent ); break;
+	case SJ_FLASH:    cast = Shinobi_CastFlash( ent ); break;
+	case SJ_HEAL:     cast = Shinobi_CastHeal( ent, lvl ); break;
 	case SJ_SKYSTEP:  trap->SendServerCommand( ent - g_entities, "cp \"Sky Step is passive\"" ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
@@ -529,7 +534,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
 		Shinobi_Cast( ent, jutsu, 1 );
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
-			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd ) )
+			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
+			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -557,6 +563,8 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_FlameStop( ent );
 		else if ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
 			Shinobi_BurrowEnd( ent, qtrue );
+		else if ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd )
+			Shinobi_ShadowHideEnd( ent );
 		else if ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt )
 			Shinobi_ShadowRelease( ent );
 		return;
@@ -590,6 +598,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
 	Shinobi_BlockThink( ent, ucmd );
 	Shinobi_EarthThink( ent, ucmd ); // burrow, stone skin
+	Shinobi_YinYangThink( ent, ucmd ); // shadow hide, blindness
 	Shinobi_BotThink( ent );
 
 	if ( !Shinobi_CanAct( ent ) ) {
@@ -616,7 +625,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	// --- Chakra charging: hold USE while standing still on the ground ---
 	if ( ( ucmd->buttons & BUTTON_USE ) && !client->shinobi.shadowBy && !client->shinobi.prisonCaster && !client->shinobi.blocking
-		&& !client->shinobi.burrowEnd
+		&& !client->shinobi.burrowEnd && !client->shinobi.shadowHideEnd
 		&& !ucmd->forwardmove && !ucmd->rightmove && ucmd->upmove <= 0
 		&& client->ps.groundEntityNum != ENTITYNUM_NONE
 		&& !SHINOBI_HAND_ANY( &client->ps )
@@ -743,8 +752,8 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 
 	if ( client->shinobi.kawarimiEnd || client->shinobi.kawarimiPending )
 		return qfalse; // already substituted
-	if ( client->shinobi.burrowEnd )
-		return qfalse; // under the ground
+	if ( client->shinobi.burrowEnd || client->shinobi.shadowHideEnd )
+		return qfalse; // under the ground / in the shadow
 	if ( client->shinobi.kawarimiNext > level.time ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"Kawarimi ready in %.1f s\"",

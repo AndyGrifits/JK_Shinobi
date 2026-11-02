@@ -64,6 +64,9 @@ void Shinobi_NatureInit( void ) {
 	m->fxWindEdge     = G_EffectIndex( SHINOBI_FX_WIND_EDGE );
 	m->fxRaiEdge      = G_EffectIndex( SHINOBI_FX_CHIDORI_HAND );
 	m->fxQuakeDust    = G_EffectIndex( SHINOBI_FX_QUAKE_DUST );
+	m->fxFlash        = G_EffectIndex( SHINOBI_FX_FLASH );
+	m->sndFlash       = G_SoundIndex( "sound/weapons/force/protect.wav" );
+	m->sndHeal        = G_SoundIndex( "sound/weapons/force/heal.wav" );
 }
 
 /*
@@ -218,7 +221,10 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	client->shinobi.burnEnd = client->shinobi.wetEnd = client->shinobi.mudEnd = 0;
 	if ( client->shinobi.burrowEnd )
 		Shinobi_BurrowEnd( ent, qfalse );
+	if ( client->shinobi.shadowHideEnd )
+		Shinobi_ShadowHideEnd( ent );
 	client->shinobi.armorEnd = 0;
+	client->shinobi.blindEnd = 0;
 	if ( client->shinobi.prisonTarget || client->shinobi.prisonCaster )
 		Shinobi_PrisonRelease( ent );
 	if ( client->shinobi.flameEnt )

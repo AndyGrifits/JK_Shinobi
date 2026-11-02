@@ -130,8 +130,8 @@ void Cmd_Kunai_f( gentity_t *ent ) {
 	trace_t    tr;
 	int        i;
 
-	if ( client->shinobi.blocking )
-		return; // guard up
+	if ( client->shinobi.blocking || client->shinobi.burrowEnd || client->shinobi.shadowHideEnd )
+		return; // guard up / out of sight
 
 	if ( !Shinobi_CanAct( ent ) || client->shinobi.prisonCaster || client->shinobi.shadowBy
 		|| client->shinobi.stunEnd > level.time || SHINOBI_HAND_ANY( &client->ps ) )

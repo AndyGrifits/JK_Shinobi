@@ -28,7 +28,8 @@ typedef struct {
 	int fxCurse, fxGates;
 	int sndEyes, sndGates;
 	int sndBlockSaber[3], sndBlockFist[3], sndParry, sndGuardBreak, fxBlock;
-	int fxWindEdge, fxRaiEdge, fxQuakeDust;
+	int fxWindEdge, fxRaiEdge, fxQuakeDust, fxFlash;
+	int sndFlash, sndHeal;
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
@@ -135,6 +136,16 @@ void      Shinobi_EarthThink( gentity_t *ent, usercmd_t *ucmd );
 qboolean  Shinobi_CastPillar( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastEarthClone( gentity_t *ent );
 void      Shinobi_RestoreSolid( gentity_t *ent );
+// g_shinobi_yinyang.c
+qboolean  Shinobi_ShadowHidden( gentity_t *ent );
+qboolean  Shinobi_CastShadowHide( gentity_t *ent );
+void      Shinobi_ShadowHideEnd( gentity_t *ent );
+qboolean  Shinobi_CastFlash( gentity_t *ent );
+qboolean  Shinobi_CastHeal( gentity_t *ent, int lvl );
+qboolean  Shinobi_CastRaiDash( gentity_t *ent, int lvl );
+void      Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd );
+qboolean  Shinobi_CastRaiClone( gentity_t *ent );
+void      Shinobi_TeleportClient( gentity_t *ent, vec3_t origin );
 // g_shinobi_bot.c
 void      Shinobi_BotPrepare( gentity_t *ent );
 void      Shinobi_BotForcePowers( gentity_t *ent );

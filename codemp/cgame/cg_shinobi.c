@@ -930,6 +930,13 @@ static void CG_ShinobiWindWall( centity_t *cent ) {
 	}
 }
 
+// someone hidden in their shadow: a dark patch sliding over the ground
+static void CG_ShinobiShadowPatch( centity_t *cent ) {
+	const float wob = 1.0f + 0.06f * sinf( cg.time * 0.006f + cent->currentState.number );
+	CG_ShinobiGroundDecal( cent->lerpOrigin, 30 * wob, cg.time * 0.02f, shinobiShaders.puddle, 0.02f, 0.02f, 0.04f, 0.9f );
+	CG_ShinobiGroundDecal( cent->lerpOrigin, 22 * wob, -cg.time * 0.03f, shinobiShaders.puddle, 0.0f, 0.0f, 0.0f, 0.8f );
+}
+
 // Rock Pillar about to erupt: the ground trembles in a small circle
 static void CG_ShinobiPillarCast( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
@@ -989,6 +996,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_PILLARCAST ) {
 		CG_ShinobiPillarCast( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_SHADOWPATCH ) {
+		CG_ShinobiShadowPatch( cent );
 		return qtrue;
 	}
 	if ( s->generic1 >= SHINOBI_ENT_BLADE && s->generic1 < SHINOBI_ENT_BLADE + SHINOBI_MAX_LEVEL ) {
@@ -1416,6 +1427,17 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, fog );
 	}
 
+	{ // blinded by a Flash: white, fading out once it is over
+		static int blindSeen;
+		if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BLIND )
+			blindSeen = cg.time;
+		if ( blindSeen && cg.time - blindSeen < 700 && blindSeen <= cg.time ) {
+			vec4_t white = { 1.0f, 1.0f, 0.95f, 0.0f };
+			white[3] = ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BLIND ) ? 0.93f : 0.93f * ( 1.0f - ( cg.time - blindSeen ) / 700.0f );
+			CG_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, white );
+		}
+	}
+
 	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_CURSE ) { // the seal clouds the mind
 		vec4_t dark = { 0.08f, 0.0f, 0.1f, 0.0f };
 		dark[3] = 0.28f + 0.08f * sinf( cg.time * 0.004f );
@@ -1441,6 +1463,11 @@ void CG_ShinobiDrawHUD( void ) {
 		text = "Shadow Bind! You copy his moves - Kawarimi (X) to escape";
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );
+	}
+	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_SHADOWHIDE ) {
+		text = "In your shadow - let go of F (or attack) to rise; fire, lightning and light drive you out";
+		VectorSet( color, 0.6f, 0.55f, 0.75f );
+		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.006f );
 	}
 	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) {
 		text = "Under the ground - let go of F (or attack) to burst out";
