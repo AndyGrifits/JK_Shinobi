@@ -689,7 +689,7 @@ direction held at that moment:
   back      sweep: knocked down on the spot
 Chain hits are plain damage; kicks keep the stock kick knockdown. Attack next to
 someone lying in front of you: a downward blow (the saber stab-down animation).
-Attack in the air (anywhere, combo or not): a kick straight down that hits
+Attack in the air (anywhere, combo or not): a kick forward and down (45 degrees) that hits
 around where you land. Block + attack: the stock grab.
 */
 #define STAT_SHINOBI_COMBO         14    // hit number (bits 0-2) and kind (bits 3-5) of the current move
@@ -699,7 +699,7 @@ around where you land. Block + attack: the stock grab.
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
 enum { SCK_NONE, SCK_HIT, SCK_HEAVY, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
-#define SHINOBI_DIVE_SPEED         950
+#define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        14
 #define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be

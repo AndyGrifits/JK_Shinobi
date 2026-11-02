@@ -34,10 +34,10 @@ last move's end, then a finisher picked by the direction held at that moment:
 | back | sweep | knocked down on the spot |
 
 The punches are plain damage; the kicks keep the stock kick knockdown. A blocked or parried
-hit breaks the chain. Attack with someone lying right in front of you (up to ~96 u): a
+hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 30 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
-a kick straight down (no falling damage), 14 damage to everyone within 90 u of where you
+a kick forward and down at 45 degrees, steered with the view (no falling damage), 14 damage to everyone within 90 u of where you
 land. Block + attack: the stock grab. Taijutsu stat, Gates, Edges and the Gentle Fist
 apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
 

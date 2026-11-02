@@ -1086,6 +1086,10 @@ void NPC_Begin (gentity_t *ent)
 	{//somebody else "owns" me
 		ent->s.owner = ent->r.ownerNum = ent->activator->s.number;
 	}
+	else if ( ent->shinobiCloneOwner )
+	{//JK_Shinobi: a clone / Kawarimi double - the cgame draws its maker's accessories on it
+		ent->s.owner = ent->shinobiCloneOwner - 1;
+	}
 	else
 	{
 		ent->s.owner = ENTITYNUM_NONE;
