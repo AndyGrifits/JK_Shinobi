@@ -1712,15 +1712,31 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		cg.time, cgs.gameModels, cent->modelScale ) )
 		return;
 
-	memset( &ent, 0, sizeof( ent ) );
-	ent.hModel = ci->shinobiAccModel;
-	// T = bolt * inverse bind pose; the MD3 vertex v lands at origin + v.x*axis[0] + v.y*axis[1] + v.z*axis[2]
-	for ( r = 0; r < 3; r++ ) {
-		for ( c = 0; c < 3; c++ )
-			ent.axis[c][r] = m.matrix[r][0] * shinobiCranium.inv[0][c] + m.matrix[r][1] * shinobiCranium.inv[1][c]
-				+ m.matrix[r][2] * shinobiCranium.inv[2][c];
-		ent.origin[r] = m.matrix[r][0] * shinobiCranium.inv[0][3] + m.matrix[r][1] * shinobiCranium.inv[1][3]
-			+ m.matrix[r][2] * shinobiCranium.inv[2][3] + m.matrix[r][3];
+	{ // C = inverse bind pose * yaw fix: the exported model space is turned against the
+	  // skeleton's (shinobi_acc_yaw degrees about the vertical, 90 by default)
+		char        yawStr[16];
+		const float yaw = ( trap->Cvar_VariableStringBuffer( "shinobi_acc_yaw", yawStr, sizeof( yawStr ) ), yawStr[0] )
+			? (float)atof( yawStr ) : 90.0f;
+		const float cy = cosf( DEG2RAD( yaw ) ), sy = sinf( DEG2RAD( yaw ) );
+		const float rz[3][3] = { { cy, -sy, 0 }, { sy, cy, 0 }, { 0, 0, 1 } };
+		float       C[3][4];
+		int         k;
+		for ( r = 0; r < 3; r++ ) {
+			for ( c = 0; c < 3; c++ ) {
+				C[r][c] = 0;
+				for ( k = 0; k < 3; k++ )
+					C[r][c] += shinobiCranium.inv[r][k] * rz[k][c];
+			}
+			C[r][3] = shinobiCranium.inv[r][3];
+		}
+		memset( &ent, 0, sizeof( ent ) );
+		ent.hModel = ci->shinobiAccModel;
+		// T = bolt * C; the MD3 vertex v lands at origin + v.x*axis[0] + v.y*axis[1] + v.z*axis[2]
+		for ( r = 0; r < 3; r++ ) {
+			for ( c = 0; c < 3; c++ )
+				ent.axis[c][r] = m.matrix[r][0] * C[0][c] + m.matrix[r][1] * C[1][c] + m.matrix[r][2] * C[2][c];
+			ent.origin[r] = m.matrix[r][0] * C[0][3] + m.matrix[r][1] * C[1][3] + m.matrix[r][2] * C[2][3] + m.matrix[r][3];
+		}
 	}
 	VectorCopy( ent.origin, ent.oldorigin );
 	ent.nonNormalizedAxes = qtrue;
