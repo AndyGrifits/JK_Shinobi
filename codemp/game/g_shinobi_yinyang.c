@@ -206,7 +206,7 @@ qboolean Shinobi_CastHeal( gentity_t *ent, int lvl ) {
 Lightning Dash (Raiton, held): you become a bolt of lightning racing ahead
 (Pmove forces the run, 3x speed, steered with the mouse) for as long as the
 key is held and the chakra lasts. Whoever you pass close to is shocked
-(damage, a short stun); puddles you cross are electrified.
+(damage, no stun); puddles you cross are electrified.
 ---------------------------------------------------------------------------
 */
 qboolean Shinobi_CastRaiDash( gentity_t *ent ) {
@@ -310,12 +310,8 @@ static void Shinobi_RaiDashThink( gentity_t *ent ) {
 		G_Damage( v, ent, ent, NULL, v->r.currentOrigin, SHINOBI_RAIDASH_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
 		shinobiJutsuDamage = 0;
 		shinobiHitElement = SE_NONE;
-		if ( v->inuse && v->health > 0 && v->client && !Shinobi_CCImmune( v ) ) {
-			v->client->ps.electrifyTime = level.time + SHINOBI_RAIDASH_STUN;
-			if ( v->client->ps.weaponTime < SHINOBI_RAIDASH_STUN )
-				v->client->ps.weaponTime = SHINOBI_RAIDASH_STUN;
-			Shinobi_CCGrant( v, level.time + SHINOBI_RAIDASH_STUN );
-		}
+		if ( v->inuse && v->client )
+			v->client->ps.electrifyTime = level.time + 300; // a crackle, no stun
 		G_PlayEffectID( shinobiMedia.fxChidoriHit[0], v->r.currentOrigin, up );
 	}
 }

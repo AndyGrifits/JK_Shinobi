@@ -90,6 +90,25 @@ qboolean Shinobi_CCImmune( gentity_t *e ) {
 	return ( e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.ccImmuneEnd > level.time ) ? qtrue : qfalse;
 }
 
+// lightning paralysis: rooted, no attacks, crackling (players: Shinobi_StatusThink holds them)
+void Shinobi_Paralyse( gentity_t *v, int ms ) {
+	if ( !v || !v->client || v->health <= 0 || Shinobi_CCImmune( v ) )
+		return;
+	v->client->ps.electrifyTime = level.time + ms;
+	if ( v->client->ps.weaponTime < ms )
+		v->client->ps.weaponTime = ms;
+	if ( v->s.number < MAX_CLIENTS ) {
+		if ( v->client->shinobi.stunEnd < level.time + ms )
+			v->client->shinobi.stunEnd = level.time + ms;
+		v->client->ps.velocity[0] = v->client->ps.velocity[1] = 0;
+	}
+	else {
+		v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+		v->client->ps.pm_time = ms;
+	}
+	Shinobi_CCGrant( v, level.time + ms );
+}
+
 void Shinobi_CCGrant( gentity_t *e, int ccEnds ) {
 	if ( !e || !e->client || e->s.number >= MAX_CLIENTS )
 		return;

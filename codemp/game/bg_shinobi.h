@@ -332,10 +332,10 @@ static const int shinobiPillarLaunch[3] = { 420, 500, 580 };
 #define SHINOBI_PILLAR_LIFE        90000 // a lasting platform...
 #define SHINOBI_PILLAR_MAX         3     // ...but at most this many each: a 4th takes the oldest down
 #define SHINOBI_PILLAR_COOLDOWN    4000
-static const int shinobiPillarHealth[3] = { 60, 90, 130 };
+static const int shinobiPillarHealth[3] = { 50, 100, 170 };  // the charge: how tough...
 // the stone blocks (axis-aligned: the model is the collision box)
 #define SHINOBI_ROCK_HALF          54    // half width (both ways)
-#define SHINOBI_ROCK_HEIGHT        104   // a pillar standing on the ground
+static const int shinobiRockHeight[3]   = { 72, 112, 160 };  // ...and how tall a pillar on the ground
 #define SHINOBI_ROCK_LEDGE_HALF    16    // half thickness of a ledge out of a wall
 #define SHINOBI_ROCK_RISE_MS       300
 // Stone Skin
@@ -364,7 +364,6 @@ static const int shinobiPillarHealth[3] = { 60, 90, 130 };
 #define SHINOBI_RAIDASH_DRAIN      4     // chakra per tick (40/s)
 #define SHINOBI_RAIDASH_WIDTH      48    // shocks whoever it passes this close to
 #define SHINOBI_RAIDASH_DAMAGE     10
-#define SHINOBI_RAIDASH_STUN       500
 #define SHINOBI_RAIDASH_REHIT_MS   800   // the same victim at most this often
 #define SHINOBI_RAIDASH_COOLDOWN   3000
 // Shadow Hide (held)
@@ -938,7 +937,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"8 s: 40% less damage, no knockdowns or knockback, a bit slower; Lightning cuts through it",
 	"a slow, tough clone of stone (25 s); crumbles into mud",
 	"a clone of lightning that runs at the nearest enemy and goes off like a lightning trap: shock and paralysis around it",
-	"hold F: become a bolt of lightning racing ahead (steer with the mouse), shocking whoever you pass; 40 chakra/s",
+	"hold F: become a bolt of lightning racing ahead (steer with the mouse), zapping whoever you pass; 40 chakra/s",
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
 	"chakra into health: 20 / 35 / 50 back"

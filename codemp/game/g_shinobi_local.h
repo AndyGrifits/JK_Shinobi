@@ -36,7 +36,7 @@ typedef struct {
 
 	int wallModels[SHINOBI_WALL_MODELS];
 	int logModel, exKunaiModel, tagModel, shurikenModel;
-	int rockBlockModel, rockLedgeModel;
+	int rockBlockModel[3], rockLedgeModel;
 } shinobiMedia_t;
 
 extern shinobiMedia_t shinobiMedia;
@@ -73,6 +73,7 @@ void      Shinobi_NatureInit( void );
 void      Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_StatusClear( gentity_t *ent );
 gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs, int ownerNum );
+void      Shinobi_Paralyse( gentity_t *v, int ms );
 void      Shinobi_DustAt( vec3_t pos, float radius, int ownerNum );
 qboolean  Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor );
 void      Shinobi_ElectrifyAt( vec3_t point, int ownerNum );

@@ -855,10 +855,11 @@ static void Shinobi_WaveThink( gentity_t *wave ) {
 	}
 
 	// puddles along the way
+	// puddles behind it, as wide as the wave (overlapping wide pools, not a thin chain)
 	WAVE_PUDDLE( wave ) -= (int)step;
 	if ( WAVE_PUDDLE( wave ) <= 0 ) {
-		WAVE_PUDDLE( wave ) = SHINOBI_WAVE_PUDDLE_STEP;
-		Shinobi_SpawnZone( SZ_WATER, next, half * 0.6f, shinobiPuddleLife[1],
+		WAVE_PUDDLE( wave ) = (int)( half * 1.25f );
+		Shinobi_SpawnZone( SZ_WATER, next, half, shinobiPuddleLife[1],
 			owner->client ? owner->s.number + 1 : 0 );
 	}
 
@@ -905,7 +906,7 @@ qboolean Shinobi_CastWave( gentity_t *ent, int lvl ) {
 	wave->s.generic1 = SHINOBI_ENT_WAVE + li;
 	WAVE_LEVEL( wave ) = lvl;
 	WAVE_END( wave ) = shinobiWaveRange[li];
-	WAVE_PUDDLE( wave ) = SHINOBI_WAVE_PUDDLE_STEP;
+	WAVE_PUDDLE( wave ) = (int)( shinobiWaveHalfWidth[lvl - 1] * 0.6f ); // the first pool soon after the start
 	WAVE_HIT( wave ) = 0;
 	wave->s.angles2[0] = (float)shinobiWaveHalfWidth[li];
 	WAVE_YAW( wave ) = client->ps.viewangles[YAW];

@@ -110,14 +110,8 @@ static void Shinobi_ClonePoof( gentity_t *clone ) {
 				G_Damage( v, clone, owner ? owner : clone, up, v->r.currentOrigin, SHINOBI_RAICLONE_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
 				shinobiJutsuDamage = 0;
 				shinobiHitElement = SE_NONE;
-				if ( v->inuse && v->health > 0 && v->client && !Shinobi_CCImmune( v ) ) {
-					v->client->ps.electrifyTime = level.time + SHINOBI_RAICLONE_STUN;
-					if ( v->client->ps.weaponTime < SHINOBI_RAICLONE_STUN )
-						v->client->ps.weaponTime = SHINOBI_RAICLONE_STUN;
-					v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-					v->client->ps.pm_time = SHINOBI_RAICLONE_STUN / 2;
-					Shinobi_CCGrant( v, level.time + SHINOBI_RAICLONE_STUN );
-				}
+				if ( v->inuse && v->health > 0 && v->client )
+					Shinobi_Paralyse( v, SHINOBI_RAICLONE_STUN );
 			}
 		}
 		else {
@@ -658,7 +652,8 @@ static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 	gentity_t *best = NULL;
 	// a Kawarimi double goes for the nearest enemy anywhere, like the real
 	// ninja would; clones only fight what they can see
-	float      bestDist = clone->shinobiCloneDecoy ? 1e12f : (float)SHINOBI_CLONE_SIGHT * SHINOBI_CLONE_SIGHT;
+	const qboolean anywhere = clone->shinobiCloneDecoy || clone->shinobiCloneLightning; // (the lightning clone homes in)
+	float      bestDist = anywhere ? 1e12f : (float)SHINOBI_CLONE_SIGHT * SHINOBI_CLONE_SIGHT;
 	vec3_t     eye;
 	int        i;
 
@@ -676,7 +671,7 @@ static gentity_t *Shinobi_CloneFindEnemy( gentity_t *clone ) {
 		d = DistanceSquared( clone->r.currentOrigin, e->r.currentOrigin );
 		if ( d >= bestDist )
 			continue;
-		if ( !clone->shinobiCloneDecoy ) {
+		if ( !anywhere ) {
 			if ( !trap->InPVS( eye, e->r.currentOrigin ) )
 				continue;
 
@@ -735,11 +730,21 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 		clone->shinobiCloneReady = qtrue;
 	}
 
-	clone->client->leader = owner;
-	if ( clone->shinobiCloneLightning && clone->enemy && clone->NPC ) { // straight at its target
+	if ( clone->shinobiCloneLightning ) { // a homing trap: no leader, straight for the nearest enemy
+		gentity_t *enemy;
 		clone->client->leader = NULL;
-		clone->NPC->behaviorState = BS_DEFAULT;
+		if ( clone->NPC )
+			clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_DEFAULT;
+		enemy = Shinobi_CloneFindEnemy( clone );
+		if ( enemy && enemy != clone->enemy )
+			G_SetEnemy( clone, enemy );
+		if ( clone->NPC && clone->enemy ) {
+			clone->NPC->goalEntity = clone->enemy;
+			clone->NPC->goalRadius = SHINOBI_RAICLONE_TRIGGER / 2;
+		}
+		return;
 	}
+	clone->client->leader = owner;
 
 	if ( clone->enemy && !Shinobi_CloneIsHostile( clone, clone->enemy ) ) {
 		G_ClearEnemy( clone );

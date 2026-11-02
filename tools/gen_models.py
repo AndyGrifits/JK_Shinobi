@@ -510,7 +510,9 @@ def main():
     write_md3(os.path.join(OUT, "log.md3"), "models/shinobi/log.md3", verts, uvs, normals, tris, shader=LOG_SHADER)
     print("models/shinobi/log.md3", len(verts), "verts", len(tris), "tris")
     # Rock Pillar blocks (collision boxes in bg_shinobi.h: SHINOBI_ROCK_*)
-    for name, mesh in (("rock_block", build_rockbox(54, 54, -16, 104, 301)),
+    for name, mesh in (("rock_block1", build_rockbox(54, 54, -16, 72, 301)),
+                       ("rock_block2", build_rockbox(54, 54, -16, 112, 303)),
+                       ("rock_block3", build_rockbox(54, 54, -16, 160, 304, grid=5)),
                        ("rock_ledge", build_rockbox(54, 54, -16, 16, 302, grid=4, bump=2.5))):
         write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh)
         print("models/shinobi/" + name + ".md3", len(mesh[0]), "verts", len(mesh[3]), "tris")

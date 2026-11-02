@@ -1,6 +1,6 @@
 /*
 ===========================================================================
-JK_Shinobi - block (hold Ctrl): guard, perfect parry, guard break.
+JK_Shinobi - block (hold the right mouse button or Ctrl): guard, perfect parry, guard break.
 The guard is the shield stat (STAT_ARMOR); it only soaks hits while
 blocking. The stance and the slow steps live in PM_ShinobiPreMove.
 ===========================================================================

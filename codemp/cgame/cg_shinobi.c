@@ -167,12 +167,26 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
-	{ // puddles: a stock water surface when one is named (cvar), our own otherwise
-		char name[MAX_QPATH];
+	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
+		// (shinobi_puddleShader names any other shader)
+		char         name[MAX_QPATH];
+		fileHandle_t f = 0;
 		trap->Cvar_VariableStringBuffer( "shinobi_puddleShader", name, sizeof( name ) );
 		shinobiShaders.puddleWater = name[0] ? trap->R_RegisterShader( name ) : 0;
-		if ( !shinobiShaders.puddleWater )
-			shinobiShaders.puddleWater = trap->R_RegisterShader( "gfx/shinobi/puddlewater" );
+		if ( !shinobiShaders.puddleWater ) {
+			static const char * const tex[] = { "textures/bespin/water1.jpg", "textures/bespin/water1.tga" };
+			qboolean stock = qfalse;
+			int      k;
+			for ( k = 0; k < 2 && !stock; k++ ) {
+				f = 0;
+				if ( trap->FS_Open( tex[k], &f, FS_READ ) > 0 && f )
+					stock = qtrue;
+				if ( f )
+					trap->FS_Close( f );
+			}
+			shinobiShaders.puddleWater = trap->R_RegisterShader( stock ? "gfx/shinobi/puddlewater_stock" : "gfx/shinobi/puddlewater" );
+			trap->Print( "[shinobi] water surface: %s\n", stock ? "stock Bespin water" : "own texture" );
+		}
 	}
 	CG_ShinobiDumpWaterShaders();
 
@@ -905,25 +919,63 @@ static void CG_ShinobiShadow( centity_t *cent ) {
 Water Wave: a row of churning water blobs across its width, spray on the crest.
 */
 static void CG_ShinobiWave( centity_t *cent ) {
+	// a rolling wall of water: a breaking-wave profile swept across the width,
+	// bobbing, lower at the ends; its crest throws spray
+	static const float prof[][2] = { // forward offset, height (fraction of H), alpha
+		{ -72, 0.0f }, { -46, 0.3f }, { -22, 0.68f }, { -4, 0.95f }, { 9, 1.0f },
+		{ 19, 0.84f }, { 23, 0.56f }, { 16, 0.22f }, { 5, 0.0f } };
+	enum { NP = ARRAY_LEN( prof ), MAXSEG = 24 };
+	static polyVert_t quads[MAXSEG * ( NP - 1 ) * 4];
 	entityState_t *s = &cent->currentState;
 	const float    half = s->angles2[0], H = (float)SHINOBI_WAVE_HEIGHT, t = cg.time * 0.001f;
-	vec3_t         angles, fwd, right, pos;
-	float          x;
-	int            k = 0;
+	vec3_t         angles, fwd, right, pos, grid[MAXSEG + 1][NP];
+	float          arc[NP], alpha[NP];
+	int            nseg, i, j, q = 0;
 
 	VectorSet( angles, 0, s->angles2[1], 0 );
 	AngleVectors( angles, fwd, right, NULL );
+	nseg = (int)( 2 * half / 20.0f );
+	if ( nseg < 4 ) nseg = 4;
+	if ( nseg > MAXSEG ) nseg = MAXSEG;
 
-	for ( x = -half; x <= half + 0.1f; x += 22.0f, k++ ) {
-		const float bob = 4.0f * sinf( t * 9.0f + k * 1.7f );
-		VectorMA( cent->lerpOrigin, x, right, pos );
-		pos[2] += H * 0.4f + bob;
-		CG_ShinobiSpriteA( pos, H * 0.6f, t * 60.0f + k * 40, shinobiShaders.waterSphere, 0.45f, 0.65f, 0.95f, 0.6f );
+	for ( i = 0, arc[0] = 0; i < NP; i++ ) {
+		if ( i )
+			arc[i] = arc[i - 1] + sqrtf( Square( prof[i][0] - prof[i - 1][0] ) + Square( ( prof[i][1] - prof[i - 1][1] ) * H ) );
+		alpha[i] = 0.45f + 0.45f * prof[i][1]; // see-through at the foot, solid at the crest
 	}
+	for ( j = 0; j <= nseg; j++ ) {
+		const float x = -half + 2 * half * j / nseg;
+		const float e = fabs( x ) / ( half > 1 ? half : 1 );
+		const float taper = 1.0f - 0.85f * e * e * e * e;
+		const float bob = 1.0f + 0.1f * sinf( t * 7.0f + j * 0.9f );
+		for ( i = 0; i < NP; i++ ) {
+			VectorMA( cent->lerpOrigin, x, right, pos );
+			VectorMA( pos, prof[i][0] * ( 0.55f + 0.45f * taper ), fwd, pos );
+			pos[2] += prof[i][1] * H * taper * bob + 1.0f;
+			VectorCopy( pos, grid[j][i] );
+		}
+	}
+	for ( j = 0; j < nseg; j++ ) {
+		for ( i = 0; i < NP - 1; i++ ) {
+			const int   jj[4] = { j, j + 1, j + 1, j }, ii[4] = { i, i, i + 1, i + 1 };
+			int         k;
+			for ( k = 0; k < 4; k++ ) {
+				polyVert_t *v = &quads[q++];
+				const float x = -half + 2 * half * jj[k] / nseg;
+				VectorCopy( grid[jj[k]][ii[k]], v->xyz );
+				v->st[0] = x / 96.0f;
+				v->st[1] = arc[ii[k]] / 64.0f - t * 0.6f; // the water runs up the face
+				v->modulate[0] = v->modulate[1] = v->modulate[2] = (byte)( 45 + 60 * prof[ii[k]][1] ); // the sheen
+				v->modulate[3] = (byte)( alpha[ii[k]] * 255 );
+			}
+		}
+	}
+	trap->R_AddPolysToScene( shinobiShaders.puddleWater, 4, quads, nseg * ( NP - 1 ) );
 
 	if ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) {
-		VectorMA( cent->lerpOrigin, flrand( -half, half ), right, pos );
-		pos[2] += H * 0.85f;
+		VectorMA( cent->lerpOrigin, flrand( -half * 0.8f, half * 0.8f ), right, pos );
+		VectorMA( pos, 6, fwd, pos );
+		pos[2] += H * 0.9f;
 		trap->FX_PlayEffectID( shinobiFx.waveCrest, pos, fwd, -1, -1, qfalse );
 		cent->shinobiHandFxTime = cg.time + 30;
 	}
@@ -1791,7 +1843,8 @@ void CG_ShinobiDrawHUD( void ) {
 		color[3] = 0.65f + 0.35f * sinf( cg.time * 0.008f );
 	}
 	else if ( SHINOBI_STUNNED( ps ) ) {
-		text = "Gasping for air!";
+		const qboolean shocked = ps->electrifyTime > cg.time;
+		text = shocked ? "Paralysed by lightning!" : "Gasping for air!";
 		VectorSet( color, 0.6f, 0.8f, 1.0f );
 	}
 	else if ( SHINOBI_IMPRISONED( ps ) ) {

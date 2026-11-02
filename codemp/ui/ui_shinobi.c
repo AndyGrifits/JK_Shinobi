@@ -501,7 +501,7 @@ void UI_ShinobiMenuDraw( void ) {
 		SB_Wrapped( x + 8, y + 8, 344, 0.45f, 15, dim,
 			"Point at a technique, stat or special to read about it. Click a technique to take it or drop it. "
 			"Up to 5 techniques from at most 2 schools; the order on the right is the order of your selection cycle.\n"
-			"Always yours: Shunshin (Shift+Space), Kawarimi (X), chakra (R), kunai (Z), block (Ctrl) and your fists." );
+			"Always yours: Shunshin (Shift+Space), Kawarimi (X), chakra (R), kunai (Z), block (right mouse) and your fists." );
 	}
 
 	if ( sb.msg[0] && SB_NOW - sb.msgTime < 5000 )

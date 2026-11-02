@@ -38,7 +38,8 @@ void Shinobi_ElementsInit( void ) {
 	for ( i = 0; i < SHINOBI_WALL_MODELS; i++ ) {
 		m->wallModels[i] = G_ModelIndex( va( "models/shinobi/earth_pillar%i.md3", i + 1 ) );
 	}
-	m->rockBlockModel = G_ModelIndex( "models/shinobi/rock_block.md3" );
+	for ( i = 0; i < 3; i++ )
+		m->rockBlockModel[i] = G_ModelIndex( va( "models/shinobi/rock_block%i.md3", i + 1 ) );
 	m->rockLedgeModel = G_ModelIndex( "models/shinobi/rock_ledge.md3" );
 }
 
@@ -760,14 +761,14 @@ They take hits like an earth wall (not pushable); broken, they leave dust.
 #define PILLARCAST_STAGE(c)  ( (c)->genericValue1 ) // 0 rumbling, 1 erupted (placing the stone)
 #define PILLARCAST_LEDGE(c)  ( (c)->genericValue2 ) // out of a wall (c->movedir: out of the wall)
 
-static void Shinobi_RockBox( qboolean ledge, vec3_t mins, vec3_t maxs ) {
+static void Shinobi_RockBox( qboolean ledge, int lvl, vec3_t mins, vec3_t maxs ) {
 	if ( ledge ) {
 		VectorSet( mins, -SHINOBI_ROCK_HALF, -SHINOBI_ROCK_HALF, -SHINOBI_ROCK_LEDGE_HALF );
 		VectorSet( maxs, SHINOBI_ROCK_HALF, SHINOBI_ROCK_HALF, SHINOBI_ROCK_LEDGE_HALF );
 	}
 	else {
 		VectorSet( mins, -SHINOBI_ROCK_HALF, -SHINOBI_ROCK_HALF, -16 );
-		VectorSet( maxs, SHINOBI_ROCK_HALF, SHINOBI_ROCK_HALF, SHINOBI_ROCK_HEIGHT );
+		VectorSet( maxs, SHINOBI_ROCK_HALF, SHINOBI_ROCK_HALF, shinobiRockHeight[lvl - 1] );
 	}
 }
 
@@ -777,7 +778,7 @@ static qboolean Shinobi_RockSpot( gentity_t *c, vec3_t origin ) {
 	vec3_t         mins, maxs, mid;
 	trace_t        tr;
 
-	Shinobi_RockBox( ledge, mins, maxs );
+	Shinobi_RockBox( ledge, c->count > 0 ? c->count : 1, mins, maxs );
 	if ( ledge )
 		VectorMA( c->r.currentOrigin, SHINOBI_ROCK_HALF, c->movedir, origin );
 	else
@@ -790,20 +791,20 @@ static qboolean Shinobi_RockSpot( gentity_t *c, vec3_t origin ) {
 	return ( tr.startsolid || tr.allsolid ) ? qfalse : qtrue;
 }
 
-static gentity_t *Shinobi_SpawnRock( gentity_t *caster, gentity_t *wall, vec3_t origin, qboolean ledge, vec3_t dir ) {
+static gentity_t *Shinobi_SpawnRock( gentity_t *caster, gentity_t *wall, vec3_t origin, qboolean ledge, int lvl, vec3_t dir ) {
 	gentity_t  *p = G_Spawn();
 	vec3_t      up = { 0, 0, 1 };
-	const float travel = ledge ? SHINOBI_ROCK_HALF * 2 + 8 : SHINOBI_ROCK_HEIGHT + 24;
+	const float travel = ledge ? SHINOBI_ROCK_HALF * 2 + 8 : shinobiRockHeight[lvl - 1] + 24;
 
 	if ( !p )
 		return NULL;
 	p->classname = "shinobi_earthwall"; // stone for the element rules (Lightning Edge, water -> mud...)
 	p->s.eType = ET_GENERAL;
-	p->s.modelindex = ledge ? shinobiMedia.rockLedgeModel : shinobiMedia.rockBlockModel;
+	p->s.modelindex = ledge ? shinobiMedia.rockLedgeModel : shinobiMedia.rockBlockModel[lvl - 1];
 	p->r.ownerNum = ENTITYNUM_NONE; // the caster stands on it too
 	p->parent = caster;
 	p->target_ent = wall;
-	Shinobi_RockBox( ledge, p->r.mins, p->r.maxs );
+	Shinobi_RockBox( ledge, lvl, p->r.mins, p->r.maxs );
 	p->r.contents = CONTENTS_SOLID;
 	p->clipmask = MASK_SOLID;
 	p->takedamage = qtrue;
@@ -879,7 +880,7 @@ static void Shinobi_PillarCastThink( gentity_t *c ) {
 			Shinobi_EarthOnWater( c->r.currentOrigin, SHINOBI_PILLAR_RADIUS );
 
 		// whoever is where the stone comes: hurt and thrown off it
-		Shinobi_RockBox( ledge, mins, maxs );
+		Shinobi_RockBox( ledge, lvl, mins, maxs );
 		if ( ledge )
 			VectorMA( c->r.currentOrigin, SHINOBI_ROCK_HALF, c->movedir, center );
 		else
@@ -946,7 +947,7 @@ static void Shinobi_PillarCastThink( gentity_t *c ) {
 			WALL_HALF_BROKEN( wall ) = qtrue; // one block: no half-crumbling
 			wall->think = Shinobi_WallSink;
 			wall->nextthink = level.time + SHINOBI_PILLAR_LIFE;
-			p = Shinobi_SpawnRock( owner, wall, origin, ledge, ledge ? c->movedir : up );
+			p = Shinobi_SpawnRock( owner, wall, origin, ledge, lvl, ledge ? c->movedir : up );
 			if ( p ) {
 				WALL_PILLAR( wall, WALL_COUNT( wall )++ ) = p->s.number + 1;
 				Shinobi_RockRemember( owner, wall );

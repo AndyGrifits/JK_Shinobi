@@ -192,6 +192,28 @@ gfx/shinobi/puddlewater
 	}
 }
 
+// the same with the game's own Bespin water texture (used when it is installed)
+gfx/shinobi/puddlewater_stock
+{
+	cull none
+	sort 9
+	{
+		map textures/bespin/water1
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen const ( 0.8 0.85 0.95 )
+		alphaGen vertex
+		tcMod turb 1 0.03 0 0.3
+		tcMod scroll 0.02 0.04
+	}
+	{
+		map textures/bespin/water1
+		blendFunc GL_ONE GL_ONE
+		rgbGen vertex
+		tcMod turb 0 -0.03 0.5 -0.3
+		tcMod scroll -0.03 -0.02
+	}
+}
+
 // Stone Skin / Earth Clone: the body drawn over as rough stone
 gfx/shinobi/stoneshell
 {

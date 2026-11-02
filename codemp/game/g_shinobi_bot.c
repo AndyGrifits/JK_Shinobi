@@ -176,6 +176,25 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	if ( jutsu == SJ_SHUNSHIN )
 		client->shinobi.shunshinBack = ent->health < 40; // hurt: get away
 
+	if ( !SHINOBI_JUTSU_INSTANT( jutsu ) && !SHINOBI_JUTSU_HOLD( jutsu ) && jutsu != SJ_SHUNSHIN ) {
+		// a charged jutsu: form the seals like a player (the Sharingan sees it coming), let go at the bar
+		if ( lvl < SHINOBI_JUTSU_MIN_LEVEL( jutsu ) )
+			lvl = SHINOBI_JUTSU_MIN_LEVEL( jutsu );
+		if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
+			client->shinobi.botJutsuNext = level.time + 600;
+			return qtrue;
+		}
+		Shinobi_Reveal( ent );
+		Shinobi_StopCharging( client );
+		client->shinobi.chargeJutsu = jutsu;
+		client->shinobi.chargeStart = level.time;
+		client->shinobi.botHoldEnd = level.time + Shinobi_BarEndCast( jutsu, lvl - 1, Shinobi_CastStat( ent ) ) + 40;
+		client->shinobi.botJutsuNext = client->shinobi.botHoldEnd + Q_irand( 1500, 3000 );
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
+		Shinobi_Debug( "bot %i: force %i -> charging %s to Lv%i", ent->s.number, forcePower, shinobiJutsuTitles[jutsu], lvl );
+		return qtrue;
+	}
+
 	if ( Shinobi_Cast( ent, jutsu, lvl ) ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
@@ -198,7 +217,6 @@ void Shinobi_BotThink( gentity_t *ent ) {
 
 	if ( !( ent->r.svFlags & SVF_BOT ) )
 		return;
-	if ( client->shinobi.chargeJutsu != SJ_NONE && SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu )
-		&& level.time >= client->shinobi.botHoldEnd )
-		Cmd_JutsuRelease_f( ent );
+	if ( client->shinobi.chargeJutsu != SJ_NONE && level.time >= client->shinobi.botHoldEnd )
+		Cmd_JutsuRelease_f( ent ); // a held jutsu let go / a charged one cast at its bar
 }
