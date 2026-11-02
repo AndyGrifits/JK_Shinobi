@@ -3424,6 +3424,7 @@ command_t commands[] = {
 	{ "exkunai",			Cmd_ExKunai_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "extag",				Cmd_ExTag_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "fuma",				Cmd_Fuma_f,					CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "chakra",				Cmd_Chakra_f,				CMD_CHEAT|CMD_ALIVE },
 	{ "kirigakure",			Cmd_Kirigakure_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kunai",				Cmd_Kunai_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kill",				Cmd_Kill_f,					CMD_ALIVE|CMD_NOINTERMISSION },
@@ -3481,6 +3482,10 @@ void ClientCommand( int clientNum ) {
 	command = (command_t *)Q_LinearSearch( cmd, commands, numCommands, sizeof( commands[0] ), cmdcmp );
 	if ( !command )
 	{
+		if ( Shinobi_JutsuCommand( ent, cmd ) )
+		{ // JK_Shinobi: any jutsu by its name ("ganchu 2"), for binds, scripts and tests
+			return;
+		}
 		trap->SendServerCommand( clientNum, va( "print \"Unknown command %s\n\"", cmd ) );
 		return;
 	}

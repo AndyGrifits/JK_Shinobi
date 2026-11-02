@@ -1500,6 +1500,8 @@ void     Cmd_ExTag_f( gentity_t *ent );
 void     Cmd_Fuma_f( gentity_t *ent );
 qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon );
 qboolean Shinobi_ZUsesTool( gentity_t *ent );
+qboolean Shinobi_JutsuCommand( gentity_t *ent, const char *cmd );
+void     Cmd_Chakra_f( gentity_t *ent );
 qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit

@@ -431,6 +431,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		lvl--;
 	if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
 		Shinobi_NoChakra( ent, Shinobi_JutsuCost( jutsu, lvl ) );
+		Shinobi_Debug( "%i casts %s Lv%i: no chakra (%i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl, client->ps.fd.forcePower );
 		return qfalse;
 	}
 
@@ -494,6 +495,25 @@ static void Shinobi_CastCommand( gentity_t *ent, int jutsu ) {
 		ent->client->shinobi.shunshinBack = !Q_stricmp( arg, "back" );
 	}
 	Shinobi_Cast( ent, jutsu, lvl );
+}
+
+// "<jutsu name> [level]" for any jutsu without a command of its own
+qboolean Shinobi_JutsuCommand( gentity_t *ent, const char *cmd ) {
+	int j;
+	if ( !ent || !ent->client || ent->health <= 0 )
+		return qfalse;
+	for ( j = SJ_NONE + 1; j < SJ_COUNT; j++ ) {
+		if ( !Q_stricmp( cmd, shinobiJutsuNames[j] ) ) {
+			Shinobi_CastCommand( ent, j );
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// "chakra" (cheat): a full chakra pool, for tests
+void Cmd_Chakra_f( gentity_t *ent ) {
+	ent->client->ps.fd.forcePower = ent->client->ps.fd.forcePowerMax;
 }
 
 void Cmd_Rasengan_f( gentity_t *ent )    { Shinobi_CastCommand( ent, SJ_RASENGAN ); }

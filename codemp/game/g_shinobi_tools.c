@@ -48,6 +48,7 @@ static qboolean Shinobi_ToolReady( gentity_t *ent, int slot ) {
 		|| SHINOBI_HAND_ANY( &client->ps ) || client->shinobi.toolNext > level.time )
 		return qfalse;
 	if ( client->ps.ammo[slot] <= 0 ) {
+		Shinobi_Debug( "%i tool slot %i: none left", ent->s.number, slot );
 		trap->SendServerCommand( ent - g_entities, "cp \"None left\"" );
 		client->shinobi.toolNext = level.time + 400;
 		return qfalse;
@@ -414,6 +415,7 @@ ammo, and put the weapon away when the last one is gone).
 qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon ) {
 	if ( !ent->client || !SHINOBI_IS_TOOL_WEAPON( weapon ) )
 		return qfalse;
+	Shinobi_Debug( "%i fires tool weapon %i (left %i)", ent->s.number, weapon, ent->client->ps.ammo[weaponData[weapon].ammoIndex] );
 	Shinobi_Reveal( ent );
 	if ( weapon == SHINOBI_WP_EXKUNAI )
 		Shinobi_SpawnExKunai( ent );
@@ -446,6 +448,7 @@ static void Shinobi_UseTool( gentity_t *ent, int weapon ) {
 		Shinobi_SpawnShuriken( ent );
 		client->shinobi.toolNext = level.time + SHINOBI_SHURIKEN_COOLDOWN;
 	}
+	Shinobi_Debug( "%i uses tool %i: %s (left %i)", ent->s.number, weapon, used ? "ok" : "FAILED", client->ps.ammo[slot] - ( used ? 1 : 0 ) );
 	if ( !used )
 		return;
 	Shinobi_ThrowPose( ent );
