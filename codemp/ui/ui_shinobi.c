@@ -34,7 +34,55 @@ static struct {
 	int            descSchool;
 } sb;
 
-static vmCvar_t ui_shinobiBuild;
+static vmCvar_t ui_shinobiBuild, ui_shinobiAcc;
+
+// head accessories: models/accessories/head/<name>.md3 (any number, picked up at open)
+#define SB_MAX_ACC 64
+static char sbAcc[SB_MAX_ACC][32];
+static int  sbAccCount, sbAccSel; // sel 0 = none, 1.. = sbAcc[sel - 1]
+
+static void SB_ScanAccessories( void ) {
+	static char list[8192];
+	char        cur[32], *p;
+	int         n, i;
+
+	n = trap->FS_GetFileList( "models/accessories/head", ".md3", list, sizeof( list ) );
+	sbAccCount = 0;
+	for ( i = 0, p = list; i < n && sbAccCount < SB_MAX_ACC; i++, p += strlen( p ) + 1 ) {
+		char *dot;
+		Q_strncpyz( sbAcc[sbAccCount], p, sizeof( sbAcc[0] ) );
+		if ( ( dot = strrchr( sbAcc[sbAccCount], '.' ) ) != NULL )
+			*dot = 0;
+		if ( sbAcc[sbAccCount][0] )
+			sbAccCount++;
+	}
+	trap->Cvar_VariableStringBuffer( "shinobi_acc", cur, sizeof( cur ) );
+	sbAccSel = 0;
+	for ( i = 0; i < sbAccCount; i++ ) {
+		if ( !Q_stricmp( sbAcc[i], cur ) )
+			sbAccSel = i + 1;
+	}
+}
+
+static const char *SB_AccTitle( int sel ) {
+	static char t[40];
+	int         i;
+	if ( sel <= 0 || sel > sbAccCount )
+		return "none";
+	Q_strncpyz( t, sbAcc[sel - 1], sizeof( t ) );
+	for ( i = 0; t[i]; i++ ) {
+		if ( t[i] == '_' )
+			t[i] = ' ';
+		else if ( i == 0 || t[i - 1] == ' ' )
+			t[i] = ( t[i] >= 'a' && t[i] <= 'z' ) ? t[i] - 32 : t[i];
+	}
+	return t;
+}
+
+static void SB_SetAcc( int sel ) {
+	sbAccSel = sel;
+	trap->Cvar_Set( "shinobi_acc", sel > 0 && sel <= sbAccCount ? sbAcc[sel - 1] : "" ); // shown at once, no respawn
+}
 
 static const vec4_t sbSchoolColor[SS_COUNT] = {
 	{ 0.8f, 0.8f, 0.8f, 1 },
@@ -78,6 +126,8 @@ void UI_ShinobiMenuOpen( void ) {
 	int  i;
 
 	trap->Cvar_Register( &ui_shinobiBuild, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
+	trap->Cvar_Register( &ui_shinobiAcc, "shinobi_acc", "", CVAR_USERINFO | CVAR_ARCHIVE );
+	SB_ScanAccessories();
 	Menus_CloseAll();
 	trap->Key_SetCatcher( KEYCATCH_UI );
 
@@ -504,8 +554,21 @@ void UI_ShinobiMenuDraw( void ) {
 			"Always yours: Shunshin (Shift+Space), Kawarimi (X), chakra (R), kunai (Z), block (right mouse) and your fists." );
 	}
 
+	// --- headwear --------------------------------------------------------------
+	SB_Text( 20, 412, 0.5f, white, "HEADWEAR" );
+	if ( SB_Button( 120, 411, 22, 18, "<", sbAccCount > 0, qfalse ) )
+		SB_SetAcc( sbAccSel > 0 ? sbAccSel - 1 : sbAccCount );
+	{
+		const char *t = SB_AccTitle( sbAccSel );
+		const float tw = Text_Width( t, 0.47f, FONT_MEDIUM );
+		UI_FillRect( 146, 411, 190, 18, off );
+		SB_Text( 146 + ( 190 - tw ) * 0.5f, 412, 0.47f, sbAccSel ? title : dim, t );
+	}
+	if ( SB_Button( 340, 411, 22, 18, ">", sbAccCount > 0, qfalse ) )
+		SB_SetAcc( sbAccSel < sbAccCount ? sbAccSel + 1 : 0 );
+
 	if ( sb.msg[0] && SB_NOW - sb.msgTime < 5000 )
-		SB_Text( 20, 414, 0.45f, sb.msgBad ? bad : good, sb.msg );
+		SB_Text( 20, 431, 0.42f, sb.msgBad ? bad : good, sb.msg );
 
 	// --- buttons -----------------------------------------------------------------
 	y = 446;

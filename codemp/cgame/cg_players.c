@@ -1652,6 +1652,12 @@ void CG_NewClientInfo( int clientNum, qboolean entitiesInitialized ) {
 //	v = Info_ValueForKey( configstring, "g_blueteam" );
 //	Q_strncpyz(newInfo.blueTeam, v, MAX_TEAMNAME);
 
+	// JK_Shinobi: head accessory
+	v = Info_ValueForKey( configstring, "acc" );
+	Q_strncpyz( newInfo.shinobiAcc, v, sizeof( newInfo.shinobiAcc ) );
+	newInfo.shinobiAccModel = newInfo.shinobiAcc[0]
+		? trap->R_RegisterModel( va( "models/accessories/head/%s.md3", newInfo.shinobiAcc ) ) : 0;
+
 	// model
 	v = Info_ValueForKey( configstring, "model" );
 	if ( cg_forceModel.integer ) {
@@ -11073,6 +11079,7 @@ stillDoSaber:
 
 	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
 	CG_ShinobiStoneShell( cent, &legs ); // JK_Shinobi: Stone Skin / Earth Clone
+	CG_ShinobiAccessory( cent, ci, &legs ); // JK_Shinobi: hat / mask / headband on the head
 
 	// Electricity
 	//------------------------------------------------

@@ -313,6 +313,8 @@ typedef struct clientInfo_s {
 
 	int			superSmoothTime; //do crazy amount of smoothing
 
+	char		shinobiAcc[32];		// JK_Shinobi: head accessory name ("" = none)
+	qhandle_t	shinobiAccModel;
 } clientInfo_t;
 
 //rww - cheap looping sound struct
@@ -461,6 +463,8 @@ typedef struct centity_s {
 	int				shinobiAuraFxTime;	// JK_Shinobi: next time to emit chakra aura
 	vec3_t			shinobiTrailPrev;	// JK_Shinobi: last hand position of a Chidori dash
 	int				shinobiTrailTime;	// JK_Shinobi: when shinobiTrailPrev was taken (0 = none)
+	void			*shinobiAccG2;		// JK_Shinobi: the ghoul2 instance shinobiAccBolt belongs to
+	int				shinobiAccBolt;		// JK_Shinobi: "cranium" bolt for the head accessory
 } centity_t;
 
 
@@ -1801,6 +1805,7 @@ void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
 
 void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body );
+void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body );
 void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body );
 void CG_ShinobiSceneOverlay( void );
 void CG_ShinobiEffectPlayed( const char *name, const vec3_t org, const vec3_t dir );

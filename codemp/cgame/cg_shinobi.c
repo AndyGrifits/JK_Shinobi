@@ -1630,6 +1630,97 @@ void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body ) {
 	trap->R_AddRefEntityToScene( &shell );
 }
 
+/*
+Head accessories (models/accessories/head/<name>.md3): modelled in the bind
+pose of the _humanoid skeleton, kept rigid on the "cranium" bone. World =
+cranium bolt now * inverse of its bind pose (from _humanoid.gla) * vertex.
+*/
+static struct {
+	qboolean   tried, ok;
+	float      inv[3][4]; // cranium BasePoseMatInv
+} shinobiCranium;
+
+static void CG_ShinobiLoadCranium( void ) {
+	static byte  buf[131072];
+	fileHandle_t f;
+	int          len, ofsSkel, numBones, i;
+
+	shinobiCranium.tried = qtrue;
+	len = trap->FS_Open( "models/players/_humanoid/_humanoid.gla", &f, FS_READ );
+	if ( len <= 0 || !f ) {
+		trap->Print( S_COLOR_YELLOW "[shinobi] no _humanoid.gla: head accessories off\n" );
+		return;
+	}
+	if ( len > (int)sizeof( buf ) )
+		len = sizeof( buf ); // the skeleton is at the start, the animation frames come after
+	trap->FS_Read( buf, len, f );
+	trap->FS_Close( f );
+	if ( memcmp( buf, "2LGA", 4 ) )
+		return;
+	// mdxaHeader_t: ident, version, name[64], fScale, numFrames, ofsFrames, numBones, ofsCompBonePool, ofsSkel, ofsEnd
+	numBones = *(int *)( buf + 84 );
+	ofsSkel  = *(int *)( buf + 92 );
+	for ( i = 0; i < numBones; i++ ) {
+		const int  o = ofsSkel + *(int *)( buf + ofsSkel + i * 4 );
+		const byte *bone = buf + o;
+		if ( o <= 0 || o + 176 > len )
+			break;
+		// mdxaSkel_t: name[64], flags, parent, BasePoseMat[3][4], BasePoseMatInv[3][4], numChildren, children[]
+		if ( !Q_stricmp( (const char *)bone, "cranium" ) ) {
+			memcpy( shinobiCranium.inv, bone + 64 + 4 + 4 + 48, sizeof( shinobiCranium.inv ) );
+			shinobiCranium.ok = qtrue;
+			return;
+		}
+	}
+	trap->Print( S_COLOR_YELLOW "[shinobi] no cranium bone in _humanoid.gla: head accessories off\n" );
+}
+
+void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body ) {
+	mdxaBone_t  m;
+	refEntity_t ent;
+	int         r, c;
+
+	if ( !ci || !ci->shinobiAccModel || !cent->ghoul2 )
+		return;
+	if ( cent->currentState.eFlags & ( SHINOBI_EF_RAIDASH | EF_NODRAW ) || ( cent->currentState.powerups & ( 1 << PW_CLOAKED ) ) )
+		return;
+	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )
+		return; // our own hat would fill the first-person view
+	if ( !shinobiCranium.tried )
+		CG_ShinobiLoadCranium();
+	if ( !shinobiCranium.ok )
+		return;
+	if ( cent->shinobiAccG2 != cent->ghoul2 ) {
+		cent->shinobiAccG2 = cent->ghoul2;
+		cent->shinobiAccBolt = trap->G2API_AddBolt( cent->ghoul2, 0, "cranium" );
+	}
+	if ( cent->shinobiAccBolt < 0 )
+		return;
+	if ( !trap->G2API_GetBoltMatrix( cent->ghoul2, 0, cent->shinobiAccBolt, &m, cent->turAngles, cent->lerpOrigin,
+		cg.time, cgs.gameModels, cent->modelScale ) )
+		return;
+
+	memset( &ent, 0, sizeof( ent ) );
+	ent.hModel = ci->shinobiAccModel;
+	// T = bolt * inverse bind pose; the MD3 vertex v lands at origin + v.x*axis[0] + v.y*axis[1] + v.z*axis[2]
+	for ( r = 0; r < 3; r++ ) {
+		for ( c = 0; c < 3; c++ )
+			ent.axis[c][r] = m.matrix[r][0] * shinobiCranium.inv[0][c] + m.matrix[r][1] * shinobiCranium.inv[1][c]
+				+ m.matrix[r][2] * shinobiCranium.inv[2][c];
+		ent.origin[r] = m.matrix[r][0] * shinobiCranium.inv[0][3] + m.matrix[r][1] * shinobiCranium.inv[1][3]
+			+ m.matrix[r][2] * shinobiCranium.inv[2][3] + m.matrix[r][3];
+	}
+	VectorCopy( ent.origin, ent.oldorigin );
+	ent.nonNormalizedAxes = qtrue;
+	VectorCopy( cent->lerpOrigin, ent.lightingOrigin );
+	ent.renderfx = RF_LIGHTING_ORIGIN | ( body->renderfx & ( RF_THIRD_PERSON | RF_FORCE_ENT_ALPHA ) );
+	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
+	ent.shaderRGBA[3] = body->shaderRGBA[3] ? body->shaderRGBA[3] : 255;
+	if ( cent->currentState.eFlags & SHINOBI_EF_STONE )
+		ent.customShader = shinobiShaders.stoneShell; // stone all over
+	trap->R_AddRefEntityToScene( &ent );
+}
+
 // Lightning Dash: a crackling bolt where the body would be
 static void CG_ShinobiRaiDashForm( centity_t *cent ) {
 	vec3_t org, head, feet, a, b;

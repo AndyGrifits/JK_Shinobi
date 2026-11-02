@@ -2,6 +2,17 @@
 
 Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, built on [OpenJK](https://github.com/JACoders/OpenJK) (GPLv2).
 
+## Head accessories
+
+Hats, masks, headbands: `models/accessories/head/<name>.md3` (+ texture), picked under
+HEADWEAR on the build screen (`shinobi_acc` userinfo, sent to everyone in the player's
+configstring; shown at once). Model them in Blender in the bind pose of the stock
+`_humanoid` skeleton, sitting on the head where they belong (weights don't matter - the
+game keeps them rigid on the `cranium` bone: bolt now x inverse bind pose from
+`_humanoid.gla`). Export a .glm and convert:
+`python3 tools/glm2acc.py model.glm texture.png <name>` (splits surfaces over ~1000
+vertices, writes the texture as .jpg, or .tga when it has alpha).
+
 ## Dust and mud
 
 Doton leaves loose earth (a sandy patch, 20 s): the Earthquake over its whole area,
