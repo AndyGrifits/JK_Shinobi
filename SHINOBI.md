@@ -2,6 +2,14 @@
 
 Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, built on [OpenJK](https://github.com/JACoders/OpenJK) (GPLv2).
 
+## No guns
+
+Players only ever hold fists, the saber and the three tool weapons (explosive kunai,
+tags, fuma shuriken): spawn loadouts, `give` and anything else are stripped every frame.
+Maps spawn only the items that turn into ninja tools (plus CTF flags / cubes and the
+Jedi Master saber); armor shards, DEMP2, shield/ammo dispensers, power converters and
+emplaced guns are not spawned.
+
 ## Ninja build (B)
 
 The build screen replaces the stock profile / force-rank menus: it comes up when you

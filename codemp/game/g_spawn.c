@@ -710,10 +710,15 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	//TODO: cant reorder items because compat so....?
 	for ( item=bg_itemlist+1 ; item->classname ; item++ ) {
 		if ( !strcmp(item->classname, ent->classname) ) {
+			if ( !Shinobi_SpawnAllowed( ent->classname, item ) ) // JK_Shinobi: ninja tools only
+				return qfalse;
 			G_SpawnItem( ent, item );
 			return qtrue;
 		}
 	}
+
+	if ( !Shinobi_SpawnAllowed( ent->classname, NULL ) ) // JK_Shinobi: no dispensers / emplaced guns
+		return qfalse;
 
 	// check normal spawn functions
 	s = (spawn_t *)Q_LinearSearch( ent->classname, spawns, ARRAY_LEN( spawns ), sizeof( spawn_t ), spawncmp );

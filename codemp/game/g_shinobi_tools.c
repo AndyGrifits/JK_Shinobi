@@ -471,3 +471,49 @@ qboolean Shinobi_ZUsesTool( gentity_t *ent ) {
 void Cmd_ExKunai_f( gentity_t *ent ) { Shinobi_UseTool( ent, SHINOBI_WP_EXKUNAI ); }
 void Cmd_ExTag_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_TAG ); }
 void Cmd_Fuma_f( gentity_t *ent )    { Shinobi_UseTool( ent, SHINOBI_WP_SHURIKEN ); }
+
+/*
+===========================================================================
+No guns: a player only ever holds fists, the saber and the three tool
+weapons. Whatever else sneaks in (spawn loadouts, give, siege classes) is
+taken away every frame.
+===========================================================================
+*/
+#define SHINOBI_ALLOWED_WEAPONS ( ( 1 << WP_NONE ) | ( 1 << WP_MELEE ) | ( 1 << WP_SABER ) \
+	| ( 1 << WP_THERMAL ) | ( 1 << WP_TRIP_MINE ) | ( 1 << WP_DET_PACK ) )
+
+void Shinobi_StripGuns( gentity_t *ent ) {
+	playerState_t *ps = &ent->client->ps;
+
+	ps->stats[STAT_WEAPONS] &= SHINOBI_ALLOWED_WEAPONS;
+	ps->stats[STAT_WEAPONS] |= ( 1 << WP_MELEE );
+	if ( !( SHINOBI_ALLOWED_WEAPONS & ( 1 << ps->weapon ) ) || !( ps->stats[STAT_WEAPONS] & ( 1 << ps->weapon ) ) ) {
+		ps->weapon = ( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) ? WP_SABER : WP_MELEE;
+		ps->weaponstate = WEAPON_READY;
+		ps->weaponTime = 0;
+	}
+}
+
+/*
+Map entities: only the items that turn into ninja tools (and the team
+items the game modes need) are spawned. Shield / ammo dispensers and
+emplaced guns are gone.
+*/
+qboolean Shinobi_SpawnAllowed( const char *classname, const gitem_t *item ) {
+	static const char * const banned[] = {
+		"misc_shield_floor_unit", "misc_ammo_floor_unit", "misc_model_health_power_converter",
+		"misc_model_shield_power_converter", "misc_model_ammo_power_converter", "emplaced_gun",
+	};
+	int i;
+
+	if ( item ) {
+		if ( item->giType == IT_TEAM || ( item->giType == IT_WEAPON && item->giTag == WP_SABER ) )
+			return qtrue; // flags, cubes, the Jedi Master saber
+		return Shinobi_ToolForItem( item->classname, NULL ) != STOOL_NONE ? qtrue : qfalse;
+	}
+	for ( i = 0; i < (int)ARRAY_LEN( banned ); i++ ) {
+		if ( !Q_stricmp( classname, banned[i] ) )
+			return qfalse;
+	}
+	return qtrue;
+}

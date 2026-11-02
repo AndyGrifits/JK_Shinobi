@@ -1495,6 +1495,8 @@ qboolean Shinobi_Burrowed( gentity_t *ent );
 qboolean Shinobi_BotForce( gentity_t *ent, int forcePower );
 qboolean Shinobi_ShadowHideDamage( gentity_t *targ );
 int      Shinobi_PickupItem( gentity_t *ent, gentity_t *other );
+void     Shinobi_StripGuns( gentity_t *ent );
+qboolean Shinobi_SpawnAllowed( const char *classname, const gitem_t *item );
 void     Cmd_ExKunai_f( gentity_t *ent );
 void     Cmd_ExTag_f( gentity_t *ent );
 void     Cmd_Fuma_f( gentity_t *ent );
