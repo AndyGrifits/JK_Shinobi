@@ -58,6 +58,48 @@ def tag_points(surfs, mats):
     return pts
 
 
+ARM_BONES = {
+    "upper": ("humerus", "humerusX"),
+    "fore": ("radius", "radiusX"),
+}
+
+
+def shorten_arms(gla, mats, k):
+    """What a runtime bone override would do: in the animated pose, the upper arm and the
+    forearm get k times shorter along their own direction (thickness kept), the elbow,
+    the hand and the fingers are moved in to the new joint ends, every bone keeps its
+    rotation. Ghoul2 can do the same per frame with post-multiplied bone matrices."""
+    mats = [np.array(m, dtype=float) for m in mats]
+    idx = gla.index
+
+    def joint(i):
+        b = gla.bones[i]
+        j = np.array([b["base"][0][3], b["base"][1][3], b["base"][2][3]])
+        return mats[i][:, :3] @ j + mats[i][:, 3]
+
+    def left(m, A, t):          # posed space: x -> A x + t, applied after m
+        return np.hstack([A @ m[:, :3], (A @ m[:, 3] + t)[:, None]])
+
+    for s in "lr":
+        hum, rad, hand = idx[s + "humerus"], idx[s + "radius"], idx[s + "hand"]
+        ph, pr, pk = joint(hum), joint(rad), joint(hand)
+        u, v = pr - ph, pk - pr
+        d1 = (k - 1) * u                       # the elbow moves in
+        d2 = d1 + (k - 1) * v                  # the wrist moves in twice
+        for seg, (p0, w, shift) in (("upper", (ph, u, np.zeros(3))), ("fore", (pr, v, d1))):
+            n = w / (np.linalg.norm(w) + 1e-9)
+            A = np.eye(3) + (k - 1) * np.outer(n, n)
+            t = p0 - A @ p0 + shift
+            for name in ARM_BONES[seg]:
+                i = idx[s + name]
+                mats[i] = left(mats[i], A, t)
+        for i, b in enumerate(gla.bones):      # the hand, the fingers, the hang tag
+            nm = b["name"]
+            if nm == s + "hand" or nm.startswith(s + "_d") or nm == s + "hang_tag_bone":
+                mats[i] = left(mats[i], np.eye(3), d2)
+    return mats
+
+
 def twist(gla, mats, deg):
     """Turn everything above upper_lumbar by deg/2 about its joint and everything above
     thoracic by another deg/2 about that one (world z, in the animated pose)."""
@@ -100,6 +142,9 @@ def main(argv=None):
     ap.add_argument("--scale", type=float, default=0.0,
                     help="model scale in %% (the model's scale.cfg by default), about the feet "
                          "the way the game draws it")
+    ap.add_argument("--arms", type=float, default=1.0,
+                    help="arm length factor in the animated pose (0.9 = 10%% shorter), the way a "
+                         "runtime bone override would shorten them")
     ap.add_argument("--twist", type=float, default=0.0,
                     help="also turn the torso by this many degrees, half at upper_lumbar and "
                          "half at thoracic, the way the game turns it to follow the aim")
@@ -167,6 +212,8 @@ def main(argv=None):
             mats = [np.array(m) for m in gla.frame_skin(frame)]
         if a.twist:
             mats = twist(gla, mats, a.twist)
+        if a.arms != 1.0 and spec != "base":
+            mats = shorten_arms(gla, mats, a.arms)
         for vi, view in enumerate(views):
             rot = 0.0 if view == "front" else (np.pi / 2 if view == "side" else np.pi)
             R = np.array([[np.cos(rot), -np.sin(rot), 0], [np.sin(rot), np.cos(rot), 0], [0, 0, 1]])
