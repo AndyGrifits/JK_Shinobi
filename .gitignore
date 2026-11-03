@@ -197,3 +197,5 @@ cmake-build-*
 /build-win64/
 /dist/
 /cmake.log
+/build-maps/
+/tools/maps/q3map2/

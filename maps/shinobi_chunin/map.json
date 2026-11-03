@@ -1,0 +1,58 @@
+{
+ "name": "shinobi_chunin",
+ "longname": "Chunin Exam Hall",
+ "shader_dir": "shinobi_chunin",
+ "source": {
+  "fbx": "C:/Games/Blender My Models/naruto-sala-examen-chunnin/source/Sala Examen Chunnin.fbx",
+  "textures": "C:/Games/Blender My Models/naruto-sala-examen-chunnin/textures"
+ },
+ "model": {
+  "_comment": "game = (fbx - origin) * scale. origin = floor centre of the hall in FBX units. 1 FBX unit = 160 u: hall 749 x 1205 x 376, balconies at 192 (force jump 2), door 171.",
+  "scale": 160,
+  "origin": [-1.2, -46.565, 8.29]
+ },
+ "shaders": {
+  "_comment": "per model shader: solid = autoclip its triangles (q3map_clipModel); mat = q3map_material (footsteps/impacts); alpha cutouts come from materials.json",
+  "t01": {"solid": true,  "mat": "tiles",     "what": "floor, ceiling"},
+  "t02": {"solid": true,  "mat": "solidwood", "what": "dais plate, corner landings"},
+  "t03": {"solid": true,  "mat": "solidwood", "what": "balcony walkway tops"},
+  "t04": {"solid": true,  "mat": "plaster",   "what": "lower walls, corner pillars"},
+  "t05": {"solid": true,  "mat": "plaster",   "what": "walls"},
+  "t06": {"solid": true,  "mat": "plaster",   "what": "statue-end wall"},
+  "t07": {"solid": true,  "mat": "solidwood", "what": "entrance door"},
+  "t08": {"solid": true,  "mat": "solidwood", "what": "balcony undersides"},
+  "t09": {"solid": true,  "mat": "solidwood", "what": "stair sides"},
+  "t10": {"solid": false, "mat": "solidwood", "what": "balcony fascia cutout (see-through)"},
+  "t11": {"solid": true,  "mat": "solidwood", "what": "stair treads"},
+  "t12": {"solid": false, "mat": "greenleaves", "what": "bushes / mats (prop clip)"},
+  "t13": {"solid": false, "mat": "rock",      "what": "hand-seal statue (prop clip)"},
+  "t15": {"solid": false, "mat": "plaster",   "what": "plaque on statue wall"}
+ },
+ "prop_clip": {
+  "cell": 16,
+  "groups": [
+   {"shaders": ["t13"], "clip_shader": "clip_rock"},
+   {"shaders": ["t12"], "clip_shader": "clip_leaves", "region": [-368, 400, 368, 640], "_comment": "t12 is also on the wall strips under the balconies - keep those out"}
+  ]
+ },
+ "hull_margin": 32,
+ "worldspawn": {"_minlight": "24", "_lightmapscale": "0.5"},
+ "lights": {
+  "grid_x": [-240, 0, 240], "grid_y": [-470, -240, 0, 240, 470], "z": 250, "light": 380,
+  "extra": [
+   {"origin": [-330, 0, 120], "light": 220}, {"origin": [330, 0, 120], "light": 220},
+   {"origin": [-330, 300, 120], "light": 200}, {"origin": [330, 300, 120], "light": 200},
+   {"origin": [-330, -300, 120], "light": 200}, {"origin": [330, -300, 120], "light": 200},
+   {"origin": [0, 330, 200], "light": 300}
+  ]
+ },
+ "spawns": {
+  "_comment": "[x, y, z, yaw]; z = floor + 40",
+  "info_player_deathmatch": [[-200, -330, 40, 60], [200, -330, 40, 120], [-200, 300, 40, 300], [200, 300, 40, 240]],
+  "info_player_duel": [[0, -380, 40, 90], [0, 330, 40, 270]],
+  "info_player_duel1": [[-120, -380, 40, 90], [120, -380, 40, 90]],
+  "info_player_duel2": [[-120, 330, 40, 270], [120, 330, 40, 270]],
+  "info_player_start": [[0, -380, 40, 90]]
+ },
+ "arena_type": "ffa duel powerduel team holocron jedi"
+}
