@@ -622,9 +622,17 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_TAG_REACH          96    // how far from the eye it can be placed
 #define SHINOBI_TAG_COOLDOWN       700
 // Fuma Shuriken: a big spinning star, straight and hard
+// Fuma Shuriken: only one carried; thrown like a saber, it flies out, turns and comes back
+// to the hand (catch it to throw again); a wall on the way keeps it - go and pull it out
+#define SHINOBI_SHURIKEN_MAX       1
 #define SHINOBI_SHURIKEN_SPEED     1100
-#define SHINOBI_SHURIKEN_DAMAGE    45
-#define SHINOBI_SHURIKEN_LIFE      2000
+#define SHINOBI_SHURIKEN_RANGE     850   // flies out this far, then turns back
+#define SHINOBI_SHURIKEN_BACK_SPEED 1000
+#define SHINOBI_SHURIKEN_CATCH     48    // close enough to the thrower: caught
+#define SHINOBI_SHURIKEN_DAMAGE    45    // to each one it cuts, once out and once back
+#define SHINOBI_SHURIKEN_LIFE      5000  // in the air at most (then it just drops)
+#define SHINOBI_SHURIKEN_STUCK_LIFE 30000 // stuck in a wall
+#define SHINOBI_SHURIKEN_GRAB      40    // walk this close to a stuck one to pull it out
 #define SHINOBI_SHURIKEN_COOLDOWN  900
 
 #define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)

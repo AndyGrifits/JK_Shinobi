@@ -141,7 +141,7 @@ icons and names; no guns are handed out any more):
 | Chakra Pill | force items, all ammo packs, jetpack, cloak, binoculars, ysalamiri | +30..60 chakra at once; not picked up at full chakra |
 | Explosive Kunai x2 (`exkunai`) | thermals, pistols, blaster, stun baton | thrown like a kunai; sticks where it lands (or in whom it hits) and goes off 1 s later: 45 fire damage in 140 u |
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
-| Fuma Shuriken x2 (`fuma`) | rocket launcher, repeater, flechette, concussion, disruptor, bowcaster | a big spinning star flying straight: 45 damage and a knock; sticks in walls |
+| Fuma Shuriken (`fuma`) | rocket launcher, repeater, flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
 
 The throwables are the stock explosive weapons underneath (thermal detonator = explosive
 kunai, trip mine = tag, det pack = shuriken): they show in the stock weapon bar with their
@@ -149,7 +149,7 @@ own icons and names, are picked with the weapon keys (`3` cycles them) or the mo
 and used with attack - or with `Z`, which throws a plain kunai when fists or the blade are
 in hand. `Shift + Z` is always the marked kunai. They are held in an empty hand.
 
-Up to 6 of each throwable; respawn 20 s (pills) / 30 s (tools). Wind Wall throws
+Up to 6 of each throwable (one Fuma Shuriken); respawn 20 s (pills) / 30 s (tools). Wind Wall throws
 explosive kunai and shuriken back too. Shields (armor) still refill the block guard.
 
 ## Clones

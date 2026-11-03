@@ -212,22 +212,22 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 	{ "weapon_stun_baton",          STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
 	{ "weapon_trip_mine",           STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "ammo_tripmine",              STOOL_TAG,      SHINOBI_TOOL_PICKUP },
-	{ "weapon_det_pack",            STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "ammo_detpack",               STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_det_pack",            STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "ammo_detpack",               STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
 	{ "item_seeker",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_sentry_gun",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_shield",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_eweb_holdable",         STOOL_TAG,      SHINOBI_TOOL_PICKUP },
-	{ "weapon_rocket_launcher",     STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "weapon_repeater",            STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "weapon_flechette",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "weapon_concussion_rifle",    STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "weapon_disruptor",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
-	{ "weapon_bowcaster",           STOOL_SHURIKEN, SHINOBI_TOOL_PICKUP },
+	{ "weapon_rocket_launcher",     STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_repeater",            STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_flechette",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_concussion_rifle",    STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_disruptor",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_bowcaster",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
 };
 
 static const char * const shinobiToolNames[STOOL_COUNT] = {
-	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "2 Fuma Shuriken"
+	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "Fuma Shuriken"
 };
 static const char * const shinobiToolModels[STOOL_COUNT] = {
 	"", "models/shinobi/pill_heal.md3", "models/shinobi/pill_chakra.md3", "models/shinobi/exkunai.md3",
@@ -275,7 +275,7 @@ void Shinobi_PatchItems( void ) {
 	done = qtrue;
 	ammoData[SHINOBI_AMMO_EXKUNAI].max = SHINOBI_TOOL_MAX;
 	ammoData[SHINOBI_AMMO_TAG].max = SHINOBI_TOOL_MAX;
-	ammoData[SHINOBI_AMMO_SHURIKEN].max = SHINOBI_TOOL_MAX;
+	ammoData[SHINOBI_AMMO_SHURIKEN].max = SHINOBI_SHURIKEN_MAX;
 	for ( i = 1; i < bg_numItems; i++ ) {
 		gitem_t  *item = &bg_itemlist[i];
 		const int tool = Shinobi_ToolForItem( item->classname, NULL );
@@ -303,7 +303,7 @@ int Shinobi_CanGrabTool( const char *classname, const playerState_t *ps ) {
 	case STOOL_CHAKRA:   return ps->fd.forcePower < ps->fd.forcePowerMax;
 	case STOOL_EXKUNAI:  return ps->ammo[SHINOBI_AMMO_EXKUNAI] < SHINOBI_TOOL_MAX;
 	case STOOL_TAG:      return ps->ammo[SHINOBI_AMMO_TAG] < SHINOBI_TOOL_MAX;
-	case STOOL_SHURIKEN: return ps->ammo[SHINOBI_AMMO_SHURIKEN] < SHINOBI_TOOL_MAX;
+	case STOOL_SHURIKEN: return ps->ammo[SHINOBI_AMMO_SHURIKEN] < SHINOBI_SHURIKEN_MAX;
 	default:             return -1;
 	}
 }

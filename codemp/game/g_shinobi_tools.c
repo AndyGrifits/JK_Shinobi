@@ -31,8 +31,8 @@ int Shinobi_PickupItem( gentity_t *ent, gentity_t *other ) {
 	case STOOL_SHURIKEN: {
 		const int slot = tool == STOOL_EXKUNAI ? SHINOBI_AMMO_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_AMMO_TAG : SHINOBI_AMMO_SHURIKEN );
 		client->ps.ammo[slot] += amount;
-		if ( client->ps.ammo[slot] > SHINOBI_TOOL_MAX )
-			client->ps.ammo[slot] = SHINOBI_TOOL_MAX;
+		if ( client->ps.ammo[slot] > ( tool == STOOL_SHURIKEN ? SHINOBI_SHURIKEN_MAX : SHINOBI_TOOL_MAX ) )
+			client->ps.ammo[slot] = tool == STOOL_SHURIKEN ? SHINOBI_SHURIKEN_MAX : SHINOBI_TOOL_MAX;
 		client->ps.stats[STAT_WEAPONS] |= 1 << ( tool == STOOL_EXKUNAI ? SHINOBI_WP_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_WP_TAG : SHINOBI_WP_SHURIKEN ) );
 		return 30;
 	}
@@ -321,42 +321,137 @@ static qboolean Shinobi_PlaceTag( gentity_t *ent ) {
 
 /*
 ---------------------------------------------------------------------------
-Fuma Shuriken (J): a big spinning star flying straight; hits hard, knocks
-back, sticks in walls.
+Fuma Shuriken (J): one at a time. Thrown like a saber: it flies out spinning,
+turns at SHINOBI_SHURIKEN_RANGE and homes back to the thrower's hand, cutting
+everyone it passes (once out, once back). Caught: ready to throw again. A wall
+on the way keeps it; anyone without one can walk up and pull it out.
 ---------------------------------------------------------------------------
 */
+#define SHUR_BACK(s)     ( (s)->genericValue2 )   // on the way back
+#define SHUR_HITOUT(s)   ( (s)->genericValue3 )   // clients cut on the way out (bits)
+#define SHUR_HITBACK(s)  ( (s)->genericValue4 )   // ... and back
+#define SHUR_LASTHIT(s)  ( (s)->genericValue5 )   // last non-client entity cut + 1
+
+// give the thrower (or whoever pulls it out) the shuriken back
+static qboolean Shinobi_ShurikenGive( gentity_t *e ) {
+	gclient_t *c = e->client;
+	if ( !c || e->health <= 0 || c->ps.ammo[SHINOBI_AMMO_SHURIKEN] >= SHINOBI_SHURIKEN_MAX )
+		return qfalse;
+	c->ps.ammo[SHINOBI_AMMO_SHURIKEN] = SHINOBI_SHURIKEN_MAX;
+	c->ps.stats[STAT_WEAPONS] |= 1 << SHINOBI_WP_SHURIKEN;
+	G_Sound( e, CHAN_AUTO, shinobiMedia.sndBlockSaber[2] );
+	return qtrue;
+}
+
+static void Shinobi_ShurikenStick( gentity_t *s, const vec3_t at ) {
+	G_SetOrigin( s, (float *)at );
+	s->s.apos.trType = TR_STATIONARY;
+	BG_EvaluateTrajectory( &s->s.apos, level.time, s->s.apos.trBase );
+	s->s.pos.trType = TR_STATIONARY;
+	s->genericValue1 = level.time + SHINOBI_SHURIKEN_STUCK_LIFE;
+	G_SoundAtLoc( (float *)at, CHAN_AUTO, shinobiMedia.sndBlockSaber[1] );
+	trap->LinkEntity( (sharedEntity_t *)s );
+}
+
 static void Shinobi_ShurikenThink( gentity_t *s ) {
 	gentity_t *owner = &g_entities[s->r.ownerNum];
 	vec3_t     newPos, dir, mins = { -10, -10, -3 }, maxs = { 10, 10, 3 };
 	trace_t    tr;
+	int        pass;
 
-	if ( s->s.pos.trType == TR_STATIONARY ) { // stuck: gone after a while
-		G_FreeEntity( s );
-		return;
-	}
-	if ( level.time >= s->genericValue1 ) {
-		G_FreeEntity( s );
-		return;
-	}
-	BG_EvaluateTrajectory( &s->s.pos, level.time, newPos );
-	trap->Trace( &tr, s->r.currentOrigin, mins, maxs, newPos, s->r.ownerNum, MASK_SHOT, qfalse, 0, 0 );
-	if ( tr.startsolid || tr.fraction < 1.0f ) {
-		gentity_t *other = tr.entityNum < ENTITYNUM_WORLD ? &g_entities[tr.entityNum] : NULL;
-		VectorCopy( s->s.pos.trDelta, dir );
-		VectorNormalize( dir );
-		if ( other && other->takedamage ) {
-			G_Damage( other, s, owner->inuse ? owner : s, dir, tr.endpos, SHINOBI_SHURIKEN_DAMAGE, 0, MOD_SABER );
-			G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[0] );
+	if ( s->s.pos.trType == TR_STATIONARY ) { // stuck in a wall: walk up to it to pull it out
+		int i;
+		if ( level.time >= s->genericValue1 ) {
 			G_FreeEntity( s );
 			return;
 		}
-		// into the wall: it stays there a moment
-		G_SetOrigin( s, tr.endpos );
-		s->s.apos.trType = TR_STATIONARY;
-		s->s.pos.trType = TR_STATIONARY;
-		G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[1] );
-		trap->LinkEntity( (sharedEntity_t *)s );
-		s->nextthink = level.time + 4000;
+		for ( i = 0; i < MAX_CLIENTS; i++ ) {
+			gentity_t *e = &g_entities[i];
+			if ( e->inuse && e->client && e->health > 0 && e->client->sess.sessionTeam != TEAM_SPECTATOR
+				&& Distance( e->client->ps.origin, s->r.currentOrigin ) <= SHINOBI_SHURIKEN_GRAB + 24
+				&& Shinobi_ShurikenGive( e ) ) {
+				G_FreeEntity( s );
+				return;
+			}
+		}
+		s->nextthink = level.time + FRAMETIME;
+		return;
+	}
+	if ( level.time >= s->genericValue1 || !owner->inuse || !owner->client || owner->health <= 0 ) {
+		G_FreeEntity( s ); // lost
+		return;
+	}
+
+	// the turn: out far enough - home back to the hand from here on
+	if ( !SHUR_BACK( s ) ) {
+		BG_EvaluateTrajectory( &s->s.pos, level.time, newPos );
+		if ( Distance( newPos, s->s.origin2 ) >= SHINOBI_SHURIKEN_RANGE )
+			SHUR_BACK( s ) = 1;
+	}
+	if ( SHUR_BACK( s ) ) {
+		vec3_t hand;
+		VectorCopy( owner->client->ps.origin, hand );
+		hand[2] += owner->client->ps.viewheight - 12;
+		if ( Distance( s->r.currentOrigin, hand ) <= SHINOBI_SHURIKEN_CATCH + SHINOBI_SHURIKEN_BACK_SPEED * ( FRAMETIME / 1000.0f ) * 0.5f ) {
+			if ( !Shinobi_ShurikenGive( owner ) )
+				G_SoundAtLoc( s->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndBlockSaber[2] );
+			G_FreeEntity( s ); // caught
+			return;
+		}
+		VectorSubtract( hand, s->r.currentOrigin, dir );
+		VectorNormalize( dir );
+		VectorCopy( s->r.currentOrigin, s->s.pos.trBase );
+		s->s.pos.trTime = level.time;
+		VectorScale( dir, SHINOBI_SHURIKEN_BACK_SPEED, s->s.pos.trDelta );
+	}
+
+	BG_EvaluateTrajectory( &s->s.pos, level.time + ( SHUR_BACK( s ) ? FRAMETIME : 0 ), newPos );
+	if ( !SHUR_BACK( s ) )
+		BG_EvaluateTrajectory( &s->s.pos, level.time, newPos );
+
+	// people in the way are cut (and it flies on); a wall keeps it
+	for ( pass = 0; pass < 4; pass++ ) {
+		gentity_t *other;
+		trap->Trace( &tr, s->r.currentOrigin, mins, maxs, newPos, s->r.ownerNum, MASK_SHOT, qfalse, 0, 0 );
+		if ( !( tr.startsolid || tr.fraction < 1.0f ) )
+			break;
+		other = tr.entityNum < ENTITYNUM_WORLD ? &g_entities[tr.entityNum] : NULL;
+		if ( other && other->takedamage && ( other->client || other->s.eType == ET_NPC ) ) {
+			int *mask = SHUR_BACK( s ) ? &SHUR_HITBACK( s ) : &SHUR_HITOUT( s );
+			const qboolean seen = other->s.number < MAX_CLIENTS ? ( *mask & ( 1 << other->s.number ) ) != 0
+				: SHUR_LASTHIT( s ) == other->s.number + 1;
+			if ( !seen ) {
+				VectorCopy( s->s.pos.trDelta, dir );
+				VectorNormalize( dir );
+				if ( other->s.number < MAX_CLIENTS )
+					*mask |= 1 << other->s.number;
+				else
+					SHUR_LASTHIT( s ) = other->s.number + 1;
+				G_Damage( other, s, owner, dir, tr.endpos, SHINOBI_SHURIKEN_DAMAGE, 0, MOD_SABER );
+				G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[0] );
+				if ( !s->inuse )
+					return;
+			}
+			// pass through him: trace on from just past him
+			{
+				trace_t past;
+				trap->Trace( &past, tr.endpos, mins, maxs, newPos, other->s.number, MASK_SOLID, qfalse, 0, 0 );
+				if ( past.startsolid || past.fraction < 1.0f ) {
+					Shinobi_ShurikenStick( s, past.endpos );
+					s->nextthink = level.time + FRAMETIME;
+					return;
+				}
+				break;
+			}
+		}
+		if ( other && other->takedamage ) { // something breakable: cut it, stop in it
+			VectorCopy( s->s.pos.trDelta, dir );
+			VectorNormalize( dir );
+			G_Damage( other, s, owner, dir, tr.endpos, SHINOBI_SHURIKEN_DAMAGE, 0, MOD_SABER );
+		}
+		// into the wall: it stays there
+		Shinobi_ShurikenStick( s, tr.endpos );
+		s->nextthink = level.time + FRAMETIME;
 		return;
 	}
 	VectorCopy( newPos, s->r.currentOrigin );
@@ -393,6 +488,7 @@ static void Shinobi_SpawnShuriken( gentity_t *ent ) {
 	VectorCopy( start, s->s.pos.trBase );
 	VectorScale( fwd, SHINOBI_SHURIKEN_SPEED, s->s.pos.trDelta );
 	VectorCopy( start, s->r.currentOrigin );
+	VectorCopy( start, s->s.origin2 ); // where it left the hand (the turn is measured from here)
 	s->s.apos.trType = TR_LINEAR; // spinning flat
 	s->s.apos.trTime = level.time;
 	VectorSet( s->s.apos.trBase, 0, client->ps.viewangles[YAW], 0 );
