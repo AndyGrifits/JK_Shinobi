@@ -235,5 +235,126 @@
       ]
     },
     "thickness": 0.55
+  },
+  "kurosawa": {
+    "title": "Kurosawa (Tsubaki)",
+    "source": "Famed Blade Kurosawa; Tsubaki/Famed Blade Kurosawa; Tsubaki.dae",
+    "map": "X,Z,-Y",
+    "grip": [
+      0,
+      6,
+      0
+    ],
+    "scale": 0.46,
+    "blades": [
+      [
+        5.0,
+        1,
+        40
+      ]
+    ],
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab1.mp3",
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab3.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
+  },
+  "kubikiribocho": {
+    "title": "Kubikiribocho",
+    "source": "Seversword - Executioner's Blade/Seversword - Executioner's Blade.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      10
+    ],
+    "scale": 0.243,
+    "blades": [
+      [
+        2.7,
+        1,
+        40
+      ]
+    ],
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing4.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab3.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
+  },
+  "samehada": {
+    "title": "Samehada",
+    "source": "Shark Skin - Samehada/Shark Skin - Samehada.dae",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      -0.1
+    ],
+    "scale": 21,
+    "blades": [
+      [
+        6.3,
+        1,
+        40
+      ]
+    ],
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing4.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab3.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    },
+    "thickness": 0.6
   }
 }

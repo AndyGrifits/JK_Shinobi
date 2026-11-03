@@ -27,6 +27,7 @@ Entry keys:
   stretch      [start, factor]: past Z = start (game units, after mapping) stretch along Z
   thickness    factor for X and Y (a thinner staff)
   post         [[3x3], [t]]: then this (the left-hand copy "<name>_l", fitted to that hand)
+  max_verts    collapse edges down to this many vertices (default 1000)
   hidden       not on the weapon screen (a left-hand copy: picked by itself for the left hand)
   blades       [[start Z, direction +1/-1, length], ...] in game units
   title, staff (two-handed, saberType SABER_STAFF), sounds {on, off, swing, hit, block,
@@ -202,10 +203,16 @@ def build(entry, name, src_root, out_root, log=print):
         # the game wants triangles clockwise seen from outside: the source is anticlockwise
         s.tris = [(int(t[0]), int(t[2]), int(t[1])) if not mirrored else (int(t[0]), int(t[1]), int(t[2]))
                   for t in T]
+        surfaces.append(s)
+    # a weapon shares the Ghoul2 transform space with its player model: keep it light
+    max_verts = int(entry.get("max_verts", WEAPON_MAX_VERTS))
+    if sum(len(x.verts) for x in surfaces) > max_verts:
+        import glm_slim
+        surfaces, _ = glm_slim.slim(surfaces, max_verts, log=lambda m: log("%s: %s" % (name, m)))
+    for s in surfaces:
         if len(s.verts) > 1000:
             raise SystemExit("%s: %d vertices in one surface (max 1000)" % (name, len(s.verts)))
         nv += len(s.verts)
-        surfaces.append(s)
     for b, (start, direction, length) in enumerate(entry["blades"]):
         tag = tag_surface("*blade%d" % (b + 1), start, direction)
         tag.verts = [tuple(float(x) for x in np.asarray(v) @ post_R.T + post_t) for v in tag.verts]
@@ -217,6 +224,7 @@ def build(entry, name, src_root, out_root, log=print):
     return nv
 
 
+WEAPON_MAX_VERTS = 1000   # more are collapsed away (glm_slim.py): it shares the player's 256 KB
 SILENCE = "sound/weapons/shinobi/silence.wav"   # no hum: written next to the .sab
 
 

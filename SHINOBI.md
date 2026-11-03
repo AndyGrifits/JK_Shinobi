@@ -270,6 +270,12 @@ nodachi, fists); shadow clones carry what their maker carries.
 | Nodachi (`shinobi_nodachi`) | the katana, blade x1.55 |
 | Trench Knife (`shinobi_knife`) | Asuma's knuckle knives |
 | Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends |
+| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa |
+| Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade |
+| Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) |
+
+A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
+`<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 For now they all play as the stock saber: reach 40 (a staff 32 each way), stock speed,
 damage and knockback - only the models and sounds differ. weapons.json can set reach
