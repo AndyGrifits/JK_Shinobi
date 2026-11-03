@@ -40,11 +40,13 @@ def find_tex(name):
 
 # unlit shaders (nolightmap and no $lightmap stage: sky domes, horizon cards) draw the texture as is
 import glob, re
-fullbright = set()
+fullbright = set(); blended = set()
 for shf in glob.glob(os.path.join(base, "shaders", "*.shader")):
     for nm, body in re.findall(r"^(\S+)\s*\n\{(.*?)\n\}", open(shf).read(), re.S | re.M):
         if "nolightmap" in body and "$lightmap" not in body and "nodraw" not in body:
             fullbright.add(nm)
+        if "GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA" in body:   # translucent (dust, water): blend, not alpha-test
+            blended.add(nm)
 
 # group triangles by (shader, lightmap)
 groups = {}
@@ -104,7 +106,10 @@ for name, lmn in mat_list:
     if alpha is not None:
         tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mix = nt.nodes.new('ShaderNodeMixShader')
         gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.5
-        nt.links.new(alpha, gt.inputs[0]); nt.links.new(gt.outputs[0], mix.inputs[0])
+        if name in blended:
+            nt.links.new(alpha, mix.inputs[0])
+        else:
+            nt.links.new(alpha, gt.inputs[0]); nt.links.new(gt.outputs[0], mix.inputs[0])
         nt.links.new(tr.outputs[0], mix.inputs[1]); nt.links.new(em.outputs[0], mix.inputs[2]); nt.links.new(mix.outputs[0], out.inputs[0])
     else:
         nt.links.new(em.outputs[0], out.inputs[0])
