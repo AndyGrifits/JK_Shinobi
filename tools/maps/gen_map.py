@@ -103,7 +103,8 @@ for short, c in cfg.get("extra_shaders", {}).items():
         if ext == ".png":
             from PIL import Image
             Image.open(os.path.join(base, tex + ext)).save(os.path.join(base, tex + ".tga")); os.remove(os.path.join(base, tex + ext))
-    sh.append("\n".join([tex, "{", f"\tqer_editorimage {tex}", *["\t" + l.replace("{tex}", tex) for l in c["raw"]], "}\n"]))
+    ed = [] if any(l.startswith("qer_editorimage") for l in c["raw"]) else [f"\tqer_editorimage {tex}"]
+    sh.append("\n".join([tex, "{", *ed, *["\t" + l.replace("{tex}", tex) for l in c["raw"]], "}\n"]))
 open(os.path.join(base, "shaders", f"{name}.shader"), "w").write("\n".join(sh))
 
 # --- .map ----------------------------------------------------------------------------------
