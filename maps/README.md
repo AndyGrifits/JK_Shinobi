@@ -16,6 +16,8 @@ Copy the pk3 into `GameData/shinobi/`, then `JK_Shinobi_MapTest.bat <name>` (dev
 | model | `prep_model.py` (Blender `bpy`) | applies transforms, moves the floor centre to the origin, scales to game units, one shader per texture (`textures/<dir>/tNN`), OBJ + JPG/TGA |
 | prop clip | `propclip.py` | stepped clip boxes from a top-down raycast of dense props (statues, bushes) |
 | map | `gen_map.py` | caulk hull, prop clip, `misc_model` (force meta), lights, spawns, shaders, `.arena` |
+| props | `props.py` (from prep) | generated cover: boulders, rock pillars / slab, logs, stumps, posts (`map.json` "props"), autoclipped |
+| textures | `textures_gen.py` | tileable painted concrete / rock / bark / wood; `texture_override` swaps a model texture |
 | sky | `gen_sky.py` | open-air maps: seamless gradient skybox; hull top/sides become sky, `q3map_sun` + `q3map_skyLight` |
 | levelshot | `levelshot.py` | loading-screen render (replace with an in-game shot) |
 | compile | q3map2 `-game ja` | `-bsp -meta`, `-vis`, `-light -fast -bounce 2` |
@@ -35,6 +37,11 @@ BSP_ARGS=-debugclip tools/build-map.sh ...      # draws the autoclip brushes in 
 
 `python3 tools/maps/lightstats.py <bsp>` - lightmap brightness per shader (0..255, 255 = full texture).
 `python3 -I tools/maps/preview_fbx.py <fbx> <tex dir> <out>` - flat renders of a raw model before prep.
+`python3 -I tools/maps/bsp_render.py <bsp> <base> <out dir> '<cams json>'` - render the COMPILED map
+(texture x lightmap) without the game. `python3 tools/maps/coverage.py <bsp> 20 8 circle 0 0 <r>` - holes in a floor.
+
+Model gotchas: ground faces / vertex normals pointing down make q3map2 give a meta surface a downward
+plane - the game culls it (a hole) and it stays unlit: list such shaders in `model.face_up`.
 
 `collision_check` compares what you see from above with what you stand on; `bspinfo` lists
 surfaces per shader (all should be `lightmap`) and the cluster of every light / spawn (-1 = in solid).
@@ -57,4 +64,6 @@ Source: `chunin-exams-final-stage` (98k tris; 79k after dropping the 2D grass ca
 field, diameter ~2810, wall 494, 7 trees ~380 high (trunk = column, canopy = slab to stand on), stands
 and Hokage building behind the wall (visual only). Open sky, sun from the north-east lighting the stands.
 Boundary: playerclip ring on the wall face up to 1600 + ceiling (players only, shots pass); one flat
-floor brush. Spawns picked clear of the trees.
+floor brush. The wall is plain concrete (`texture_override`). 22 props: two rock pillars (410 / 309 high),
+a rock slab (172), five boulder groups, three logs, three stumps, three training posts; the centre
+(r 300) stays open. Spawns >= 224 u from anything solid.

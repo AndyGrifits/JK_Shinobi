@@ -16,7 +16,7 @@ Q3MAP2="${Q3MAP2:-q3map2}"
 PY="python3 -I"
 
 mkdir -p "$BUILD" "$DIST"
-$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|DROP|rror"
+$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|DROP|PROPS|FACE_UP|rror"
 $PY "$ROOT/tools/maps/propclip.py" "$CFG" "$BUILD" | grep -E "PROPCLIP|rror"
 python3 "$ROOT/tools/maps/gen_map.py" "$CFG" "$BUILD"
 SKYENV="$(python3 -c "import json;print(json.load(open('$CFG')).get('sky',{}).get('env',''))")"

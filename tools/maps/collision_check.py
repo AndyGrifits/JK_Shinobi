@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare a compiled map's collision (solid brushes in the BSP) with the visible model.
 
-    python3 tools/maps/collision_check.py <map.bsp> <build dir>
+    python3 tools/maps/collision_check.py <map.bsp> <build dir> [cx cy r]   (r: only inside that circle)
 
 Uses <build>/heightmap.json (tools/maps/heightmap.py: what you SEE from above) and computes the
 same grid from the BSP brushes (what you STAND on). Prints an ASCII diff and the worst spots:
@@ -12,6 +12,7 @@ import json, os, struct, sys
 import numpy as np
 
 bsp, build = sys.argv[1:3]
+circle = [float(v) for v in sys.argv[3:6]] if len(sys.argv) >= 6 else None   # optional: only cx cy r
 data = open(bsp, "rb").read()
 lumps = [struct.unpack_from("<ii", data, 8 + i * 8) for i in range(18)]
 def lump(i): o, l = lumps[i]; return data[o:o + l]
@@ -26,6 +27,8 @@ hm = json.load(open(os.path.join(build, "heightmap.json")))
 keys = list(hm["grid"].keys())
 pts = np.array([[float(v) for v in k.split(",")] for k in keys])
 vis = np.array([np.nan if hm["grid"][k] is None else hm["grid"][k][0] for k in keys])
+if circle:
+    vis[(pts[:, 0] - circle[0]) ** 2 + (pts[:, 1] - circle[1]) ** 2 > circle[2] ** 2] = np.nan
 START = hm.get("top", 370.0)
 top = np.full(len(pts), -1e9)
 n_used = 0

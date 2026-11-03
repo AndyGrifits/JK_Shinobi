@@ -18,6 +18,10 @@ import bpy
 import mathutils
 from PIL import Image
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I leaves the script dir out
+import props as props_mod          # noqa: E402
+import textures_gen                # noqa: E402
+
 cfg_path, fbx, texdir, out = sys.argv[-4:]
 cfg = json.load(open(cfg_path))
 mdl = cfg["model"]
@@ -96,6 +100,17 @@ for rs in mdl.get("rescale", []):
         o.data.transform(sm); o.data.update()
     print(f"RESCALE {rs['shaders']} x{rs['factor']} about {tuple(round(c) for c in a)}: {len(objs)} objects")
 
+# generated cover / elevation props (map.json "props"), see props.py
+gen_tex = {}   # shader short name -> textures_gen kind
+if cfg.get("props"):
+    def mat_for(short):
+        full = f"textures/{shader_dir}/{short}"
+        return bpy.data.materials.get(full) or bpy.data.materials.new(full)
+    props_mod.UV_NAME = meshes[0].data.uv_layers.active.name if meshes[0].data.uv_layers else "UVMap"
+    gen_tex.update(props_mod.build(cfg["props"], mat_for))
+    meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    print(f"PROPS {sum('type' in p for p in cfg['props'])} built, shaders {sorted(gen_tex)}")
+
 # join into one object, triangulate
 bpy.ops.object.select_all(action='DESELECT')
 for o in meshes:
@@ -106,6 +121,31 @@ obj = bpy.context.view_layer.objects.active
 obj.name = cfg["name"]
 mod = obj.modifiers.new("tri", 'TRIANGULATE')
 bpy.ops.object.modifier_apply(modifier=mod.name)
+
+# ground that must face up (map.json "model": {"face_up": [shaders]}): a few flipped triangles seed a
+# whole meta surface that the game then back-face culls (a hole) and q3map2 leaves unlit
+if mdl.get("face_up"):
+    import bmesh
+    names = {f"textures/{shader_dir}/{s}" for s in mdl["face_up"]}
+    idx = {i for i, sl in enumerate(obj.material_slots) if sl.material and sl.material.name in names}
+    bm = bmesh.new(); bm.from_mesh(obj.data)
+    flip = [f for f in bm.faces if f.material_index in idx and f.normal.z < 0]
+    bmesh.ops.reverse_faces(bm, faces=flip)
+    bm.to_mesh(obj.data); bm.free(); obj.data.update()
+    # the OBJ also carries the FBX's custom vertex normals, and q3map2 takes a model surface's plane from
+    # them: give these faces their own (up) face normal, keep everyone else's normals as they are
+    me = obj.data
+    loop_n = [tuple(c.vector) for c in me.corner_normals]
+    fixed = 0
+    for poly in me.polygons:
+        if poly.material_index in idx:
+            n = tuple(poly.normal)
+            for li in poly.loop_indices:
+                if loop_n[li][2] < 0.5:
+                    fixed += 1
+                loop_n[li] = n
+    me.normals_split_custom_set(loop_n)
+    print(f"FACE_UP flipped {len(flip)} triangles, reset {fixed} downward vertex normals")
 
 os.makedirs(out, exist_ok=True)
 bpy.ops.wm.obj_export(filepath=os.path.join(out, "model.obj"), export_selected_objects=True,
@@ -121,8 +161,17 @@ tri_count = {}
 for p in obj.data.polygons:
     sh = obj.material_slots[p.material_index].material.name
     tri_count[sh] = tri_count.get(sh, 0) + 1
+override = cfg.get("texture_override", {})     # shader short name -> textures_gen kind (e.g. concrete)
+gen_dir = os.path.join(out, "gen"); os.makedirs(gen_dir, exist_ok=True)
+sources = {}
 for t, sh in shader_for_tex.items():
-    im = Image.open(os.path.join(texdir, t))
+    short = os.path.basename(sh)
+    sources[sh] = (textures_gen.make(override[short], os.path.join(gen_dir, short + ".jpg")), f"gen:{override[short]}") \
+        if short in override else (os.path.join(texdir, t), t)
+for short, kind in gen_tex.items():
+    sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ".jpg")), f"gen:{kind}")
+for sh, (src, t) in sources.items():
+    im = Image.open(src)
     alpha = im.mode in ('RGBA', 'LA', 'P') and im.convert('RGBA').getchannel('A').getextrema()[0] < 128
     base = os.path.basename(sh)
     if alpha:
