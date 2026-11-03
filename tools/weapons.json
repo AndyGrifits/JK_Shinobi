@@ -1,0 +1,184 @@
+{
+  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). damage/speed/knockback/move scale the stock saber's.",
+  "katana": {
+    "title": "ANBU Katana",
+    "source": "Itachi's Anbu Blade/Itachi's Anbu Blade.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      5
+    ],
+    "scale": 0.46,
+    "blades": [
+      [
+        7.0,
+        1,
+        28
+      ]
+    ],
+    "damage": 1.0,
+    "speed": 1.0,
+    "knockback": 1.0,
+    "radius": 2.0,
+    "sounds": {
+      "swing": [
+        "swing1.wav",
+        "swing2.wav",
+        "swing3.wav"
+      ],
+      "hit": [
+        "cut1.wav",
+        "cut2.wav",
+        "cut3.wav"
+      ],
+      "block": [
+        "clang1.wav",
+        "clang2.wav",
+        "clang3.wav"
+      ],
+      "bounce": [
+        "clang1.wav"
+      ]
+    }
+  },
+  "nodachi": {
+    "title": "Nodachi",
+    "source": "Itachi's Anbu Blade/Itachi's Anbu Blade.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      5
+    ],
+    "scale": 0.46,
+    "stretch": [
+      7.5,
+      1.55
+    ],
+    "blades": [
+      [
+        7.0,
+        1,
+        42
+      ]
+    ],
+    "damage": 1.3,
+    "speed": 0.85,
+    "knockback": 1.3,
+    "move": 0.95,
+    "radius": 2.0,
+    "sounds": {
+      "swing": [
+        "swing_heavy1.wav",
+        "swing_heavy2.wav",
+        "swing_heavy3.wav"
+      ],
+      "hit": [
+        "cut1.wav",
+        "cut2.wav",
+        "cut3.wav"
+      ],
+      "block": [
+        "clang1.wav",
+        "clang2.wav",
+        "clang3.wav"
+      ],
+      "bounce": [
+        "clang2.wav"
+      ]
+    }
+  },
+  "knife": {
+    "title": "Trench Knife",
+    "source": "Ninja Knuckle Knives/Ninja Knuckle Knives.obj",
+    "map": "Y,-Z,-X",
+    "grip": [
+      4.5,
+      0,
+      -1.0
+    ],
+    "scale": 0.55,
+    "blades": [
+      [
+        2.5,
+        1,
+        9
+      ]
+    ],
+    "damage": 0.75,
+    "speed": 1.2,
+    "knockback": 0.7,
+    "move": 1.05,
+    "radius": 2.0,
+    "sounds": {
+      "swing": [
+        "swing_light1.wav",
+        "swing_light2.wav",
+        "swing_light3.wav"
+      ],
+      "hit": [
+        "cut1.wav",
+        "cut2.wav",
+        "cut3.wav"
+      ],
+      "block": [
+        "clang_light1.wav",
+        "clang_light2.wav",
+        "clang_light1.wav"
+      ],
+      "bounce": [
+        "clang_light1.wav"
+      ]
+    }
+  },
+  "staff": {
+    "title": "Adamantine Staff",
+    "source": "Adamantine Staff/Adamantine Staff.dae",
+    "map": "X,-Z,Y",
+    "grip": [
+      0,
+      -0.536,
+      0
+    ],
+    "scale": 37,
+    "staff": true,
+    "blades": [
+      [
+        0,
+        1,
+        35
+      ],
+      [
+        0,
+        -1,
+        35
+      ]
+    ],
+    "damage": 0.9,
+    "speed": 1.0,
+    "knockback": 1.4,
+    "radius": 3.0,
+    "sounds": {
+      "swing": [
+        "swing_heavy1.wav",
+        "swing_heavy2.wav",
+        "swing_heavy3.wav"
+      ],
+      "hit": [
+        "thud1.wav",
+        "thud2.wav",
+        "thud3.wav"
+      ],
+      "block": [
+        "clank1.wav",
+        "clank2.wav",
+        "clank1.wav"
+      ],
+      "bounce": [
+        "clank2.wav"
+      ]
+    },
+    "thickness": 0.55
+  }
+}

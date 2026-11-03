@@ -58,6 +58,19 @@ def tag_points(surfs, mats):
     return pts
 
 
+def bolt_matrix(tri):
+    """The engine's matrix for a tag triangle (tr_ghoul2.cpp G2_ProcessSurfaceBolt): origin
+    = vertex 2, Y = the first side, X = the third, Z = -(first x third). 3x4, axes in the
+    columns."""
+    p = [np.asarray(q, dtype=float) for q in tri]
+    s0, s2 = p[1] - p[0], p[0] - p[2]
+    y = s0 / np.linalg.norm(s0)
+    x = s2 / np.linalg.norm(s2)
+    z = np.cross(s0, s2)
+    z = -z / np.linalg.norm(z)
+    return np.column_stack([x, y, z, p[2]])
+
+
 ARM_BONES = {
     "upper": ("humerus", "humerusX"),
     "fore": ("radius", "radiusX"),
@@ -150,6 +163,9 @@ def main(argv=None):
     ap.add_argument("--twist", type=float, default=0.0,
                     help="also turn the torso by this many degrees, half at upper_lumbar and "
                          "half at thoracic, the way the game turns it to follow the aim")
+    ap.add_argument("--weapons", default="", help="weapon glm(s) in the hands: RIGHT[,LEFT] "
+                    "(tools/weapon2glm.py), placed on *r_hand / *l_hand the way the game does; "
+                    "with --tags their damage lines show in red")
     a = ap.parse_args(argv)
 
     import bpy
@@ -171,13 +187,13 @@ def main(argv=None):
     sc = bpy.context.scene
     images = {}
 
-    def material(shader):
+    def material(shader, base=None):
         if shader in images:
             return images[shader]
         mat = bpy.data.materials.new(shader or "none")
         img = None
         for ext in (".tga", ".png", ".jpg"):
-            f = os.path.join(root, shader + ext)
+            f = os.path.join(base or root, shader + ext)
             if shader and os.path.exists(f):
                 img = bpy.data.images.load(f)
                 break
@@ -237,6 +253,58 @@ def main(argv=None):
                 me.materials.append(material(shaders.get(s.name, s.shader)))
                 ob = bpy.data.objects.new(s.name, me)
                 sc.collection.objects.link(ob)
+            hand_tags = tag_points(surfs, mats)
+            for wi, wpath in enumerate(x for x in a.weapons.split(",") if x):
+                if wpath == "-":
+                    continue
+                B = bolt_matrix(hand_tags["*r_hand" if wi == 0 else "*l_hand"])
+                _, wsurfs = g2file.read_glm(wpath)
+                wroot = os.path.dirname(wpath)
+                for _ in range(3):
+                    wroot = os.path.dirname(wroot)
+                for ws in wsurfs:
+                    v = np.array(ws.verts)
+                    pw = v @ B[:, :3].T + B[:, 3]
+                    if scale != 1.0 and spec != "base":
+                        pw = (pw - np.array([0, 0, -24.0])) * scale + np.array([0, 0, -24.0])
+                    pts = (pw @ R.T) + offset
+                    if ws.flags & g2file.SURF_BOLT:
+                        if not a.tags:
+                            continue
+                        T = bolt_matrix(pw)
+                        n = int(ws.name[6:] or 1)
+                        sab = os.path.join(wroot, "ext_data", "sabers", os.path.basename(os.path.dirname(wpath)) + ".sab")
+                        length = 30.0
+                        if os.path.exists(sab):
+                            for line in open(sab):
+                                q = line.split()
+                                if q and q[0] == ("saberLength" if n == 1 else "saberLength%d" % n):
+                                    length = float(q[1])
+                        a0 = T[:, 3]
+                        a1 = a0 - T[:, 1] * length * (scale if spec != "base" else 1.0)
+                        side = np.cross(T[:, 1], [0, 1, 0])
+                        side = side / (np.linalg.norm(side) + 1e-9) * 0.4
+                        q = [a0 - side, a1 - side, a1 + side, a0 + side]
+                        q = [(np.array(x) @ R.T + offset).tolist() for x in q]
+                        me = bpy.data.meshes.new(ws.name)
+                        me.from_pydata(q, [], [(0, 1, 2, 3)])
+                        m = bpy.data.materials.new("blade")
+                        m.diffuse_color = (1, 0, 0, 1)
+                        me.materials.append(m)
+                        ob = bpy.data.objects.new(ws.name, me)
+                        ob.show_in_front = True
+                        sc.collection.objects.link(ob)
+                        continue
+                    me = bpy.data.meshes.new(ws.name)
+                    me.from_pydata(pts.tolist(), [], [(t[0], t[2], t[1]) for t in ws.tris])
+                    uv = me.uv_layers.new()
+                    for poly in me.polygons:
+                        for li in poly.loop_indices:
+                            u, vv = ws.uvs[me.loops[li].vertex_index]
+                            uv.data[li].uv = (u, 1 - vv)
+                    me.materials.append(material(ws.shader, wroot))
+                    ob = bpy.data.objects.new(ws.name, me)
+                    sc.collection.objects.link(ob)
             if a.tags:
                 for tname, tri in tag_points(surfs, mats).items():
                     pts = [(np.array(q) @ R.T + offset).tolist() for q in tri]

@@ -521,3 +521,28 @@ int BG_ShinobiSized( const playerState_t *ps, int height )
 		return height;
 	return DEFAULT_MINS_2 + (int)floorf( ( height - DEFAULT_MINS_2 ) * f + 0.5f );
 }
+
+/*
+===========================================================================
+Weapon styles
+===========================================================================
+*/
+const char * const shinobiWeaponStyleNames[SWS_COUNT] = { "none", "one", "two", "staff" };
+const char * const shinobiWeaponStyleTitles[SWS_COUNT] = { "Fists only", "One blade", "Two blades", "Staff" };
+const char * const shinobiWeaponStyleInfo[SWS_COUNT] = {
+	"No weapon: everything on taijutsu - punches, kicks, combos and grabs. The weapon key does nothing.",
+	"One blade in the right hand, the three blade stances (switch with L). Fists on the weapon key.",
+	"A blade in each hand - pick each one. Fast double strikes, one stance.",
+	"A two-handed staff: wide sweeps that hit both ends, one stance.",
+};
+
+int Shinobi_WeaponStyleParse( const char *s ) {
+	int i;
+	if ( s && s[0] ) {
+		for ( i = 0; i < SWS_COUNT; i++ ) {
+			if ( !Q_stricmp( s, shinobiWeaponStyleNames[i] ) )
+				return i;
+		}
+	}
+	return SWS_ONE;
+}

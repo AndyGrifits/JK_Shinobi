@@ -1221,3 +1221,27 @@ static QINLINE int Shinobi_BuildElement( const shinobiBuild_t *b ) {
 	}
 	return SS_YINYANG;
 }
+
+/*
+Weapons ("shinobi_weapon" userinfo, chosen on the weapon screen): fists only, one blade, a
+blade in each hand, or a staff. The blades are sabers without a light blade (tools/
+weapon2glm.py: ext_data/sabers/shinobi_*.sab, models/weapons2/shinobi_*), named in the
+stock "saber1" / "saber2" userinfo; the server takes only those and fixes what doesn't
+fit the style. Applied on the next spawn, like the build.
+*/
+typedef enum {
+	SWS_NONE,	// fists only (the blade key does nothing)
+	SWS_ONE,	// one blade, right hand
+	SWS_TWO,	// a blade in each hand
+	SWS_STAFF,	// a two-handed staff
+	SWS_COUNT
+} shinobiWeaponStyle_t;
+
+#define SHINOBI_WEAPON_PREFIX        "shinobi_"
+#define SHINOBI_WEAPON_DEFAULT       "shinobi_katana"
+#define SHINOBI_WEAPON_DEFAULT_STAFF "shinobi_staff"
+
+extern const char * const shinobiWeaponStyleNames[SWS_COUNT];   // the userinfo words
+extern const char * const shinobiWeaponStyleTitles[SWS_COUNT];
+extern const char * const shinobiWeaponStyleInfo[SWS_COUNT];
+int Shinobi_WeaponStyleParse( const char *s ); // unknown / empty = SWS_ONE
