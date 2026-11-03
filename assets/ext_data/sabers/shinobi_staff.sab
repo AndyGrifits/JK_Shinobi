@@ -7,8 +7,10 @@ shinobi_staff
 	numBlades		2
 	saberLength		40
 	saberColor		blue
+	shinobiTrail		32.1
 	saberLength2		40
 	saberColor2		blue
+	shinobiTrail2		32.1
 	twoHanded		1
 	saberStyle		staff
 	noBlade			1

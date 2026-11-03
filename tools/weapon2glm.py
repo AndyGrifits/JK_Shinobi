@@ -213,6 +213,7 @@ def build(entry, name, src_root, out_root, log=print):
         if len(s.verts) > 1000:
             raise SystemExit("%s: %d vertices in one surface (max 1000)" % (name, len(s.verts)))
         nv += len(s.verts)
+    trails = visible_blades(surfaces, entry["blades"])
     for b, (start, direction, length) in enumerate(entry["blades"]):
         tag = tag_surface("*blade%d" % (b + 1), start, direction)
         tag.verts = [tuple(float(x) for x in np.asarray(v) @ post_R.T + post_t) for v in tag.verts]
@@ -220,8 +221,22 @@ def build(entry, name, src_root, out_root, log=print):
     g2file.write_glm(os.path.join(outdir, "model.glm"), gamedir + "/model", "*default", 1, surfaces)
     log("%s: %d vertices, %.1f x %.1f x %.1f units (z %.1f .. %.1f), %d blade(s)"
         % (name, nv, *(hi - lo), lo[2], hi[2], len(entry["blades"])))
-    write_sab(entry, name, gamedir, os.path.join(out_root, "ext_data", "sabers"))
+    write_sab(entry, name, gamedir, os.path.join(out_root, "ext_data", "sabers"), trails)
     return nv
+
+
+TRAIL_MIN = 6.0   # a stub of a blade still leaves a little streak
+
+
+def visible_blades(surfaces, blades):
+    """How far the mesh reaches along each blade from its start: the swing trail is drawn
+    that long (shinobiTrail), not the whole damage line (saberLength)."""
+    zs = [v[2] for s in surfaces if not s.name.startswith("*") for v in s.verts]
+    out = []
+    for start, direction, length in blades:
+        reach = max([(z - start) * direction for z in zs] + [0.0])
+        out.append(round(min(float(length), max(TRAIL_MIN, reach)), 1))
+    return out
 
 
 WEAPON_MAX_VERTS = 1000   # more are collapsed away (glm_slim.py): it shares the player's 256 KB
@@ -240,7 +255,7 @@ def write_silence(out_root):
         w.writeframes(b"\0\0" * 2205)
 
 
-def write_sab(entry, name, gamedir, sabdir):
+def write_sab(entry, name, gamedir, sabdir, trails=None):
     os.makedirs(sabdir, exist_ok=True)
     snd = entry.get("sounds", {})
     blades = entry["blades"]
@@ -253,6 +268,8 @@ def write_sab(entry, name, gamedir, sabdir):
     for b, (start, direction, length) in enumerate(blades):
         sfx = "" if b == 0 else str(b + 1)
         lines += ["\tsaberLength%s\t\t%g" % (sfx, length), "\tsaberColor%s\t\tblue" % sfx]
+        if trails and b < 2 and trails[b] < length:
+            lines += ["\tshinobiTrail%s\t\t%g" % (sfx, trails[b])]
         if "radius" in entry:
             lines += ["\tsaberRadius%s\t\t%g" % (sfx, entry["radius"])]
     if entry.get("staff"):

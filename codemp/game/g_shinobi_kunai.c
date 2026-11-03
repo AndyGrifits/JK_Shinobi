@@ -816,29 +816,56 @@ qboolean Shinobi_CastEdge( gentity_t *ent, int school ) {
 	return qtrue;
 }
 
-// a swing with the Wind Edge: an air slash a few metres past the fist / blade
+static void Shinobi_WindSlashFree( gentity_t *self ) {
+	G_FreeEntity( self );
+}
+
+/*
+A swing with the Wind Edge: a crescent of air flies out from the fist / blade along the
+look, up to SHINOBI_WINDSLASH_REACH, and stops at the first one it cuts (or a wall). The
+cgame draws it (SHINOBI_ENT_WINDSLASH): where it flew, and a flash if it hit; the damage
+number shows like any hit's.
+*/
 static void Shinobi_WindSlash( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	const qboolean saber = client->ps.weapon == WP_SABER;
-	vec3_t     fwd, eye, start, end, fxOrg, mins = { -12, -12, -12 }, maxs = { 12, 12, 12 };
+	vec3_t     fwd, eye, start, end, mins = { -14, -14, -14 }, maxs = { 14, 14, 14 };
 	trace_t    tr;
+	gentity_t *slash, *other = NULL;
 
 	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
 	VectorCopy( client->ps.origin, eye );
 	eye[2] += client->ps.viewheight - 8;
-	VectorMA( eye, 36, fwd, start ); // past the reach of the hit itself
+	VectorMA( eye, 16, fwd, start ); // from the hand: someone right in front is cut too
 	VectorMA( eye, SHINOBI_WINDSLASH_REACH, fwd, end );
 	trap->Trace( &tr, start, mins, maxs, end, ent->s.number, MASK_SHOT, qfalse, 0, 0 );
-	if ( tr.entityNum < ENTITYNUM_WORLD ) {
-		gentity_t *other = &g_entities[tr.entityNum];
-		if ( other->takedamage && other != ent ) {
-			G_Damage( other, ent, ent, fwd, tr.endpos,
-				saber ? SHINOBI_WINDSLASH_DAMAGE_SABER : SHINOBI_WINDSLASH_DAMAGE_FIST, DAMAGE_NO_KNOCKBACK,
-				saber ? MOD_SABER : MOD_MELEE );
-		}
+	if ( tr.entityNum < ENTITYNUM_WORLD && g_entities[tr.entityNum].takedamage && &g_entities[tr.entityNum] != ent )
+		other = &g_entities[tr.entityNum];
+
+	slash = G_Spawn();
+	if ( slash ) {
+		static int tilt;
+		slash->classname = "shinobi_windslash";
+		slash->s.eType = ET_GENERAL;
+		slash->s.generic1 = SHINOBI_ENT_WINDSLASH;
+		slash->r.ownerNum = ent->s.number;
+		slash->s.owner = ent->s.number;
+		slash->r.contents = 0;
+		G_SetOrigin( slash, start );
+		VectorCopy( tr.startsolid ? start : tr.endpos, slash->s.origin2 );
+		slash->s.time = level.time;
+		slash->s.frame = ( other ? 1 : 0 ) | ( saber ? 2 : 0 );
+		tilt = ( tilt + 1 ) % 4; // swings come from different sides: the cuts alternate
+		slash->s.angles2[2] = ( tilt & 1 ? 1 : -1 ) * ( tilt & 2 ? 35.0f : 12.0f );
+		slash->think = Shinobi_WindSlashFree;
+		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS;
+		trap->LinkEntity( (sharedEntity_t *)slash );
 	}
-	VectorMA( eye, 60, fwd, fxOrg );
-	Shinobi_EffectDir( shinobiMedia.fxWindGust[0], fxOrg, fwd );
+	if ( other ) {
+		G_Damage( other, slash ? slash : ent, ent, fwd, tr.startsolid ? start : tr.endpos,
+			saber ? SHINOBI_WINDSLASH_DAMAGE_SABER : SHINOBI_WINDSLASH_DAMAGE_FIST, DAMAGE_NO_KNOCKBACK,
+			saber ? MOD_SABER : MOD_MELEE );
+	}
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 }
 

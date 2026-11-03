@@ -418,6 +418,7 @@ void WP_SaberSetDefaults( saberInfo_t *saber ) {
 	saber->soundOff				= BG_SoundIndex( "sound/weapons/saber/enemy_saber_off.wav" );
 	saber->numBlades			= 1;
 	saber->type					= SABER_SINGLE;
+	saber->shinobiTrail = saber->shinobiTrail2 = 0;
 	saber->stylesLearned		= 0;
 	saber->stylesForbidden		= 0;			// allow all styles
 	saber->maxChain				= 0;			// 0 = use default behavior
@@ -1575,6 +1576,23 @@ static void Saber_ParseNoBlade2( saberInfo_t *saber, const char **p ) {
 	if ( n )
 		saber->saberFlags2 |= SFL2_NO_BLADE2;
 }
+// JK_Shinobi: the swing trail as long as the visible blade (blade 1 / blade 2)
+static void Saber_ParseShinobiTrail( saberInfo_t *saber, const char **p ) {
+	float f;
+	if ( COM_ParseFloat( p, &f ) ) {
+		SkipRestOfLine( p );
+		return;
+	}
+	saber->shinobiTrail = f;
+}
+static void Saber_ParseShinobiTrail2( saberInfo_t *saber, const char **p ) {
+	float f;
+	if ( COM_ParseFloat( p, &f ) ) {
+		SkipRestOfLine( p );
+		return;
+	}
+	saber->shinobiTrail2 = f;
+}
 static void Saber_ParseTrailStyle2( saberInfo_t *saber, const char **p ) {
 	int n;
 	if ( COM_ParseInt( p, &n ) ) {
@@ -1943,6 +1961,8 @@ static keywordHash_t saberParseKeywords[] = {
 	{ "noBlade2",				Saber_ParseNoBlade2,			NULL	},
 	{ "trailStyle",				Saber_ParseTrailStyle,			NULL	},
 	{ "trailStyle2",			Saber_ParseTrailStyle2,			NULL	},
+	{ "shinobiTrail",			Saber_ParseShinobiTrail,		NULL	},
+	{ "shinobiTrail2",			Saber_ParseShinobiTrail2,		NULL	},
 	{ "g2MarksShader",			Saber_ParseG2MarksShader,		NULL	},
 	{ "g2MarksShader2",			Saber_ParseG2MarksShader2,		NULL	},
 	{ "g2WeaponMarkShader",		Saber_ParseG2WeaponMarkShader,	NULL	},

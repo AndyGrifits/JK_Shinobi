@@ -7,6 +7,7 @@ shinobi_knife_l
 	numBlades		1
 	saberLength		40
 	saberColor		blue
+	shinobiTrail		6
 	noBlade			1
 	noBlade2		1
 	noDlight		1

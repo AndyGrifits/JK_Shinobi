@@ -658,6 +658,8 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)
 #define SHINOBI_ENT_TAG            235   // explosive tag; s.time = armed at, s.time2 = blast time (0 = waiting)
 #define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
+#define SHINOBI_ENT_WINDSLASH      238   // a Wind Edge air slash; origin = start, s.origin2 = where it stopped, s.time = thrown,
+                                         // s.frame = 1 hit someone | 2 a blade, s.angles2[2] = tilt of the cut
 #define SHINOBI_ENT_RAINET         237   // lightning net; origin, s.origin2, s.angles2 = nodes; s.frame = count | lit sides << 2
 
 // Water Clone: one clone made of water that fights like a shadow clone and casts,
@@ -708,7 +710,9 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 // deeper, earth hits harder, lightning jolts, Yin/Yang just hits harder.
 #define SHINOBI_EDGE_MS            15000 // Wind / Lightning Edge duration
 #define SHINOBI_EDGE_FX_MS         220
-#define SHINOBI_WINDSLASH_REACH    140   // air slashes fly this far
+#define SHINOBI_WINDSLASH_REACH    180   // air slashes fly this far (from the eyes)
+#define SHINOBI_WINDSLASH_FLY_MS   110   // drawn flying out over this long
+#define SHINOBI_WINDSLASH_LIFE_MS  420   // the entity drawing it (fly + fade)
 #define SHINOBI_WINDSLASH_DAMAGE_SABER 14
 #define SHINOBI_WINDSLASH_DAMAGE_FIST  7
 #define SHINOBI_WINDSLASH_MS       350   // at most one slash this often

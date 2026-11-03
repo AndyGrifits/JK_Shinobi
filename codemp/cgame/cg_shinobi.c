@@ -1022,6 +1022,72 @@ static void CG_ShinobiFlame( centity_t *cent ) {
 Shadow Bind: a dark band along the floor from the binder's feet to the tip.
 */
 // Lightning net (Lightning Trap with 2-3 marks): crackling strands between the kunai
+/*
+Wind Edge air slash: a thin bright crescent flying from the hand to where it stopped
+(the first one it cut, a wall, or its reach), a faint streak behind it; a white cross
+flash where it cut someone.
+*/
+static void CG_ShinobiWindSlash( centity_t *cent ) {
+	const entityState_t *s = &cent->currentState;
+	const qboolean hit = ( s->frame & 1 ) != 0, blade = ( s->frame & 2 ) != 0;
+	const float    age = (float)( cg.time - s->time );
+	const float    fly = Com_Clamp( 0, 1, age / SHINOBI_WINDSLASH_FLY_MS );
+	const float    fade = age <= SHINOBI_WINDSLASH_FLY_MS ? 1.0f
+		: Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
+	const float    R = blade ? 24.0f : 17.0f;
+	vec3_t         start, stop, dir, ang, axis[3], pos, prev, p, core = { 0.92f, 1.0f, 1.0f }, haze = { 0.45f, 0.85f, 1.0f };
+	float          len;
+	int            k;
+	const int      N = 10;
+
+	if ( age < 0 || fade <= 0 )
+		return;
+	VectorCopy( s->pos.trBase, start );
+	VectorCopy( s->origin2, stop );
+	VectorSubtract( stop, start, dir );
+	len = VectorNormalize( dir );
+	if ( len < 1 )
+		AngleVectors( cent->lerpAngles, dir, NULL, NULL );
+	vectoangles( dir, ang );
+	ang[ROLL] = s->angles2[2];
+	AnglesToAxis( ang, axis ); // [0] along the flight, [1] left, [2] up - tilted
+	VectorMA( start, len * fly, dir, pos );
+
+	// the streak it leaves
+	trap->FX_AddLine( start, pos, 1.2f, 0.4f, 0.0f, 0.22f * fade, 0.0f, 0.0f, haze, haze, 0.0f, 1,
+		shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+
+	// the crescent: an arc across the flight, its tips swept back
+	for ( k = 0; k <= N; k++ ) {
+		const float a = DEG2RAD( -70.0f + 140.0f * k / N );
+		const float edge = 1.0f - fabsf( (float)k / N - 0.5f ) * 1.6f; // thick in the middle, fine at the tips
+		VectorMA( pos, -R * ( 1.0f - cosf( a ) ) * 0.9f, axis[0], p );
+		VectorMA( p, R * sinf( a ), axis[1], p );
+		if ( k ) {
+			trap->FX_AddLine( prev, p, 2.4f * edge + 0.4f, 1.0f, 0.0f, 0.95f * fade, 0.0f, 0.0f, core, core, 0.0f, 1,
+				shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+			trap->FX_AddLine( prev, p, 9.0f * edge + 2.0f, 4.0f, 0.0f, 0.3f * fade, 0.0f, 0.0f, haze, haze, 0.0f, 1,
+				shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+		}
+		VectorCopy( p, prev );
+	}
+
+	if ( hit && fly >= 1.0f ) { // it cut someone: a white cross where it struck
+		const float f = Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / 220.0f );
+		vec3_t      a0, a1, b0, b1, c, white = { 1, 1, 1 };
+		if ( f > 0 ) {
+			VectorMA( stop, -6, dir, c );
+			VectorMA( c, 14 * f + 6, axis[1], a0 ); VectorMA( a0, 14 * f + 6, axis[2], a0 );
+			VectorMA( c, -( 14 * f + 6 ), axis[1], a1 ); VectorMA( a1, -( 14 * f + 6 ), axis[2], a1 );
+			VectorMA( c, 14 * f + 6, axis[1], b0 ); VectorMA( b0, -( 14 * f + 6 ), axis[2], b0 );
+			VectorMA( c, -( 14 * f + 6 ), axis[1], b1 ); VectorMA( b1, 14 * f + 6, axis[2], b1 );
+			trap->FX_AddLine( a0, a1, 2.0f, 1.0f, 0.0f, f, 0.0f, 0.0f, white, white, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+			trap->FX_AddLine( b0, b1, 2.0f, 1.0f, 0.0f, f, 0.0f, 0.0f, white, white, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+			CG_ShinobiSpriteA( c, 10 * f + 4, 0, shinobiShaders.glow, 0.8f, 0.95f, 1.0f, 0.8f * f );
+		}
+	}
+}
+
 static void CG_ShinobiRaiNet( centity_t *cent ) {
 	static const int sides[3][2] = { { 0, 1 }, { 1, 2 }, { 2, 0 } };
 	const int count = cent->currentState.frame & 3, lit = cent->currentState.frame >> 2;
@@ -1518,6 +1584,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_RAINET ) {
 		CG_ShinobiRaiNet( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_WINDSLASH ) {
+		CG_ShinobiWindSlash( cent );
 		return qtrue;
 	}
 	if ( s->generic1 == SHINOBI_ENT_QUAKE ) {

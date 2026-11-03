@@ -294,7 +294,7 @@ puts one of them on the puddles instead (takes effect on the next map load).
 ## Weapons (Weapon on the build screen)
 
 No lightsabers: the blades are sabers the game draws without a light blade, glow or
-clash flare, with a plain swing trail, the stock sword / tusken staff sounds and a cut
+clash flare, with a plain swing trail as long as the visible steel (`shinobiTrail` in the .sab, from the mesh; the damage line stays `saberLength`), the stock sword / tusken staff sounds and a cut
 mark instead of the burn; they can't be switched off. The stock saber combat stays
 (stances, blocks, kata, parries). The Weapon screen picks how you fight - **Fists only**
 (the weapon key does nothing), **One blade**, **Two blades** (a weapon per hand) or a
@@ -521,7 +521,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s) standing still, radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
 | Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 4 / 6 / 8 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
-| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash 36-140 u ahead (14 saber / 7 fists), and hits cut through the guard (a perfect parry still stops them) | 20 |
+| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash along your look, up to 180 u (14 saber / 7 fists): a bright crescent flies out and stops at the first one it cuts (a white cross and the damage number) or at a wall / its reach, and hits cut through the guard (a perfect parry still stops them) | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
 | Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out); a dust trail follows you and leaves patches of dust on the floor every 64 u. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
 | Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a wide stone block (108 x 108; 72 / 112 / 160 high by the charge: jump on it) erupts there, launching whoever is on the spot (20 / 30 / 40, knockdown). Aimed at a wall: a ledge (108 x 108 x 32) sticks out of it instead, shoving people off the wall. Blocks are axis-aligned, stay 90 s, take 50 / 100 / 170 damage (Lightning x3), are not pushable; at most 3 per caster (a 4th takes the oldest down). Broken, they leave dust. 4 s cooldown | 20 / 30 / 40 |

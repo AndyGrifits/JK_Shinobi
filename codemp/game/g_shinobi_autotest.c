@@ -212,6 +212,7 @@ static void AT_Reset( gentity_t *e ) {
 	c->pers.shinobiBuild.perk = SP_NONE; // no eyes, seal or gates in the way
 	c->shinobi.eyes = 0;
 	c->shinobi.copyJutsu = 0;
+	c->shinobi.infuseUntil = 0; // no Wind / Lightning Edge left over
 	c->shinobi.mistEnd = 0;
 	c->shinobi.curseAwake = qfalse;
 	c->shinobi.gatesEnd = c->shinobi.gatesTiredEnd = 0;
@@ -561,6 +562,67 @@ static atResult_t T_Chakra( int t ) {
 		AT_Msg( "dealt %i with fists, earned %i chakra (~%i%%), %i \"+N chakra\" texts", dealt, gained,
 			dealt ? gained * 100 / dealt : 0, texts );
 		return ( dealt > 0 && gained > 0 && texts > 0 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Gentle Fist: fists with the Byakugan open burn more of the target's chakra than being hit gives him
+static void T_Gentle_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 48, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	A->client->pers.shinobiBuild.perk = SP_BYAKUGAN;
+	A->client->shinobi.eyes = SP_BYAKUGAN;
+	B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax * 6 / 10;
+}
+static atResult_t T_Gentle( int t ) {
+	A->client->shinobi.eyesDrain = level.time + 100000; // (the eyes stay open)
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+	if ( STAGE( 0 ) ) {
+		at.v[0] = B->client->ps.fd.forcePower;
+		at.v[1] = shinobiTest.chakraGained[at.b];
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 2500 ) {
+		const int dealt = AT_DamageTo( B, at.start, NULL, MOD_MELEE, NULL, NULL );
+		const int gained = shinobiTest.chakraGained[at.b] - at.v[1];
+		const int now = B->client->ps.fd.forcePower;
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "fists dealt %i, the target's chakra %i -> %i (being hit gave him %i back)", dealt, at.v[0], now, gained );
+		return ( dealt > 0 && now < at.v[0] && at.v[0] - now > gained ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Wind Edge: a swing throws an air slash that cuts someone out of the fists' reach
+static void T_WindEdge_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 120, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+}
+static atResult_t T_WindEdge( int t ) {
+	if ( STAGE( 0 ) && t >= 300 ) {
+		Shinobi_CastEdge( A, SS_FUTON );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 200 ) {
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 100 ) {
+		at.v[0] = AT_CountClass( "shinobi_windslash", at.a );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 400 ) {
+		int hits = 0;
+		const int dealt = AT_DamageTo( B, at.start, "shinobi_windslash", -1, &hits, NULL );
+		A->client->shinobi.infuseUntil = 0;
+		AT_Msg( "slash drawn %s, cut %i time(s) for %i at 120 units", at.v[0] ? "yes" : "NO", hits, dealt );
+		return ( at.v[0] && hits > 0 && dealt > 0 ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1057,6 +1119,8 @@ static atTest_t atTests[] = {
 	{ "kaiten",       "Kaiten: wind-up breaks, spin blocks, kunai glance, throw, release", T_Kaiten_Setup, T_Kaiten, 5000 },
 	{ "marks",        "three marked kunai at most",                               T_Marks_Setup, T_Marks, 3000 },
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
+	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
+	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
