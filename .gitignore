@@ -197,3 +197,4 @@ cmake-build-*
 /build-win64/
 /dist/
 /cmake.log
+build-win64-engine/

@@ -2404,7 +2404,7 @@ static void *CM_GetCachedMapDiskImage( void ) { return gpvCachedMapDiskImage; }
 static void CM_SetCachedMapDiskImage( void *ptr ) { gpvCachedMapDiskImage = ptr; }
 static void CM_SetUsingCache( qboolean usingCache ) { gbUsingCachedMapDataRightNow = usingCache; }
 
-#define G2_VERT_SPACE_SERVER_SIZE 256
+#define G2_VERT_SPACE_SERVER_SIZE 1024 // JK_Shinobi: 256 KB was too small for the Wii-rip player models (Kagura 14k vertices) on clones/NPCs
 IHeapAllocator *G2VertSpaceServer = NULL;
 CMiniHeap IHeapAllocator_singleton(G2_VERT_SPACE_SERVER_SIZE * 1024);
 
@@ -2671,7 +2671,7 @@ static void CL_AddFavorite_f( void ) {
 	}
 }
 
-#define G2_VERT_SPACE_CLIENT_SIZE 256
+#define G2_VERT_SPACE_CLIENT_SIZE 1024 // JK_Shinobi: see G2_VERT_SPACE_SERVER_SIZE
 
 /*
 ===============

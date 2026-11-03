@@ -152,6 +152,11 @@ Sasuke's (Neji, Lee, Shikamaru, all of Revolution 2) need `--flip-v`. `--drop-he
 what is held in the hands and leaves it out: pieces on one hand (or a weapon bone under it)
 that stick out of the hand more than 2 units, and everything on a weapon bone under the hand
 (grips, claws); flat glove plates stay. Check with `--parts` (marked `<- held`).
+Vertex budget: the engine transforms a whole model (20 bytes a vertex) into one heap for each
+Ghoul2 trace and saber mark; stock OpenJK has 256 KB (about 12k vertices with the saber) and
+drops the game with "Ran out of transform space for Ghoul2 Models" (Kagura, 13.8k, as a
+shadow clone). The mod ships its own engine build with 1 MB (`tools/build-win64-engine.sh`,
+`G2_VERT_SPACE_*_SIZE`); blend2glm warns over 45k vertices and notes models over 12k.
 `glmpreview.py --icon icon_default.tga` renders the character screen's head shot. Heights
 used (Part I databooks, cm): Sasuke 153, Neji 160, Lee 160, Shikamaru 152, Kabuto 176,
 Yugao 169; the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size.

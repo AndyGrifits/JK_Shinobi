@@ -196,6 +196,14 @@ def smd_texture(material, tex_dir):
     return head if head.endswith(".png") else head + ".png"
 
 
+# the engine transforms a whole model (all its surfaces, 20 bytes a vertex) into one heap
+# for each Ghoul2 trace (server: kunai, sabers on NPCs and clones) and saber mark (client):
+# 1 MB in our engine build (tools/build-win64-engine.sh), 256 KB (~12k vertices) in stock
+# OpenJK; the saber and the per-surface tables need some of it too
+VERT_BUDGET = 45000
+VERT_STOCK = 12000
+
+
 def smooth_normals(m, max_angle=60.0):
     """Rips that come with one normal per face (flat shaded, and three game vertices
     per triangle): average each corner's normal with the other corners of the same
@@ -212,9 +220,21 @@ def smooth_normals(m, max_angle=60.0):
             continue
         g = n[ls]
         close = (g @ g.T) >= cos
-        avg = close.astype(float) @ g
-        avg /= np.linalg.norm(avg, axis=1)[:, None] + 1e-12
-        out[ls] = np.round(avg, 3)          # equal normals -> one game vertex
+        # corners joined through close neighbours share one normal (one game vertex)
+        grp = list(range(len(ls)))
+
+        def root(i):
+            while grp[i] != i:
+                grp[i] = grp[grp[i]]
+                i = grp[i]
+            return i
+        for a, b in zip(*np.nonzero(np.triu(close, 1))):
+            grp[root(a)] = root(b)
+        r = np.array([root(i) for i in range(len(ls))])
+        for k in set(r.tolist()):
+            sel = r == k
+            avg = g[sel].sum(0)
+            out[np.asarray(ls)[sel]] = np.round(avg / (np.linalg.norm(avg) + 1e-12), 3)
     m["loop_n"] = out
 
 
@@ -229,7 +249,7 @@ def faceted(m):
     return bool(spread) and float(np.median(spread)) > 0.05
 
 
-def load_smd(path, tex_dir=None, scale=SMD_SCALE, flip_v=False):
+def load_smd(path, tex_dir=None, scale=SMD_SCALE, flip_v=False, hard_angle=60.0):
     """A Source .smd (version 1): skeleton (frame 0 = bind pose) and triangles with
     their weights; one mesh per material. Same output as load_blend."""
     lines = open(path, encoding="latin-1").read().splitlines()
@@ -286,8 +306,9 @@ def load_smd(path, tex_dir=None, scale=SMD_SCALE, flip_v=False):
         n = np.array(m["loop_n"])
         m["loop_n"] = n / (np.linalg.norm(n, axis=1)[:, None] + 1e-12)
         if faceted(m):
-            smooth_normals(m)
-            print("%s: one normal per face in the rip, smoothed (hard edges over 60 deg kept)" % m["name"])
+            smooth_normals(m, hard_angle)
+            print("%s: one normal per face in the rip, smoothed (hard edges over %g deg kept)"
+                  % (m["name"], hard_angle))
         out.append(m)
     return joints, parents, out
 
@@ -857,6 +878,9 @@ def main(argv=None):
     ap.add_argument("--drop-parts", default="", help="comma-separated part ids (see --parts) to leave out")
     ap.add_argument("--drop-held", action="store_true", help="leave out what the hands hold "
                     "(kunai, swords, claws, books: found by themselves; --parts shows them)")
+    ap.add_argument("--hard-angle", type=float, default=60.0,
+                    help="flat-shaded rips: corners whose normals differ more than this (deg) "
+                    "stay a hard edge (two game vertices); higher = fewer vertices")
     ap.add_argument("--keep-shells", action="store_true", help="keep the outline shells (inside-out "
                     "copies the old games draw black around a mesh; left out by default)")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
@@ -866,7 +890,7 @@ def main(argv=None):
     name = (a.name or os.path.splitext(os.path.basename(a.blend))[0]).lower()
     gla = g2file.Gla(a.gla)
     if a.blend.lower().endswith(".smd"):
-        J, parents, meshes = load_smd(a.blend, a.textures, flip_v=a.flip_v)
+        J, parents, meshes = load_smd(a.blend, a.textures, flip_v=a.flip_v, hard_angle=a.hard_angle)
     else:
         J, parents, meshes = load_blend(a.blend, a.armature)
     J, meshes = upright(J, meshes)
@@ -974,6 +998,15 @@ def main(argv=None):
     nt = sum(len(s.tris) for s in mesh_surfs)
     print("wrote %s: %d mesh surfaces, %d verts, %d tris, %d tags"
           % (outdir, len(mesh_surfs), nv, nt, len(surfaces) - 1 - len(mesh_surfs)))
+    nall = sum(len(s.verts) for s in surfaces)
+    if nall > VERT_BUDGET:
+        print("WARNING: %d verts (with tags and props) is over %d: Ghoul2 traces and saber "
+              "marks on it run out of the engine's 1 MB transform space (20 bytes a vertex) "
+              "and the game drops with 'Ran out of transform space'. Make it lighter."
+              % (nall, VERT_BUDGET))
+    elif nall > VERT_STOCK:
+        print("note: %d verts: too heavy for stock OpenJK (256 KB transform space), fine on "
+              "the mod's engine build" % nall)
     return outdir
 
 

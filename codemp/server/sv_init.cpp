@@ -771,7 +771,7 @@ void SV_BotInitBotLib(void);
 
 #ifdef DEDICATED
 
-#define G2_VERT_SPACE_SERVER_SIZE 256
+#define G2_VERT_SPACE_SERVER_SIZE 1024 // JK_Shinobi: 256 KB was too small for the Wii-rip player models (Kagura 14k vertices) on clones/NPCs
 IHeapAllocator *G2VertSpaceServer = NULL;
 CMiniHeap IHeapAllocator_singleton(G2_VERT_SPACE_SERVER_SIZE * 1024);
 
