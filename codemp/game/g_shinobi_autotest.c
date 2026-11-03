@@ -1015,6 +1015,15 @@ static void AT_Finish( void ) {
 	AT_FreeTheirStuff();
 	at.phase = 3;
 	trap->SendServerCommand( -1, va( "cp \"^3Autotest done: ^2%i passed^3, ^1%i failed\"", at.pass, at.fail ) );
+	{ // a script waiting for the end (the self-test: dump the console and quit)
+		char done[MAX_CVAR_VALUE_STRING];
+		trap->Cvar_VariableStringBuffer( "shinobi_autotest_done", done, sizeof( done ) );
+		if ( done[0] ) {
+			trap->Cvar_Set( "shinobi_autotest_done", "" );
+			trap->SendConsoleCommand( EXEC_APPEND, "wait 60; vstr shinobi_autotest_done_run\n" );
+			trap->Cvar_Set( "shinobi_autotest_done_run", done );
+		}
+	}
 }
 
 // G_RunFrame (Shinobi_RunFrame)
