@@ -152,14 +152,17 @@ Sasuke's (Neji, Lee, Shikamaru, all of Revolution 2) need `--flip-v`. `--drop-he
 what is held in the hands and leaves it out: pieces on one hand (or a weapon bone under it)
 that stick out of the hand more than 2 units, and everything on a weapon bone under the hand
 (grips, claws); flat glove plates stay. Check with `--parts` (marked `<- held`).
-Vertex budget: the engine transforms a whole model (20 bytes a vertex) into one heap for each
-Ghoul2 trace and saber mark; stock OpenJK has 256 KB (about 12k vertices with the saber) and
-drops the game with "Ran out of transform space for Ghoul2 Models" (Kagura, 13.8k, as a
-shadow clone). The mod ships its own engine build with 1 MB (`tools/build-win64-engine.sh`,
-`G2_VERT_SPACE_*_SIZE`); blend2glm warns over 45k vertices and notes models over 12k.
+Vertex budget: OpenJK transforms a whole model (20 bytes a vertex) into a 256 KB heap for
+each Ghoul2 trace and saber mark, the saber included, and drops the game with "Ran out of
+transform space for Ghoul2 Models" when it doesn't fit (Kagura, 13.8k vertices, as a shadow
+clone). blend2glm slims models over 10.5k vertices by collapsing edges (`tools/glm_slim.py`,
+pymeshlab; `--no-slim` keeps them as they are); glm_slim.py also works on a finished glm.
 `glmpreview.py --icon icon_default.tga` renders the character screen's head shot. Heights
-used (Part I databooks, cm): Sasuke 153, Neji 160, Lee 160, Shikamaru 152, Kabuto 176,
-Yugao 169; the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size.
+used (Part I databooks / MyAnimeList, cm): Sasuke 153, Neji 160, Lee 160, Shikamaru 152,
+Kabuto 176, Yugao 169, Kisame 195, Anko 167, Baki 188, Gaara 146, Naruto 145, Yamato 178;
+the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size. Yamato's rip points
+at the wood-clone textures (mky_*); it is built with his own (ymt_*) copied under those
+names. Anko's dango skewer pieces inside the hand outline go by --drop-parts.
 
 ```
 python3 tools/blend2glm.py Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \
@@ -205,8 +208,7 @@ further than the shorter arm draws it.
 it into `Jedi Academy\GameData` and run `JK_Shinobi.bat`. It holds OpenJK
 (`tools/openjk-win64`, see its README), the mod's modules and `shinobi/zz_shinobi.pk3`
 with all the assets: effects, menus, configs, the player models (Asuma, Kakashi, Sasuke,
-Neji, Rock Lee, Shikamaru, Kabuto, Yugao, Kagura, Komachi, Towa, Rogue Ninja, in
-`assets/models/players/`) and the ninja skeleton. New converted models go into
+all the converted characters, in `assets/models/players/`) and the ninja skeleton. New converted models go into
 `assets/models/players/<name>/` (`blend2glm.py --out assets`).
 
 ## Player size

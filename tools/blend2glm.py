@@ -196,12 +196,11 @@ def smd_texture(material, tex_dir):
     return head if head.endswith(".png") else head + ".png"
 
 
-# the engine transforms a whole model (all its surfaces, 20 bytes a vertex) into one heap
-# for each Ghoul2 trace (server: kunai, sabers on NPCs and clones) and saber mark (client):
-# 1 MB in our engine build (tools/build-win64-engine.sh), 256 KB (~12k vertices) in stock
-# OpenJK; the saber and the per-surface tables need some of it too
-VERT_BUDGET = 45000
-VERT_STOCK = 12000
+# OpenJK transforms a whole model (all its surfaces, 20 bytes a vertex) into a 256 KB heap
+# for each Ghoul2 trace (server: kunai, sabers on NPCs and shadow clones) and saber mark
+# (client), the saber(s) and per-surface tables included; over it the game drops with
+# "Ran out of transform space for Ghoul2 Models". Heavier models are slimmed (glm_slim.py).
+VERT_BUDGET = 10500
 
 
 def smooth_normals(m, max_angle=60.0):
@@ -437,7 +436,9 @@ def held_items(parts, parents):
         fingers = any(is_finger(b) for b in bones)
         lo, hi = pts.min(0), pts.max(0)
         arms = any(b[2:] in ("larm", "harm") for b in bones)
-        if fingers or arms or (not rig_fingers and len(p["tris"]) > 150):
+        # a small piece on the fingers only is something held in them (Anko's dango)
+        on_fingers = fingers and len(p["tris"]) < 60 and all(is_finger(b) for b in bones)
+        if (fingers and not on_fingers) or arms or (not rig_fingers and len(p["tris"]) > 150):
             # a hand (maybe with its forearm): the box of its vertices mostly on the hand
             for sd in "LR":
                 hv = [v for v in vs if max(p["weights"][v], key=lambda bw: bw[1])[0] in
@@ -452,6 +453,8 @@ def held_items(parts, parents):
         elif len(sides) == 1 and None not in sides:
             # on a weapon bone hanging off the hand (not the hand itself): a grip, a claw
             weapon = not any(b in ("L_hand", "R_hand") or is_finger(b) for b in bones)
+            if on_fingers:
+                weapon = False
             info.append([p["part"], sides.pop(), lo, hi, weapon])
     held = set()
     for sd in "LR":
@@ -881,6 +884,8 @@ def main(argv=None):
     ap.add_argument("--hard-angle", type=float, default=60.0,
                     help="flat-shaded rips: corners whose normals differ more than this (deg) "
                     "stay a hard edge (two game vertices); higher = fewer vertices")
+    ap.add_argument("--no-slim", action="store_true", help="don't collapse edges of a model "
+                    "over %d vertices (it will drop the game on Ghoul2 traces)" % VERT_BUDGET)
     ap.add_argument("--keep-shells", action="store_true", help="keep the outline shells (inside-out "
                     "copies the old games draw black around a mesh; left out by default)")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
@@ -969,6 +974,10 @@ def main(argv=None):
         t.parent = 0
         t.shader = ""
         surfaces.append(t)
+    if sum(len(x.verts) for x in surfaces) > VERT_BUDGET and not a.no_slim:
+        import glm_slim
+        surfaces, _ = glm_slim.slim(surfaces, VERT_BUDGET)
+        mesh_surfs = [x for x in surfaces[1:] if not x.name.startswith("*")]
     g2file.write_glm(os.path.join(outdir, "model.glm"), gamedir + "/model",
                      gla.name, gla.num_bones, surfaces)
     props = [s for s in mesh_surfs if "_prop_" in s.name]
@@ -1001,12 +1010,8 @@ def main(argv=None):
     nall = sum(len(s.verts) for s in surfaces)
     if nall > VERT_BUDGET:
         print("WARNING: %d verts (with tags and props) is over %d: Ghoul2 traces and saber "
-              "marks on it run out of the engine's 1 MB transform space (20 bytes a vertex) "
-              "and the game drops with 'Ran out of transform space'. Make it lighter."
-              % (nall, VERT_BUDGET))
-    elif nall > VERT_STOCK:
-        print("note: %d verts: too heavy for stock OpenJK (256 KB transform space), fine on "
-              "the mod's engine build" % nall)
+              "marks on it run out of the engine's 256 KB transform space and the game "
+              "drops with 'Ran out of transform space'." % (nall, VERT_BUDGET))
     return outdir
 
 

@@ -9,9 +9,4 @@ https://github.com/JACoders/OpenJK releases, GPLv2. Only the multiplayer files:
 - `base/cgamex86_64.dll`, `base/jampgamex86_64.dll`, `base/uix86_64.dll` (stock modules
   for plain JA; the mod brings its own in `shinobi/`)
 
-The package puts our own engine build over the release's exes and vanilla renderer
-(`tools/build-win64-engine.sh`, from this repo's OpenJK code with a 1 MB Ghoul2 transform
-heap instead of 256 KB: the stock one drops the game on traces against heavy player models,
-e.g. Kagura's shadow clone). rend2, SDL2 and the base modules stay the release's.
-
 To update: replace these with the files of a newer OpenJK release.
