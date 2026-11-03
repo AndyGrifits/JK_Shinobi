@@ -749,6 +749,22 @@ deals damage gets through (falls, lava and the like aside), no knockdown, stagge
 bind takes; missiles that would come within SHINOBI_KAITEN_DEFLECT glance off the
 dome; whoever is within SHINOBI_KAITEN_RADIUS is thrown away and knocked down.
 */
+/*
+Water: a shinobi stands on map water while he has chakra (SHINOBI_WATERWALK_DRAIN a
+second; a stun, a knockdown, a prison or an empty pool and he sinks; crouch to dive,
+jump at the surface to come back up). Standing on it: Suiton costs 30% less. Lightning
+reaching the water electrifies a patch of it (SHINOBI_WATER_SHOCK_RADIUS, 3 s); the wind
+freezes a floe on it; fire only steams; puddles, mud and dust aren't left on it; the
+Earthquake doesn't reach anyone standing on water.
+*/
+#define SHINOBI_WATERWALK_DRAIN    2      // chakra per second on the water
+#define SHINOBI_WATER_SUITON_COST  0.7f   // Suiton cast standing on water
+#define SHINOBI_WATER_SHOCK_RADIUS 250
+#define SHINOBI_WATER_SHOCK_MS     3000
+#define SHINOBI_WATER_ICE_RADIUS   200
+#define SHINOBI_WATER_ICE_MS       15000
+#define SHINOBI_WATER_POPUP        320    // jump at the surface while swimming: up and out
+
 #define SHINOBI_KAITEN_WINDUP_MS   500
 #define SHINOBI_KAITEN_TICK_MS     100
 #define SHINOBI_KAITEN_DRAIN       3     // chakra per tick (30 a second)
@@ -861,6 +877,8 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 // eFlags bits the stock game leaves unused (seen by everyone)
 #define SHINOBI_EF_STONE           (1<<12) // Stone Skin / Earth Clone: drawn as stone
 #define SHINOBI_EF_RAIDASH         (1<<15) // Lightning Dash: drawn as a bolt, the body hidden
+#define SHINOBI_EF_WATERWALK       (1<<31) // chakra in the feet: the water surface holds him (the server says when)
+#define SHINOBI_PMF_ONWATER        32768   // ps.pm_flags: standing on the water surface (Pmove says)
 #define SHINOBI_EF_KAITEN          (1<<18) // spinning a Kaiten: the model turns, a dome of chakra around it
 #define SHINOBI_EF_GUARD_SHIFT     16      // guard up: 1 = strong (blue), 2 = half (yellow), 3 = low (red); 0 = down
 #define SHINOBI_EF_GUARD_MASK      ( 3 << SHINOBI_EF_GUARD_SHIFT )

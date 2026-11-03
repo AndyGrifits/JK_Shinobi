@@ -79,6 +79,70 @@ qboolean Shinobi_InMapWater( vec3_t pos ) {
 	return ( trap->PointContents( pos, ENTITYNUM_NONE ) & ( CONTENTS_WATER | CONTENTS_SLIME ) ) ? qtrue : qfalse;
 }
 
+// the surface of the map water at or near 'pos' (from 'up' above to 'down' below it)
+qboolean Shinobi_WaterSurface( const vec3_t pos, float up, float down, vec3_t surface ) {
+	vec3_t  p, start, end;
+	trace_t tr;
+	float   z;
+
+	VectorCopy( pos, p );
+	if ( Shinobi_InMapWater( p ) ) { // under it: up to where it ends
+		for ( z = 0; z <= up + down; z += 4 ) {
+			p[2] = pos[2] + z;
+			if ( !Shinobi_InMapWater( p ) ) {
+				VectorCopy( p, surface );
+				surface[2] -= 2;
+				return z <= up ? qtrue : qfalse;
+			}
+		}
+		return qfalse;
+	}
+	VectorCopy( pos, start );
+	start[2] += up;
+	if ( Shinobi_InMapWater( start ) )
+		start[2] = pos[2]; // (the water is above pos: not "below" it)
+	VectorCopy( pos, end );
+	end[2] -= down;
+	trap->Trace( &tr, start, NULL, NULL, end, ENTITYNUM_NONE, CONTENTS_WATER | CONTENTS_SLIME | MASK_SOLID, qfalse, 0, 0 );
+	if ( tr.fraction >= 1.0f || tr.startsolid || !( tr.contents & ( CONTENTS_WATER | CONTENTS_SLIME ) ) )
+		return qfalse; // no water, or solid ground first
+	VectorCopy( tr.endpos, surface );
+	return qtrue;
+}
+
+/*
+Walking on water (Pmove does it while SHINOBI_EF_WATERWALK is set): chakra in the feet
+while it lasts, SHINOBI_WATERWALK_DRAIN a second; a stun, a knockdown, a prison, an empty
+pool and he goes under. On a floe of ice it costs nothing.
+*/
+void Shinobi_WaterWalkThink( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	const qboolean onIce = client->shinobi.iceEnd > level.time;
+	qboolean   can;
+
+	can = ent->health > 0 && client->sess.sessionTeam != TEAM_SPECTATOR && ent->s.number < MAX_CLIENTS
+		&& ( client->ps.fd.forcePower >= 1 || onIce )
+		&& client->shinobi.stunEnd <= level.time && client->ps.electrifyTime <= level.time
+		&& client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN
+		&& !client->shinobi.prisonCaster && !client->shinobi.burrowEnd;
+	if ( can )
+		client->ps.eFlags |= SHINOBI_EF_WATERWALK;
+	else
+		client->ps.eFlags &= ~SHINOBI_EF_WATERWALK;
+
+	if ( !( client->ps.pm_flags & SHINOBI_PMF_ONWATER ) || onIce ) {
+		client->shinobi.waterTick = level.time + 1000 / SHINOBI_WATERWALK_DRAIN;
+		return;
+	}
+	while ( client->shinobi.waterTick <= level.time ) { // the price of standing on it
+		client->shinobi.waterTick += 1000 / SHINOBI_WATERWALK_DRAIN;
+		if ( client->ps.fd.forcePower > 0 )
+			client->ps.fd.forcePower--;
+		if ( client->ps.fd.forcePower <= 0 && !( ent->r.svFlags & SVF_BOT ) )
+			trap->SendServerCommand( ent - g_entities, "cp \"Out of chakra - the water takes you\"" );
+	}
+}
+
 // the floor under 'pos' if it is at most 'maxDrop' below
 qboolean Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor ) {
 	vec3_t  start, end;
@@ -108,10 +172,12 @@ static qboolean Shinobi_ZonesOverlap( gentity_t *z, vec3_t origin, float radius 
 	return VectorLength( d ) < ( ZONE_RADIUS( z ) + radius ) * 0.7f ? qtrue : qfalse;
 }
 
+#define ZONE_ON_MAPWATER 1   // spawnflags: on a lake's surface (reaches the swimmers below)
+
 static qboolean Shinobi_InZone( gentity_t *z, vec3_t feet ) {
 	vec3_t d;
 	VectorSubtract( feet, z->r.currentOrigin, d );
-	if ( d[2] < -16 || d[2] > SHINOBI_ZONE_HEIGHT )
+	if ( d[2] < ( ( z->spawnflags & ZONE_ON_MAPWATER ) ? -160 : -16 ) || d[2] > SHINOBI_ZONE_HEIGHT )
 		return qfalse;
 	d[2] = 0;
 	return VectorLength( d ) <= ZONE_RADIUS( z ) ? qtrue : qfalse;
@@ -148,8 +214,8 @@ void Shinobi_SteamAt( vec3_t pos, float radius ) {
 
 	G_PlayEffectID( shinobiMedia.fxSteamBurst, pos, up );
 	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndHiss );
-	if ( radius > 0 && Shinobi_FloorBelow( pos, 96, floor ) )
-		Shinobi_SpawnZone( SZ_STEAM, floor, radius, SHINOBI_STEAM_MS, 0 );
+	if ( radius > 0 && ( Shinobi_WaterSurface( pos, 96, 96, floor ) || Shinobi_FloorBelow( pos, 96, floor ) ) )
+		Shinobi_SpawnZone( SZ_STEAM, floor, radius, SHINOBI_STEAM_MS, 0 ); // (on a lake: on its surface)
 }
 
 /*
@@ -414,6 +480,13 @@ gentity_t *Shinobi_SpawnZone( int type, vec3_t origin, float radius, int lifeMs,
 		return NULL;
 	if ( radius > SHINOBI_ZONE_MAX_RADIUS && type != SZ_MIST && type != SZ_DUST )
 		radius = SHINOBI_ZONE_MAX_RADIUS;
+	if ( type == SZ_WATER || type == SZ_MUD || type == SZ_DUST ) { // into a lake: nothing stays on it
+		vec3_t above;
+		VectorCopy( origin, above );
+		above[2] += 8;
+		if ( Shinobi_InMapWater( above ) || Shinobi_InMapWater( origin ) )
+			return NULL;
+	}
 
 	if ( type == SZ_DUST ) {
 		// earth meets water: the puddles under it turn to mud; on old dust it only freshens it
@@ -533,6 +606,70 @@ void Shinobi_ElectrifyAt( vec3_t point, int ownerNum ) {
 		Shinobi_ZoneSetType( z, SZ_ELECTRIC, 0 );
 		ZONE_REVERT( z ) = level.time + SHINOBI_ELECTRIC_MS;
 		ZONE_OWNER( z ) = ownerNum;
+	}
+	Shinobi_WaterShock( point, ownerNum );
+}
+
+// lightning reaching a lake: a patch of it around the point is electrified for a while
+void Shinobi_WaterShock( vec3_t point, int ownerNum ) {
+	vec3_t surf;
+	int    i;
+
+	if ( !Shinobi_WaterSurface( point, 48, 96, surf ) )
+		return;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) { // already crackling right there: longer
+		gentity_t *z = &g_entities[i];
+		vec3_t     d;
+		if ( !Shinobi_IsZone( z ) || !( z->spawnflags & ZONE_ON_MAPWATER ) || ZONE_TYPE( z ) != SZ_ELECTRIC )
+			continue;
+		VectorSubtract( z->r.currentOrigin, surf, d );
+		if ( VectorLength( d ) > SHINOBI_WATER_SHOCK_RADIUS * 0.5f )
+			continue;
+		ZONE_END( z ) = level.time + SHINOBI_WATER_SHOCK_MS;
+		z->s.time2 = ZONE_END( z );
+		ZONE_REVERT( z ) = ZONE_END( z ) + 1000;
+		ZONE_OWNER( z ) = ownerNum;
+		trap->LinkEntity( (sharedEntity_t *)z );
+		return;
+	}
+	{
+		gentity_t *z = Shinobi_SpawnZone( SZ_ELECTRIC, surf, SHINOBI_WATER_SHOCK_RADIUS, SHINOBI_WATER_SHOCK_MS, ownerNum );
+		if ( z ) {
+			z->spawnflags |= ZONE_ON_MAPWATER;
+			ZONE_REVERT( z ) = ZONE_END( z ) + 1000; // (no puddle to go back to)
+			VectorSet( z->r.mins, -SHINOBI_WATER_SHOCK_RADIUS, -SHINOBI_WATER_SHOCK_RADIUS, -160 );
+			trap->LinkEntity( (sharedEntity_t *)z );
+			G_SoundAtLoc( surf, CHAN_AUTO, shinobiMedia.sndChidoriHit );
+		}
+	}
+}
+
+// the wind over a lake: a floe of ice on it (stand on it without chakra; slippery)
+void Shinobi_WaterFreeze( vec3_t point ) {
+	vec3_t surf;
+	int    i;
+
+	if ( !Shinobi_WaterSurface( point, 48, 160, surf ) )
+		return;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *z = &g_entities[i];
+		vec3_t     d;
+		if ( !Shinobi_IsZone( z ) || !( z->spawnflags & ZONE_ON_MAPWATER ) || ZONE_TYPE( z ) != SZ_ICE )
+			continue;
+		VectorSubtract( z->r.currentOrigin, surf, d );
+		if ( VectorLength( d ) > SHINOBI_WATER_ICE_RADIUS * 0.6f )
+			continue;
+		ZONE_END( z ) = level.time + SHINOBI_WATER_ICE_MS; // the same floe, frozen on
+		z->s.time2 = ZONE_END( z );
+		trap->LinkEntity( (sharedEntity_t *)z );
+		return;
+	}
+	{
+		gentity_t *z = Shinobi_SpawnZone( SZ_ICE, surf, SHINOBI_WATER_ICE_RADIUS, SHINOBI_WATER_ICE_MS, 0 );
+		if ( z ) {
+			z->spawnflags |= ZONE_ON_MAPWATER;
+			G_SoundAtLoc( surf, CHAN_AUTO, shinobiMedia.sndWind2 );
+		}
 	}
 }
 
@@ -1207,6 +1344,15 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 				Shinobi_ZoneSetType( e, SZ_ICE, SHINOBI_ICE_MS );
 				G_SoundAtLoc( e->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndWind2 );
 			}
+		}
+	}
+
+	{ // over a lake: the gust freezes floes along its way
+		int k;
+		for ( k = 1; k <= 3; k++ ) {
+			vec3_t at;
+			VectorMA( eye, range * k / 4.0f, fwd, at );
+			Shinobi_WaterFreeze( at );
 		}
 	}
 
@@ -1914,6 +2060,8 @@ The wind freezes puddles: radius > 0 = a disc; radius 0 = a Wind Wall's strip
 void Shinobi_FreezeZones( vec3_t center, float radius, const vec3_t face, float halfW ) {
 	vec3_t right;
 	int    i;
+
+	Shinobi_WaterFreeze( center ); // over a lake: a floe
 
 	if ( !radius )
 		VectorSet( right, -face[1], face[0], 0 );

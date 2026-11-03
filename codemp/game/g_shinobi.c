@@ -461,6 +461,9 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 			lvl--;
 	}
 	cost = Shinobi_JutsuCost( jutsu, client->shinobi.costLevel ? client->shinobi.costLevel : lvl ); // (Shift + F: the top price)
+	if ( shinobiJutsuSchool[jutsu] == SS_SUITON && ( client->ps.pm_flags & SHINOBI_PMF_ONWATER )
+		&& client->shinobi.iceEnd <= level.time )
+		cost = (int)( cost * SHINOBI_WATER_SUITON_COST + 0.5f ); // standing on water (and paying for it): Suiton is cheaper
 	if ( client->ps.fd.forcePower < cost ) {
 		Shinobi_NoChakra( ent, cost );
 		Shinobi_Debug( "%i casts %s Lv%i: no chakra (%i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl, client->ps.fd.forcePower );
@@ -691,6 +694,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_StatusClear( ent );
 	else
 		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
+	Shinobi_WaterWalkThink( ent ); // chakra in the feet on map water
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
 	Shinobi_ChakraTextThink( ent ); // "+N chakra" for what the fight gave
 	Shinobi_BlockThink( ent, ucmd );

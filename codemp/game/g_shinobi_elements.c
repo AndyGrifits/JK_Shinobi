@@ -662,6 +662,8 @@ static void Shinobi_QuakeStrike( gentity_t *q ) {
 			continue;
 		if ( v->client->ps.groundEntityNum == ENTITYNUM_NONE && !Shinobi_Burrowed( v ) )
 			continue; // in the air: it passes under
+		if ( v->client->ps.pm_flags & SHINOBI_PMF_ONWATER )
+			continue; // standing on water: no ground to shake
 		VectorSubtract( v->r.currentOrigin, center, d );
 		if ( d[2] < -48 || d[2] > 96 )
 			continue;
@@ -718,7 +720,8 @@ qboolean Shinobi_CastQuake( gentity_t *ent, int lvl ) {
 			( client->shinobi.quakeNext - level.time ) / 1000.0f ) );
 		return qfalse;
 	}
-	if ( client->ps.groundEntityNum == ENTITYNUM_NONE || !Shinobi_FloorBelow( ent->r.currentOrigin, 64, floor ) ) {
+	if ( client->ps.groundEntityNum == ENTITYNUM_NONE || ( client->ps.pm_flags & SHINOBI_PMF_ONWATER )
+		|| !Shinobi_FloorBelow( ent->r.currentOrigin, 64, floor ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, "cp \"Earthquake: stand on the ground\"" );
 		return qfalse;

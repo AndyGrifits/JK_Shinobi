@@ -10592,9 +10592,32 @@ static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
 
+	pm->tracemask &= ~( CONTENTS_WATER | CONTENTS_SLIME ); // (set again below, for this move only)
 	if ( ps->clientNum >= MAX_CLIENTS || ps->pm_type != PM_NORMAL )
 	{
+		ps->pm_flags &= ~SHINOBI_PMF_ONWATER;
 		return;
+	}
+
+	if ( ( ps->eFlags & SHINOBI_EF_WATERWALK ) && pm->cmd.upmove >= 0 )
+	{ // chakra in the feet: the water surface is a floor - unless the feet are under it already
+		vec3_t feet, head;
+		VectorCopy( ps->origin, feet );
+		feet[2] += ( pm->mins[2] < 0 ? pm->mins[2] : DEFAULT_MINS_2 ) + 1;
+		if ( !( pm->pointcontents( feet, ps->clientNum ) & ( CONTENTS_WATER | CONTENTS_SLIME ) ) )
+		{
+			pm->tracemask |= CONTENTS_WATER | CONTENTS_SLIME;
+		}
+		else if ( pm->cmd.upmove > 0 )
+		{ // swimming at the surface: a jump brings him up onto it
+			VectorCopy( ps->origin, head );
+			head[2] += ps->viewheight;
+			if ( !( pm->pointcontents( head, ps->clientNum ) & ( CONTENTS_WATER | CONTENTS_SLIME ) )
+				&& ps->velocity[2] < SHINOBI_WATER_POPUP )
+			{
+				ps->velocity[2] = SHINOBI_WATER_POPUP;
+			}
+		}
 	}
 
 	if ( SHINOBI_HIDDEN( ps ) )
@@ -11522,6 +11545,10 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_GroundTrace();
 	if ( pm->ps->clientNum < MAX_CLIENTS && ( pm->ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ICE ) )
 		pml.groundTrace.surfaceFlags |= SURF_SLICK; // JK_Shinobi: frozen puddle
+	if ( pm->ps->groundEntityNum != ENTITYNUM_NONE && ( pml.groundTrace.contents & ( CONTENTS_WATER | CONTENTS_SLIME ) ) )
+		pm->ps->pm_flags |= SHINOBI_PMF_ONWATER; // JK_Shinobi: on the water surface
+	else
+		pm->ps->pm_flags &= ~SHINOBI_PMF_ONWATER;
 	if ( pm_flying == FLY_HOVER )
 	{//never stick to the ground
 		PM_HoverTrace();
@@ -11769,6 +11796,10 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_GroundTrace();
 	if ( pm->ps->clientNum < MAX_CLIENTS && ( pm->ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ICE ) )
 		pml.groundTrace.surfaceFlags |= SURF_SLICK; // JK_Shinobi: frozen puddle
+	if ( pm->ps->groundEntityNum != ENTITYNUM_NONE && ( pml.groundTrace.contents & ( CONTENTS_WATER | CONTENTS_SLIME ) ) )
+		pm->ps->pm_flags |= SHINOBI_PMF_ONWATER; // JK_Shinobi: on the water surface
+	else
+		pm->ps->pm_flags &= ~SHINOBI_PMF_ONWATER;
 	if ( pm_flying == FLY_HOVER )
 	{//never stick to the ground
 		PM_HoverTrace();

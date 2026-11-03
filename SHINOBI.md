@@ -126,6 +126,25 @@ break. `shinobi_hitnumbers 0` turns it off.
 `shinobi_dps 1` (server) logs every attacker's damage per second in 5 s windows, split into
 fists / blade / jutsu, to the console and qconsole.log (`[dps] ...`).
 
+## Map water (lakes, rivers)
+
+- **Walking on water**: while you have chakra you stand on map water like on ground
+  (2 chakra a second while on it). Crouch to dive in and swim (stock swimming, no casting
+  under water, drowning as stock); jump at the surface to come back up onto it. A stun, an
+  electric shock, a knockdown, a Water Prison or an empty pool and you go under.
+- **Suiton** cast standing on water costs 30% less (on an ice floe - free standing - it doesn't).
+- **Lightning** reaching the water (Chidori, Lightning Dash, Lightning Clone, anything that
+  electrifies puddles) electrifies a patch of it, radius 250, for 3 s: damage and a stun to
+  everyone on it or swimming under it (they sink, too). More lightning there keeps it going.
+- **Fire** on water only steams (a steam cloud on the surface); no burning ground on it.
+- **Wind** (Wind Wall, Storm Wind) over water freezes a floe, radius 200, for 15 s: stand on it
+  without chakra, slippery; fire melts it.
+- **Earth**: the Earthquake doesn't reach anyone standing on water (and can't be cast from it);
+  no puddles, mud or dust are left on water.
+- Swimming wets you (fire weaker, lightning stronger); standing on the surface doesn't.
+
+The map's water must be ordinary water brushes with a flat top; any depth.
+
 ## Wind and water: ice (not canon, but fun)
 
 - The wind freezes puddles: a Wind Wall freezes those on it and a little before / behind

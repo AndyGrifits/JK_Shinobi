@@ -842,6 +842,7 @@ struct gclient_s {
 		int		kaitenStart;	// Kaiten held since (0 = not); spinning from + SHINOBI_KAITEN_WINDUP_MS
 		int		kaitenTick, kaitenFx;
 		int		raiNetNext;		// a lightning net shocks him again only after this
+		int		waterTick;		// next chakra paid for standing on water
 		float	chakraFrac;		// fractions of chakra earned in fights, not yet whole
 		int		chakraShow, chakraShowNext; // earned chakra not yet shown as "+N chakra", next time it may show
 		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
