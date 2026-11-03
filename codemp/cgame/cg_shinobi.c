@@ -2009,10 +2009,10 @@ static void CG_ShinobiKaitenDome( centity_t *cent ) {
 		vectoangles( d, ang );
 		ang[ROLL] = cg.time * 0.4f * ( side ? -1.0f : 1.0f ); // turning
 		AnglesToAxis( ang, ent.axis );
-		s = 1.75f + 0.04f * sinf( cg.time * 0.02f );
+		s = 2.9f + 0.06f * sinf( cg.time * 0.02f ); // ~ the throw radius across
 		for ( i = 0; i < 3; i++ ) {
 			VectorScale( ent.axis[i], s, ent.axis[i] );
-			ent.axis[i][2] *= 0.62f; // squashed: wider than tall
+			ent.axis[i][2] *= 0.84f; // a little squashed - still well over the head
 		}
 		ent.nonNormalizedAxes = qtrue;
 		ent.hModel = cgs.media.halfShieldModel;

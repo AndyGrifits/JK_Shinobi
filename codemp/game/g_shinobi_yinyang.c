@@ -317,16 +317,27 @@ qboolean Shinobi_CastKaiten( gentity_t *ent ) {
 }
 
 void Shinobi_KaitenStop( gentity_t *ent ) {
-	gclient_t *client = ent->client;
+	gclient_t     *client = ent->client;
+	qboolean       spun;
 
 	if ( !client || !client->shinobi.kaitenStart )
 		return;
+	spun = Shinobi_KaitenSpinning( ent );
 	client->shinobi.kaitenStart = 0;
 	client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_KAITEN;
 	client->ps.eFlags &= ~SHINOBI_EF_KAITEN;
 	if ( client->shinobi.chargeJutsu == SJ_KAITEN )
 		client->shinobi.chargeJutsu = SJ_NONE;
-	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT )
+	if ( spun && ent->health > 0 && client->ps.forceHandExtend == HANDEXTEND_TAUNT ) {
+		// out of the spin with the second pose (the same as the first: its frozen pose plays on)
+		const int anim = Shinobi_KaitenAnim( 1 );
+		int       len = BG_AnimLength( ent->localAnimIndex, anim );
+		if ( len > 900 || len <= 0 )
+			len = 900;
+		client->ps.forceDodgeAnim = anim;
+		client->ps.forceHandExtendTime = level.time + len;
+	}
+	else if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT )
 		client->ps.forceHandExtend = HANDEXTEND_NONE;
 }
 
@@ -470,7 +481,7 @@ static void Shinobi_KaitenThink( gentity_t *ent, usercmd_t *ucmd ) {
 		G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
 	}
-	client->ps.forceDodgeAnim = Shinobi_KaitenAnim( 1 );
+	client->ps.forceDodgeAnim = Shinobi_KaitenAnim( 0 ); // the wind-up pose, frozen by the cgame while it spins
 	Shinobi_KaitenDeflect( ent );
 	while ( client->shinobi.kaitenTick <= level.time ) {
 		client->shinobi.kaitenTick += SHINOBI_KAITEN_TICK_MS;

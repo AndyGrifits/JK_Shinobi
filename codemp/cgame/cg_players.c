@@ -3358,9 +3358,17 @@ static void CG_PlayerAnimation( centity_t *cent, int *legsOld, int *legs, float 
 		ci = &cgs.clientinfo[ clientNum ];
 	}
 
+	if ( cent->currentState.eFlags & SHINOBI_EF_KAITEN )
+	{ // JK_Shinobi: Kaiten - the body stays in the wind-up pose while it spins (the anim resumes after)
+		speedScale = 0.001f;
+	}
 	CG_RunLerpFrame( cent, ci, &cent->pe.legs, cent->currentState.legsFlip, cent->currentState.legsAnim, speedScale, qfalse);
 
-	if (!(cent->currentState.forcePowersActive & (1 << FP_RAGE)))
+	if ( cent->currentState.eFlags & SHINOBI_EF_KAITEN )
+	{
+		speedScale = 0.001f;
+	}
+	else if (!(cent->currentState.forcePowersActive & (1 << FP_RAGE)))
 	{ //don't affect torso anim speed unless raged
 		speedScale = 1.0f;
 	}
