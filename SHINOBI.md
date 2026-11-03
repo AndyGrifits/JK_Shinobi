@@ -145,7 +145,12 @@ python3 tools/glmpreview.py models/players/asuma/model.glm --gla _humanoid.gla \
 
 The source can also be the rip's own `.smd` (skeleton + weights, no Blender needed for
 that part). `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
-(Kakashi's book) and `--prop-parts` makes them held props (his kunai):
+(Kakashi's book) and `--prop-parts` makes them held props (his kunai). Outline shells (the
+inside-out copies the Wii game draws black around legs, arms, pouches, kunai) are found
+and left out by themselves (`--keep-shells` keeps them). The rips by the same hand as
+Sasuke's (Neji, Lee, Shikamaru) all need `--flip-v`. `glmpreview.py --icon icon_default.tga`
+renders the character screen's head shot. Heights used (Part I databooks, cm): Sasuke 153,
+Neji 160, Lee 160, Shikamaru 152.
 
 ```
 python3 tools/blend2glm.py Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \
@@ -191,7 +196,7 @@ further than the shorter arm draws it.
 it into `Jedi Academy\GameData` and run `JK_Shinobi.bat`. It holds OpenJK
 (`tools/openjk-win64`, see its README), the mod's modules and `shinobi/zz_shinobi.pk3`
 with all the assets: effects, menus, configs, the player models (Asuma, Kakashi, Sasuke,
-in `assets/models/players/`) and the ninja skeleton. New converted models go into
+Neji, Rock Lee, Shikamaru, in `assets/models/players/`) and the ninja skeleton. New converted models go into
 `assets/models/players/<name>/` (`blend2glm.py --out assets`).
 
 ## Player size

@@ -351,6 +351,39 @@ def split_parts(meshes):
     return out
 
 
+def part_volume(p):
+    """Signed volume of a part around its centre: an outline shell (the toon 'inverted
+    hull' the old games draw black around a mesh) has its faces turned inside out."""
+    co = np.asarray(p["co"])
+    tris = np.array([[vi for vi, _ in t] for t in p["tris"]])
+    c = co[np.unique(tris)].mean(0)
+    a, b, d = co[tris[:, 0]] - c, co[tris[:, 1]] - c, co[tris[:, 2]] - c
+    return float(np.einsum("ij,ij->i", a, np.cross(b, d)).sum() / 6)
+
+
+def outline_shells(parts):
+    """Part ids that are outline shells: an inside-out copy of another part (same
+    triangle count, same place and size) that faces the right way."""
+    info = []
+    for p in parts:
+        vs = sorted({vi for t in p["tris"] for vi, _ in t})
+        pts = np.asarray(p["co"])[vs]
+        info.append((p["part"], len(p["tris"]), pts.min(0), pts.max(0), part_volume(p)))
+    shells = set()
+    for i, (pid, n, lo, hi, vol) in enumerate(info):
+        if vol >= 0:
+            continue
+        for j, (qid, m, lo2, hi2, vol2) in enumerate(info):
+            if i == j or m != n or vol2 <= 0:
+                continue
+            size, size2 = hi - lo, hi2 - lo2
+            if (np.linalg.norm((lo + hi) / 2 - (lo2 + hi2) / 2) < 1.0
+                    and np.all(np.abs(size - size2) <= 0.3 * np.maximum(size2, 0.5))):
+                shells.add(pid)
+                break
+    return shells
+
+
 def describe_part(p):
     vs = sorted({vi for t in p["tris"] for vi, _ in t})
     pts = np.array([p["co"][v] for v in vs])
@@ -737,6 +770,8 @@ def main(argv=None):
     ap.add_argument("--height", type=float, help="the character's height in cm (Naruto databooks); "
                     "the game draws him at height / %d of the stock size, hitbox included" % ADULT_CM)
     ap.add_argument("--drop-parts", default="", help="comma-separated part ids (see --parts) to leave out")
+    ap.add_argument("--keep-shells", action="store_true", help="keep the outline shells (inside-out "
+                    "copies the old games draw black around a mesh; left out by default)")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
                     "hand, off in model_default.skin, on in model_props.skin")
     a = ap.parse_args(argv)
@@ -750,13 +785,14 @@ def main(argv=None):
     J, meshes = upright(J, meshes)
     drop = {d for d in a.drop.split(",") if d}
     meshes = [m for m in meshes if m["name"] not in drop]
-    if a.parts or a.drop_parts or a.prop_parts:
+    if True:
         parts = split_parts(meshes)
+        shells = set() if a.keep_shells else outline_shells(parts)
         if a.parts:
             for p in parts:
-                print(describe_part(p))
+                print(describe_part(p) + ("   <- outline shell" if p["part"] in shells else ""))
             return None
-        gone = {d for d in a.drop_parts.split(",") if d}
+        gone = {d for d in a.drop_parts.split(",") if d} | shells
         props = {d for d in a.prop_parts.split(",") if d}
         unknown = (gone | props) - {p["part"] for p in parts}
         if unknown:
@@ -764,7 +800,7 @@ def main(argv=None):
         keep, extra = {}, []
         for p in parts:
             if p["part"] in gone:
-                print("left out:", describe_part(p))
+                print("left out:", describe_part(p), "(outline shell)" if p["part"] in shells else "")
             elif p["part"] in props:
                 print("prop:    ", describe_part(p))
                 extra.append(dict(p, name=p["part"], prop=True))

@@ -139,6 +139,8 @@ def main(argv=None):
     ap.add_argument("--size", type=int, default=360)
     ap.add_argument("--tags", action="store_true", help="draw the tag triangles in red")
     ap.add_argument("--views", default="front,side")
+    ap.add_argument("--icon", help="also write a 128x128 head shot here (the first column, from the "
+                    "front): the character screen's icon_<look>.tga")
     ap.add_argument("--scale", type=float, default=0.0,
                     help="model scale in %% (the model's scale.cfg by default), about the feet "
                          "the way the game draws it")
@@ -266,6 +268,29 @@ def main(argv=None):
     sc.render.filepath = os.path.abspath(a.out)
     bpy.ops.render.render(write_still=True)
     print("wrote", a.out)
+    if a.icon:
+        # the head of the first column: cranium joint in that pose, in the drawn size
+        spec = columns[0]
+        if spec == "base":
+            mats = [np.eye(3, 4) for _ in range(gla.num_bones)]
+        else:
+            name, _, frac = spec.partition(":")
+            first, count = cfg[name]
+            mats = [np.array(m) for m in gla.frame_skin(first + int((count - 1) * float(frac or 0)))]
+        i = gla.index["cranium"]
+        b = gla.bones[i]
+        head = mats[i][:, :3] @ np.array([b["base"][r][3] for r in range(3)]) + mats[i][:, 3]
+        if scale != 1.0 and spec != "base":
+            head = (head - np.array([0, 0, -24.0])) * scale + np.array([0, 0, -24.0])
+        cam.data.ortho_scale = 17 * (scale if spec != "base" else 1.0)
+        cam.location = (head[0], -300, head[2] + 2.5 * scale)
+        sc.render.resolution_x = sc.render.resolution_y = 128
+        icon = os.path.abspath(a.icon)
+        sc.render.image_settings.file_format = "TARGA_RAW" if icon.lower().endswith(".tga") else "PNG"
+        sc.render.image_settings.color_mode = "RGB"
+        sc.render.filepath = icon
+        bpy.ops.render.render(write_still=True)
+        print("wrote", a.icon)
 
 
 if __name__ == "__main__":
