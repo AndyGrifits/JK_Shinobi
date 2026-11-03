@@ -26,6 +26,8 @@ Entry keys:
   scale        game units per source unit
   stretch      [start, factor]: past Z = start (game units, after mapping) stretch along Z
   thickness    factor for X and Y (a thinner staff)
+  post         [[3x3], [t]]: then this (the left-hand copy "<name>_l", fitted to that hand)
+  hidden       not on the weapon screen (a left-hand copy: picked by itself for the left hand)
   blades       [[start Z, direction +1/-1, length], ...] in game units
   title, staff (two-handed, saberType SABER_STAFF), sounds {on, off, swing, hit, block,
   bounce}; left out = the stock saber's: damage, speed (animSpeedScale), knockback,
@@ -159,6 +161,13 @@ def build(entry, name, src_root, out_root, log=print):
     M = axis_map(entry["map"])
     grip = np.array(entry["grip"], dtype=float)
     scale = float(entry["scale"])
+    # "post": [[3x3], [t]] after everything else (a left-hand copy fitted to that hand's fingers;
+    # a mirror flips the triangles)
+    post_R, post_t = np.eye(3), np.zeros(3)
+    if entry.get("post"):
+        post_R = np.array(entry["post"][0], dtype=float)
+        post_t = np.array(entry["post"][1], dtype=float)
+    mirrored = np.linalg.det(post_R) < 0
     gamedir = "models/weapons2/shinobi_%s" % name
     outdir = os.path.join(out_root, gamedir)
     os.makedirs(outdir, exist_ok=True)
@@ -174,6 +183,8 @@ def build(entry, name, src_root, out_root, log=print):
             z0, f = entry["stretch"]
             far = P[:, 2] > z0
             P[far, 2] = z0 + (P[far, 2] - z0) * f
+        P = P @ post_R.T + post_t
+        Nn = Nn @ np.linalg.inv(post_R)
         lo, hi = np.minimum(lo, P.min(0)), np.maximum(hi, P.max(0))
         shader = ""
         if tex:
@@ -189,13 +200,16 @@ def build(entry, name, src_root, out_root, log=print):
             s.uvs.append((float(uv[0]), float(1.0 - uv[1])))
             s.weights.append([(0, 1.0)])
         # the game wants triangles clockwise seen from outside: the source is anticlockwise
-        s.tris = [(int(t[0]), int(t[2]), int(t[1])) for t in T]
+        s.tris = [(int(t[0]), int(t[2]), int(t[1])) if not mirrored else (int(t[0]), int(t[1]), int(t[2]))
+                  for t in T]
         if len(s.verts) > 1000:
             raise SystemExit("%s: %d vertices in one surface (max 1000)" % (name, len(s.verts)))
         nv += len(s.verts)
         surfaces.append(s)
     for b, (start, direction, length) in enumerate(entry["blades"]):
-        surfaces.append(tag_surface("*blade%d" % (b + 1), start, direction))
+        tag = tag_surface("*blade%d" % (b + 1), start, direction)
+        tag.verts = [tuple(float(x) for x in np.asarray(v) @ post_R.T + post_t) for v in tag.verts]
+        surfaces.append(tag)
     g2file.write_glm(os.path.join(outdir, "model.glm"), gamedir + "/model", "*default", 1, surfaces)
     log("%s: %d vertices, %.1f x %.1f x %.1f units (z %.1f .. %.1f), %d blade(s)"
         % (name, nv, *(hi - lo), lo[2], hi[2], len(entry["blades"])))

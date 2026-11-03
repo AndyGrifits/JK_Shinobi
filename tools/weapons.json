@@ -124,6 +124,71 @@
       ]
     }
   },
+  "knife_l": {
+    "title": "Trench Knife (left)",
+    "source": "Ninja Knuckle Knives/Ninja Knuckle Knives.obj",
+    "map": "-Y,-Z,X",
+    "grip": [
+      5.96,
+      -1.1,
+      -2.5
+    ],
+    "scale": 0.45,
+    "blades": [
+      [
+        -3.6,
+        -1,
+        40
+      ]
+    ],
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing3.mp3",
+        "sound/weapons/sword/swing4.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    },
+    "hidden": true,
+    "post": [
+      [
+        [
+          -0.382,
+          -0.923,
+          0.053
+        ],
+        [
+          -0.92,
+          0.385,
+          0.075
+        ],
+        [
+          0.089,
+          0.02,
+          0.996
+        ]
+      ],
+      [
+        0.414,
+        0.662,
+        -0.133
+      ]
+    ]
+  },
   "staff": {
     "title": "Adamantine Staff",
     "source": "Adamantine Staff/Adamantine Staff.dae",

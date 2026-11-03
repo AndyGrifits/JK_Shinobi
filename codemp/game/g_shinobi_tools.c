@@ -640,12 +640,25 @@ const char *Shinobi_SaberFor( gentity_t *ent, int saberNum, const char *wanted )
 
 	if ( ( ent->r.svFlags & SVF_BOT ) && !Shinobi_IsOurSaber( wanted, NULL ) )
 		Shinobi_BotWeaponStyle( ent, &wanted ); // a bot's own saber (Kyle...): one of ours
-	if ( saberNum == 1 ) { // the left hand: only with two blades
+	if ( saberNum == 1 ) { // the left hand: only with two blades - its own copy ("<name>_l") if there is one
+		static char left[64];
 		if ( style != SWS_TWO )
 			return "none";
-		if ( Shinobi_IsOurSaber( wanted, &staff ) && !staff )
-			return wanted;
-		return SHINOBI_WEAPON_DEFAULT;
+		if ( !Shinobi_IsOurSaber( wanted, &staff ) || staff )
+			wanted = SHINOBI_WEAPON_DEFAULT;
+		Com_sprintf( left, sizeof( left ), "%s_l", wanted );
+		if ( Q_stricmp( wanted + strlen( wanted ) - 2, "_l" ) && Shinobi_IsOurSaber( left, NULL ) )
+			return left;
+		return wanted;
+	}
+	{ // the right hand takes the weapon, not a left-hand copy of it
+		static char right[64];
+		const int   l = wanted ? strlen( wanted ) : 0;
+		if ( l > 2 && !Q_stricmp( wanted + l - 2, "_l" ) ) {
+			Q_strncpyz( right, wanted, sizeof( right ) );
+			right[l - 2] = 0;
+			wanted = right;
+		}
 	}
 	if ( style == SWS_STAFF )
 		return ( Shinobi_IsOurSaber( wanted, &staff ) && staff ) ? wanted : SHINOBI_WEAPON_DEFAULT_STAFF;
