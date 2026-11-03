@@ -29,7 +29,7 @@ static void CG_ShinobiPrecacheModels( void );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell;
+	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -172,6 +172,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
+	shinobiShaders.iceFloe     = trap->R_RegisterShader( "gfx/shinobi/icefloe" );
 	shinobiShaders.guardShell  = trap->R_RegisterShader( "gfx/shinobi/guardshell" );
 	shinobiShaders.kaitenShell = trap->R_RegisterShader( "gfx/shinobi/kaitenshell" );
 	shinobiShaders.vignette    = trap->R_RegisterShader( "gfx/shinobi/vignette" );
@@ -1220,7 +1221,15 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
 		break;
 	case SZ_ICE: // a frozen puddle: pale, glinting
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.ice, 0.85f, 0.95f, 1.0f, 0.95f * a );
+		VectorSet( p, org[0], org[1], org[2] - 4 );
+		if ( CG_PointContents( p, ENTITYNUM_NONE ) & ( CONTENTS_WATER | CONTENTS_SLIME ) ) {
+			// a floe on a lake: lifted clear of the (waving) surface and drawn after it, or the
+			// water covers it and the two flicker
+			org[2] += 3;
+			CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.iceFloe, 0.85f, 0.95f, 1.0f, 0.95f * a );
+		}
+		else
+			CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.ice, 0.85f, 0.95f, 1.0f, 0.95f * a );
 		{ // a few glints that come and go
 			int k;
 			for ( k = 0; k < 4; k++ ) {
@@ -2081,11 +2090,18 @@ the wall, the way the jump off it will go (the body faces as the hold animation 
 the jump pushes straight off the wall). Eased in and out.
 */
 float CG_ShinobiWallCamYaw( void ) {
-	static float cur;
+	static float cur, lastYaw;
+	static qboolean wasStuck;
 	const playerState_t *ps = &cg.predictedPlayerState;
+	const qboolean stuck = ( ps->pm_flags & PMF_STUCK_TO_WALL ) ? qtrue : qfalse;
 	float target = 0, d, step;
 
-	if ( ps->pm_flags & PMF_STUCK_TO_WALL ) {
+	if ( wasStuck && !stuck ) // the jump off turned the body round (bg_pmove): the camera already looks that way
+		cur -= AngleNormalize180( ps->viewangles[YAW] - lastYaw );
+	wasStuck = stuck;
+	lastYaw = ps->viewangles[YAW];
+
+	if ( stuck ) {
 		switch ( ps->legsAnim ) { // the view is the wall's normal + this turn (PM_AdjustAngleForWallJump): undo it
 		case BOTH_FORCEWALLHOLD_RIGHT: case BOTH_FORCEWALLREBOUND_RIGHT: target = 90; break;
 		case BOTH_FORCEWALLHOLD_LEFT:  case BOTH_FORCEWALLREBOUND_LEFT:  target = -90; break;

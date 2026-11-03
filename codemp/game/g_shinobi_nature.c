@@ -144,6 +144,21 @@ void Shinobi_WaterWalkThink( gentity_t *ent ) {
 }
 
 // the floor under 'pos' if it is at most 'maxDrop' below
+qboolean Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor );
+
+// the floor under pos - or the surface of a lake over it (clouds, fog lie on the water, not on its bed)
+static qboolean Shinobi_FloorOrWater( vec3_t pos, float maxDrop, vec3_t out ) {
+	vec3_t    surf;
+	qboolean  floor = Shinobi_FloorBelow( pos, maxDrop, out );
+	float     down = floor ? pos[2] - out[2] + 8 : maxDrop;
+
+	if ( Shinobi_WaterSurface( pos, 256, down < 8 ? 8 : down, surf ) && ( !floor || surf[2] > out[2] ) ) {
+		VectorCopy( surf, out );
+		return qtrue;
+	}
+	return floor;
+}
+
 qboolean Shinobi_FloorBelow( vec3_t pos, float maxDrop, vec3_t floor ) {
 	vec3_t  start, end;
 	trace_t tr;
@@ -1600,7 +1615,15 @@ static void Shinobi_AshIgnite( gentity_t *z, int igniterNum ) {
 	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndFireballBoom );
 	G_SoundAtLoc( center, CHAN_AUTO, shinobiMedia.sndFireballBoom2 );
 	G_ScreenShake( center, NULL, 4.0f, 600, qfalse );
-	Shinobi_SpawnZone( SZ_FIRE, z->r.currentOrigin, r * 0.7f, 4000, igniterNum );
+	{ // burning ground where it hung - over a lake only steam
+		vec3_t below;
+		VectorCopy( z->r.currentOrigin, below );
+		below[2] -= 4;
+		if ( Shinobi_InMapWater( below ) )
+			Shinobi_SteamAt( z->r.currentOrigin, r * 0.7f );
+		else
+			Shinobi_SpawnZone( SZ_FIRE, z->r.currentOrigin, r * 0.7f, 4000, igniterNum );
+	}
 }
 
 void Shinobi_IgniteAshAt( vec3_t pos, float radius, int igniterNum ) {
@@ -1634,7 +1657,7 @@ qboolean Shinobi_CastAsh( gentity_t *ent, int lvl ) {
 	eye[2] += client->ps.viewheight;
 	VectorMA( eye, SHINOBI_ASH_DISTANCE, fwd, end );
 	trap->Trace( &tr, eye, NULL, NULL, end, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
-	if ( !Shinobi_FloorBelow( tr.endpos, 160, floor ) && !Shinobi_FloorBelow( client->ps.origin, 64, floor ) ) {
+	if ( !Shinobi_FloorOrWater( tr.endpos, 160, floor ) && !Shinobi_FloorOrWater( client->ps.origin, 64, floor ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		return qfalse;
 	}
@@ -1662,7 +1685,7 @@ qboolean Shinobi_CastMist( gentity_t *ent, int lvl ) {
 
 	if ( client && SHINOBI_HAND_ANY( &client->ps ) )
 		return qfalse;
-	if ( !Shinobi_FloorBelow( ent->r.currentOrigin, 160, floor ) ) {
+	if ( !Shinobi_FloorOrWater( ent->r.currentOrigin, 160, floor ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		return qfalse;
 	}

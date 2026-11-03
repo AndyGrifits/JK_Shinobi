@@ -175,6 +175,26 @@ gfx/shinobi/ice
 	}
 }
 
+// the same ice as a floe on map water: drawn after the (translucent) water, which would
+// otherwise cover it - decals sort before it
+gfx/shinobi/icefloe
+{
+	cull none
+	sort nearest
+	{
+		map gfx/shinobi/ice
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+	{
+		map gfx/shinobi/ice
+		blendFunc GL_SRC_ALPHA GL_ONE
+		rgbGen wave sin 0.18 0.1 0 0.4
+		alphaGen vertex
+	}
+}
+
 // loose earth left by Doton (SZ_DUST decal)
 gfx/shinobi/sand
 {

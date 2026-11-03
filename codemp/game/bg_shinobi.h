@@ -539,7 +539,8 @@ static const int shinobiAshBlast[3]   = {  35,  50,  70 };
 #define SHINOBI_SHADOW_DRAIN_MS    300
 #define SHINOBI_SHADOW_DRAIN       3      // chakra per drain tick (10/s)
 #define SHINOBI_BUTTON_MIRROR      (1<<14) // usercmd bit: moves set by the server (Shadow Bind)
-#define SHINOBI_BUTTON_BLOCK       (1<<13) // usercmd bit: block held (Ctrl = "+button13")
+#define SHINOBI_BUTTON_BLOCK       (1<<13) // usercmd bit: block held (right mouse button = "+button13")
+#define SHINOBI_BUTTON_ROLL        (1<<12) // usercmd bit: the roll key (Ctrl = "+button12")
 
 /*
 Block (hold Ctrl): a guard stance. Hits from the front go into the guard
@@ -757,7 +758,7 @@ reaching the water electrifies a patch of it (SHINOBI_WATER_SHOCK_RADIUS, 3 s); 
 freezes a floe on it; fire only steams; puddles, mud and dust aren't left on it; the
 Earthquake doesn't reach anyone standing on water.
 */
-#define SHINOBI_WATERWALK_DRAIN    2      // chakra per second on the water
+#define SHINOBI_WATERWALK_DRAIN    5      // chakra per second on the water (more than the natural regen)
 #define SHINOBI_WATER_SUITON_COST  0.7f   // Suiton cast standing on water
 #define SHINOBI_WATER_SHOCK_RADIUS 250
 #define SHINOBI_WATER_SHOCK_MS     3000

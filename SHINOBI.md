@@ -65,9 +65,13 @@ roll up to a side. Kawarimi works from the floor.
 
 ## Small things
 
-- A roll (a dodge roll or rolling up from the floor) puts out the flames when you are on fire.
+- **Ctrl rolls** (`+button12`) the way the keys point, from a stand too (no keys: backward);
+  held, it keeps rolling. Not while caught, knocked down, swinging or holding a jutsu; it
+  drops a raised guard.
+- A roll (Ctrl, a dodge roll or rolling up from the floor) puts out the flames when you are on fire.
 - Hanging on a wall (the stock wall grab) the third-person camera turns away from the wall,
-  the way the jump off it goes; it turns back when you let go.
+  the way the jump off it goes. The jump off turns the body round too: you leap away face
+  first (stock: still facing the wall).
 
 ## Bots defend
 
@@ -135,7 +139,7 @@ fists / blade / jutsu, to the console and qconsole.log (`[dps] ...`).
 ## Map water (lakes, rivers)
 
 - **Walking on water**: while you have chakra you stand on map water like on ground
-  (2 chakra a second while on it). Crouch to dive in and swim (stock swimming, no casting
+  (5 chakra a second while on it - more than the natural regen gives back). Crouch to dive in and swim (stock swimming, no casting
   under water, drowning as stock); jump at the surface to come back up onto it. A stun, an
   electric shock, a knockdown, a Water Prison or an empty pool and you go under.
 - **Suiton** cast standing on water costs 30% less (on an ice floe - free standing - it doesn't).
@@ -423,7 +427,7 @@ reads them) and let go at the bar of the level they want; held jutsu are let go 
 
 ## Block (right mouse button)
 
-Hold the right mouse button (`+button13`; Ctrl works too) to guard. It replaces the stock
+Hold the right mouse button (`+button13`) to guard. It replaces the stock
 alt-attack on that button: no saber throw (the force setup has none anyway) - attacking with
 a blade while holding block does the blade's special attack (the stock kata: standing still,
 on the ground, costs chakra); with fists it is the stock grab. Guarding: slow steps, no

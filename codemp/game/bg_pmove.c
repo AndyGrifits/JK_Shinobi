@@ -1694,6 +1694,14 @@ qboolean PM_AdjustAngleForWallJump( playerState_t *ps, usercmd_t *ucmd, qboolean
 			ps->pm_flags &= ~PMF_STUCK_TO_WALL;
 			ps->velocity[0] = ps->velocity[1] = 0;
 			VectorScale( checkDir, -JUMP_OFF_WALL_SPEED, ps->velocity );
+			if ( ps->clientNum < MAX_CLIENTS )
+			{ // JK_Shinobi: turn round and leap away from the wall face first (stock: still facing it)
+				vec3_t away;
+				VectorScale( checkDir, -1, away );
+				ps->viewangles[YAW] = vectoyaw( away );
+				PM_SetPMViewAngle( ps, ps->viewangles, ucmd );
+				ucmd->angles[YAW] = ANGLE2SHORT( ps->viewangles[YAW] ) - ps->delta_angles[YAW];
+			}
 			ps->velocity[2] = BG_ForceWallJumpStrength();
 			ps->pm_flags |= PMF_JUMP_HELD;//PMF_JUMPING|PMF_JUMP_HELD;
 			//G_SoundOnEnt( ent, CHAN_BODY, "sound/weapons/force/jump.wav" );
@@ -1713,7 +1721,11 @@ qboolean PM_AdjustAngleForWallJump( playerState_t *ps, usercmd_t *ucmd, qboolean
 			ucmd->rightmove = 0;
 			ucmd->upmove = 127;
 
-			if ( BG_InReboundHold( ps->legsAnim ) )
+			if ( ps->clientNum < MAX_CLIENTS )
+			{ // facing the way he flies now: a plain forward leap (the release moves are for facing the wall)
+				PM_SetAnim( SETANIM_BOTH, BOTH_FORCEJUMP1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
+			}
+			else if ( BG_InReboundHold( ps->legsAnim ) )
 			{//if was in hold pose, release now
 				PM_SetAnim( SETANIM_BOTH, BOTH_FORCEWALLRELEASE_FORWARD+(ps->legsAnim-BOTH_FORCEWALLHOLD_FORWARD), SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 			}
@@ -10588,6 +10600,68 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 	return qtrue;
 }
 
+/*
+The roll key (Ctrl = "+button12"): a roll the way the keys point (none: backward), from a
+stand too - the stock roll only comes out of a crouched run. Not while caught, hurt down,
+swinging or holding a jutsu. Held down it keeps rolling.
+*/
+static void PM_ShinobiRollKey( void )
+{
+	playerState_t *ps = pm->ps;
+	vec3_t fwd, right, fwdAngles, mins, maxs, traceto;
+	trace_t trace;
+	int anim;
+
+	if ( !( pm->cmd.buttons & SHINOBI_BUTTON_ROLL ) || ps->groundEntityNum == ENTITYNUM_NONE )
+		return;
+	if ( ps->stats[STAT_HEALTH] <= 0 || BG_InRoll( ps, ps->legsAnim ) || PM_InKnockDown( ps )
+		|| PM_InOnGroundAnim( ps->legsAnim ) || ps->saberInFlight || ps->m_iVehicleNum )
+		return;
+	if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_CHANNEL
+		| SHINOBI_STAT_RAIDASH | SHINOBI_STAT_BURROW | SHINOBI_STAT_SHADOWHIDE ) )
+		return;
+	if ( ps->stats[STAT_SHINOBI2] & ( SHINOBI_STAT2_SHADOWTRAP | SHINOBI_STAT2_KAITEN
+		| SHINOBI_STAT2_ROOTED | SHINOBI_STAT2_FLINCH ) )
+		return;
+	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) || SHINOBI_PRISON_CASTER( ps )
+		|| SHINOBI_HAND_ANY( ps ) || SHINOBI_CHARGING( ps ) )
+		return;
+	if ( ps->forceHandExtend != HANDEXTEND_NONE
+		&& !( ps->forceHandExtend == HANDEXTEND_TAUNT && ps->forceDodgeAnim == SHINOBI_BLOCK_ANIM ) )
+		return; // (the raised guard is the one hand pose a roll may break)
+	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecialAttack( ps->torsoAnim )
+		|| BG_SpinningSaberAnim( ps->legsAnim ) || PM_SaberInStart( ps->saberMove )
+		|| BG_KickingAnim( ps->legsAnim ) || BG_InGrappleMove( ps->torsoAnim ) )
+		return;
+
+	VectorSet( fwdAngles, 0, ps->viewangles[YAW], 0 );
+	AngleVectors( fwdAngles, fwd, right, NULL );
+	if ( pm->cmd.forwardmove > 0 )      { anim = BOTH_ROLL_F; VectorMA( ps->origin, 64, fwd, traceto ); }
+	else if ( pm->cmd.rightmove > 0 )   { anim = BOTH_ROLL_R; VectorMA( ps->origin, 64, right, traceto ); }
+	else if ( pm->cmd.rightmove < 0 )   { anim = BOTH_ROLL_L; VectorMA( ps->origin, -64, right, traceto ); }
+	else                                { anim = BOTH_ROLL_B; VectorMA( ps->origin, -64, fwd, traceto ); }
+	VectorSet( mins, pm->mins[0], pm->mins[1], pm->mins[2] + STEPSIZE );
+	VectorSet( maxs, pm->maxs[0], pm->maxs[1], ps->crouchheight );
+	pm->trace( &trace, ps->origin, mins, maxs, traceto, ps->clientNum, CONTENTS_SOLID );
+	if ( trace.fraction < 1.0f )
+		return; // a wall in the way
+
+	if ( ps->forceHandExtend == HANDEXTEND_TAUNT )
+	{ // out of the guard
+		ps->forceHandExtend = HANDEXTEND_NONE;
+		ps->forceHandExtendTime = 0;
+	}
+	ps->saberMove = LS_NONE;
+	ps->legsTimer = 0;
+	ps->legsAnim = 0;
+	PM_SetAnim( SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+	PM_AddEventWithParm( EV_ROLL, 0 );
+	pm->maxs[2] = ps->crouchheight;
+	ps->viewheight = BG_ShinobiSized( ps, DEFAULT_VIEWHEIGHT );
+	ps->pm_flags &= ~PMF_DUCKED;
+	ps->pm_flags |= PMF_ROLLING;
+}
+
 static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
@@ -10881,6 +10955,8 @@ static void PM_ShinobiPreMove( void )
 		ps->forceHandExtend = HANDEXTEND_FORCEPUSH;
 		ps->forceHandExtendTime = pm->cmd.serverTime + 100;
 	}
+
+	PM_ShinobiRollKey();
 }
 
 void PmoveSingle (pmove_t *pmove) {
