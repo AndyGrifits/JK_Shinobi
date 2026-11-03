@@ -573,7 +573,8 @@ static qboolean Shinobi_WaterCloneThink( gentity_t *clone, gentity_t *owner ) {
 	}
 
 	// ready to cast its jutsu at the enemy it is fighting
-	if ( c->shinobi.wcCastNext <= level.time && clone->enemy && clone->enemy->inuse && clone->enemy->health > 0 ) {
+	if ( c->shinobi.wcCastNext <= level.time && clone->enemy && clone->enemy->inuse && clone->enemy->health > 0
+		&& Shinobi_CloneIsHostile( clone, clone->enemy ) ) { // (never at its own maker)
 		const int   jutsu = Shinobi_WaterCloneJutsu( owner );
 		const float range = Shinobi_WaterCloneRange( jutsu );
 		vec3_t      eye, d, angles;

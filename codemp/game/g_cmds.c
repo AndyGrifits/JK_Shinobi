@@ -3449,6 +3449,7 @@ command_t commands[] = {
 	{ "score",				Cmd_Score_f,				0 },
 	{ "setviewpos",			Cmd_SetViewpos_f,			CMD_CHEAT|CMD_NOINTERMISSION },
 	{ "shinobi_autotest",	Cmd_ShinobiAutotest_f,		CMD_CHEAT },
+	{ "shinobi_openspot",	Cmd_ShinobiOpenSpot_f,		CMD_CHEAT|CMD_ALIVE },
 	{ "shunshin",			Cmd_Shunshin_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "suiro",				Cmd_Suiro_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "suiton",				Cmd_Suiton_f,				CMD_ALIVE|CMD_NOINTERMISSION },

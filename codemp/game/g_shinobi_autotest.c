@@ -1085,6 +1085,35 @@ void Shinobi_AutotestFrame( void ) {
 	}
 }
 
+// "shinobi_openspot" (cheats): step out into the most open place around, facing the open way
+// (the pose screenshots want room in front for the camera)
+void Cmd_ShinobiOpenSpot_f( gentity_t *ent ) {
+	float   bestLen = -1, bestYaw = 0, yaw;
+	vec3_t  org, end, f, ang = { 0, 0, 0 }, mins = { -16, -16, -8 }, maxs = { 16, 16, 40 };
+	trace_t tr;
+
+	if ( !sv_cheats.integer || !ent->client )
+		return;
+	VectorCopy( ent->client->ps.origin, org );
+	for ( yaw = 0; yaw < 360; yaw += 15 ) {
+		ang[YAW] = yaw;
+		AngleVectors( ang, f, NULL, NULL );
+		VectorMA( org, 800, f, end );
+		trap->Trace( &tr, org, mins, maxs, end, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		if ( tr.fraction * 800 > bestLen ) {
+			bestLen = tr.fraction * 800;
+			bestYaw = yaw;
+		}
+	}
+	ang[YAW] = bestYaw;
+	AngleVectors( ang, f, NULL, NULL );
+	VectorMA( org, bestLen * 0.4f, f, end ); // well clear of the wall behind, room ahead
+	Shinobi_TeleportClient( ent, end );
+	VectorClear( ent->client->ps.velocity );
+	SetClientViewAngle( ent, ang );
+	trap->SendServerCommand( ent - g_entities, va( "print \"open spot: %.0f u of room facing %.0f\n\"", bestLen, bestYaw ) );
+}
+
 // "shinobi_autotest [list | stop | name ...]"
 void Cmd_ShinobiAutotest_f( gentity_t *ent ) {
 	char arg[64];
@@ -1131,7 +1160,7 @@ void Cmd_ShinobiAutotest_f( gentity_t *ent ) {
 	trap->FS_Open( "shinobi_autotest.txt", &at.file, FS_WRITE );
 	AT_Print( "[autotest] %i tests, map %s\n", at.queueLen, level.mapname );
 	if ( !AT_FindBot( AT_BOT_A ) )
-		trap->SendConsoleCommand( EXEC_APPEND, "addbot jan 1 free 0 " AT_BOT_A "\n" );
+		trap->SendConsoleCommand( EXEC_APPEND, "addbot alora 1 free 0 " AT_BOT_A "\n" ); // (alora is in every install)
 	if ( !AT_FindBot( AT_BOT_B ) )
 		trap->SendConsoleCommand( EXEC_APPEND, "addbot alora 1 free 0 " AT_BOT_B "\n" );
 	at.phase = 1;
