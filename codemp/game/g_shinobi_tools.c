@@ -622,10 +622,10 @@ static qboolean Shinobi_IsOurSaber( const char *name, qboolean *staff ) {
 	return qtrue;
 }
 
-// bots: one of each, by slot - katana, two knives, the staff, the nodachi, fists
+// bots: one of each, by slot - katana, two knives, the staff, the kubikiribocho, fists
 int Shinobi_BotWeaponStyle( gentity_t *ent, const char **saber2 ) {
 	static const int styles[] = { SWS_ONE, SWS_TWO, SWS_STAFF, SWS_ONE, SWS_NONE };
-	static const char * const first[] = { "shinobi_katana", "shinobi_knife", "shinobi_staff", "shinobi_nodachi", "shinobi_katana" };
+	static const char * const first[] = { "shinobi_katana", "shinobi_knife", "shinobi_staff", "shinobi_kubikiribocho", "shinobi_katana" };
 	int k = ent->s.number % (int)ARRAY_LEN( styles );
 	if ( !Q_stricmpn( ent->client->pers.netname, "Test", 4 ) )
 		k = 0; // the self-test bots (TestA / TestB): the plain katana

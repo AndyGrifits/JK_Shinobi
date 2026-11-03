@@ -262,24 +262,27 @@ mark instead of the burn; they can't be switched off. The stock saber combat sta
 `shinobi_weapon` userinfo (none / one / two / staff) and the stock `saber1` / `saber2`;
 the server takes only `shinobi_*` weapons, fixes what doesn't fit the style and applies
 it on the next spawn. Bots get one style each by slot (katana, two knives, staff,
-nodachi, fists); shadow clones carry what their maker carries.
+kubikiribocho, fists); shadow clones carry what their maker carries.
 
-| weapon | from |
-|---|---|
-| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade |
-| Nodachi (`shinobi_nodachi`) | the katana, blade x1.55 |
-| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives |
-| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends |
-| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa |
-| Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade |
-| Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) |
+| weapon | from | reach (blade length) |
+|---|---|---|
+| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | 40 |
+| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives | 40 (as far as the fists) |
+| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends (64 long) | 40 each way from the middle |
+| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (26 long) | 41 (as far as the fists) |
+| Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | 52 |
+| Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | 49 |
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
-For now they all play as the stock saber: reach 40 (a staff 32 each way), stock speed,
-damage and knockback - only the models and sounds differ. weapons.json can set reach
-(the blades' length) and damage / speed / knockback / move scales per weapon.
+Only the reach differs between weapons; speed, damage and knockback are the stock ones of
+the style (one blade / two / staff). The reach follows the visible blade: the katana keeps
+the stock saber's 40, a longer or shorter blade reaches as much farther or shorter as its
+tip is from the katana's (about 14 past the tip), but never less than the fists
+(`SHINOBI_PUNCH_RANGE`: 40 from a blade starting at the hand, the knife's); the staff
+reaches as far as the stock saber staff, 40 each way. weapons.json can also set damage /
+speed / knockback / move scales per weapon (none do).
 
 New weapons: an entry in `tools/weapons.json` (source mesh .obj / .dae, axis map so the
 blade runs along +Z, the grip point, scale, blade tags and stats), then

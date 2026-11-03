@@ -5,9 +5,9 @@ shinobi_staff
 	saberType		SABER_STAFF
 	saberModel		models/weapons2/shinobi_staff/model.glm
 	numBlades		2
-	saberLength		32
+	saberLength		40
 	saberColor		blue
-	saberLength2		32
+	saberLength2		40
 	saberColor2		blue
 	twoHanded		1
 	saberStyle		staff
