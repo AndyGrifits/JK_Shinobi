@@ -58,6 +58,35 @@ def tag_points(surfs, mats):
     return pts
 
 
+def twist(gla, mats, deg):
+    """Turn everything above upper_lumbar by deg/2 about its joint and everything above
+    thoracic by another deg/2 about that one (world z, in the animated pose)."""
+    mats = [np.array(m, dtype=float) for m in mats]
+    kids = {i: [] for i in range(gla.num_bones)}
+    for i, b in enumerate(gla.bones):
+        if b["parent"] >= 0:
+            kids[b["parent"]].append(i)
+
+    def below(i):
+        out, todo = [], [i]
+        while todo:
+            j = todo.pop()
+            out.append(j)
+            todo += kids[j]
+        return out
+    for name in ("upper_lumbar", "thoracic"):
+        i = gla.index[name]
+        b = gla.bones[i]
+        joint = np.array([b["base"][0][3], b["base"][1][3], b["base"][2][3]])
+        piv = mats[i][:, :3] @ joint + mats[i][:, 3]
+        t = np.radians(deg / 2)
+        R = np.array([[np.cos(t), -np.sin(t), 0], [np.sin(t), np.cos(t), 0], [0, 0, 1]])
+        for j in below(i):
+            m = mats[j]
+            mats[j] = np.hstack([R @ m[:, :3], (R @ (m[:, 3] - piv) + piv)[:, None]])
+    return mats
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("glm")
@@ -68,6 +97,9 @@ def main(argv=None):
     ap.add_argument("--size", type=int, default=360)
     ap.add_argument("--tags", action="store_true", help="draw the tag triangles in red")
     ap.add_argument("--views", default="front,side")
+    ap.add_argument("--twist", type=float, default=0.0,
+                    help="also turn the torso by this many degrees, half at upper_lumbar and "
+                         "half at thoracic, the way the game turns it to follow the aim")
     a = ap.parse_args(argv)
 
     import bpy
@@ -123,6 +155,8 @@ def main(argv=None):
                 first, count = cfg[name]
                 frame = first + int((count - 1) * float(frac or 0))
             mats = [np.array(m) for m in gla.frame_skin(frame)]
+        if a.twist:
+            mats = twist(gla, mats, a.twist)
         for vi, view in enumerate(views):
             rot = 0.0 if view == "front" else (np.pi / 2 if view == "side" else np.pi)
             R = np.array([[np.cos(rot), -np.sin(rot), 0], [np.sin(rot), np.cos(rot), 0], [0, 0, 1]])

@@ -426,7 +426,96 @@ def spine_split(z, T):
     return {SPINE[-1]: 1.0}
 
 
-def convert(src_meshes, src_parents, J, gla, rig):
+def top4(out, gla):
+    w = sorted(((gla.index[b], v) for b, v in out.items() if v > 1e-3), key=lambda x: -x[1])[:4]
+    return w or [(gla.index["pelvis"], 1.0)]
+
+
+# _humanoid bones the torso transfer may hand out; the robe tails of jedi_hm go to
+# the thighs they hang from
+CORE = ("pelvis", "lower_lumbar", "upper_lumbar", "thoracic", "cervical",
+        "lclavical", "rclavical", "lfemurYZ", "rfemurYZ")
+TAIL = {"ltail": "lfemurYZ", "rtail": "rfemurYZ"}
+
+
+class StockWeights:
+    """The weights of a stock model's torso and hips (the surfaces its skin shows),
+    sampled densely over its triangles, for the torso part of a converted mesh: in the
+    bind pose both sit on the same skeleton, so each vertex takes the weights of the
+    stock surface next to it. Those were painted for these animations (twisting
+    lumbar / thoracic, the aim turning the torso); a weight split by height alone twists
+    the torso like a candy wrapper."""
+
+    def __init__(self, glm, skin, gla, parts=("torso", "hips", "l_leg", "r_leg"), k=8, n=5):
+        from scipy.spatial import cKDTree
+        on = None
+        if skin and os.path.exists(skin):
+            on = set()
+            for line in open(skin, encoding="latin-1"):
+                if "," in line:
+                    name, sh = line.strip().split(",", 1)
+                    if sh.strip().lower() != "*off":
+                        on.add(name.lower())
+        _, surfs = g2file.read_glm(glm)
+        pts, ws, used = [], [], []
+        nb = gla.num_bones
+        tail = {gla.index[a]: gla.index[b] for a, b in TAIL.items()}
+        bary = [(i / n, j / n) for i in range(n + 1) for j in range(n + 1 - i)]
+        for sf in surfs:
+            nm = sf.name.lower()
+            if sf.flags & (g2file.SURF_BOLT | g2file.SURF_OFF) or not sf.tris or "_cap_" in nm:
+                continue
+            if not nm.startswith(parts) or (on is not None and nm not in on):
+                continue
+            used.append(sf.name)
+            V = np.array(sf.verts)
+            W = np.zeros((len(V), nb))
+            for i, vw in enumerate(sf.weights):
+                for b, w in vw:
+                    W[i, tail.get(b, b)] += w
+            for a, b, c in sf.tris:
+                for u, v in bary:
+                    t = 1 - u - v
+                    pts.append(u * V[a] + v * V[b] + t * V[c])
+                    ws.append(u * W[a] + v * W[b] + t * W[c])
+        if not pts:
+            raise SystemExit("no torso / hips surfaces in %s" % glm)
+        self.tree = cKDTree(np.array(pts))
+        self.W = np.array(ws)
+        self.k = k
+        self.gla = gla
+        self.core = set(CORE)
+        self.report = "torso weights from %s (%s)" % (os.path.basename(glm), ", ".join(used))
+
+    def blend(self, p, raw):
+        """raw: [{stock bone name: w}] per vertex at bent positions p; the share of each
+        vertex's weight on torso bones (CORE) is replaced by the stock weights there."""
+        names = [b["name"] for b in self.gla.bones]
+        out = []
+        idx = [i for i, o in enumerate(raw) if any(b in self.core for b in o)]
+        if not idx:
+            return raw
+        d, nn = self.tree.query(p[idx], k=self.k)
+        wq = 1.0 / (d + 0.25)
+        wq /= wq.sum(axis=1, keepdims=True)
+        stockw = np.einsum("nk,nkb->nb", wq, self.W[nn])
+        by = dict(zip(idx, stockw))
+        for i, o in enumerate(raw):
+            if i not in by:
+                out.append(o)
+                continue
+            tot = sum(o.values()) or 1.0
+            a = sum(w for b, w in o.items() if b in self.core) / tot
+            sw = by[i]
+            sw = sw / (sw.sum() or 1.0)
+            new = {b: w / tot for b, w in o.items() if b not in self.core}
+            for bi in np.nonzero(sw > 1e-3)[0]:
+                new[names[bi]] = new.get(names[bi], 0) + a * float(sw[bi])
+            out.append(new)
+        return out
+
+
+def convert(src_meshes, src_parents, J, gla, rig, stock=None):
     T = stock_joints(gla)
     D, report = build_drivers(J, T)
     wmap = expand_weights(rig, J.keys())
@@ -456,7 +545,7 @@ def convert(src_meshes, src_parents, J, gla, rig):
         co = m["co"]
         n_v = len(co)
         M = np.zeros((n_v, 4, 4))
-        final = []
+        final, raw = [], []
         for i, ws in enumerate(m["weights"]):
             tot = sum(w for _, w in ws) or 1.0
             acc = np.zeros((4, 4))
@@ -477,8 +566,11 @@ def convert(src_meshes, src_parents, J, gla, rig):
                         out[sb] = out.get(sb, 0) + w / tot * sw
                 else:
                     out[tgt] = out.get(tgt, 0) + w / tot
-            final.append(sorted(((gla.index[b], w) for b, w in out.items() if w > 1e-3),
-                                key=lambda x: -x[1])[:4] or [(gla.index["pelvis"], 1.0)])
+            raw.append(out)
+        if stock is not None and not prop:
+            raw = stock.blend(p, raw)
+        for out in raw:
+            final.append(top4(out, gla))
         # normals through the inverse transpose of each vertex's blended matrix
         nrm_mats = np.linalg.inv(M[:, :3, :3]).transpose(0, 2, 1)
         surfaces.append(dict(name=m["name"], prop=prop, p=p, nrm_mats=nrm_mats, loop_n=m["loop_n"],
@@ -547,6 +639,10 @@ def main(argv=None):
     ap.add_argument("blend")
     ap.add_argument("--gla", required=True, help="_humanoid.gla")
     ap.add_argument("--tags", required=True, help="stock .glm to take the tag surfaces from")
+    ap.add_argument("--stock-skin", help="its .skin (which torso / hips surfaces are shown); "
+                    "default: model_default.skin next to it")
+    ap.add_argument("--no-stock-weights", action="store_true",
+                    help="keep the height-split torso weights instead of the stock model's")
     ap.add_argument("--textures", required=True, help="folder with the textures the materials use")
     ap.add_argument("--name", help="player model name (default: the .blend's name, lower case)")
     ap.add_argument("--out", default=".", help="writes <out>/models/players/<name>/")
@@ -588,7 +684,15 @@ def main(argv=None):
                 keep.setdefault(p["name"], []).extend(p["tris"])
         meshes = [dict(m, tris=keep[m["name"]]) for m in meshes if m["name"] in keep] + extra
 
-    conv, report, T = convert(meshes, parents, J, gla, CON_RIG)
+    stock = None
+    if not a.no_stock_weights:
+        skin = a.stock_skin or os.path.join(os.path.dirname(a.tags), "model_default.skin")
+        if not os.path.exists(skin):
+            alt = a.tags[:-len("model.glm")] + "model_default.skin" if a.tags.endswith("model.glm") else ""
+            skin = alt if alt and os.path.exists(alt) else None
+        stock = StockWeights(a.tags, skin, gla)
+        print(stock.report)
+    conv, report, T = convert(meshes, parents, J, gla, CON_RIG, stock)
     for r in report:
         print(r)
 

@@ -157,7 +157,12 @@ mesh is bent into the stock pose instead (limbs turned and stretched joint to jo
 torso mapped by height so the hip and shoulder joints land on the stock ones; neck and
 head scaled with the shoulders), its own game's weights are renamed onto the stock bones (spine spread
 over pelvis / lumbar / thoracic by height, fingers onto d1 / d2 / d4), and the tag
-surfaces (`*r_hand`, `*l_leg_foot`, ...) are copied from `jedi_hm`. Source bones the table
+surfaces (`*r_hand`, `*l_leg_foot`, ...) are copied from `jedi_hm`. The torso, hips and
+upper thighs take `jedi_hm`'s own weights instead (the surfaces its skin shows, nearest
+point in the bind pose): those were painted for the lumbar / thoracic twist of the stock
+animations and the aim turning the torso, a split by height twisted it like a candy
+wrapper (`--no-stock-weights` for the old way). `glmpreview.py --twist 70` turns the torso
+the way the game does, to look at it. Source bones the table
 doesn't know (hair, shoulder pads) go with their nearest known parent. A mesh weighted only
 to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on in
 `model_props.skin`. In the game: `/model asuma` or `/model asuma/props`.
