@@ -176,6 +176,10 @@ nothing else (bots still get their pseudo powers for the AI).
 - **Stats**: 10 points, at most 5 in one: chakra pool (+20 per point), health (+15),
   taijutsu (+10% fist/kick/blade damage), casting speed (bars 8% faster), chakra regen
   (12% faster).
+- **Training or a gift**: the special is paid for with stat points - Inner Gates 3,
+  Sharingan 4, Curse Seal 4, Byakugan 5. No special = all 10 points, and chakra pool,
+  health and taijutsu go up to 7 (casting speed and regen stay at 5: they scale steeply).
+  Picking a dearer special takes the extra points back off the end of the list.
 - **Special**: one ability. Ready:
   Curse Seal (awakens at 0 chakra and stays awake until it has eaten your health down
   to 10, ~3 health/s; meanwhile chakra returns 5x faster, dark chakra around you and a darkened screen; at 10 health or less it only stirs (HUD says so);

@@ -54,16 +54,16 @@ static void Shinobi_BotRandomBuild( shinobiBuild_t *b ) {
 	}
 	for ( i = 0; i < n && b->numJutsu < SHINOBI_BUILD_JUTSU; i++ )
 		b->jutsu[b->numJutsu++] = pool[i];
-	for ( points = 0; points < SHINOBI_STAT_POINTS; ) {
+	do { // the special first: it decides how many points are left
+		b->perk = Q_irand( SP_NONE, SP_COUNT - 1 );
+	} while ( !shinobiPerkReady[b->perk] );
+	for ( points = 0; points < Shinobi_StatBudget( b ); ) {
 		k = Q_irand( 0, SST_COUNT - 1 );
-		if ( b->stats[k] < SHINOBI_STAT_MAX ) {
+		if ( b->stats[k] < Shinobi_StatCap( b, k ) ) {
 			b->stats[k]++;
 			points++;
 		}
 	}
-	do {
-		b->perk = Q_irand( SP_NONE, SP_COUNT - 1 );
-	} while ( !shinobiPerkReady[b->perk] );
 	Shinobi_BuildFix( b );
 }
 

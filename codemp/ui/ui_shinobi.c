@@ -440,7 +440,8 @@ void UI_ShinobiMenuDraw( void ) {
 
 	// --- stats -----------------------------------------------------------------
 	y += 8;
-	SB_Text( x, y, 0.5f, white, va( "STATS  points left %i", SHINOBI_STAT_POINTS - Shinobi_BuildPoints( &sb.edit ) ) );
+	SB_Text( x, y, 0.5f, white, va( "STATS  points left %i of %i", Shinobi_StatBudget( &sb.edit ) - Shinobi_BuildPoints( &sb.edit ),
+		Shinobi_StatBudget( &sb.edit ) ) );
 	y += 20;
 	for ( i = 0; i < SST_COUNT; i++ ) {
 		if ( SB_Over( x, y, 224, 18 ) )
@@ -448,19 +449,19 @@ void UI_ShinobiMenuDraw( void ) {
 		SB_Text( x, y + 1, 0.45f, white, shinobiStatTitles[i] );
 		if ( SB_Button( x + 100, y + 1, 16, 16, "-", sb.edit.stats[i] > 0, qfalse ) )
 			sb.edit.stats[i]--;
-		for ( k = 0; k < SHINOBI_STAT_MAX; k++ ) {
-			UI_FillRect( x + 121 + k * 16, y + 5, 13, 8, k < sb.edit.stats[i] ? on : off );
-			SB_Rect( x + 121 + k * 16, y + 5, 13, 8, frame );
+		for ( k = 0; k < Shinobi_StatCap( &sb.edit, i ); k++ ) { // 5 boxes, 7 for the body without a special
+			UI_FillRect( x + 121 + k * 11, y + 5, 9, 8, k < sb.edit.stats[i] ? on : off );
+			SB_Rect( x + 121 + k * 11, y + 5, 9, 8, frame );
 		}
-		if ( SB_Button( x + 204, y + 1, 16, 16, "+", sb.edit.stats[i] < SHINOBI_STAT_MAX
-			&& Shinobi_BuildPoints( &sb.edit ) < SHINOBI_STAT_POINTS, qfalse ) )
+		if ( SB_Button( x + 204, y + 1, 16, 16, "+", sb.edit.stats[i] < Shinobi_StatCap( &sb.edit, i )
+			&& Shinobi_BuildPoints( &sb.edit ) < Shinobi_StatBudget( &sb.edit ), qfalse ) )
 			sb.edit.stats[i]++;
 		y += 19;
 	}
 
 	// --- special ---------------------------------------------------------------
 	y += 8;
-	SB_Text( x, y, 0.5f, white, "SPECIAL (C)" );
+	SB_Text( x, y, 0.5f, white, "SPECIAL (C)  costs stat points" );
 	y += 20;
 	for ( i = 0; i < SP_COUNT; i++ ) {
 		const qboolean chosen = ( sb.edit.perk == i );
@@ -474,9 +475,19 @@ void UI_ShinobiMenuDraw( void ) {
 		SB_Rect( x + 4, y + 4, 9, 9, frame );
 		SB_Text( x + 20, y + 1, 0.45f, ready ? ( chosen ? white : dim ) : off,
 			ready ? shinobiPerkTitles[i] : va( "%s (soon)", shinobiPerkTitles[i] ) );
+		SB_Text( x + 176, y + 1, 0.45f, ready ? ( chosen ? white : dim ) : off,
+			i == SP_NONE ? "7 max" : va( "-%i", shinobiPerkCost[i] ) );
 		if ( SB_Clicked( x, y, 224, 17 ) ) {
-			if ( ready )
+			if ( ready && sb.edit.perk != i ) {
+				const int before = Shinobi_BuildPoints( &sb.edit );
 				sb.edit.perk = i;
+				Shinobi_BuildFix( &sb.edit ); // the new price / caps: points come back off the end
+				if ( Shinobi_BuildPoints( &sb.edit ) < before )
+					SB_Message( qtrue, va( "%s costs %i stat points: %i taken back", shinobiPerkTitles[i], shinobiPerkCost[i],
+						before - Shinobi_BuildPoints( &sb.edit ) ) );
+			}
+			else if ( ready )
+				; // already chosen
 			else
 				SB_Message( qtrue, va( "%s isn't ready yet", shinobiPerkTitles[i] ) );
 		}

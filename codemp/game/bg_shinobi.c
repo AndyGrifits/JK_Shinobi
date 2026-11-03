@@ -74,17 +74,17 @@ qboolean Shinobi_BuildValid( const shinobiBuild_t *b, char *why, int whySize ) {
 		return qfalse;
 	}
 	for ( i = 0; i < SST_COUNT; i++ ) {
-		if ( b->stats[i] < 0 || b->stats[i] > SHINOBI_STAT_MAX ) {
-			if ( why ) Com_sprintf( why, whySize, "at most %i points in one stat", SHINOBI_STAT_MAX );
+		if ( b->stats[i] < 0 || b->stats[i] > Shinobi_StatCap( b, i ) ) {
+			if ( why ) Com_sprintf( why, whySize, "at most %i points in %s", Shinobi_StatCap( b, i ), shinobiStatTitles[i] );
 			return qfalse;
 		}
 	}
-	if ( Shinobi_BuildPoints( b ) > SHINOBI_STAT_POINTS ) {
-		if ( why ) Com_sprintf( why, whySize, "only %i stat points", SHINOBI_STAT_POINTS );
-		return qfalse;
-	}
 	if ( b->perk < 0 || b->perk >= SP_COUNT || !shinobiPerkReady[b->perk] ) {
 		if ( why ) Q_strncpyz( why, "that special ability isn't ready yet", whySize );
+		return qfalse;
+	}
+	if ( Shinobi_BuildPoints( b ) > Shinobi_StatBudget( b ) ) {
+		if ( why ) Com_sprintf( why, whySize, "only %i stat points with %s", Shinobi_StatBudget( b ), shinobiPerkTitles[b->perk] );
 		return qfalse;
 	}
 	return qtrue;
@@ -101,16 +101,19 @@ void Shinobi_BuildFix( shinobiBuild_t *b ) {
 		if ( Shinobi_BuildSchools( &fixed, NULL ) > SHINOBI_BUILD_SCHOOLS )
 			fixed.numJutsu--;
 	}
+	// the special first: it sets the budget and the caps
+	fixed.perk = ( b->perk > SP_NONE && b->perk < SP_COUNT && shinobiPerkReady[b->perk] ) ? b->perk : SP_NONE;
 	// stats: clamp, then take points back from the end while over budget
-	for ( i = 0; i < SST_COUNT; i++ )
-		fixed.stats[i] = b->stats[i] < 0 ? 0 : ( b->stats[i] > SHINOBI_STAT_MAX ? SHINOBI_STAT_MAX : b->stats[i] );
-	for ( i = SST_COUNT - 1; i >= 0 && Shinobi_BuildPoints( &fixed ) > SHINOBI_STAT_POINTS; ) {
+	for ( i = 0; i < SST_COUNT; i++ ) {
+		const int cap = Shinobi_StatCap( &fixed, i );
+		fixed.stats[i] = b->stats[i] < 0 ? 0 : ( b->stats[i] > cap ? cap : b->stats[i] );
+	}
+	for ( i = SST_COUNT - 1; i >= 0 && Shinobi_BuildPoints( &fixed ) > Shinobi_StatBudget( &fixed ); ) {
 		if ( fixed.stats[i] > 0 )
 			fixed.stats[i]--;
 		else
 			i--;
 	}
-	fixed.perk = ( b->perk > SP_NONE && b->perk < SP_COUNT && shinobiPerkReady[b->perk] ) ? b->perk : SP_NONE;
 	*b = fixed;
 }
 

@@ -946,8 +946,9 @@ userinfo cvar "shinobi_build" as "<jutsu,...>/<stat points>/<perk>", e.g.
 "suiton,wave,suiro,futon,windblade/2,2,2,2,2/none". Applied on respawn.
 
   techniques  up to 5, from at most 2 schools (basic ones are free for all)
-  stats       10 points, at most 5 in one stat
-  special     one perk
+  stats       10 points minus the special's price; at most 5 in one stat
+              (no special: chakra pool, health and taijutsu go up to 7)
+  special     one perk, paid for with stat points (shinobiPerkCost)
 ---------------------------------------------------------------------------
 */
 typedef enum {
@@ -1022,12 +1023,14 @@ typedef enum {
 
 #define SHINOBI_STAT_POINTS     10
 #define SHINOBI_STAT_MAX        5
+#define SHINOBI_STAT_MAX_TRAINED 7   // no special: chakra pool, health, taijutsu go this high
 
 static const char * const shinobiStatTitles[SST_COUNT] = {
 	"Chakra pool", "Health", "Taijutsu", "Casting speed", "Chakra regen"
 };
 static const char * const shinobiStatInfo[SST_COUNT] = {
-	"+20 max chakra per point", "+15 max health per point", "+10% fist, kick and blade damage per point",
+	"+20 max chakra per point (up to 7 without a special)", "+15 max health per point (up to 7 without a special)",
+	"+10% fist, kick and blade damage per point (up to 7 without a special)",
 	"charge bars fill 8% faster per point", "chakra comes back 12% faster and fights give 10% more of it, per point"
 };
 
@@ -1047,11 +1050,11 @@ static const char * const shinobiPerkTitles[SP_COUNT] = {
 	"None", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates"
 };
 static const char * const shinobiPerkInfo[SP_COUNT] = {
-	"no special ability",
-	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster (2x from fighting), your mind clouds; C: on/off",
-	"C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
-	"C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
-	"C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
+	"no special ability: pure training - all 10 stat points, and chakra pool, health and taijutsu go up to 7",
+	"costs 4 stat points. Awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster (2x from fighting), your mind clouds; C: on/off",
+	"costs 4 stat points. C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
+	"costs 5 stat points. C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
+	"costs 3 stat points. C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
 };
 // one line per jutsu for the build screen
 static const char * const shinobiJutsuInfo[SJ_COUNT] = {
@@ -1093,6 +1096,9 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue };
+// a gift is paid for with training: stat points the special takes from the 10
+//                                           none  curse  sharingan  byakugan  gates
+static const int shinobiPerkCost[SP_COUNT] = { 0,    4,     4,         5,        3 };
 
 typedef struct {
 	int numJutsu;
@@ -1109,6 +1115,18 @@ void     Shinobi_BuildFix( shinobiBuild_t *b );                       // make it
 qboolean Shinobi_BuildHas( const shinobiBuild_t *b, int jutsu );
 int      Shinobi_BuildSchools( const shinobiBuild_t *b, int *schools ); // distinct schools used
 int      Shinobi_BuildPoints( const shinobiBuild_t *b );
+
+// stat points this build may spend (10 minus its special's price)
+static QINLINE int Shinobi_StatBudget( const shinobiBuild_t *b ) {
+	const int perk = ( b->perk > SP_NONE && b->perk < SP_COUNT ) ? b->perk : SP_NONE;
+	return SHINOBI_STAT_POINTS - shinobiPerkCost[perk];
+}
+// the most points one stat may take: pure training lets the body go further
+static QINLINE int Shinobi_StatCap( const shinobiBuild_t *b, int stat ) {
+	if ( b->perk == SP_NONE && ( stat == SST_CHAKRA || stat == SST_HEALTH || stat == SST_TAIJUTSU ) )
+		return SHINOBI_STAT_MAX_TRAINED;
+	return SHINOBI_STAT_MAX;
+}
 
 /*
 Accessories ("shinobi_acc" userinfo, "acc" in the player configstring):
