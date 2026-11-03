@@ -7,9 +7,10 @@
   "textures": "C:/Games/Blender My Models/naruto-sala-examen-chunnin/textures"
  },
  "model": {
-  "_comment": "game = (fbx - origin) * scale. origin = floor centre of the hall in FBX units. 1 FBX unit = 160 u: hall 749 x 1205 x 376, balconies at 192 (force jump 2), door 171.",
-  "scale": 160,
-  "origin": [-1.2, -46.565, 8.29]
+  "_comment": "game = (fbx - origin) * scale. origin = floor centre of the hall in FBX units. 1 FBX unit = 320 u: hall 1498 x 2410 x 752, balconies at 384 (force jump 3 or stairs), door 342. The statue (hands + sleeves) keeps the size it had at 160.",
+  "scale": 320,
+  "origin": [-1.2, -46.565, 8.29],
+  "rescale": [{"_comment": "hand-seal statue = hands (t13) + sleeves (t12 near the far wall): keep their 160 size, scaled about the far wall at floor level", "shaders": ["t13", "t12"], "within": [-1000, 800, 1000, 1400], "factor": 0.5, "point": [0, 1204, 0]}]
  },
  "shaders": {
   "_comment": "per model shader: solid = autoclip its triangles (q3map_clipModel); mat = q3map_material (footsteps/impacts); alpha cutouts come from materials.json",
@@ -24,7 +25,7 @@
   "t09": {"solid": true,  "mat": "solidwood", "what": "stair sides"},
   "t10": {"solid": false, "mat": "solidwood", "what": "balcony fascia cutout (see-through)"},
   "t11": {"solid": true,  "mat": "solidwood", "what": "stair treads"},
-  "t12": {"solid": false, "mat": "greenleaves", "what": "bushes / mats (prop clip)"},
+  "t12": {"solid": false, "mat": "greenleaves", "what": "statue sleeves (prop clip) + wall strips under the balconies"},
   "t13": {"solid": false, "mat": "rock",      "what": "hand-seal statue (prop clip)"},
   "t15": {"solid": false, "mat": "plaster",   "what": "plaque on statue wall"}
  },
@@ -32,27 +33,29 @@
   "cell": 16,
   "groups": [
    {"shaders": ["t13"], "clip_shader": "clip_rock"},
-   {"shaders": ["t12"], "clip_shader": "clip_leaves", "region": [-368, 400, 368, 640], "_comment": "t12 is also on the wall strips under the balconies - keep those out"}
+   {"shaders": ["t12"], "clip_shader": "clip_leaves", "region": [-736, 800, 736, 1280], "_comment": "t12 is also on the wall strips under the balconies - keep those out"}
   ]
  },
  "hull_margin": 32,
  "worldspawn": {"_minlight": "24", "_lightmapscale": "0.5"},
  "lights": {
-  "grid_x": [-240, 0, 240], "grid_y": [-470, -240, 0, 240, 470], "z": 250, "light": 380,
+  "_comment": "positions x2 / intensity x4 from the 160 layout keep the same look (inverse square)",
+  "grid_x": [-480, 0, 480], "grid_y": [-940, -480, 0, 480, 940], "z": 500, "light": 1520,
   "extra": [
-   {"origin": [-330, 0, 120], "light": 220}, {"origin": [330, 0, 120], "light": 220},
-   {"origin": [-330, 300, 120], "light": 200}, {"origin": [330, 300, 120], "light": 200},
-   {"origin": [-330, -300, 120], "light": 200}, {"origin": [330, -300, 120], "light": 200},
-   {"origin": [0, 330, 200], "light": 300}
+   {"origin": [-660, 0, 240], "light": 880}, {"origin": [660, 0, 240], "light": 880},
+   {"origin": [-660, 600, 240], "light": 800}, {"origin": [660, 600, 240], "light": 800},
+   {"origin": [-660, -600, 240], "light": 800}, {"origin": [660, -600, 240], "light": 800},
+   {"origin": [0, 860, 260], "light": 500}
   ]
  },
  "spawns": {
   "_comment": "[x, y, z, yaw]; z = floor + 40",
-  "info_player_deathmatch": [[-200, -330, 40, 60], [200, -330, 40, 120], [-200, 300, 40, 300], [200, 300, 40, 240]],
-  "info_player_duel": [[0, -380, 40, 90], [0, 330, 40, 270]],
-  "info_player_duel1": [[-120, -380, 40, 90], [120, -380, 40, 90]],
-  "info_player_duel2": [[-120, 330, 40, 270], [120, 330, 40, 270]],
-  "info_player_start": [[0, -380, 40, 90]]
+  "info_player_deathmatch": [[-400, -660, 40, 60], [400, -660, 40, 120], [-400, 600, 40, 300], [400, 600, 40, 240]],
+  "info_player_duel": [[0, -760, 40, 90], [0, 660, 40, 270]],
+  "info_player_duel1": [[-240, -760, 40, 90], [240, -760, 40, 90]],
+  "info_player_duel2": [[-240, 660, 40, 270], [240, 660, 40, 270]],
+  "info_player_start": [[0, -760, 40, 90]]
  },
+ "levelshot": {"from": [0, -1150, 100], "to": [0, 1000, 160], "lens": 16},
  "arena_type": "ffa duel powerduel team holocron jedi"
 }

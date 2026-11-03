@@ -42,6 +42,7 @@ Player: 64 u tall, steps 18 u, walkable slope up to ~45 deg, force jump 1/2/3 re
 
 ## shinobi_chunin - Chunin Exam Hall
 
-Source: `naruto-sala-examen-chunnin` (11.6k tris, 14 textures). Scale 160: hall 749 x 1205 x 376,
-balconies at 192 (force jump 2 or the stairs at the door end), hand-seal statue at the far end.
+Source: `naruto-sala-examen-chunnin` (11.6k tris, 14 textures). Scale 320: hall 1498 x 2410 x 752,
+balconies at 384 (force jump 3 or the stairs at the door end). The hand-seal statue (hands + sleeves)
+keeps its scale-160 size (`model.rescale` in map.json), against the far wall.
 Spawns: 4 FFA, duel / power duel. No bot routes yet.

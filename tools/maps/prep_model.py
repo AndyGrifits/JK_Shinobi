@@ -61,6 +61,31 @@ for o in meshes:
         if t:
             slot.material = merged[t]
 
+# props that keep their own size when the hall is scaled (map.json "rescale"):
+# scale the objects of those shaders by "factor" about an anchor on their joint bbox
+# ("anchor" = fractions of the bbox: [0.5, 1, 0] = centre in x, back in +y, bottom)
+# ("within" = [x0, y0, x1, y1]: only objects whose bbox centre is inside; "point" = fixed anchor in game units)
+def bbox(objs):
+    vs = [v.co for o in objs for v in o.data.vertices]
+    return (mathutils.Vector([min(v[i] for v in vs) for i in range(3)]),
+            mathutils.Vector([max(v[i] for v in vs) for i in range(3)]))
+for rs in mdl.get("rescale", []):
+    names = {f"textures/{shader_dir}/{s}" for s in rs["shaders"]}
+    objs = [o for o in meshes if o.material_slots and all(s.material and s.material.name in names for s in o.material_slots)]
+    if "within" in rs:
+        x0, y0, x1, y1 = rs["within"]
+        objs = [o for o in objs if x0 <= sum(bbox([o]), mathutils.Vector())[0] / 2 <= x1
+                and y0 <= sum(bbox([o]), mathutils.Vector())[1] / 2 <= y1]
+    if not objs:
+        print("RESCALE: no objects for", rs["shaders"]); continue
+    lo, hi = bbox(objs)
+    a = mathutils.Vector(rs["point"]) if "point" in rs else \
+        mathutils.Vector([lo[i] + (hi[i] - lo[i]) * rs.get("anchor", [0.5, 0.5, 0])[i] for i in range(3)])
+    sm = mathutils.Matrix.Translation(a) @ mathutils.Matrix.Scale(rs["factor"], 4) @ mathutils.Matrix.Translation(-a)
+    for o in objs:
+        o.data.transform(sm); o.data.update()
+    print(f"RESCALE {rs['shaders']} x{rs['factor']} about {tuple(round(c) for c in a)}: {len(objs)} objects")
+
 # join into one object, triangulate
 bpy.ops.object.select_all(action='DESELECT')
 for o in meshes:

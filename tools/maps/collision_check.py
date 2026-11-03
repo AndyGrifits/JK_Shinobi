@@ -26,7 +26,7 @@ hm = json.load(open(os.path.join(build, "heightmap.json")))
 keys = list(hm["grid"].keys())
 pts = np.array([[float(v) for v in k.split(",")] for k in keys])
 vis = np.array([np.nan if hm["grid"][k] is None else hm["grid"][k][0] for k in keys])
-START = 370.0
+START = hm.get("top", 370.0)
 top = np.full(len(pts), -1e9)
 n_used = 0
 for first, num, sh in brushes:
