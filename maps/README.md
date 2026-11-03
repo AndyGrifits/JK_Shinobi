@@ -26,6 +26,14 @@ Collision: shaders marked `"solid"` in `map.json` get `q3map_clipModel` (q3map2 
 from their triangles, 8 u thick, flat walls stay flat for wall runs); the rest are `nonsolid` and,
 if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footstep / impact sounds.
 
+## Items
+
+`map.json` "items": `{"class": ..., "at": [x, y, z]}` with stock classnames; the mod turns them into
+ninja items at load (`codemp/game/bg_shinobi.c` shinobiItemMap): `weapon_thermal` Explosive Kunai,
+`weapon_trip_mine` Explosive Tag, `weapon_rocket_launcher` Fuma Shuriken, `item_medpac` Healing Pill,
+`ammo_force` Chakra Pill. An item drops straight down onto whatever is solid below `at` (put it a bit
+above a rock to land on top); `python3 tools/maps/itemcheck.py maps/<name>/map.json <bsp>` replays that.
+
 ## Checks
 
 ```
@@ -56,7 +64,8 @@ Player: 64 u tall, steps 18 u, walkable slope up to ~45 deg, force jump 1/2/3 re
 Source: `naruto-sala-examen-chunnin` (11.6k tris, 14 textures). Scale 320: hall 1498 x 2410 x 752,
 balconies at 384 (force jump 3 or the stairs at the door end). The hand-seal statue (hands + sleeves)
 keeps its scale-160 size (`model.rescale` in map.json), against the far wall.
-Spawns: 4 FFA, duel / power duel. No bot routes yet.
+Spawns: 4 FFA, duel / power duel. Items: Fuma Shuriken, Explosive Tag, 2 x Explosive Kunai in the four
+corners (combat items only). No bot routes yet.
 
 ## shinobi_chunin_final - Chunin Exam Finals
 
@@ -67,4 +76,6 @@ and Hokage building behind the wall (visual only). Open sky, sun from the north-
 Boundary: playerclip ring on the wall face up to 1600 + ceiling (players only, shots pass); one flat
 floor brush. The wall is plain concrete (`texture_override`). 22 props: two rock pillars (410 / 309 high),
 a rock slab (172), five boulder groups, three logs, three stumps, three training posts; the centre
-(r 300) stays open. Spawns >= 224 u from anything solid.
+(r 300) stays open. Spawns >= 224 u from anything solid. Items: Fuma Shuriken on the tall pillar,
+Explosive Kunai on the short pillar and the east boulder, Explosive Tag on the rock slab, Healing Pill
+by the north wall, Chakra Pill by the south-west wall.

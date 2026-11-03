@@ -101,5 +101,14 @@
   "info_player_start": [[987, -359, 40, 160]]
  },
  "levelshot": {"from": [0, -1250, 110], "to": [0, 600, 330], "lens": 14},
+ "items": [
+  {"_": "stock classnames -> ninja items (bg_shinobi.c): weapon_thermal = Explosive Kunai, weapon_trip_mine = Explosive Tag, weapon_rocket_launcher = Fuma Shuriken, item_medpac = Healing Pill, ammo_force = Chakra Pill. They drop onto what is below 'at'."},
+  {"class": "weapon_rocket_launcher", "at": [450, 300, 460], "_": "Fuma Shuriken on top of the tall rock pillar (410)"},
+  {"class": "weapon_thermal", "at": [-500, -150, 360], "_": "Explosive Kunai on top of the short rock pillar (309)"},
+  {"class": "weapon_trip_mine", "at": [100, -450, 230], "_": "Explosive Tag on the rock slab (172)"},
+  {"class": "weapon_thermal", "at": [1100, 500, 220], "_": "Explosive Kunai on the big east boulder (169)"},
+  {"class": "item_medpac", "at": [0, 1320, 40], "_": "Healing Pill by the north wall"},
+  {"class": "ammo_force", "at": [-930, -930, 40], "_": "Chakra Pill by the south-west wall"}
+ ],
  "arena_type": "ffa duel powerduel team holocron jedi"
 }

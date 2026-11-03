@@ -57,5 +57,12 @@
   "info_player_start": [[0, -760, 40, 90]]
  },
  "levelshot": {"from": [0, -1150, 100], "to": [0, 1000, 160], "lens": 16},
+ "items": [
+  {"_": "combat items only (no pills), one per corner. weapon_thermal = Explosive Kunai, weapon_trip_mine = Explosive Tag, weapon_rocket_launcher = Fuma Shuriken"},
+  {"class": "weapon_rocket_launcher", "at": [-650, 1100, 40], "_": "statue end, left corner"},
+  {"class": "weapon_trip_mine", "at": [650, 1100, 40], "_": "statue end, right corner"},
+  {"class": "weapon_thermal", "at": [-600, -800, 40], "_": "door end, left corner"},
+  {"class": "weapon_thermal", "at": [600, -800, 40], "_": "door end, right corner"}
+ ],
  "arena_type": "ffa duel powerduel team holocron jedi"
 }
