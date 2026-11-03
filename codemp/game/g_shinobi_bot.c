@@ -67,6 +67,96 @@ static void Shinobi_BotRandomBuild( shinobiBuild_t *b ) {
 	Shinobi_BuildFix( b );
 }
 
+/*
+Bots wear our characters (every models/players/<name> with a shinobi.char, as on the
+character screen) instead of the stock ones from bots.txt: one nobody else wears yet if
+there is one, the sex from the file. Returns qtrue when it changed the userinfo.
+*/
+#define BOT_MAX_CHARS 64
+static struct {
+	char     dir[BOT_MAX_CHARS][32];
+	qboolean female[BOT_MAX_CHARS];
+	int      n;
+	qboolean listed;
+} botChars;
+
+static void Shinobi_BotListChars( void ) {
+	static char dirs[8192];
+	char       *d;
+	int         nd, i;
+
+	botChars.listed = qtrue;
+	botChars.n = 0;
+	nd = trap->FS_GetFileList( "models/players", "/", dirs, sizeof( dirs ) );
+	for ( i = 0, d = dirs; i < nd && botChars.n < BOT_MAX_CHARS; i++, d += strlen( d ) + 1 ) {
+		char         name[32], text[128];
+		fileHandle_t fh;
+		int          len = 0;
+		Q_strncpyz( name, d, sizeof( name ) );
+		len = strlen( name );
+		if ( len && ( name[len - 1] == '/' || name[len - 1] == '\\' ) )
+			name[--len] = 0;
+		if ( !name[0] || name[0] == '.' || name[0] == '_' )
+			continue;
+		len = trap->FS_Open( va( "models/players/%s/shinobi.char", name ), &fh, FS_READ );
+		if ( !fh )
+			continue;
+		text[0] = 0;
+		if ( len > 0 ) {
+			if ( len > (int)sizeof( text ) - 1 )
+				len = sizeof( text ) - 1;
+			trap->FS_Read( text, len, fh );
+			text[len] = 0;
+			Q_strlwr( text );
+		}
+		trap->FS_Close( fh );
+		Q_strncpyz( botChars.dir[botChars.n], name, sizeof( botChars.dir[0] ) );
+		botChars.female[botChars.n] = strstr( text, "\nfemale" ) != NULL;
+		botChars.n++;
+	}
+	G_LogPrintf( "[shinobi] %i characters for the bots\n", botChars.n );
+}
+
+qboolean Shinobi_BotModel( gentity_t *ent, char *userinfo, int size ) {
+	char model[MAX_QPATH], *slash;
+	int  i, j, pick, free[BOT_MAX_CHARS], nfree = 0;
+
+	if ( !botChars.listed )
+		Shinobi_BotListChars();
+	if ( !botChars.n )
+		return qfalse;
+	Q_strncpyz( model, Info_ValueForKey( userinfo, "model" ), sizeof( model ) );
+	if ( ( slash = strchr( model, '/' ) ) != NULL )
+		*slash = 0;
+	for ( i = 0; i < botChars.n; i++ )
+		if ( !Q_stricmp( model, botChars.dir[i] ) )
+			return qfalse; // one of ours already
+	for ( i = 0; i < botChars.n; i++ ) { // not worn by anyone else yet
+		qboolean taken = qfalse;
+		for ( j = 0; j < MAX_CLIENTS && !taken; j++ ) {
+			gentity_t *o = &g_entities[j];
+			char       m[MAX_QPATH], info[MAX_INFO_STRING], *sl;
+			if ( o == ent || !o->inuse || !o->client || o->client->pers.connected == CON_DISCONNECTED )
+				continue;
+			trap->GetUserinfo( j, info, sizeof( info ) );
+			Q_strncpyz( m, Info_ValueForKey( info, "model" ), sizeof( m ) );
+			if ( ( sl = strchr( m, '/' ) ) != NULL )
+				*sl = 0;
+			taken = !Q_stricmp( m, botChars.dir[i] );
+		}
+		if ( !taken )
+			free[nfree++] = i;
+	}
+	pick = nfree ? free[Q_irand( 0, nfree - 1 )] : Q_irand( 0, botChars.n - 1 );
+	Info_SetValueForKey( userinfo, "model", botChars.dir[pick] );
+	Info_SetValueForKey( userinfo, "sex", botChars.female[pick] ? "female" : "male" );
+	Info_SetValueForKey( userinfo, "char_color_red", "255" );
+	Info_SetValueForKey( userinfo, "char_color_green", "255" );
+	Info_SetValueForKey( userinfo, "char_color_blue", "255" );
+	G_LogPrintf( "[shinobi] bot %s wears %s\n", ent->client ? ent->client->pers.netname : "?", botChars.dir[pick] );
+	return qtrue;
+}
+
 void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b ) { Shinobi_BotRandomBuild( b ); } // (the autotest)
 
 // called from Shinobi_ApplyBuild before the build is copied in

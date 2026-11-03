@@ -1505,6 +1505,7 @@ void Cmd_MizuBunshin_f( gentity_t *ent );
 void Cmd_Kunai_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Cmd_ShinobiAutotest_f( gentity_t *ent );
+qboolean Shinobi_BotModel( gentity_t *ent, char *userinfo, int size );
 void Cmd_ShinobiOpenSpot_f( gentity_t *ent );
 extern gentity_t *shinobiTestInflictor; // the inflictor of the damage being logged (Shinobi_DpsLog)
 void Shinobi_Reveal( gentity_t *ent );

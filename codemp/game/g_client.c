@@ -2167,6 +2167,8 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	}
 
 	// set model
+	if ( ( ent->r.svFlags & SVF_BOT ) && Shinobi_BotModel( ent, userinfo, sizeof( userinfo ) ) )
+		trap->SetUserinfo( clientNum, userinfo ); // JK_Shinobi: bots wear our characters, not the stock ones
 	Q_strncpyz( model, Info_ValueForKey( userinfo, "model" ), sizeof( model ) );
 
 	if ( d_perPlayerGhoul2.integer&& Q_stricmp( model, client->modelname ) ) {
