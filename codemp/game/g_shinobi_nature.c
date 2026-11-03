@@ -452,8 +452,10 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 		case SZ_ICE:
 			p->client->shinobi.iceEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
 			break;
-		case SZ_STEAM:
 		case SZ_MIST:
+			p->client->shinobi.mistEnd = level.time + SHINOBI_ZONE_TICK_MS + 150; // (the Copy Sharingan can't read through it)
+			// fall through
+		case SZ_STEAM:
 			p->client->shinobi.burnEnd = 0;
 			break;
 		case SZ_ASH:

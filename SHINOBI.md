@@ -372,6 +372,7 @@ nothing else (bots still get their pseudo powers for the AI).
     (2000 u), the name of the jutsu they are charging, Kawarimi-hidden enemies within
     1500 u show as ghosts. Clones are marked "clone" instead of a health bar. Red eyes,
     visible to everyone.
+  - **Copy Sharingan** (`C` on/off, 5 chakra + 6/s, no natural regen while open; costs 4 stat points): Kakashi's eye - no health bars, no red rims, no aim rays, no hidden enemies; it only reads the jutsu people in plain sight are charging. A jutsu cast by anyone (clones too, not your own) within 1200 u, in front of you (60 degrees) and in plain sight (no walls, no Hidden Mist) goes into an extra slot at the end of your Q/E list (red, underlined) - unless it is Yin / Yang, basic or in your build. One slot: the next jutsu seen replaces it; close the eye to keep it. From the slot: Lv2 at most and 25% dearer; gone when you die.
   - **Byakugan** (`C` on/off, 5 chakra + 8/s, no natural regen while open; also the Gentle Fist: bare-handed hits burn the target's chakra and burn guards twice as fast): chakra bars and glowing shells of every
     ninja within 1400 u, through walls; clones are hollow grey shells marked "clone".
     Switching it on is heard map-wide. Pale eyes.

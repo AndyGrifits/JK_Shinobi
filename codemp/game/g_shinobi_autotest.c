@@ -211,6 +211,8 @@ static void AT_Reset( gentity_t *e ) {
 	c->pers.shinobiFistStyle = SFS_FAST;
 	c->pers.shinobiBuild.perk = SP_NONE; // no eyes, seal or gates in the way
 	c->shinobi.eyes = 0;
+	c->shinobi.copyJutsu = 0;
+	c->shinobi.mistEnd = 0;
 	c->shinobi.curseAwake = qfalse;
 	c->shinobi.gatesEnd = c->shinobi.gatesTiredEnd = 0;
 	VectorClear( c->ps.velocity );
@@ -904,6 +906,79 @@ static atResult_t T_RaiNet( int t ) {
 }
 
 // bots with their own defence on: Kawarimi out of a combo, guard / parry
+// Copy Sharingan: copies what it sees, not Yin / Yang, not behind its back, not with the eye shut;
+// a copied cast costs 25% more
+static void T_CopyEye_Setup( void ) {
+	gclient_t *c = A->client;
+	c->pers.shinobiBuild.perk = SP_COPYEYE;
+	c->pers.shinobiBuild.numJutsu = 0; // (nothing of its own to skip)
+	c->shinobi.eyes = SP_COPYEYE;
+	c->shinobi.eyesDrain = level.time + 100000;
+	at.drive[0].aimAt = qtrue;
+	at.drive[1].aimAt = qtrue;
+}
+static atResult_t T_CopyEye( int t ) {
+	gclient_t *c = A->client;
+	c->shinobi.eyesDrain = level.time + 100000; // (no drain in the way of the price check)
+	if ( STAGE( 0 ) && t >= 300 ) {
+		B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax;
+		Shinobi_Cast( B, SJ_SUITON, 1 );
+		at.v[0] = c->shinobi.copyJutsu == SJ_SUITON;
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 400 ) { // Yin / Yang: no
+		Shinobi_Cast( B, SJ_KAITEN, 1 );
+		at.v[1] = c->shinobi.copyJutsu == SJ_SUITON;
+		Shinobi_KaitenStop( B );
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 1200 ) { // looking away: no
+		at.drive[0].aimAt = qfalse;
+		at.drive[0].angles[YAW] = at.baseYaw + 180;
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 300 ) {
+		B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax;
+		B->client->shinobi.armorNext = 0;
+		Shinobi_Cast( B, SJ_ARMOR, 1 );
+		at.v[2] = c->shinobi.copyJutsu == SJ_SUITON;
+		B->client->shinobi.armorEnd = 0;
+		at.drive[0].aimAt = qtrue;
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 1700 ) { // facing it again: Stone Skin replaces the copy
+		B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax;
+		B->client->shinobi.armorNext = 0;
+		Shinobi_Cast( B, SJ_ARMOR, 1 );
+		at.v[3] = c->shinobi.copyJutsu == SJ_ARMOR;
+		B->client->shinobi.armorEnd = 0;
+		NEXT();
+	}
+	if ( STAGE( 5 ) && SINCE() >= 200 ) { // cast from the copy slot: the dearer price
+		int before;
+		c->ps.fd.forcePower = c->ps.fd.forcePowerMax;
+		before = c->ps.fd.forcePower;
+		c->shinobi.armorNext = 0;
+		at.v[4] = Shinobi_Cast( A, SJ_ARMOR, 1 );
+		at.v[5] = before - c->ps.fd.forcePower;
+		c->shinobi.armorEnd = 0;
+		NEXT();
+	}
+	if ( STAGE( 6 ) && SINCE() >= 1700 ) { // the eye shut: the copy is kept
+		c->shinobi.eyes = 0;
+		B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax;
+		Shinobi_Cast( B, SJ_SUITON, 1 );
+		at.v[6] = c->shinobi.copyJutsu == SJ_ARMOR;
+		AT_Msg( "copied Water Bullets %s, Kaiten ignored %s, behind its back ignored %s, Stone Skin replaced it %s, "
+			"cast from the slot %s for %i chakra (want %i), eye shut keeps it %s",
+			at.v[0] ? "yes" : "NO", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[3] ? "yes" : "NO",
+			at.v[4] ? "ok" : "FAILED", at.v[5], Shinobi_CopyCost( SJ_ARMOR, 1 ), at.v[6] ? "yes" : "NO" );
+		return ( at.v[0] && at.v[1] && at.v[2] && at.v[3] && at.v[4] && at.v[5] == Shinobi_CopyCost( SJ_ARMOR, 1 ) && at.v[6] )
+			? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static void T_BotDefend_Setup( void ) {
 	vec3_t p;
 	AT_Weapon( 0, WP_MELEE );
@@ -982,6 +1057,7 @@ static atTest_t atTests[] = {
 	{ "kaiten",       "Kaiten: wind-up breaks, spin blocks, kunai glance, throw, release", T_Kaiten_Setup, T_Kaiten, 5000 },
 	{ "marks",        "three marked kunai at most",                               T_Marks_Setup, T_Marks, 3000 },
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
+	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
 };

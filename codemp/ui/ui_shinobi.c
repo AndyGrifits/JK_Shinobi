@@ -462,24 +462,24 @@ void UI_ShinobiMenuDraw( void ) {
 	}
 
 	// --- special ---------------------------------------------------------------
-	y += 8;
+	y += 4; // (six of them: packed a little tighter, clear of the buttons at 446)
 	SB_Text( x, y, 0.5f, white, "SPECIAL (C)  costs stat points" );
-	y += 20;
+	y += 18;
 	for ( i = 0; i < SP_COUNT; i++ ) {
 		const qboolean chosen = ( sb.edit.perk == i );
 		const qboolean ready = shinobiPerkReady[i];
 
-		if ( SB_Over( x, y, 224, 17 ) ) {
-			UI_FillRect( x, y, 224, 17, hot );
+		if ( SB_Over( x, y, 224, 15 ) ) {
+			UI_FillRect( x, y, 224, 15, hot );
 			SB_Describe( shinobiPerkTitles[i], shinobiPerkInfo[i], SS_BASE );
 		}
-		UI_FillRect( x + 4, y + 4, 9, 9, chosen ? on : off );
-		SB_Rect( x + 4, y + 4, 9, 9, frame );
-		SB_Text( x + 20, y + 1, 0.45f, ready ? ( chosen ? white : dim ) : off,
+		UI_FillRect( x + 4, y + 3, 9, 9, chosen ? on : off );
+		SB_Rect( x + 4, y + 3, 9, 9, frame );
+		SB_Text( x + 20, y, 0.45f, ready ? ( chosen ? white : dim ) : off,
 			ready ? shinobiPerkTitles[i] : va( "%s (soon)", shinobiPerkTitles[i] ) );
-		SB_Text( x + 176, y + 1, 0.45f, ready ? ( chosen ? white : dim ) : off,
+		SB_Text( x + 176, y, 0.45f, ready ? ( chosen ? white : dim ) : off,
 			i == SP_NONE ? "7 max" : va( "-%i", shinobiPerkCost[i] ) );
-		if ( SB_Clicked( x, y, 224, 17 ) ) {
+		if ( SB_Clicked( x, y, 224, 15 ) ) {
 			if ( ready && sb.edit.perk != i ) {
 				const int before = Shinobi_BuildPoints( &sb.edit );
 				sb.edit.perk = i;
@@ -493,7 +493,7 @@ void UI_ShinobiMenuDraw( void ) {
 			else
 				SB_Message( qtrue, va( "%s isn't ready yet", shinobiPerkTitles[i] ) );
 		}
-		y += 18;
+		y += 16;
 	}
 
 	// --- description panel ----------------------------------------------------

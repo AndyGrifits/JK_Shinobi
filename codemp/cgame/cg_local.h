@@ -1805,6 +1805,7 @@ void CG_ShinobiFrame( void );
 void CG_ShinobiSetBuild_f( void );
 void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
+void CG_ShinobiCopy_f( void );
 void CG_ShinobiHitText_f( void );
 void CG_ShinobiChargeCancel_f( void );
 void CG_ShinobiGuardBubble( centity_t *cent );

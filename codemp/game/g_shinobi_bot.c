@@ -248,7 +248,8 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	case FP_TELEPATHY: list = botTrick; break;
 	case FP_SPEED:     list = botSpeed; break;
 	case FP_SEE:
-		if ( ( client->pers.shinobiBuild.perk == SP_SHARINGAN || client->pers.shinobiBuild.perk == SP_BYAKUGAN )
+		if ( ( client->pers.shinobiBuild.perk == SP_SHARINGAN || client->pers.shinobiBuild.perk == SP_BYAKUGAN
+				|| client->pers.shinobiBuild.perk == SP_COPYEYE )
 			&& !client->shinobi.eyes )
 			Cmd_Perk_f( ent );
 		client->shinobi.botJutsuNext = level.time + 1000;

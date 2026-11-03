@@ -80,6 +80,8 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 qboolean Shinobi_HasJutsu( gentity_t *ent, int jutsu ) {
 	if ( sv_cheats.integer || ent->s.number >= MAX_CLIENTS )
 		return qtrue;
+	if ( jutsu > SJ_NONE && ent->client->shinobi.copyJutsu == jutsu )
+		return qtrue; // in the Copy Sharingan's slot
 	return Shinobi_BuildHas( &ent->client->pers.shinobiBuild, jutsu );
 }
 
@@ -201,6 +203,71 @@ void Cmd_CurseSeal_f( gentity_t *ent ) {
 Sharingan / Byakugan / Inner Gates
 ===========================================================================
 */
+static int Shinobi_EyesDrainMs( int eyes ) {
+	if ( eyes == SP_BYAKUGAN )
+		return SHINOBI_BYAKUGAN_DRAIN_MS;
+	return eyes == SP_COPYEYE ? SHINOBI_COPYEYE_DRAIN_MS : SHINOBI_SHARINGAN_DRAIN_MS;
+}
+
+// can 'viewer' see the spot 'at' (an entity's middle; head too): no walls
+static qboolean Shinobi_EyeSees( gentity_t *viewer, gentity_t *e ) {
+	trace_t tr;
+	vec3_t  eye, head;
+
+	VectorCopy( viewer->client->ps.origin, eye );
+	eye[2] += viewer->client->ps.viewheight;
+	VectorCopy( e->r.currentOrigin, head );
+	head[2] += e->r.maxs[2] - 8;
+	trap->Trace( &tr, eye, NULL, NULL, head, viewer->s.number, MASK_SOLID, qfalse, 0, 0 );
+	if ( tr.fraction >= 1.0f )
+		return qtrue;
+	trap->Trace( &tr, eye, NULL, NULL, e->r.currentOrigin, viewer->s.number, MASK_SOLID, qfalse, 0, 0 );
+	return tr.fraction >= 1.0f;
+}
+
+/*
+Copy Sharingan: everyone with it open who sees 'caster' cast 'jutsu' (in range, in front of
+him, no walls, neither of them in a Hidden Mist) takes it into his copy slot.
+*/
+void Shinobi_CopyWitness( gentity_t *caster, int jutsu ) {
+	int i;
+
+	if ( !Shinobi_Copyable( jutsu ) || !caster || !caster->inuse )
+		return;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *v = &g_entities[i];
+		gclient_t *c = v->client;
+		vec3_t     eye, fwd, d;
+		float      dist;
+
+		if ( v == caster || !v->inuse || !c || v->health <= 0 || c->shinobi.eyes != SP_COPYEYE
+			|| c->pers.connected != CON_CONNECTED )
+			continue;
+		if ( caster->s.number >= MAX_CLIENTS && caster->shinobiCloneOwner && Shinobi_CloneOwner( caster ) == v )
+			continue; // his own clone
+		if ( c->shinobi.copyJutsu == jutsu || Shinobi_BuildHas( &c->pers.shinobiBuild, jutsu ) )
+			continue; // nothing new
+		if ( c->shinobi.mistEnd > level.time || ( caster->client && caster->client->shinobi.mistEnd > level.time ) )
+			continue;
+		VectorCopy( c->ps.origin, eye );
+		eye[2] += c->ps.viewheight;
+		VectorSubtract( caster->r.currentOrigin, eye, d );
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_COPY_RANGE )
+			continue;
+		AngleVectors( c->ps.viewangles, fwd, NULL, NULL );
+		if ( dist > 64 && DotProduct( fwd, d ) < SHINOBI_COPY_FOV )
+			continue; // not looking that way
+		if ( !Shinobi_EyeSees( v, caster ) )
+			continue;
+		c->shinobi.copyJutsu = jutsu;
+		trap->SendServerCommand( i, va( "scopy %i", jutsu ) );
+		trap->SendServerCommand( i, va( "cp \"^1Copied:^7 %s\"", shinobiJutsuTitles[jutsu] ) );
+		G_Sound( v, CHAN_AUTO, shinobiMedia.sndEyes );
+		Shinobi_Debug( "%i copies %s from %i", i, shinobiJutsuTitles[jutsu], caster->s.number );
+	}
+}
+
 static void Shinobi_EyesOff( gentity_t *ent, const char *why ) {
 	gclient_t *client = ent->client;
 
@@ -222,7 +289,7 @@ static void Shinobi_EyesOn( gentity_t *ent, int perk ) {
 	}
 	client->ps.fd.forcePower -= SHINOBI_DOJUTSU_COST;
 	client->shinobi.eyes = perk;
-	client->shinobi.eyesDrain = level.time + ( perk == SP_BYAKUGAN ? SHINOBI_BYAKUGAN_DRAIN_MS : SHINOBI_SHARINGAN_DRAIN_MS );
+	client->shinobi.eyesDrain = level.time + Shinobi_EyesDrainMs( perk );
 	client->shinobi.eyesInfo = level.time;
 	if ( perk == SP_BYAKUGAN ) {
 		// the veins bulge with an audible rush: everyone around hears it
@@ -234,7 +301,7 @@ static void Shinobi_EyesOn( gentity_t *ent, int perk ) {
 	}
 	else {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndEyes );
-		trap->SendServerCommand( ent - g_entities, "cp \"^1Sharingan\"" );
+		trap->SendServerCommand( ent - g_entities, perk == SP_COPYEYE ? "cp \"^1Copy Sharingan\"" : "cp \"^1Sharingan\"" );
 	}
 }
 
@@ -272,8 +339,9 @@ void Cmd_Perk_f( gentity_t *ent ) {
 	switch ( perk ) {
 	case SP_SHARINGAN:
 	case SP_BYAKUGAN:
+	case SP_COPYEYE:
 		if ( client->shinobi.eyes )
-			Shinobi_EyesOff( ent, perk == SP_BYAKUGAN ? "Byakugan off" : "Sharingan off" );
+			Shinobi_EyesOff( ent, perk == SP_BYAKUGAN ? "Byakugan off" : perk == SP_COPYEYE ? "Copy Sharingan off" : "Sharingan off" );
 		else
 			Shinobi_EyesOn( ent, perk );
 		break;
@@ -325,6 +393,20 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 		hidden = !clone && SHINOBI_UNSEEN( &e->client->ps ); // (only now: empty slots have no client)
 		dist = Distance( client->ps.origin, e->r.currentOrigin );
 
+		if ( eyes == SP_COPYEYE ) { // only the jutsu people in plain sight are charging
+			if ( clone || hidden || dist > SHINOBI_SHARINGAN_RANGE || !Shinobi_EyeSees( ent, e ) )
+				continue;
+			jutsu = e->client->shinobi.chargeJutsu;
+			if ( jutsu == SJ_SHUNSHIN )
+				jutsu = 0;
+			Com_sprintf( entry, sizeof( entry ), " %i 0 0 0 0 %i %i", i, jutsu, SHINOBI_SEEN_JUTSU );
+			if ( len + (int)strlen( entry ) >= (int)sizeof( buf ) )
+				break;
+			Q_strcat( buf, sizeof( buf ), entry );
+			len += strlen( entry );
+			n++;
+			continue;
+		}
 		if ( eyes == SP_SHARINGAN ) {
 			if ( hidden && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
 				continue; // under the ground: only the Byakugan sees that far
@@ -400,8 +482,10 @@ void Shinobi_PerkBroadcasts( gentity_t *self ) {
 			continue;
 		if ( other->client->shinobi.eyes == SP_BYAKUGAN )
 			range = SHINOBI_BYAKUGAN_RANGE; // through walls, and through Kawarimi too
-		else
+		else if ( other->client->shinobi.eyes == SP_SHARINGAN )
 			range = kawarimi ? SHINOBI_SHARINGAN_HIDDEN_RANGE : 0; // (not under the ground)
+		else
+			range = 0; // the Copy Sharingan doesn't find the hidden
 		if ( range > 0 && DistanceSquared( other->client->ps.origin, self->r.currentOrigin ) < range * range )
 			Q_AddToBitflags( self->r.broadcastClients, i, 32 );
 	}
@@ -427,7 +511,7 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 	if ( client->shinobi.eyes ) {
 		client->ps.fd.forcePowerRegenDebounceTime = level.time + 500; // open eyes: no natural regen
 		if ( client->shinobi.eyesDrain <= level.time ) {
-			client->shinobi.eyesDrain = level.time + ( client->shinobi.eyes == SP_BYAKUGAN ? SHINOBI_BYAKUGAN_DRAIN_MS : SHINOBI_SHARINGAN_DRAIN_MS );
+			client->shinobi.eyesDrain = level.time + Shinobi_EyesDrainMs( client->shinobi.eyes );
 			if ( client->ps.fd.forcePower < 1 )
 				Shinobi_EyesOff( ent, "Out of chakra - your eyes go dark" );
 			else
@@ -439,8 +523,8 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 		}
 	}
 	client->ps.eFlags2 &= ~( SHINOBI_EF2_SHARINGAN | SHINOBI_EF2_BYAKUGAN );
-	if ( client->shinobi.eyes == SP_SHARINGAN )
-		client->ps.eFlags2 |= SHINOBI_EF2_SHARINGAN;
+	if ( client->shinobi.eyes == SP_SHARINGAN || client->shinobi.eyes == SP_COPYEYE ) // (the same red eyes; the
+		client->ps.eFlags2 |= SHINOBI_EF2_SHARINGAN;                                    // owner's cgame knows which from its build)
 	else if ( client->shinobi.eyes == SP_BYAKUGAN )
 		client->ps.eFlags2 |= SHINOBI_EF2_BYAKUGAN;
 

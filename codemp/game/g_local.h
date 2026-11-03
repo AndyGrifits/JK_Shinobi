@@ -865,6 +865,8 @@ struct gclient_s {
 		qboolean curseAwake;	// Curse Seal active (until chakra is back to half)
 		int		eyes;			// SP_SHARINGAN / SP_BYAKUGAN while switched on (0 = off)
 		int		eyesDrain;		// next chakra tick of the eyes
+		int		copyJutsu;		// Copy Sharingan: the jutsu in the copy slot (0 = none)
+		int		mistEnd;		// inside a Hidden Mist until
 		int		eyesInfo;		// next "sinfo" update
 		int		gatesEnd;		// Inner Gates open until
 		int		gatesTiredEnd;	// exhausted until

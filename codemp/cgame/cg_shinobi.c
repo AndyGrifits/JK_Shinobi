@@ -71,6 +71,39 @@ static const shinobiBuild_t *CG_ShinobiBuild( void ) {
 	return &shinobiActive;
 }
 
+// Copy Sharingan: the jutsu in the copy slot ("scopy <jutsu>"; cleared with each build)
+static int shinobiCopy;
+
+void CG_ShinobiCopy_f( void ) {
+	const int j = atoi( CG_Argv( 1 ) );
+	shinobiCopy = ( j > SJ_NONE && j < SJ_COUNT ) ? j : SJ_NONE;
+}
+
+// is this jutsu only ours through the copy slot?
+static qboolean CG_ShinobiIsCopy( int jutsu ) {
+	return shinobiCopy && jutsu == shinobiCopy && !Shinobi_BuildHas( CG_ShinobiBuild(), jutsu );
+}
+
+// what the list offers: the build, then the copy (if it is not in the build already)
+static int CG_ShinobiSlots( int *out ) {
+	const shinobiBuild_t *b = CG_ShinobiBuild();
+	int i, n = 0;
+	for ( i = 0; i < b->numJutsu && i < SHINOBI_BUILD_JUTSU; i++ )
+		out[n++] = b->jutsu[i];
+	if ( CG_ShinobiIsCopy( shinobiCopy ) )
+		out[n++] = shinobiCopy;
+	return n;
+}
+
+// the chakra a level costs us (a copy: dearer, and no level above its top: "unaffordable")
+static int CG_ShinobiPrice( int jutsu, int level ) {
+	if ( CG_ShinobiIsCopy( jutsu ) ) {
+		const int c = Shinobi_CopyCost( jutsu, level );
+		return c ? c : 99999;
+	}
+	return Shinobi_JutsuCost( jutsu, level );
+}
+
 // jutsu selection (cycled with jutsu_next / jutsu_prev, cast with +jutsu)
 static struct {
 	int      index;       // into shinobiJutsuCycle
@@ -286,14 +319,15 @@ Jutsu selection: one cast key ("+jutsu") for the jutsu picked with
 ===========================================================================
 */
 void CG_ShinobiCastDown_f( void ) {
-	const shinobiBuild_t *b = CG_ShinobiBuild();
-	if ( !b->numJutsu )
+	int slots[SHINOBI_BUILD_JUTSU + 1];
+	const int n = CG_ShinobiSlots( slots );
+	if ( !n )
 		return;
-	if ( shinobiSel.index >= b->numJutsu )
+	if ( shinobiSel.index >= n )
 		shinobiSel.index = 0;
-	if ( SHINOBI_JUTSU_PASSIVE( b->jutsu[shinobiSel.index] ) )
+	if ( SHINOBI_JUTSU_PASSIVE( slots[shinobiSel.index] ) )
 		return; // works by itself
-	CG_ShinobiJutsuDown( b->jutsu[shinobiSel.index] );
+	CG_ShinobiJutsuDown( slots[shinobiSel.index] );
 }
 
 // "sbuild <string>": the server applied our build
@@ -301,6 +335,7 @@ void CG_ShinobiSetBuild_f( void ) {
 	Shinobi_BuildParse( CG_Argv( 1 ), &shinobiActive );
 	Shinobi_BuildFix( &shinobiActive );
 	shinobiActiveSet = qtrue;
+	shinobiCopy = SJ_NONE; // a new life: nothing copied yet
 	if ( shinobiSel.index >= shinobiActive.numJutsu )
 		shinobiSel.index = 0;
 }
@@ -311,14 +346,16 @@ void CG_ShinobiCastUp_f( void ) {
 }
 
 static void CG_ShinobiSelect( int step ) {
-	const shinobiBuild_t *b = CG_ShinobiBuild();
-	const int n = b->numJutsu;
+	int slots[SHINOBI_BUILD_JUTSU + 1];
+	const int n = CG_ShinobiSlots( slots );
 	int tries;
 	if ( !n )
 		return;
+	if ( shinobiSel.index >= n )
+		shinobiSel.index = 0;
 	for ( tries = 0; tries < n; tries++ ) { // passives are skipped
 		shinobiSel.index = ( shinobiSel.index + step + n ) % n;
-		if ( !SHINOBI_JUTSU_PASSIVE( b->jutsu[shinobiSel.index] ) )
+		if ( !SHINOBI_JUTSU_PASSIVE( slots[shinobiSel.index] ) )
 			break;
 	}
 	shinobiSel.changeTime = cg.time;
@@ -1563,14 +1600,14 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	const char  *label;
 	vec4_t       textColor = { 1, 1, 1, 1 };
 
-	while ( shown > SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) && chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) )
+	while ( shown > SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) && chakra < CG_ShinobiPrice( shinobiCharge.jutsu, shown ) )
 		shown--;
 
 	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
 		const int   begin = i ? Shinobi_BarEndCast( shinobiCharge.jutsu, i - 1, castLvl ) : 0;
 		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( Shinobi_BarEndCast( shinobiCharge.jutsu, i, castLvl ) - begin ) );
 		const float x = x0 + i * ( barW + gap );
-		const qboolean affordable = chakra >= Shinobi_JutsuCost( shinobiCharge.jutsu, i + 1 );
+		const qboolean affordable = chakra >= CG_ShinobiPrice( shinobiCharge.jutsu, i + 1 );
 
 		CG_FillRect( x, y, barW, barH, back );
 		if ( fill > 0 )
@@ -1582,12 +1619,12 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		label = va( "%s - forming seals...", shinobiJutsuTitles[shinobiCharge.jutsu] );
 		VectorSet( textColor, 0.8f, 0.8f, 0.8f );
 	}
-	else if ( chakra < Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) ) {
-		label = va( "%s - not enough chakra (%i)", shinobiJutsuTitles[shinobiCharge.jutsu], Shinobi_JutsuCost( shinobiCharge.jutsu, 1 ) );
+	else if ( chakra < CG_ShinobiPrice( shinobiCharge.jutsu, 1 ) ) {
+		label = va( "%s - not enough chakra (%i)", shinobiJutsuTitles[shinobiCharge.jutsu], CG_ShinobiPrice( shinobiCharge.jutsu, 1 ) );
 		VectorSet( textColor, 1, 0.4f, 0.4f );
 	}
 	else {
-		label = va( "%s  Lv %i  (%i chakra)", shinobiJutsuTitles[shinobiCharge.jutsu], shown, Shinobi_JutsuCost( shinobiCharge.jutsu, shown ) );
+		label = va( "%s  Lv %i  (%i chakra)", shinobiJutsuTitles[shinobiCharge.jutsu], shown, CG_ShinobiPrice( shinobiCharge.jutsu, shown ) );
 		VectorCopy( barColor[shown - 1], textColor );
 	}
 	{
@@ -1634,24 +1671,24 @@ static void CG_ShinobiDrawJutsuList( void ) {
 	const int   chakra = cg.predictedPlayerState.fd.forcePower;
 	const float recent = Com_Clamp( 0, 1, 1.0f - ( cg.time - shinobiSel.changeTime - 1500 ) / 500.0f );
 	float       total = 0, x;
-	int         i;
+	int         i, slots[SHINOBI_BUILD_JUTSU + 1];
+	const int   n = CG_ShinobiSlots( slots );
 
-	const shinobiBuild_t *b = CG_ShinobiBuild();
-
-	if ( !b->numJutsu )
+	if ( !n )
 		return;
-	if ( shinobiSel.index >= b->numJutsu )
+	if ( shinobiSel.index >= n )
 		shinobiSel.index = 0;
-	for ( i = 0; i < b->numJutsu; i++ )
-		total += CG_Text_Width( shinobiJutsuTitles[b->jutsu[i]], scale, FONT_MEDIUM ) + ( i ? gap : 0 );
+	for ( i = 0; i < n; i++ )
+		total += CG_Text_Width( shinobiJutsuTitles[slots[i]], scale, FONT_MEDIUM ) + ( i ? gap : 0 );
 	x = ( SCREEN_WIDTH - total ) * 0.5f;
 
-	for ( i = 0; i < b->numJutsu; i++ ) {
-		const int    j = b->jutsu[i];
+	for ( i = 0; i < n; i++ ) {
+		const int    j = slots[i];
 		const char  *title = shinobiJutsuTitles[j];
 		const float  w = CG_Text_Width( title, scale, FONT_MEDIUM );
 		const qboolean selected = ( i == shinobiSel.index ) && !SHINOBI_JUTSU_PASSIVE( j );
-		const qboolean affordable = chakra >= Shinobi_JutsuCost( j, 1 );
+		const qboolean affordable = chakra >= CG_ShinobiPrice( j, SHINOBI_JUTSU_MIN_LEVEL( j ) );
+		const qboolean copy = CG_ShinobiIsCopy( j );
 		vec4_t       color;
 
 		if ( selected ) {
@@ -1672,13 +1709,23 @@ static void CG_ShinobiDrawJutsuList( void ) {
 			VectorSet( color, 0.5f, 0.8f, 0.55f );
 			color[3] = 0.5f;
 		}
+		if ( copy ) { // the copy slot: red, a tomoe line under it
+			const vec4_t mark = { 0.85f, 0.1f, 0.08f, selected ? 0.95f : 0.6f };
+			color[0] = 1.0f; color[1] *= 0.45f; color[2] *= 0.4f;
+			CG_FillRect( x, y + 13, w, 2, mark );
+		}
 		CG_Text_Paint( x, y, scale, color, title, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 		x += w + gap;
 	}
 
 	if ( recent > 0 ) { // just picked: show what the levels cost
-		const int   j = b->jutsu[shinobiSel.index];
-		const char *info = SHINOBI_JUTSU_INSTANT( j )
+		const int   j = slots[shinobiSel.index];
+		const char *info = CG_ShinobiIsCopy( j )
+			? ( SHINOBI_JUTSU_INSTANT( j ) || SHINOBI_JUTSU_HOLD( j )
+				? va( "Copied %s: %i chakra", shinobiJutsuTitles[j], CG_ShinobiPrice( j, 1 ) )
+				: va( "Copied %s: Lv1 %i / Lv2 %i chakra (Lv2 at most)", shinobiJutsuTitles[j],
+					CG_ShinobiPrice( j, 1 ), CG_ShinobiPrice( j, 2 ) ) )
+			: SHINOBI_JUTSU_INSTANT( j )
 			? va( "%s: %i chakra", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ) )
 			: SHINOBI_JUTSU_HOLD( j )
 			? va( "%s: %i chakra, then %i/s while you hold the key", shinobiJutsuTitles[j], Shinobi_JutsuCost( j, 1 ),
@@ -1746,8 +1793,8 @@ static const shinobiSeen_t *CG_ShinobiSeen( int num ) {
 static int CG_ShinobiMyEyes( void ) {
 	if ( !cg.snap || cg.snap->ps.pm_type == PM_SPECTATOR || ( cg.snap->ps.pm_flags & PMF_FOLLOW ) )
 		return 0;
-	if ( cg.snap->ps.eFlags2 & SHINOBI_EF2_SHARINGAN )
-		return SP_SHARINGAN;
+	if ( cg.snap->ps.eFlags2 & SHINOBI_EF2_SHARINGAN ) // (the same red eyes: our build tells which)
+		return CG_ShinobiBuild()->perk == SP_COPYEYE ? SP_COPYEYE : SP_SHARINGAN;
 	if ( cg.snap->ps.eFlags2 & SHINOBI_EF2_BYAKUGAN )
 		return SP_BYAKUGAN;
 	return 0;
@@ -2252,7 +2299,7 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 
 	if ( !eyes )
 		return;
-	if ( eyes == SP_SHARINGAN && shinobiMist.lastTime >= cg.time - 100 && shinobiMist.lastAmount > 0.3f )
+	if ( ( eyes == SP_SHARINGAN || eyes == SP_COPYEYE ) && shinobiMist.lastTime >= cg.time - 100 && shinobiMist.lastAmount > 0.3f )
 		return; // the Sharingan can't see through the Hidden Mist
 	for ( i = 0; i < MAX_GENTITIES; i++ ) {
 		const shinobiSeen_t *s = CG_ShinobiSeen( i );
@@ -2268,7 +2315,7 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 			continue;
 		VectorCopy( cent->lerpOrigin, top );
 		top[2] += 48;
-		if ( eyes == SP_SHARINGAN ) { // the Sharingan only reads who is in sight (the server sends updates now and then)
+		if ( eyes == SP_SHARINGAN || eyes == SP_COPYEYE ) { // the Sharingan only reads who is in sight (the server sends updates now and then)
 			trace_t tr;
 			vec3_t  mid;
 			CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, top, cg.snap->ps.clientNum, MASK_SOLID );
@@ -2308,7 +2355,7 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 				CG_Text_Paint( x - w * 0.5f, y + 7, 0.35f, g, "clone", 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
 			}
 		}
-		if ( ( s->flags & SHINOBI_SEEN_HEALTH ) && s->jutsu > SJ_NONE && s->jutsu < SJ_COUNT ) {
+		if ( ( s->flags & ( SHINOBI_SEEN_HEALTH | SHINOBI_SEEN_JUTSU ) ) && s->jutsu > SJ_NONE && s->jutsu < SJ_COUNT ) {
 			vec4_t      c = { 1.0f, 0.3f, 0.25f, 1.0f };
 			const char *t = shinobiJutsuTitles[s->jutsu];
 			const float w = CG_Text_Width( t, 0.45f, FONT_MEDIUM );
@@ -2426,7 +2473,7 @@ void CG_ShinobiDrawHUD( void ) {
 		}
 	}
 
-	if ( CG_ShinobiMyEyes() == SP_SHARINGAN && shinobiShaders.vignette ) { // the eyes are open: a red rim, the eye in the corner
+	if ( ( CG_ShinobiMyEyes() == SP_SHARINGAN || CG_ShinobiMyEyes() == SP_COPYEYE ) && shinobiShaders.vignette ) { // the eyes are open: a red rim, the eye in the corner
 		vec4_t c = { 1, 1, 1, 0.85f };
 		trap->R_SetColor( c );
 		CG_DrawPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, shinobiShaders.vignette );

@@ -420,10 +420,15 @@ void Shinobi_Debug( const char *fmt, ... ) {
 	trap->Print( "[shinobi] %s\n", text );
 }
 
+// the chakra a cast costs (a copied jutsu: dearer)
+static int Shinobi_Price( int jutsu, int lvl, qboolean copied ) {
+	return copied ? Shinobi_CopyCost( jutsu, lvl ) : Shinobi_JutsuCost( jutsu, lvl );
+}
+
 qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	gclient_t *client = ent->client;
-	int        lvl = wanted, cost;
-	qboolean   cast = qfalse;
+	int        lvl = wanted, cost, costLvl;
+	qboolean   cast = qfalse, copied;
 
 	if ( jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return qfalse;
@@ -451,16 +456,23 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		lvl = 1;
 	if ( lvl > SHINOBI_MAX_LEVEL )
 		lvl = SHINOBI_MAX_LEVEL;
+	copied = ent->s.number < MAX_CLIENTS && client->shinobi.copyJutsu == jutsu
+		&& !Shinobi_BuildHas( &client->pers.shinobiBuild, jutsu );
+	if ( copied && lvl > SHINOBI_COPY_MAX_LEVEL )
+		lvl = SHINOBI_COPY_MAX_LEVEL; // the copy is never as good as the real thing
 	if ( lvl < SHINOBI_JUTSU_MIN_LEVEL( jutsu ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s needs a longer charge\"", shinobiJutsuTitles[jutsu] ) );
 		return qfalse;
 	}
 	if ( !client->shinobi.costLevel ) {
-		while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
+		while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_Price( jutsu, lvl, copied ) )
 			lvl--;
 	}
-	cost = Shinobi_JutsuCost( jutsu, client->shinobi.costLevel ? client->shinobi.costLevel : lvl ); // (Shift + F: the top price)
+	costLvl = client->shinobi.costLevel ? client->shinobi.costLevel : lvl; // (Shift + F: the top price)
+	if ( copied && costLvl > SHINOBI_COPY_MAX_LEVEL )
+		costLvl = SHINOBI_COPY_MAX_LEVEL;
+	cost = Shinobi_Price( jutsu, costLvl, copied );
 	if ( shinobiJutsuSchool[jutsu] == SS_SUITON && ( client->ps.pm_flags & SHINOBI_PMF_ONWATER )
 		&& client->shinobi.iceEnd <= level.time )
 		cost = (int)( cost * SHINOBI_WATER_SUITON_COST + 0.5f ); // standing on water (and paying for it): Suiton is cheaper
@@ -512,6 +524,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	if ( cast ) {
 		client->ps.fd.forcePower -= cost;
 		Shinobi_StopCharging( client );
+		Shinobi_CopyWitness( ent, jutsu ); // a Copy Sharingan watching takes it
 	}
 	Shinobi_Debug( "%i casts %s Lv%i: %s (chakra %i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl,
 		cast ? "ok" : "FAILED", client->ps.fd.forcePower );

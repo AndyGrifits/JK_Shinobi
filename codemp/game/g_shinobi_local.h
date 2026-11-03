@@ -82,6 +82,7 @@ void      Shinobi_EarthOnWater( vec3_t center, float radius );
 void      Shinobi_SteamAt( vec3_t pos, float radius );
 qboolean  Shinobi_InMapWater( vec3_t pos );
 qboolean  Shinobi_WaterSurface( const vec3_t pos, float up, float down, vec3_t surface ); // map water near pos
+void      Shinobi_CopyWitness( gentity_t *caster, int jutsu ); // Copy Sharingan eyes that see it take it
 void      Shinobi_WaterWalkThink( gentity_t *ent );
 void      Shinobi_WaterShock( vec3_t point, int ownerNum );
 void      Shinobi_WaterFreeze( vec3_t point );

@@ -917,6 +917,7 @@ Perks (perk command, key C):
 #define SHINOBI_SEEN_CHAKRA   2
 #define SHINOBI_SEEN_CLONE    4
 #define SHINOBI_SEEN_HIDDEN   8
+#define SHINOBI_SEEN_JUTSU    16  // Copy Sharingan: only the jutsu being charged
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500
@@ -1104,21 +1105,23 @@ typedef enum {
 	SP_SHARINGAN,
 	SP_BYAKUGAN,
 	SP_GATES,
+	SP_COPYEYE,   // Kakashi's Sharingan: no health / rims / aim, reads the jutsu and copies the last one seen
 	SP_COUNT
 } shinobiPerk_t;
 
 static const char * const shinobiPerkNames[SP_COUNT] = {
-	"none", "curseseal", "sharingan", "byakugan", "gates"
+	"none", "curseseal", "sharingan", "byakugan", "gates", "copyeye"
 };
 static const char * const shinobiPerkTitles[SP_COUNT] = {
-	"None", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates"
+	"None", "Curse Seal", "Sharingan", "Byakugan", "Inner Gates", "Copy Sharingan"
 };
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability: pure training - all 10 stat points, and chakra pool, health and taijutsu go up to 7",
 	"costs 4 stat points. Awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster (2x from fighting), your mind clouds; C: on/off",
 	"costs 4 stat points. C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
 	"costs 5 stat points. C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
-	"costs 3 stat points. C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"
+	"costs 3 stat points. C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute",
+	"costs 4 stat points. C: toggle (6 chakra/s, no regen): no health, rims or aim - you read the jutsu being charged, and the last jutsu you see cast goes into an extra slot of your list (Lv2 at most, 25% dearer) until you copy another or die; close the eye to keep it. Yin / Yang can't be copied"
 };
 // one line per jutsu for the build screen
 static const char * const shinobiJutsuInfo[SJ_COUNT] = {
@@ -1160,10 +1163,33 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: half a second to wind up, then you spin inside a dome of chakra (30 chakra a second): blades, fists and jutsu don't get through, missiles glance off, whoever is close is thrown away and knocked down; rooted, no attacks"
 };
 
-static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue };
+static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };
 // a gift is paid for with training: stat points the special takes from the 10
-//                                           none  curse  sharingan  byakugan  gates
-static const int shinobiPerkCost[SP_COUNT] = { 0,    4,     4,         5,        3 };
+//                                           none  curse  sharingan  byakugan  gates  copyeye
+static const int shinobiPerkCost[SP_COUNT] = { 0,    4,     4,         5,        3,     4 };
+
+/*
+Copy Sharingan: a jutsu cast by someone else within SHINOBI_COPY_RANGE, in front of the
+open eye (within SHINOBI_COPY_FOV) and in plain sight (no walls, no Hidden Mist), goes
+into the copy slot - unless it is Yin / Yang, basic (Shunshin, Kawarimi), passive or in
+your own build. One slot: the next one seen replaces it. Cast from it: Lv2 at most and
+SHINOBI_COPY_COST times the price.
+*/
+#define SHINOBI_COPYEYE_DRAIN_MS   167     // 6 chakra a second
+#define SHINOBI_COPY_RANGE         1200
+#define SHINOBI_COPY_FOV           0.5f    // cos of the half angle (60 degrees)
+#define SHINOBI_COPY_COST          1.25f
+#define SHINOBI_COPY_MAX_LEVEL     2
+static QINLINE qboolean Shinobi_Copyable( int jutsu ) {
+	return jutsu > SJ_NONE && jutsu < SJ_COUNT && !SHINOBI_JUTSU_PASSIVE( jutsu )
+		&& shinobiJutsuSchool[jutsu] != SS_YINYANG && shinobiJutsuSchool[jutsu] != SS_BASE;
+}
+// the price of a copied jutsu (0 = above the copy's top level)
+static QINLINE int Shinobi_CopyCost( int jutsu, int level ) {
+	if ( level > SHINOBI_COPY_MAX_LEVEL )
+		return 0;
+	return (int)( Shinobi_JutsuCost( jutsu, level ) * SHINOBI_COPY_COST + 0.99f );
+}
 
 typedef struct {
 	int numJutsu;
