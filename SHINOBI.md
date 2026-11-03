@@ -179,11 +179,20 @@ are as long as its skeleton's, so they used to be stretched. `tools/make_skeleto
 _humanoid.gla _humanoid_ninja.gla --upper-arm 0.85` writes a copy of the stock skeleton
 with the elbows moved in, every animation carried over (each bone keeps its rotation in
 every frame); `blend2glm.py --gla _humanoid_ninja.gla --stock-gla _humanoid.gla` builds
-models on it (the tags move with the bones). It goes in `zz_shinobi_skeleton.pk3` as
-`models/players/_humanoid/_humanoid_ninja.gla` (the game only takes skeletons from that
-folder; its animation.cfg is shared). It is made from Raven's file: generate it from
-your own game files, it isn't in the repo. The server still traces sabers on the stock
-skeleton, so a blade reaches ~1.5 units further than the shorter arm draws it.
+models on it (the tags move with the bones). It lives in
+`assets/models/players/_humanoid/_humanoid_ninja.gla` (the game only takes skeletons from
+that folder; its animation.cfg is shared), so it goes into `zz_shinobi.pk3` with the rest.
+The server still traces sabers on the stock skeleton, so a blade reaches ~1.5 units
+further than the shorter arm draws it.
+
+## Package for friends
+
+`tools/package-win64.sh` builds everything and writes `dist/JK_Shinobi-win64.zip`: unpack
+it into `Jedi Academy\GameData` and run `JK_Shinobi.bat`. It holds OpenJK
+(`tools/openjk-win64`, see its README), the mod's modules and `shinobi/zz_shinobi.pk3`
+with all the assets: effects, menus, configs, the player models (Asuma, Kakashi, Sasuke,
+in `assets/models/players/`) and the ninja skeleton. New converted models go into
+`assets/models/players/<name>/` (`blend2glm.py --out assets`).
 
 ## Player size
 

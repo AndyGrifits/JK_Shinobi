@@ -10,8 +10,7 @@ The old Naruto rigs have shorter upper arms than _humanoid (Asuma 85 %, Kakashi 
 Sasuke 89 % of it) and about the same forearms, legs and collar bones; models made on
 this skeleton (blend2glm --gla) don't need their upper arms stretched any more. The
 file must sit in models/players/_humanoid/ (the game only takes skeletons from there,
-and that folder's animation.cfg goes with it). The stock one is Raven's: generate this
-from your own copy, don't commit it.
+and that folder's animation.cfg goes with it): assets/models/players/_humanoid/.
 """
 import argparse
 import os
