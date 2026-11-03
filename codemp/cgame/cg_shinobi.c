@@ -2075,6 +2075,34 @@ static void CG_ShinobiKaitenDome( centity_t *cent ) {
 	}
 }
 
+/*
+Clinging to a wall (the stock wall grab): the third-person camera turns to look away from
+the wall, the way the jump off it will go (the body faces as the hold animation wants;
+the jump pushes straight off the wall). Eased in and out.
+*/
+float CG_ShinobiWallCamYaw( void ) {
+	static float cur;
+	const playerState_t *ps = &cg.predictedPlayerState;
+	float target = 0, d, step;
+
+	if ( ps->pm_flags & PMF_STUCK_TO_WALL ) {
+		switch ( ps->legsAnim ) { // the view is the wall's normal + this turn (PM_AdjustAngleForWallJump): undo it
+		case BOTH_FORCEWALLHOLD_RIGHT: case BOTH_FORCEWALLREBOUND_RIGHT: target = 90; break;
+		case BOTH_FORCEWALLHOLD_LEFT:  case BOTH_FORCEWALLREBOUND_LEFT:  target = -90; break;
+		case BOTH_FORCEWALLHOLD_FORWARD: case BOTH_FORCEWALLREBOUND_FORWARD: target = 180; break;
+		default: target = 0; break;
+		}
+	}
+	d = AngleNormalize180( target - cur );
+	step = cg.frametime * 0.6f; // degrees per ms
+	if ( fabs( d ) <= step )
+		cur = target;
+	else
+		cur += d > 0 ? step : -step;
+	cur = AngleNormalize180( cur );
+	return cur;
+}
+
 // the model turns round and round (after the stock angles; the bolts follow via turAngles)
 void CG_ShinobiKaitenSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles ) {
 	if ( !( cent->currentState.eFlags & SHINOBI_EF_KAITEN ) || ( cent->currentState.eFlags & EF_DEAD ) )

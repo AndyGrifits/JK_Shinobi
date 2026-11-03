@@ -2341,6 +2341,26 @@ void RespawnItem( gentity_t *ent ) {
 			;
 	}
 
+	if ( shinobi_randomItems.integer && !( ent->flags & FL_DROPPED_ITEM ) && ent->item
+		&& Shinobi_ToolForItem( ent->item->classname, NULL ) != STOOL_NONE )
+	{ // JK_Shinobi: what comes back is a random one of our pickups, not always the same
+		static const struct { const char *classname; int weight; } pool[] = {
+			{ "item_medpac", 25 }, { "ammo_force", 25 }, { "weapon_thermal", 20 }, { "weapon_trip_mine", 15 }, { "weapon_det_pack", 15 }
+		};
+		int r = Q_irand( 0, 99 ), k;
+		for ( k = 0; k < (int)ARRAY_LEN( pool ) - 1 && r >= pool[k].weight; k++ )
+			r -= pool[k].weight;
+		{
+			gitem_t *it = BG_FindItem( pool[k].classname );
+			if ( it )
+			{
+				ent->item = it;
+				ent->classname = it->classname;
+				ent->s.modelindex = it - bg_itemlist;
+			}
+		}
+	}
+
 	ent->r.contents = CONTENTS_TRIGGER;
 	//ent->s.eFlags &= ~EF_NODRAW;
 	ent->s.eFlags &= ~(EF_NODRAW | EF_ITEMPLACEHOLDER);
@@ -3143,6 +3163,17 @@ void G_SpawnItem (gentity_t *ent, gitem_t *item) {
 	RegisterItem( item );
 	if ( G_ItemDisabled(item) )
 		return;
+	if ( Shinobi_ToolForItem( item->classname, NULL ) != STOOL_NONE )
+	{ // JK_Shinobi: any of our pickups may come back as another one - all of them known from the start
+		static const char * const reps[] = { "item_medpac", "ammo_force", "weapon_thermal", "weapon_trip_mine", "weapon_det_pack" };
+		int r;
+		for ( r = 0; r < (int)ARRAY_LEN( reps ); r++ )
+		{
+			gitem_t *it = BG_FindItem( reps[r] );
+			if ( it )
+				RegisterItem( it );
+		}
+	}
 
 	ent->item = item;
 	// some movers spawn on the second frame, so delay item

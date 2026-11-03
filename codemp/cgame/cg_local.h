@@ -1809,6 +1809,7 @@ void CG_ShinobiHitText_f( void );
 void CG_ShinobiChargeCancel_f( void );
 void CG_ShinobiGuardBubble( centity_t *cent );
 void CG_ShinobiKaitenSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles );
+float CG_ShinobiWallCamYaw( void );
 void CG_ShinobiOutline( centity_t *cent, const refEntity_t *src );
 qboolean CG_ShinobiGuardShell( centity_t *cent, refEntity_t *ent, int alpha );
 

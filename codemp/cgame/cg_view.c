@@ -672,7 +672,7 @@ static void CG_OffsetThirdPersonView( void )
 	}
 	else
 	{	// Add in the third Person Angle.
-		cameraFocusAngles[YAW] += cg_thirdPersonAngle.value;
+		cameraFocusAngles[YAW] += cg_thirdPersonAngle.value + CG_ShinobiWallCamYaw(); // JK_Shinobi: clinging to a wall - look the way the jump will go
 		{
 			float pitchOffset = cg_thirdPersonPitchOffset.value;
 			if (cg.snap && cg.snap->ps.m_iVehicleNum)

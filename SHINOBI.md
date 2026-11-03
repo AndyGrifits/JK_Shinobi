@@ -63,6 +63,12 @@ On the floor 0.75 s at least (stock 1.1), then a direction key rolls you up that
 flips you up (stock moves); doing nothing you stand up 0.7 s later (stock 4 s). Bots mostly
 roll up to a side. Kawarimi works from the floor.
 
+## Small things
+
+- A roll (a dodge roll or rolling up from the floor) puts out the flames when you are on fire.
+- Hanging on a wall (the stock wall grab) the third-person camera turns away from the wall,
+  the way the jump off it goes; it turns back when you let go.
+
 ## Bots defend
 
 Bots wear our characters (a random `shinobi.char` model nobody else wears yet, instead of
@@ -381,6 +387,10 @@ in hand. `Shift + Z` is always the marked kunai. They are held in an empty hand.
 
 Up to 6 of each throwable (one Fuma Shuriken); respawn 20 s (pills) / 30 s (tools). Wind Wall throws
 explosive kunai and shuriken back too. Shields (armor) still refill the block guard.
+
+Each spot hands out a random item when it comes back after a pickup (healing pill 25%,
+chakra pill 25%, explosive kunai 20%, tag 15%, Fuma 15%); the first one is the map's own.
+`shinobi_randomItems 0` keeps the map's item every time. Dropped items are not touched.
 
 ## Clones
 

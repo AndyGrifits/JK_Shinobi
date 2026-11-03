@@ -325,6 +325,13 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	// map water puts the fire out and soaks you
 	if ( ent->waterlevel >= 1 )
 		Shinobi_Wet( ent );
+	// a roll on the ground smothers the flames
+	if ( client->shinobi.burnEnd > level.time && BG_InRoll( &client->ps, client->ps.legsAnim ) ) {
+		vec3_t up = { 0, 0, 1 };
+		client->shinobi.burnEnd = 0;
+		G_PlayEffectID( shinobiMedia.fxSteamBurst, client->ps.origin, up );
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndHiss );
+	}
 
 	if ( client->shinobi.burnEnd > level.time && client->shinobi.burnTick <= level.time ) {
 		gentity_t *attacker = client->shinobi.burnAttacker ? &g_entities[client->shinobi.burnAttacker - 1] : ent;
