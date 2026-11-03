@@ -37,7 +37,18 @@ if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footst
 - `texture_recolor` {shader: [[dark], [light]]}, `texture_copy` {new shader: model shader}.
 - `ground_shaders`: props sit on that terrain; `ring`: an adobe ring along a superellipse (props.py
   `plan_ring`), pushed outwards where it would hit the model; `boundary.superellipse` for the edge.
-- `worldspawn._blocksize "0"` for big open maps (no pointless 1024-block vis split).
+- `worldspawn._blocksize "0"` for big open maps (no pointless 1024-block vis split); `distanceCull` (MP renderer
+  default 6000) must reach the far side of a sky dome, or the game culls it and leaves a round hole in the sky.
+- `model.stretch`: raise a storey - vertices of the listed shaders within r of a point move up by dz above z1,
+  proportionally between z0 and z1. `split_details.regions`: parts wholly inside a box lose collision above z.
+- `plaza`: slices the coarse terrain into a grid around a rect, levels it (blending back over `margin`) and
+  can cut a `hole` (for a sunken `pool` prop). `water`: water brushes; `extra_shaders`: hand-written shaders
+  (`raw` stages, `{tex}` = a generated texture) for brushes; a model shader with `raw` replaces the generated one.
+- `slabs`: smooth (flat or sloped) clip walkways from / to [x, y, top z], e.g. over a bumpy deck.
+- `_d` detail copies and `"twosided"` shaders are drawn from both sides (single-sided railings of a rip).
+- props: `ledges` (platforms hugging a round wall, inner edge found by raycasts), `pool`, `furniture`
+  (desk / shelf at a given floor z), `dust_ring` (translucent scrolling dust curtains along a superellipse),
+  `crates` sit on the lowest ground under each crate.
 
 ## Items
 
@@ -96,9 +107,16 @@ by the north wall, Chakra Pill by the south-west wall.
 ## shinobi_sand_village - Village Hidden in the Sand
 
 Source: `Crimson Storm - Sand Village 1` (.blend, 28.5k tris, metres). Scale 30. Kept: the whole village,
-its terrain and the rip's anime sky dome; the horizon mountain cards recoloured from snow to desert
-rock; flat sand added out to the horizon. Added: a ring of 33 Tatooine-like adobe towers, blocks and
-town walls around it (the map's edge; roofs to fight on), sandstone pillars and slabs, ruins, crates
-and boulders on the empty sand. 8 FFA spawns (open ground, >= 212 u from anything solid), duel /
-power duel, 11 items (Fuma on the Kazekage tower and the NW pillar, tags on the slabs, kunai on the
-pillar / boulder / ruin, pills by the ring). Boundary: playerclip superellipse outside the ring up to 2700.
+its terrain and the rip's anime sky dome (`distanceCull 16000`: it is off-centre and ~9000 away); the
+horizon mountain cards recoloured from snow to desert rock; flat sand added out to the horizon. Added: a
+ring of 33 Tatooine-like adobe towers, blocks and town walls around it (the map's edge; flat roofs inside a
+parapet to fight on), sandstone pillars and slabs, ruins, crates and boulders on the empty sand.
+Kazekage tower: the open top storey raised from 94 to 200 u (floor 1343, roof 1738), lit, with a desk,
+two scroll shelves and crates (a Chakra Pill on the desk); 13 adobe ledges spiral up the dome (~115 u
+apart) to the storey and on to the roof. North: a levelled plaza with a sunken pool (1032 x 572 water,
+96 deep, steps out at both ends, coping and a low fence with a gap on every side) - the water-walking
+arena. The bridge between the two houses has a flat clip floor (452) and a ramp up to the west roof;
+its deck, rails and bumps are walk-through. Dust storm: two translucent curtains scrolling along the edge
+(one stage each). 8 FFA spawns, duel / power duel, 12 items (Fuma on the Kazekage roof and the NW pillar,
+tags on the SE slab and the pool's NW corner, kunai on the pillar / boulder / ruin, pills by the ring and
+on the desk). Boundary: playerclip superellipse outside the ring up to 2700.

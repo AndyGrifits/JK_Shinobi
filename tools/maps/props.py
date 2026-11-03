@@ -17,6 +17,8 @@ from mathutils import Matrix, Vector, noise
 
 TILE = {"p_rock": 256.0, "p_bark": 192.0, "p_post": 128.0}
 UV_NAME = "UVMap"   # set by prep_model.py to the model's UV layer name, so the join keeps one layer
+GROUND = None       # prep_model.py: ground_z(x, y) of the terrain (crates sit on the lowest corner)
+STRUCT = None       # prep_model.py: BVH of the model's structures (ledges hug a wall)
 
 
 def _noise(v, seed, f):
@@ -303,14 +305,18 @@ def adobe_block(p, mat_for, i):
     w, d, h = p["size"]; seed = p.get("seed", i)
     z0, z1 = _zs(p, h); zg = p.get("_zmax", 0)
     bm = bmesh.new()
-    lo, hi, top = _prism(bm, _rrect(w, d, p.get("round", 70)), z0, z1, 0, scale_top=0.97)
-    # roof: inset a parapet (28 u) and sink the roof 40 u
-    res = bmesh.ops.inset_region(bm, faces=[top], thickness=28, depth=0)
-    ext = bmesh.ops.extrude_face_region(bm, geom=[top])
-    nv = [g for g in ext["geom"] if isinstance(g, bmesh.types.BMVert)]
-    bmesh.ops.translate(bm, verts=nv, vec=(0, 0, -40))
-    for f in bm.faces:
-        f.material_index = 0
+    rc = p.get("round", 70)
+    lo, hi, _ = _prism(bm, _rrect(w, d, rc), z0, z1, 0, top=False, scale_top=0.97)
+    # roof: a 28 u parapet around a flat roof 40 u down, every face wound explicitly (outward / up)
+    inner = _rrect(w * 0.97 - 56, d * 0.97 - 56, max(8, rc * 0.97 - 28))
+    it = [bm.verts.new((x, y, z1)) for x, y in inner]
+    ib = [bm.verts.new((x, y, z1 - 40)) for x, y in inner]
+    n = len(inner)
+    for k in range(n):
+        j = (k + 1) % n
+        bm.faces.new((hi[k], hi[j], it[j], it[k])).material_index = 0      # parapet top
+        bm.faces.new((it[k], it[j], ib[j], ib[k])).material_index = 0      # parapet inner face
+    bm.faces.new(ib).material_index = 0                                    # roof
     if p.get("dome"):
         dr = min(w, d) * 0.22
         sph = bmesh.ops.create_uvsphere(bm, u_segments=14, v_segments=8, radius=1.0)
@@ -372,10 +378,17 @@ def ruin(p, mat_for, i):
 
 def crates(p, mat_for, i):
     """a stack of wooden crates: [[dx, dy, size, yaw], ...] relative to "at", stacked by order"""
-    zg = p.get("_zmax", 0); bm = bmesh.new()
+    zg = p.get("z", p.get("_zmax", 0)); bm = bmesh.new()
     placed = []
+    ya = math.radians(p.get("yaw", 0)); cy_, sy_ = math.cos(ya), math.sin(ya)
     for dx, dy, s, yw in p.get("stack", [[0, 0, 80, 0], [90, 10, 70, 15], [30, 5, 70, -10]]):
         z = zg - 4
+        if GROUND and "z" not in p:                  # a crate on a slope sits on the lowest ground under it
+            gz = []
+            for cx_, cy2 in ((0, 0), (-s / 2, -s / 2), (s / 2, -s / 2), (s / 2, s / 2), (-s / 2, s / 2)):
+                lx, ly = dx + cx_, dy + cy2
+                gz.append(GROUND(p["at"][0] + lx * cy_ - ly * sy_, p["at"][1] + lx * sy_ + ly * cy_))
+            z = min(gz) - 4
         for (px, py, ps, pz) in placed:                # sit on a crate under it
             if abs(px - dx) < (ps + s) / 2 - 10 and abs(py - dy) < (ps + s) / 2 - 10:
                 z = max(z, pz)
@@ -395,8 +408,147 @@ def ground_plane(p, mat_for, i):
     return _finish_multi(bm, f"prop_plane_{i}", [p["shader"]], mat_for, p["at"], 0, [p.get("tile", 1024)])
 
 
+def _to_object(bm, name, shaders, mat_for):
+    """mesh object from a bmesh that already has its UVs (no box mapping)"""
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    if me.uv_layers:
+        me.uv_layers[0].name = UV_NAME
+    ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
+    for s_ in shaders:
+        me.materials.append(mat_for(s_))
+    return ob
+
+
+def _box(bm, x0, y0, z0, x1, y1, z1, mat):
+    _prism(bm, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], z0, z1, mat)
+
+
+def ledges(p, mat_for, i):
+    """platforms hugging a round wall, spiralling up (map.json: "at" = wall centre, "levels": [[top z, a0, a1,
+    corbel?], ...] degrees ccw from +x, "depth", "thick"): the inner edge follows the wall (horizontal rays
+    from the centre against the model), so they sit flush on a bulging dome"""
+    cx, cy = p["at"]; depth = p.get("depth", 150); th = p.get("thick", 24)
+    bm = bmesh.new(); seg = p.get("seg", 8)
+    def wall_r(a, z):
+        d = Vector((math.cos(a), math.sin(a), 0))
+        h = STRUCT.ray_cast(Vector((cx, cy, z)), d, 3000) if STRUCT else (None,)
+        return (h[0] - Vector((cx, cy, z))).length if h[0] is not None else None
+    for lv in p["levels"]:
+        zt, a0, a1 = lv[:3]; cb = lv[3] if len(lv) > 3 else 50
+        ring = []
+        for k in range(seg + 1):
+            a = math.radians(a0 + (a1 - a0) * k / seg)
+            r0 = next((r for r in (wall_r(a, zt - dz) for dz in (4, 30, 60, 90, 120)) if r), 500)
+            rs = [r for r in (wall_r(a, zt + dz) for dz in (8, 40, 72)) if r]
+            ri = r0 - 14; ro = max([r0] + rs) + depth
+            c, s_ = math.cos(a), math.sin(a)
+            P = lambda r, z: bm.verts.new((cx + r * c, cy + r * s_, z))
+            ring.append((P(ri, zt), P(ro, zt), P(ro, zt - th), P(ri, zt - th - cb)))
+        for k in range(seg):
+            A, B = ring[k], ring[k + 1]
+            for q in range(4):
+                bm.faces.new((A[q], A[(q + 1) % 4], B[(q + 1) % 4], B[q]))
+        bm.faces.new(ring[0]); bm.faces.new(ring[-1][::-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _finish_multi(bm, f"prop_ledges_{i}", ["p_adobe"], mat_for, (0, 0), 0, [TILE["p_adobe"]])
+
+
+def pool(p, mat_for, i):
+    """sunken rectangular pool for the hole a "plaza" cut in the terrain: tiled walls and floor, underwater
+    steps at the middle of the short sides, an adobe coping over the terrain edge, a low wooden fence with
+    gaps (map.json: "rect" = the hole, "z" = plaza level, "depth"; gen_map "water" fills it)"""
+    x0, y0, x1, y1 = p["rect"]; Z = p["z"]; D = p.get("depth", 96); w = 24
+    bm = bmesh.new()
+    _box(bm, x0, y0, Z - D - 16, x1, y1, Z - D, 0)                                   # floor
+    zt = Z + 14
+    for b in ((x0, y0, x0 + w, y1), (x1 - w, y0, x1, y1), (x0 + w, y0, x1 - w, y0 + w), (x0 + w, y1 - w, x1 - w, y1)):
+        _box(bm, b[0], b[1], Z - D - 16, b[2], b[3], Z - 6, 0)                         # walls
+    o = 36                                                                            # coping over the terrain edge
+    for b in ((x0 - o, y0 - o, x1 + o, y0 + w), (x0 - o, y1 - w, x1 + o, y1 + o), (x0 - o, y0 + w, x0 + w, y1 - w), (x1 - w, y0 + w, x1 + o, y1 - w)):
+        _box(bm, b[0], b[1], Z - 6, b[2], b[3], zt, 1)
+    long_x = (x1 - x0) >= (y1 - y0); sw = p.get("steps_w", 192); cxm, cym = (x0 + x1) / 2, (y0 + y1) / 2
+    ns = int(D / 16)
+    for k in range(ns):                                                               # steps out of the water
+        top = Z - D + 16 * (k + 1); dep = 24 * (ns - k)
+        if long_x:
+            _box(bm, x0 + w, cym - sw / 2, Z - D, x0 + w + dep, cym + sw / 2, top, 0)
+            _box(bm, x1 - w - dep, cym - sw / 2, Z - D, x1 - w, cym + sw / 2, top, 0)
+        else:
+            _box(bm, cxm - sw / 2, y0 + w, Z - D, cxm + sw / 2, y0 + w + dep, top, 0)
+            _box(bm, cxm - sw / 2, y1 - w - dep, Z - D, cxm + sw / 2, y1 - w, top, 0)
+    # fence on the coping's outer half: posts + two rails, a gap in the middle of every side
+    fh = p.get("fence_h", 48); gap = p.get("gap", 200); e = o - 8; sp = p.get("post_spacing", 120)
+    def fence(ax, ay, bx, by):
+        L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
+        for s0, s1 in ((0, L / 2 - gap / 2), (L / 2 + gap / 2, L)):
+            n = max(1, round((s1 - s0) / sp))
+            for k in range(n + (0 if s1 >= L else 1)):         # the corner post belongs to the next side
+                s_ = s0 + (s1 - s0) * k / n; px, py = ax + ux * s_, ay + uy * s_
+                _box(bm, px - 6, py - 6, zt, px + 6, py + 6, zt + fh, 2)
+            for rz in (fh * 0.45, fh - 6):
+                pa = (ax + ux * s0, ay + uy * s0); pb = (ax + ux * s1, ay + uy * s1)
+                _box(bm, min(pa[0], pb[0]) - 3, min(pa[1], pb[1]) - 3, zt + rz - 3, max(pa[0], pb[0]) + 3, max(pa[1], pb[1]) + 3, zt + rz + 3, 2)
+    fence(x0 - e, y0 - e, x1 + e, y0 - e); fence(x1 + e, y0 - e, x1 + e, y1 + e)
+    fence(x1 + e, y1 + e, x0 - e, y1 + e); fence(x0 - e, y1 + e, x0 - e, y0 - e)
+    return _finish_multi(bm, f"prop_pool_{i}", ["p_pooltile", "p_adobe", "p_wood"], mat_for, (0, 0), 0,
+                         [TILE["p_pooltile"], TILE["p_adobe"], TILE["p_wood"]])
+
+
+def dust_ring(p, mat_for, i):
+    """cheap dust storm at the map's edge: a few translucent curtains along a superellipse (map.json:
+    "at" = centre, "superellipse" [a, b, n], "layers": [[offset, z0, z1], ...], "tile" u per texture repeat).
+    One quad strip per layer, u along the curve, v from the foot (0) to the top (1): the texture fades out
+    upwards and the shader scrolls it sideways"""
+    cx, cy = p["at"]; A, B, N = p["superellipse"]; seg = p.get("segments", 128); tile = p.get("tile", 2048)
+    bm = bmesh.new(); uv = bm.loops.layers.uv.verify(); seed = p.get("seed", i)
+    for li, (off, z0, z1) in enumerate(p["layers"]):
+        pts = superellipse(cx, cy, A + off, B + off, N, seg)
+        lo = []; hi = []; us = [0.0]
+        for k in range(seg + 1):
+            x, y = pts[k % seg]
+            if k: us.append(us[-1] + math.dist(pts[k % seg], pts[k - 1]) / tile)
+            top = z1 + 260 * _noise(Vector((k / seg * 9, li, 0)), seed, 1.0)
+            lo.append(bm.verts.new((x, y, z0))); hi.append(bm.verts.new((x, y, top)))
+        scale = max(1, round(us[-1])) / us[-1]          # whole repeats: no seam where the strip closes
+        for k in range(seg):
+            f = bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+            for lp, (u, v) in zip(f.loops, ((us[k], 0), (us[k + 1], 0), (us[k + 1], 1), (us[k], 1))):
+                lp[uv].uv = (u * scale + li * 0.37, v)
+    return _to_object(bm, f"prop_dust_{i}", [p.get("shader", "p_dust")], mat_for)
+
+
+def furniture(p, mat_for, i):
+    """indoor pieces at a given floor height ("z"): "desk" (size [w, d, h]) with a few scroll rolls on it,
+    "shelf" (size [w, d, h]) - a cabinet with dark pigeon-holes on its front (local -y)"""
+    w, d, h = p["size"]; z = p["z"]; bm = bmesh.new(); kind = p["kind"]
+    if kind == "desk":
+        _box(bm, -w / 2 + 8, -d / 2 + 8, z, w / 2 - 8, d / 2 - 8, z + h - 6, 0)       # body
+        _box(bm, -w / 2, -d / 2, z + h - 6, w / 2, d / 2, z + h, 0)                   # top
+        for k, (sx, sy) in enumerate(((-0.25, 0.1), (0.05, -0.15), (0.3, 0.2))):     # scrolls lying on it
+            r = 5 + k % 2 * 2; L = 34 + 8 * k; px, py = sx * w, sy * d
+            ring = [(px - L / 2, py + r * math.cos(2 * math.pi * q / 8)) for q in range(8)]
+            sph = [(px - L / 2, py + r * math.cos(2 * math.pi * q / 8), z + h + r + r * math.sin(2 * math.pi * q / 8)) for q in range(8)]
+            a = [bm.verts.new(v) for v in sph]; b = [bm.verts.new((v[0] + L, v[1], v[2])) for v in sph]
+            for q in range(8):
+                f = bm.faces.new((a[q], a[(q + 1) % 8], b[(q + 1) % 8], b[q])); f.material_index = 2
+            bm.faces.new(a[::-1]).material_index = 2; bm.faces.new(b).material_index = 2
+    else:
+        _box(bm, -w / 2, -d / 2, z, w / 2, d / 2, z + h, 0)
+        rows = max(2, int(h / 46)); cols = max(2, int(w / 44))
+        for r_ in range(rows):
+            for c_ in range(cols):
+                cx_ = -w / 2 + (c_ + 0.5) * w / cols; cz = z + (r_ + 0.5) * h / rows
+                _quad(bm, (cx_, -d / 2 - 1, cz), (1, 0, 0), (0, 0, 1), w / cols - 8, h / rows - 8, 1)
+    bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != 1])
+    return _finish_multi(bm, f"prop_{kind}_{i}", ["p_wood", "p_dark", "p_paper"], mat_for, p["at"], p.get("yaw", 0),
+                         [TILE["p_wood"], TILE["p_dark"], TILE["p_paper"]])
+
+
+TILE.update({"p_pooltile": 128.0, "p_wood": 128.0, "p_paper": 64.0})
+TEXTURES.update({"p_pooltile": "pooltile", "p_wood": "wood", "p_paper": "paper", "p_dust": "dust"})
 BUILDERS.update({"adobe_tower": adobe_tower, "adobe_block": adobe_block, "adobe_wall": adobe_wall,
-                 "ruin": ruin, "crates": crates, "ground_plane": ground_plane})
+                 "ruin": ruin, "crates": crates, "ground_plane": ground_plane, "ledges": ledges, "pool": pool,
+                 "dust_ring": dust_ring, "furniture": furniture})
 
 
 def superellipse(cx, cy, a, b, n, k=2000):

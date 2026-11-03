@@ -15,6 +15,9 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
+ALPHA = {"dust"}          # kinds with an alpha channel (saved as PNG, packed as TGA)
+
+
 def pnoise(n, k, rng, aspect=(1, 1)):
     """periodic value noise, k cells across (x and y wrap)"""
     kx, ky = k * aspect[0], k * aspect[1]
@@ -41,7 +44,8 @@ def col(*c):
 
 def make(kind, path, n=None):
     rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
-                                 "dark": 61, "crate": 67}[kind])
+                                 "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83}[kind])
+    alpha = None
     if kind == "concrete":
         n = n or 1024
         v = np.linspace(1, 0, n)[:, None]                        # 1 at the image top, 0 at the bottom
@@ -115,10 +119,39 @@ def make(kind, path, n=None):
         frame = ((x < 0.09) | (x > 0.91))
         img = np.where(planks[..., None], img * 0.55, img)
         img = np.where((frame[None, :] | frame[:, None])[..., None], img * 0.82 + col(10, 6, 2), img)
+    elif kind == "pooltile":                                          # turquoise glazed tiles, light grout
+        n = n or 256
+        x = np.linspace(0, 1, n, endpoint=False)
+        gx = np.abs(((x * 8) % 1) - 0.5) > 0.44; grout = gx[None, :] | gx[:, None]
+        tint = np.floor(x * 8)[None, :] * 7 + np.floor(x * 8)[:, None] * 13
+        var = (np.sin(tint) * 0.5 + 0.5)[..., None] * col(-18, -10, -6)
+        img = col(70, 170, 178) + var + (fbm(n, 6, rng, 3) - 0.5)[..., None] * col(20, 26, 26)
+        img = np.where(grout[..., None], col(214, 206, 186) + (fbm(n, 30, rng, 2) - 0.5)[..., None] * 16, img)
+    elif kind == "paper":                                             # scroll paper
+        n = n or 64
+        img = col(226, 214, 184) + (fbm(n, 4, rng, 3) - 0.5)[..., None] * 18
+        img -= ((np.abs(((np.linspace(0, 1, n) * 6) % 1) - 0.5) > 0.46)[:, None] * 40)[..., None]
+    elif kind == "water":                                             # blue-green ripples (scrolled in the shader)
+        n = n or 256
+        a = fbm(n, 4, rng, 4); b = fbm(n, 8, rng, 3)
+        rip = np.abs(np.sin((a * 3 + b) * 2 * np.pi))                 # wavy caustic-like bands
+        img = col(38, 112, 128) + (a - 0.5)[..., None] * col(30, 40, 40) + (rip ** 8)[..., None] * col(90, 110, 100)
+    elif kind == "dust":                                              # wind-blown sand curtain: RGBA, opaque at the
+        n = n or 512                                                  # foot (image bottom), fading out at the top
+        streak = fbm(n, 3, rng, 5, aspect=(1, 1))
+        streak = 0.6 * fbm(n, 2, rng, 4, aspect=(1, 6)) + 0.4 * streak  # long horizontal gusts
+        v = np.linspace(1, 0, n)[:, None]                             # 1 at the top row
+        prof = np.clip(1 - v, 0, 1) ** 1.1
+        alpha = np.clip(prof * (0.45 + 0.9 * streak), 0, 1) * 245
+        img = col(214, 178, 128) + (streak - 0.5)[..., None] * col(40, 34, 26)
     else:
         raise SystemExit(f"unknown kind {kind}")
     im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
     im = im.filter(ImageFilter.SMOOTH_MORE)
+    if alpha is not None:
+        im = im.convert("RGBA"); im.putalpha(Image.fromarray(np.clip(alpha, 0, 255).astype(np.uint8)).filter(ImageFilter.SMOOTH_MORE))
+        im.save(path)
+        return path
     im.save(path, quality=92)
     return path
 

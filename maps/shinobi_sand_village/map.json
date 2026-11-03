@@ -23,15 +23,48 @@
    ],
    "max_dim": 24,
    "thin": 6,
-   "ribbon": 64
+   "ribbon": 64,
+   "regions": [
+    {
+     "_": "bridge between the two houses: deck, rails and bumps lose collision above 440, gen_map slabs give it a flat floor",
+     "within": [
+      150,
+      -320,
+      230,
+      930,
+      140,
+      500
+     ],
+     "above": 440
+    }
+   ]
   },
-  "_split": "no collision only for tiny bits (< 24 u) and thin narrow ribbons (wires, poles, railings); 64 made the stair steps walk-through"
+  "_split": "no collision only for tiny bits (< 24 u) and thin narrow ribbons (wires, poles, railings); 64 made the stair steps walk-through",
+  "stretch": [
+   {
+    "_": "Kazekage tower: the open top storey (floor 1343, lip 1372) was 94 u high - raise it to 200",
+    "center": [
+     -1250,
+     532
+    ],
+    "r": 800,
+    "z0": 1380,
+    "z1": 1436,
+    "dz": 106,
+    "shaders": [
+     "sm_daoju_tex_01_b",
+     "sm_daoju_tex_01_c",
+     "sm_daoju_tex_01_d"
+    ]
+   }
+  ]
  },
  "shaders": {
   "sm_daoju_tex_01_b": {
    "solid": true,
    "mat": "plaster",
-   "what": "buildings (atlas)"
+   "what": "buildings (atlas)",
+   "twosided": true
   },
   "sm_daoju_tex_01_b_d": {
    "solid": false,
@@ -41,7 +74,8 @@
   "sm_daoju_tex_01_c": {
    "solid": true,
    "mat": "plaster",
-   "what": "walls, arches"
+   "what": "walls, arches",
+   "twosided": true
   },
   "sm_daoju_tex_01_c_d": {
    "solid": false,
@@ -103,6 +137,37 @@
    "mat": "sand",
    "samplesize": 256,
    "what": "flat sand to the horizon under the terrain's edge"
+  },
+  "p_pooltile": {
+   "solid": true,
+   "mat": "tiles",
+   "what": "pool walls / floor / steps (generated)"
+  },
+  "p_wood": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "pool fence, Kazekage furniture (generated)"
+  },
+  "p_paper": {
+   "solid": false,
+   "what": "scrolls on the Kazekage desk"
+  },
+  "p_dust": {
+   "what": "dust storm curtains at the edge (generated, alpha fades upwards)",
+   "raw": [
+    "surfaceparm nonsolid",
+    "surfaceparm nolightmap",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm noimpact",
+    "cull twosided",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen identity",
+    "\ttcMod scroll 0.035 0",
+    "}"
+   ]
   }
  },
  "ground_shaders": [
@@ -221,20 +286,6 @@
   },
   {
    "_": "north centre: sandstone slab (high ground)"
-  },
-  {
-   "type": "mesa",
-   "at": [
-    -100,
-    1100
-   ],
-   "size": [
-    380,
-    280,
-    230
-   ],
-   "yaw": -20,
-   "seed": 6
   },
   {
    "_": "NE: ruin + crates"
@@ -461,6 +512,228 @@
      -5
     ]
    ]
+  },
+  {
+   "_": "water pool on the levelled plaza (1032 x 572 water, 96 deep, steps out at both ends, fence with gaps)"
+  },
+  {
+   "type": "pool",
+   "rect": [
+    -500,
+    840,
+    580,
+    1460
+   ],
+   "z": 50,
+   "depth": 96
+  },
+  {
+   "_": "Kazekage tower: 13 ledges spiralling up the dome, ~115 u apart: the top storey (lip 1372), a buttress on its lip, two on the roof dome, the roof (1738)"
+  },
+  {
+   "type": "ledges",
+   "at": [
+    -1250,
+    532
+   ],
+   "depth": 150,
+   "thick": 24,
+   "levels": [
+    [
+     340,
+     -42,
+     -12
+    ],
+    [
+     455,
+     -8,
+     22
+    ],
+    [
+     569,
+     26,
+     56
+    ],
+    [
+     684,
+     60,
+     90
+    ],
+    [
+     799,
+     94,
+     124
+    ],
+    [
+     913,
+     128,
+     158
+    ],
+    [
+     1028,
+     162,
+     192
+    ],
+    [
+     1143,
+     196,
+     226
+    ],
+    [
+     1257,
+     230,
+     260
+    ],
+    [
+     1372,
+     264,
+     294
+    ],
+    [
+     1466,
+     298,
+     328,
+     70
+    ],
+    [
+     1560,
+     332,
+     362,
+     0
+    ],
+    [
+     1660,
+     366,
+     396,
+     0
+    ]
+   ]
+  },
+  {
+   "_": "Kazekage office on the top storey (floor 1343)"
+  },
+  {
+   "type": "furniture",
+   "kind": "desk",
+   "at": [
+    -1250,
+    700
+   ],
+   "z": 1343,
+   "size": [
+    180,
+    80,
+    44
+   ],
+   "ground": false
+  },
+  {
+   "type": "furniture",
+   "kind": "shelf",
+   "at": [
+    -1430,
+    820
+   ],
+   "z": 1343,
+   "size": [
+    170,
+    44,
+    150
+   ],
+   "yaw": 32,
+   "ground": false
+  },
+  {
+   "type": "furniture",
+   "kind": "shelf",
+   "at": [
+    -1070,
+    820
+   ],
+   "z": 1343,
+   "size": [
+    170,
+    44,
+    150
+   ],
+   "yaw": -32,
+   "ground": false
+  },
+  {
+   "type": "crates",
+   "at": [
+    -1530,
+    450
+   ],
+   "z": 1347,
+   "ground": false,
+   "stack": [
+    [
+     0,
+     0,
+     60,
+     0
+    ],
+    [
+     64,
+     10,
+     50,
+     20
+    ]
+   ]
+  },
+  {
+   "type": "crates",
+   "at": [
+    -980,
+    330
+   ],
+   "z": 1347,
+   "ground": false,
+   "stack": [
+    [
+     0,
+     0,
+     64,
+     10
+    ],
+    [
+     0,
+     0,
+     48,
+     -15
+    ]
+   ]
+  },
+  {
+   "_": "dust storm curtains along the boundary (cheap: 2 translucent strips, one scrolling stage)"
+  },
+  {
+   "type": "dust_ring",
+   "at": [
+    -150,
+    150
+   ],
+   "superellipse": [
+    2900,
+    3050,
+    3
+   ],
+   "layers": [
+    [
+     -120,
+     -420,
+     1400
+    ],
+    [
+     220,
+     -420,
+     1800
+    ]
+   ],
+   "segments": 128,
+   "tile": 2400,
+   "shader": "p_dust"
   }
  ],
  "prop_clip": {
@@ -471,7 +744,9 @@
  "worldspawn": {
   "_lightmapscale": "1",
   "_minlight": "40",
-  "_blocksize": "0"
+  "_blocksize": "0",
+  "distanceCull": "16000",
+  "_distanceCull": "the renderer's default 6000 culled the far side of the off-centre sky dome: a round hole in the sky"
  },
  "arena_type": "ffa duel powerduel team holocron jedi",
  "texture_recolor": {
@@ -507,14 +782,14 @@
    4
   ],
   "zenith": [
-   56,
-   110,
-   180
+   49,
+   105,
+   164
   ],
   "horizon": [
-   190,
-   220,
-   235
+   205,
+   240,
+   242
   ],
   "ground": [
    200,
@@ -567,10 +842,10 @@
     11
    ],
    [
-    300,
-    1400,
-    20,
-    250
+    -200,
+    1620,
+    62,
+    270
    ],
    [
     800,
@@ -585,10 +860,10 @@
     29
    ],
    [
-    -600,
-    1250,
-    155,
-    292
+    700,
+    1650,
+    102,
+    225
    ]
   ],
   "info_player_duel": [
@@ -599,10 +874,10 @@
     11
    ],
    [
-    300,
-    1400,
-    20,
-    250
+    -200,
+    1620,
+    62,
+    270
    ]
   ],
   "info_player_duel1": [
@@ -651,7 +926,7 @@
    "at": [
     -1238,
     533,
-    1700
+    1810
    ],
    "_": "Fuma Shuriken on top of the Kazekage tower"
   },
@@ -667,11 +942,11 @@
   {
    "class": "weapon_trip_mine",
    "at": [
-    -100,
-    1100,
-    340
+    -490,
+    1470,
+    120
    ],
-   "_": "Explosive Tag on the north sandstone slab"
+   "_": "Explosive Tag on the pool's NW coping"
   },
   {
    "class": "weapon_trip_mine",
@@ -744,6 +1019,15 @@
     235
    ],
    "_": "Chakra Pill by the NW ring"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    -1250,
+    700,
+    1420
+   ],
+   "_": "Chakra Pill on the Kazekage's desk"
   }
  ],
  "levelshot": {
@@ -759,5 +1043,184 @@
   ],
   "lens": 16
  },
- "_worldspawn": "_blocksize 0: an open map gets nothing from the default 1024-block BSP split (it made 4400 vis clusters)"
+ "_worldspawn": "_blocksize 0: an open map gets nothing from the default 1024-block BSP split (it made 4400 vis clusters)",
+ "extra_shaders": {
+  "water": {
+   "gen": "water",
+   "raw": [
+    "qer_trans 0.5",
+    "surfaceparm nonsolid",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water",
+    "cull twosided",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\talphaGen const 0.75",
+    "\trgbGen identity",
+    "\ttcMod scale 0.3 0.3",
+    "\ttcMod scroll 0.012 0.008",
+    "}",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_ONE GL_ONE",
+    "\trgbGen const ( 0.22 0.26 0.26 )",
+    "\ttcMod scale 0.17 0.17",
+    "\ttcMod turb 0 0.02 0 0.07",
+    "\ttcMod scroll -0.01 0.015",
+    "}"
+   ]
+  }
+ },
+ "clip_shaders": {
+  "clip_wood": "solidwood"
+ },
+ "slabs": [
+  {
+   "_": "bridge deck: flat clip at the deck's height (452), centre line (549,-77) at 25.2 deg, 714 long"
+  },
+  {
+   "from": [
+    226,
+    -229,
+    452
+   ],
+   "to": [
+    872,
+    75,
+    452
+   ],
+   "width": 100,
+   "thick": 24,
+   "shader": "clip_wood"
+  },
+  {
+   "_": "west end: a ramp up to the roof (510) instead of a 58 u step"
+  },
+  {
+   "from": [
+    335,
+    -178,
+    452
+   ],
+   "to": [
+    226,
+    -229,
+    510
+   ],
+   "width": 100,
+   "thick": 24,
+   "shader": "clip_wood"
+  }
+ ],
+ "plaza": [
+  {
+   "_": "level terrain for the pool in the north (it slopes ~250 u there), hole = the pool",
+   "rect": [
+    -560,
+    780,
+    640,
+    1520
+   ],
+   "z": 50,
+   "margin": 260,
+   "step": 100,
+   "shaders": [
+    "sm_dibiao_tex_03"
+   ],
+   "hole": [
+    -500,
+    840,
+    580,
+    1460
+   ]
+  }
+ ],
+ "water": [
+  {
+   "box": [
+    -476,
+    864,
+    -46,
+    556,
+    1436,
+    46
+   ],
+   "shader": "water"
+  }
+ ],
+ "lights": {
+  "grid_x": [],
+  "grid_y": [],
+  "extra": [
+   {
+    "origin": [
+     -1250,
+     532,
+     1490
+    ],
+    "light": 360,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   },
+   {
+    "origin": [
+     -1470,
+     532,
+     1470
+    ],
+    "light": 220,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   },
+   {
+    "origin": [
+     -1030,
+     532,
+     1470
+    ],
+    "light": 220,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   },
+   {
+    "origin": [
+     -1250,
+     320,
+     1470
+    ],
+    "light": 220,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   },
+   {
+    "origin": [
+     -1250,
+     760,
+     1470
+    ],
+    "light": 220,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   }
+  ]
+ }
 }

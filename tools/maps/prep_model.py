@@ -116,6 +116,72 @@ for rs in mdl.get("rescale", []):
         o.data.transform(sm); o.data.update()
     print(f"RESCALE {rs['shaders']} x{rs['factor']} about {tuple(round(c) for c in a)}: {len(objs)} objects")
 
+# raise a storey (map.json "model": {"stretch": [{"center": [x, y], "r": u, "z0": u, "z1": u, "dz": u,
+# "shaders": [...]}]}): vertices of those shaders within r of the centre move up by dz above z1 and by a
+# proportional part of it between z0 and z1 (columns stretch, the roof above lifts, the floor stays)
+for st in mdl.get("stretch", []):
+    shs = {f"textures/{shader_dir}/{s}" for s in st["shaders"]}
+    cx, cy = st["center"]; z0, z1, dz = st["z0"], st["z1"], st["dz"]; moved = 0
+    for o in meshes:
+        idx = {i for i, sl in enumerate(o.material_slots) if sl.material and sl.material.name in shs}
+        vs = {v for p in o.data.polygons if p.material_index in idx for v in p.vertices}
+        for vi in vs:
+            co = o.data.vertices[vi].co
+            if (co.x - cx) ** 2 + (co.y - cy) ** 2 < st["r"] ** 2 and co.z > z0:
+                co.z += dz * min(1.0, (co.z - z0) / (z1 - z0)); moved += 1
+        o.data.update()
+    print(f"STRETCH {moved} vertices up to {dz} u at {st['center']}")
+
+# flat plaza in the terrain (map.json "plaza": [{"rect": [x0, y0, x1, y1], "z": u, "margin": u, "step": u,
+# "shaders": [...], "hole": [x0, y0, x1, y1]}]): slices the coarse terrain into a fine grid around the
+# rect, levels it to z inside and blends back to the old height over the margin; "hole" is cut out
+# (a sunken pool is built in it by the props)
+for pz in cfg.get("plaza", []):
+    import bmesh
+    x0, y0, x1, y1 = pz["rect"]; Z = pz["z"]; M = pz.get("margin", 300); step = pz.get("step", 100)
+    E = (x0 - M, y0 - M, x1 + M, y1 + M)
+    shs = {f"textures/{shader_dir}/{s}" for s in pz["shaders"]}
+    hole = pz.get("hole")
+    cuts_x = sorted(set([E[0] + k * step for k in range(int((E[2] - E[0]) / step) + 1)] + [x0, x1] + ([hole[0], hole[2]] if hole else [])))
+    cuts_y = sorted(set([E[1] + k * step for k in range(int((E[3] - E[1]) / step) + 1)] + [y0, y1] + ([hole[1], hole[3]] if hole else [])))
+    for o in meshes:
+        idx = {i for i, sl in enumerate(o.material_slots) if sl.material and sl.material.name in shs}
+        if not idx: continue
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        def region():
+            out_ = []
+            for f in bm.faces:
+                if f.material_index not in idx: continue
+                xs = [v.co.x for v in f.verts]; ys = [v.co.y for v in f.verts]
+                if max(xs) >= E[0] and min(xs) <= E[2] and max(ys) >= E[1] and min(ys) <= E[3]:
+                    out_.append(f)
+            return out_
+        for axis, cuts in ((0, cuts_x), (1, cuts_y)):
+            for c in cuts:
+                fs = region()
+                geom = fs + list({e for f in fs for e in f.edges}) + list({v for f in fs for v in f.verts})
+                no = (1, 0, 0) if axis == 0 else (0, 1, 0); co = (c, 0, 0) if axis == 0 else (0, c, 0)
+                bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
+        fs = region(); vs = {v for f in fs for v in f.verts}
+        for v in vs:
+            dx = max(x0 - v.co.x, 0, v.co.x - x1); dy = max(y0 - v.co.y, 0, v.co.y - y1)
+            w = min(1.0, (dx * dx + dy * dy) ** 0.5 / M); w = w * w * (3 - 2 * w)
+            v.co.z = Z + (v.co.z - Z) * w
+        cut = []
+        if hole:
+            cut = [f for f in fs if hole[0] < f.calc_center_median().x < hole[2] and hole[1] < f.calc_center_median().y < hole[3]]
+            bmesh.ops.delete(bm, geom=cut, context='FACES')
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+        me = o.data   # vertex normals of the levelled faces: their own (up) face normal (q3map2 takes the plane from them)
+        if me.has_custom_normals:
+            loop_n = [tuple(c.vector) for c in me.corner_normals]
+            for poly in me.polygons:
+                if poly.material_index in idx and E[0] <= poly.center.x <= E[2] and E[1] <= poly.center.y <= E[3]:
+                    for li in poly.loop_indices:
+                        loop_n[li] = tuple(poly.normal)
+            me.normals_split_custom_set(loop_n)
+        print(f"PLAZA {pz['rect']} z {Z}: {len(fs)} terrain faces levelled, {len(cut)} cut for the hole")
+
 # generated cover / elevation props (map.json "props"), see props.py
 gen_tex = {}   # shader short name -> textures_gen kind
 if cfg.get("props"):
@@ -154,13 +220,14 @@ if cfg.get("props"):
                 if h[0] is not None and h[0].z > g + 40:
                     return True
             return False
+        props_mod.GROUND = ground_z; props_mod.STRUCT = struct   # crates on slopes, ledges hugging a wall
         if cfg.get("ring"):
             ring = props_mod.plan_ring(cfg["ring"], occupied)
             cfg["props"] = list(cfg.get("props", [])) + ring
             print(f"RING {len(ring)} elements, {sum(1 for e in ring if e.get('_pushed'))} pushed out of the way")
             json.dump(ring, open(os.path.join(out, "ring.json"), "w"), indent=0)
         for pr in cfg["props"]:
-            if "type" not in pr or pr.get("ground") is False or pr["type"] == "ground_plane":
+            if "type" not in pr or pr.get("ground") is False or pr["type"] in ("ground_plane", "ledges", "pool", "dust_ring"):
                 continue
             rad = pr.get("r") or (max(pr["size"][:2]) / 2 if "size" in pr else pr.get("len", 100) / 2)
             zs = [ground_z(pr["at"][0] + dx * rad, pr["at"][1] + dy * rad)
@@ -220,6 +287,16 @@ if mdl.get("split_details"):
         if not sheet and (dims[2] < sd_cfg.get("max_dim", 64) or (dims[0] < sd_cfg.get("thin", 6) and dims[1] < sd_cfg.get("ribbon", 64))):
             for g in isl: g.material_index = copies[g.material_index]
             moved += 1
+            continue
+        # "regions": [{"within": [x0, y0, z0, x1, y1, z1], "above": z}]: parts lying wholly inside the box
+        # lose their collision above z (a bumpy bridge deck: gen_map "slabs" give it a flat clip instead)
+        for rg in sd_cfg.get("regions", []):
+            b = rg["within"]
+            if all(b[k] <= min(c[k] for c in co) and max(c[k] for c in co) <= b[k + 3] for k in range(3)):
+                for g in isl:
+                    if g.calc_center_median().z > rg["above"]:
+                        g.material_index = copies[g.material_index]
+                moved += 1
     bm.to_mesh(me); bm.free(); me.update()
     print(f"SPLIT {moved} of {parts} loose parts -> no-collision detail shaders")
 
@@ -274,7 +351,8 @@ for sl in obj.material_slots:               # "<shader>_d" detail copies use the
     if n.endswith("_d") and n[:-2] in sources:
         sources[n] = sources[n[:-2]]
 for short, kind in gen_tex.items():
-    sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ".jpg")), f"gen:{kind}")
+    ext = ".png" if kind in textures_gen.ALPHA else ".jpg"     # dust etc. keep their alpha -> TGA
+    sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ext)), f"gen:{kind}")
 for short, parent in cfg.get("texture_copy", {}).items():   # a generated shader reusing a model texture
     full = f"textures/{shader_dir}/{short}"; pf = f"textures/{shader_dir}/{parent}"
     if pf in sources:

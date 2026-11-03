@@ -45,6 +45,8 @@ for full, info in materials.items():
     c = cfg["shaders"].get(short, {})
     tex = os.path.splitext(info["file"])[0]
     lines = [full, "{", f"\tqer_editorimage {info['file']}", f"\t// {c.get('what', '')}"]
+    if c.get("raw"):          # hand-written stages (dust curtains): "{tex}" = this shader's texture
+        sh.append("\n".join(lines + ["\t" + l.replace("{tex}", tex) for l in c["raw"]] + ["}\n"])); continue
     if c.get("fullbright"):   # sky dome / horizon cards: unlit, no collision, and light passes through them
         lines += ["\tsurfaceparm nonsolid", "\tsurfaceparm nolightmap", "\tsurfaceparm trans", "\tsurfaceparm nomarks",
                   "\tsurfaceparm noimpact"] + (["\tcull twosided"] if info["alpha"] else []) + [
@@ -59,6 +61,8 @@ for full, info in materials.items():
     lines += ["\tq3map_nonplanar", "\tq3map_shadeAngle 70"]
     if c.get("samplesize"):
         lines.append(f"\tq3map_lightmapSampleSize {c['samplesize']}")
+    if (short.endswith("_d") or c.get("twosided")) and not info["alpha"]:
+        lines.append("\tcull twosided")     # single-sided railings / signs of the rip: visible from behind too
     if info["alpha"]:
         lines += ["\tsurfaceparm alphashadow", "\tsurfaceparm trans", "\tcull twosided",
                   "\t{", f"\t\tmap {tex}", "\t\talphaFunc GE128", "\t\tdepthWrite", "\t\trgbGen identity", "\t}",
@@ -87,6 +91,19 @@ if sky:
         *([f"\tq3map_sun {' '.join(map(str, sun))}"] if sun else []),
         *([f"\tq3map_skyLight {' '.join(map(str, sl))}"] if sl else []),
         f"\tskyParms {sky['env']} 512 -", "}\n"]))
+# shaders that are not on the model (map.json "extra_shaders": {short: {"gen": textures_gen kind, "raw": [...]}}),
+# e.g. the water of a pool brush; "{tex}" = the generated texture
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+for short, c in cfg.get("extra_shaders", {}).items():
+    tex = f"textures/{sd}/{short}"
+    if c.get("gen"):
+        import textures_gen
+        ext = ".png" if c["gen"] in textures_gen.ALPHA else ".jpg"
+        textures_gen.make(c["gen"], os.path.join(base, tex + ext))
+        if ext == ".png":
+            from PIL import Image
+            Image.open(os.path.join(base, tex + ext)).save(os.path.join(base, tex + ".tga")); os.remove(os.path.join(base, tex + ext))
+    sh.append("\n".join([tex, "{", f"\tqer_editorimage {tex}", *["\t" + l.replace("{tex}", tex) for l in c["raw"]], "}\n"]))
 open(os.path.join(base, "shaders", f"{name}.shader"), "w").write("\n".join(sh))
 
 # --- .map ----------------------------------------------------------------------------------
@@ -111,6 +128,31 @@ def prism(poly, z0, z1, shader):
         # points p0=a(z0), p1=a(z1), p2=b(z0): normal = (p2-p0) x (p1-p0) points outward for a ccw polygon
         faces.append(f"( {f(ax)} {f(ay)} {f(z0)} ) ( {f(ax)} {f(ay)} {f(z1)} ) ( {f(bx)} {f(by)} {f(z0)} ) {s}")
     return "{\n" + "\n".join(faces) + "\n}"
+
+def plane_brush(planes, shader):
+    """convex brush from outward planes [(normal, point on it), ...]"""
+    import math
+    s_ = f"{sd}/{shader} 0 0 0 0.5 0.5 0 0 0"
+    out = []
+    for n, q in planes:
+        L = math.sqrt(sum(c * c for c in n)); n = [c / L for c in n]
+        a = [0, 0, 1] if abs(n[2]) < 0.9 else [1, 0, 0]
+        t1 = [n[1] * a[2] - n[2] * a[1], n[2] * a[0] - n[0] * a[2], n[0] * a[1] - n[1] * a[0]]
+        L = math.sqrt(sum(c * c for c in t1)); t1 = [c / L for c in t1]
+        t2 = [n[1] * t1[2] - n[2] * t1[1], n[2] * t1[0] - n[0] * t1[2], n[0] * t1[1] - n[1] * t1[0]]   # n x t1
+        p0 = q; p2 = [q[k] + t1[k] * 64 for k in range(3)]; p1 = [q[k] + t2[k] * 64 for k in range(3)]
+        out.append(" ".join("( " + " ".join(f"{v:.4f}" for v in p) + " )" for p in (p0, p1, p2)) + " " + s_)
+    return "{\n" + "\n".join(out) + "\n}"
+
+def slab(a, b, width, thick, shader):
+    """flat or sloped walkway brush from a = [x, y, top z] to b, width across, thick below the top"""
+    import math
+    dx, dy = b[0] - a[0], b[1] - a[1]; L = math.hypot(dx, dy); ux, uy = dx / L, dy / L; px, py = -uy, ux
+    dz = b[2] - a[2]; hw = width / 2
+    top_n = [-dz * ux / L, -dz * uy / L, 1]                 # rises from a to b
+    return plane_brush([(top_n, a), ([0, 0, -1], [a[0], a[1], min(a[2], b[2]) - thick]),
+                        ([-ux, -uy, 0], a), ([ux, uy, 0], b),
+                        ([px, py, 0], [a[0] + px * hw, a[1] + py * hw, 0]), ([-px, -py, 0], [a[0] - px * hw, a[1] - py * hw, 0])], shader)
 
 def ent(kv, brushes=()):
     return "{\n" + "".join(f'"{k}" "{v}"\n' for k, v in kv.items()) + "".join(b + "\n" for b in brushes) + "}\n"
@@ -162,6 +204,14 @@ for g in json.load(open(os.path.join(build, "propclip.json"))):
     props += [box(*b, g["shader"]) for b in g["boxes"]]
     props += [prism([tuple(v) for v in pr["poly"]], pr["z0"], pr["z1"], g["shader"]) for pr in g.get("prisms", [])]
 
+# walkway clip (map.json "slabs": [{"from": [x, y, z], "to": [x, y, z], "width", "thick", "shader"}]): a smooth
+# floor over a bumpy deck whose own collision was dropped (split_details "regions")
+for sl in [s_ for s_ in cfg.get("slabs", []) if "from" in s_]:
+    props.append(slab(sl["from"], sl["to"], sl.get("width", 96), sl.get("thick", 24), sl.get("shader", "clip_floor")))
+# water volumes (map.json "water": [{"box": [x0, y0, z0, x1, y1, z1], "shader": short}])
+for wv in [w_ for w_ in cfg.get("water", []) if "box" in w_]:
+    props.append(box(*wv["box"], wv.get("shader", "water")))
+
 ws = {"classname": "worldspawn", "message": cfg["longname"], **cfg.get("worldspawn", {})}
 out = [ent(ws, hull + props)]
 # spawnflags 4 = force meta: cut the model into lightmappable meta surfaces (JA: <= 64 verts each)
@@ -172,7 +222,8 @@ for x in L.get("grid_x", []):
     for y in L.get("grid_y", []):
         out.append(ent({"classname": "light", "origin": f"{x} {y} {L['z']}", "light": str(L["light"])}))
 for e in L.get("extra", []):
-    out.append(ent({"classname": "light", "origin": " ".join(map(str, e["origin"])), "light": str(e["light"])}))
+    out.append(ent({"classname": "light", "origin": " ".join(map(str, e["origin"])), "light": str(e["light"]),
+                    **({"_color": " ".join(map(str, e["color"]))} if "color" in e else {})}))
 for cls, pts in cfg["spawns"].items():
     if cls.startswith("_"):
         continue
