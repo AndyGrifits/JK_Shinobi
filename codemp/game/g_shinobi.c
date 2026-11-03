@@ -87,6 +87,8 @@ Common helpers
 qboolean Shinobi_CCImmune( gentity_t *e ) {
 	if ( e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.armorEnd > level.time )
 		return qtrue; // Stone Skin: nothing knocks you over
+	if ( Shinobi_KaitenSpinning( e ) )
+		return qtrue; // Kaiten: nothing takes hold
 	return ( e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.ccImmuneEnd > level.time ) ? qtrue : qfalse;
 }
 
@@ -499,6 +501,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_HIRAISHIN: cast = Shinobi_CastHiraishin( ent ); break;
 	case SJ_RAITRAP:  cast = Shinobi_CastRaiTrap( ent ); break;
 	case SJ_SHADOWTRAP: cast = Shinobi_CastShadowTrap( ent ); break;
+	case SJ_KAITEN:   cast = Shinobi_CastKaiten( ent ); break;
 	default: break;
 	}
 
@@ -613,7 +616,7 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
 			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
-			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) )
+			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) || ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -649,6 +652,8 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_RaiDashEnd( ent );
 		else if ( jutsu == SJ_HEAL && client->shinobi.healing )
 			Shinobi_HealStop( ent );
+		else if ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart )
+			Shinobi_KaitenStop( ent );
 		return;
 	}
 	if ( level.time - client->shinobi.chargeStart
@@ -675,6 +680,8 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	qboolean   attackPressed;
 
 	Shinobi_StripGuns( ent ); // no blasters for anyone
+	if ( client->shinobi.kaitenStart ) // Kaiten: no blows, no guard while spinning
+		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
 	BG_ShinobiBlockAttack( &client->ps, ucmd ); // block + attack = the blade's special attack, not a guard
 	Shinobi_TaijutsuThink( ent ); // the diving kick's landing
@@ -1004,6 +1011,7 @@ void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod ) {
 		break;
 	}
 	Shinobi_InterruptCharge( targ );
+	Shinobi_KaitenInterrupt( targ ); // caught winding up a Kaiten
 }
 
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker ) {

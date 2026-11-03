@@ -19,7 +19,7 @@ static const int botGrip[]      = { SJ_SUIRO, SJ_SHADOW, SJ_PILLAR, SJ_BURROW, 0
 static const int botLightning[] = { SJ_RAIDASH, SJ_KATON, SJ_FLAME, SJ_SUITON, SJ_BLADE, SJ_CHIDORI, SJ_RASENGAN, SJ_PILLAR, SJ_ASH, SJ_RAITRAP, SJ_QUAKE, 0 };
 static const int botDrain[]     = { SJ_FLAME, SJ_ASH, SJ_MIST, SJ_WAVE, SJ_CHIDORI, SJ_RASENGAN, 0 };
 static const int botRage[]      = { SJ_RAICLONE, SJ_WINDEDGE, SJ_RAIEDGE, SJ_ARMOR, SJ_EARTHCLONE, SJ_BUNSHIN, SJ_WATERCLONE, 0 };
-static const int botProtect[]   = { SJ_FLASH, SJ_ARMOR, SJ_WINDWALL, SJ_KAWARIMI, SJ_DOTON, SJ_MIST, SJ_EARTHCLONE, 0 };
+static const int botProtect[]   = { SJ_FLASH, SJ_ARMOR, SJ_WINDWALL, SJ_KAWARIMI, SJ_DOTON, SJ_MIST, SJ_EARTHCLONE, SJ_KAITEN, 0 };
 static const int botTrick[]     = { SJ_SHADOWHIDE, SJ_FLASH, SJ_RAICLONE, SJ_KAWARIMI, SJ_BUNSHIN, SJ_WATERCLONE, SJ_EARTHCLONE, SJ_MIST, SJ_BURROW, 0 };
 static const int botSpeed[]     = { SJ_RAIDASH, SJ_SHUNSHIN, SJ_HIRAISHIN, SJ_BURROW, 0 };
 
@@ -200,9 +200,10 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
 			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
-			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) ) {
+			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) || ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart ) ) {
 			client->shinobi.chargeJutsu = jutsu; // held: let go a bit later (Shinobi_BotThink)
-			client->shinobi.botHoldEnd = level.time + ( jutsu == SJ_RAIDASH ? Q_irand( 500, 1100 ) : Q_irand( 1200, 2800 ) );
+			client->shinobi.botHoldEnd = level.time + ( jutsu == SJ_RAIDASH ? Q_irand( 500, 1100 )
+				: jutsu == SJ_KAITEN ? Q_irand( 1100, 1900 ) : Q_irand( 1200, 2800 ) );
 		}
 		client->shinobi.botJutsuNext = level.time + Q_irand( 1500, 3000 );
 		Shinobi_Debug( "bot %i: force %i -> %s Lv%i", ent->s.number, forcePower, shinobiJutsuTitles[jutsu], lvl );

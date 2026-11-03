@@ -10561,7 +10561,7 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 		return qfalse;
 	if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_CHANNEL ) )
 		return qfalse;
-	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP )
+	if ( ps->stats[STAT_SHINOBI2] & ( SHINOBI_STAT2_SHADOWTRAP | SHINOBI_STAT2_KAITEN ) )
 		return qfalse;
 	if ( SHINOBI_IMPRISONED( ps ) || SHINOBI_STUNNED( ps ) || SHINOBI_PRISON_CASTER( ps ) || SHINOBI_UNSEEN( ps ) )
 		return qfalse;
@@ -10623,6 +10623,16 @@ static void PM_ShinobiPreMove( void )
 				| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
 		}
 		pm->cmd.buttons &= ~SHINOBI_BUTTON_MIRROR;
+	}
+
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_KAITEN )
+	{ // Kaiten: planted, spinning - no steps, no jumps, no blows, no guard
+		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	}
 
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ROOTED )

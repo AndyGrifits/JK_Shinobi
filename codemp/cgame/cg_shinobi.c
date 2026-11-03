@@ -27,7 +27,7 @@ static int  CG_ShinobiMyEyes( void );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim, outline[3];
+	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -171,6 +171,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.guardShell  = trap->R_RegisterShader( "gfx/shinobi/guardshell" );
+	shinobiShaders.kaitenShell = trap->R_RegisterShader( "gfx/shinobi/kaitenshell" );
 	shinobiShaders.vignette    = trap->R_RegisterShader( "gfx/shinobi/vignette" );
 	shinobiShaders.tomoe       = trap->R_RegisterShader( "gfx/shinobi/tomoe" );
 	shinobiShaders.sharinganRim = trap->R_RegisterShader( "gfx/shinobi/sharinganrim" );
@@ -1947,8 +1948,57 @@ static void CG_ShinobiGuardDraw( centity_t *cent, int lvl, float k, const vec3_t
 	trap->R_AddRefEntityToScene( &ent );
 }
 
+/*
+Kaiten: a dome of chakra around the spinner (two half shells, one turned to the
+viewer, one away - a whole sphere), swirling; the model itself spins (CG_ShinobiKaitenSpin).
+*/
+static void CG_ShinobiKaitenDome( centity_t *cent ) {
+	refEntity_t ent;
+	vec3_t      d, ang;
+	float       s;
+	int         side, i;
+
+	if ( !cgs.media.halfShieldModel || !shinobiShaders.kaitenShell )
+		return;
+	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )
+		return; // (from inside it would fill the view)
+	for ( side = 0; side < 2; side++ ) {
+		memset( &ent, 0, sizeof( ent ) );
+		VectorCopy( cent->lerpOrigin, ent.origin );
+		ent.origin[2] += 4.0f;
+		VectorSubtract( cg.refdef.vieworg, ent.origin, d );
+		if ( side )
+			VectorScale( d, -1.0f, d );
+		vectoangles( d, ang );
+		ang[ROLL] = cg.time * 0.4f * ( side ? -1.0f : 1.0f ); // turning
+		AnglesToAxis( ang, ent.axis );
+		s = 1.6f + 0.04f * sinf( cg.time * 0.02f );
+		for ( i = 0; i < 3; i++ )
+			VectorScale( ent.axis[i], s, ent.axis[i] );
+		ent.nonNormalizedAxes = qtrue;
+		ent.hModel = cgs.media.halfShieldModel;
+		ent.customShader = shinobiShaders.kaitenShell;
+		ent.shaderRGBA[0] = 150;
+		ent.shaderRGBA[1] = 200;
+		ent.shaderRGBA[2] = 255;
+		ent.shaderRGBA[3] = 255;
+		trap->R_AddRefEntityToScene( &ent );
+	}
+}
+
+// the model turns round and round (after the stock angles; the bolts follow via turAngles)
+void CG_ShinobiKaitenSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles ) {
+	if ( !( cent->currentState.eFlags & SHINOBI_EF_KAITEN ) || ( cent->currentState.eFlags & EF_DEAD ) )
+		return;
+	rootAngles[YAW] = AngleMod( rootAngles[YAW] + (float)( cg.time % 3600 ) * SHINOBI_KAITEN_SPIN );
+	AnglesToAxis( rootAngles, legs );
+	cent->turAngles[YAW] = rootAngles[YAW];
+}
+
 void CG_ShinobiGuardBubble( centity_t *cent ) {
 	const int lvl = SHINOBI_EF_GUARD( cent->currentState.eFlags );
+	if ( ( cent->currentState.eFlags & SHINOBI_EF_KAITEN ) && !( cent->currentState.eFlags & EF_DEAD ) )
+		CG_ShinobiKaitenDome( cent );
 	if ( !lvl || ( cent->currentState.eFlags & EF_DEAD ) )
 		return;
 	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )

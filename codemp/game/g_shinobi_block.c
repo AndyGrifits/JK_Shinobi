@@ -15,7 +15,7 @@ int shinobiBlockResult = SBR_NONE;
 void Shinobi_Stagger( gentity_t *ent, int ms ) {
 	gclient_t *client = ent->client;
 
-	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 || Shinobi_KaitenSpinning( ent ) )
 		return;
 	if ( client->shinobi.staggerEnd < level.time + ms )
 		client->shinobi.staggerEnd = level.time + ms;
@@ -35,7 +35,7 @@ void Shinobi_Stagger( gentity_t *ent, int ms ) {
 void Shinobi_Flinch( gentity_t *ent, int ms ) {
 	gclient_t *client = ent->client;
 
-	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+	if ( !client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 || Shinobi_KaitenSpinning( ent ) )
 		return;
 	if ( client->shinobi.flinchEnd < level.time + ms )
 		client->shinobi.flinchEnd = level.time + ms;

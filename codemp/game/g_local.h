@@ -835,6 +835,8 @@ struct gclient_s {
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast
 		int		healing;		// Healing held: chakra into health
 		int		healTick;
+		int		kaitenStart;	// Kaiten held since (0 = not); spinning from + SHINOBI_KAITEN_WINDUP_MS
+		int		kaitenTick, kaitenFx;
 		float	chakraFrac;		// fractions of chakra earned in fights, not yet whole
 		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
 		// elements (g_shinobi_nature.c)
@@ -1502,6 +1504,8 @@ void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
 void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod );
 void Shinobi_InterruptCharge( gentity_t *ent );
+qboolean Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );
+qboolean Shinobi_KaitenSpinning( gentity_t *ent );
 // g_shinobi_build.c
 void  Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo );
 void  Shinobi_ApplyBuild( gentity_t *ent );

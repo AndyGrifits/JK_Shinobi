@@ -238,6 +238,8 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 		Shinobi_ShadowTrapRelease( ent );
 	if ( client->shinobi.healing )
 		Shinobi_HealStop( ent );
+	if ( client->shinobi.kaitenStart )
+		Shinobi_KaitenStop( ent );
 	Shinobi_SetRawBit( &client->ps.userVec1[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );

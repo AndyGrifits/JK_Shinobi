@@ -409,6 +409,34 @@ gfx/shinobi/guardshell
 	}
 }
 
+// Kaiten: the spinning dome of chakra (rgbGen entity: the colour from the cgame)
+gfx/shinobi/kaitenshell
+{
+	cull none
+	nopicmip
+	{
+		map gfx/shinobi/guardshell
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+		tcGen environment
+	}
+	{
+		map gfx/shinobi/kaitenswirl
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+		tcGen environment
+		tcMod rotate 720
+	}
+	{
+		map gfx/shinobi/kaitenswirl
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+		tcGen environment
+		tcMod rotate -450
+		tcMod scale 0.8 0.8
+	}
+}
+
 // Sharingan: a dark red rim around the view (2D, alpha from the texture)
 gfx/shinobi/vignette
 {

@@ -9224,6 +9224,7 @@ void CG_Player( centity_t *cent ) {
 	VectorCopy (legs.origin, legs.oldorigin);	// don't positionally lerp at all
 
 	CG_G2PlayerAngles( cent, legs.axis, rootAngles );
+	CG_ShinobiKaitenSpin( cent, legs.axis, rootAngles ); // JK_Shinobi: Kaiten - the body spins
 	CG_G2PlayerHeadAnims( cent );
 
 	if ( (cent->currentState.eFlags2&EF2_HELD_BY_MONSTER)

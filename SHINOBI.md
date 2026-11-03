@@ -348,6 +348,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |
 | Shadow Trap | `kagewana`, Yin/Yang. From each marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |
+| Kaiten | `kaiten`, Yin/Yang, hold F: 0.5 s winding up on the spot (a hit breaks it), then you spin inside a dome of chakra for as long as the key is held and the chakra lasts. No damage gets through (falls, lava, drowning aside), no knockdown, stagger, flinch, bind or prison takes; kunai, shuriken, fire- and waterballs glance off the dome (and become yours); whoever comes within ~96 u is thrown away and knocked down every 0.1 s. Rooted, no attacks, no guard. Bots use it to defend | 10 + 30/s |
 
 ### Elements
 

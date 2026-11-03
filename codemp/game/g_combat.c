@@ -4388,7 +4388,7 @@ qboolean G_ThereIsAMaster(void)
 
 void G_Knockdown( gentity_t *victim )
 {
-	if ( victim && victim->client && BG_KnockDownable(&victim->client->ps) )
+	if ( victim && victim->client && BG_KnockDownable(&victim->client->ps) && !Shinobi_KaitenSpinning( victim ) )
 	{
 		if ( victim->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN )
 			Shinobi_HitText( victim, STX_KNOCKDOWN, 0 ); // JK_Shinobi
@@ -4481,6 +4481,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	}
 	if ( !Shinobi_ShadowHideDamage( targ ) )
 	{ // JK_Shinobi: blades pass over a shadow (fire and lightning drive it out)
+		return;
+	}
+	if ( Shinobi_KaitenBlocks( targ, attacker, mod ) )
+	{ // JK_Shinobi: Kaiten - nothing gets through the spinning dome
 		return;
 	}
 	if ( mod == MOD_FALLING && targ->client && targ->s.number < MAX_CLIENTS

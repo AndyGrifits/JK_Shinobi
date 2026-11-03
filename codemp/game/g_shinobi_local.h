@@ -113,6 +113,11 @@ qboolean  Shinobi_CastHiraishin( gentity_t *ent );
 qboolean  Shinobi_CastRaiTrap( gentity_t *ent );
 qboolean  Shinobi_CastShadowTrap( gentity_t *ent );
 void      Shinobi_HealStop( gentity_t *ent );
+qboolean  Shinobi_CastKaiten( gentity_t *ent );
+void      Shinobi_KaitenStop( gentity_t *ent );
+qboolean  Shinobi_KaitenSpinning( gentity_t *ent );            // the dome is up: nothing gets through
+qboolean  Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );
+void      Shinobi_KaitenInterrupt( gentity_t *ent );           // hit while winding up: broken
 void      Shinobi_ChargesToStats( gclient_t *client );
 void      Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_ShadowTrapRelease( gentity_t *victim );

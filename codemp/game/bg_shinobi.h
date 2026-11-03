@@ -72,6 +72,7 @@ typedef enum {
 	SJ_FLASH,     // flash: blinds whoever looks at you, light chases out what hides
 	SJ_HEAL,      // healing: chakra into health
 	SJ_SHADOWTRAP,// shadow trap: shadows reach out from your marked kunai and hold whoever they catch
+	SJ_KAITEN,    // kaiten (held): spin inside a dome of chakra - nothing gets through, the close ones are thrown off
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -83,19 +84,19 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen", "kagewana"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen", "kagewana", "kaiten"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap", "Kaiten"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
 	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_PILLAR, SJ_BURROW, SJ_ARMOR, SJ_EARTHCLONE, SJ_CHIDORI, SJ_RAIEDGE, SJ_RAIDASH, SJ_RAICLONE,
-	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_SHADOWTRAP, SJ_HIRAISHIN, SJ_SHADOWHIDE, SJ_FLASH, SJ_HEAL
+	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_SHADOWTRAP, SJ_HIRAISHIN, SJ_SHADOWHIDE, SJ_FLASH, SJ_HEAL, SJ_KAITEN
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -136,6 +137,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 25, 25, 25 }, // Flash
 	{  5,  5,  5 }, // Healing (to start; then held, chakra into health one for one)
 	{ 20, 20, 20 }, // Shadow Trap (to start; then each caught enemy drains it)
+	{ 10, 10, 10 }, // Kaiten (to start; then it burns chakra fast while held)
 };
 
 // jutsu that cast on key press, without charging
@@ -144,7 +146,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL || (j) == SJ_KAITEN )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
 #define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
@@ -716,6 +718,22 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_STAT2_BLOCKHELD    8     // (to tell a new press of block / attack from a held one)
 #define SHINOBI_STAT2_ATTACKHELD   16
 
+/*
+Kaiten (Yin / Yang, held): SHINOBI_KAITEN_WINDUP_MS rooted (a hit then breaks it),
+then you spin for as long as the key is held and the chakra lasts. Nothing that
+deals damage gets through (falls, lava and the like aside), no knockdown, stagger or
+bind takes; missiles that would come within SHINOBI_KAITEN_DEFLECT glance off the
+dome; whoever is within SHINOBI_KAITEN_RADIUS is thrown away and knocked down.
+*/
+#define SHINOBI_KAITEN_WINDUP_MS   500
+#define SHINOBI_KAITEN_TICK_MS     100
+#define SHINOBI_KAITEN_DRAIN       3     // chakra per tick (30 a second)
+#define SHINOBI_KAITEN_RADIUS      96    // thrown off (centre to centre, flat)
+#define SHINOBI_KAITEN_DEFLECT     84    // missiles glance off at this distance
+#define SHINOBI_KAITEN_THROW       560   // outward speed
+#define SHINOBI_KAITEN_THROW_UP    220
+#define SHINOBI_KAITEN_SPIN        1.3f  // degrees per ms the model turns (cgame)
+
 #define SHINOBI_STAT2_DIVEREQ      32    // attack pressed in the air: dive as soon as it can
 #define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
 // floating combat text over a target ("stx <ent> <kind> <value>", shinobi_hitnumbers 1)
@@ -727,6 +745,7 @@ static const char * const shinobiHitTextNames[STX_COUNT] = {
 };
 #define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
 #define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
+#define SHINOBI_STAT2_KAITEN       32768 // winding up / spinning a Kaiten: rooted, no attacks, no jumps
 #define SHINOBI_STAT2_KAWA_SHIFT   9     // bits 9-10: Kawarimi charges ready (0-3)
 #define SHINOBI_STAT2_SHUN_SHIFT   11    // bits 11-12: Shunshin charges ready (0-3)
 #define SHINOBI_KAWA_CHARGES(ps)   ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_KAWA_SHIFT ) & 3 )
@@ -818,6 +837,7 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 // eFlags bits the stock game leaves unused (seen by everyone)
 #define SHINOBI_EF_STONE           (1<<12) // Stone Skin / Earth Clone: drawn as stone
 #define SHINOBI_EF_RAIDASH         (1<<15) // Lightning Dash: drawn as a bolt, the body hidden
+#define SHINOBI_EF_KAITEN          (1<<18) // spinning a Kaiten: the model turns, a dome of chakra around it
 #define SHINOBI_EF_GUARD_SHIFT     16      // guard up: 1 = strong (blue), 2 = half (yellow), 3 = low (red); 0 = down
 #define SHINOBI_EF_GUARD_MASK      ( 3 << SHINOBI_EF_GUARD_SHIFT )
 #define SHINOBI_EF_GUARD(ef)       ( ( (ef) & SHINOBI_EF_GUARD_MASK ) >> SHINOBI_EF_GUARD_SHIFT )
@@ -1002,6 +1022,7 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Flash
 	SS_YINYANG, // Healing
 	SS_YINYANG, // Shadow Trap
+	SS_YINYANG, // Kaiten
 };
 
 // the fixed stock force levels of every player (after "rank-side-"): heal lev
@@ -1092,7 +1113,8 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
 	"hold F: chakra turns into health, one for one (20 a second); you walk slowly",
-	"shadows reach out from your marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him"
+	"shadows reach out from your marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him",
+	"hold F: half a second to wind up, then you spin inside a dome of chakra (30 chakra a second): blades, fists and jutsu don't get through, missiles glance off, whoever is close is thrown away and knocked down; rooted, no attacks"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue };

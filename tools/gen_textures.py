@@ -358,6 +358,15 @@ def guardshell(n=128):
     return np.clip(0.06 + 0.85 * rim + 0.08 * ripple * rim, 0, 1)
 
 
+def kaitenswirl(n=128):
+    """Kaiten: spiral arms of chakra, brighter toward the rim (environment-mapped, rotated)."""
+    _, _, r, a = grid(n)
+    arms = (0.5 + 0.5 * np.sin(a * 5.0 + r * 11.0)) ** 6
+    rim = np.clip(r, 0, 1) ** 1.5
+    fade = np.clip((1.05 - r) / 0.15, 0, 1)
+    return np.clip((0.15 + 0.85 * arms) * (0.25 + 0.75 * rim) * fade, 0, 1)
+
+
 def vignette(n=256):
     """Sharingan: a dark red rim around the view, clear in the middle (alpha)."""
     x, y, _, _ = grid(n)
@@ -509,6 +518,7 @@ def main():
     save_rgba("droplet", *droplet())
     save("streak", streak())
     save("guardshell", guardshell())
+    save("kaitenswirl", kaitenswirl())
     save_rgba("vignette", *vignette())
     save_rgba("tomoe", *tomoe())
     save_rgba("shadowband", *shadow_band())

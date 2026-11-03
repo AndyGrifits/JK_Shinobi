@@ -246,6 +246,231 @@ static void Shinobi_HealThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 /*
 ---------------------------------------------------------------------------
+Kaiten (Yin / Yang, held): half a second winding up on the spot, then you spin
+inside a dome of chakra for as long as the key is held and the chakra lasts
+(SHINOBI_KAITEN_DRAIN a tick). Nothing that deals damage gets through, no
+knockdown or bind takes (Shinobi_CCImmune), missiles glance off the dome, and
+whoever comes close is thrown away and knocked down. Rooted, no attacks.
+---------------------------------------------------------------------------
+*/
+extern void G_Knockdown( gentity_t *victim );
+
+qboolean Shinobi_KaitenSpinning( gentity_t *ent ) {
+	return ( ent && ent->client && ent->s.number < MAX_CLIENTS && ent->client->shinobi.kaitenStart
+		&& level.time >= ent->client->shinobi.kaitenStart + SHINOBI_KAITEN_WINDUP_MS ) ? qtrue : qfalse;
+}
+
+// from G_Damage: the dome takes the blow (falls, lava, drowning still hurt)
+qboolean Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod ) {
+	vec3_t up = { 0, 0, 1 };
+
+	if ( !Shinobi_KaitenSpinning( targ ) || attacker == targ )
+		return qfalse;
+	switch ( mod ) {
+	case MOD_LAVA: case MOD_WATER: case MOD_SLIME: case MOD_FALLING: case MOD_TRIGGER_HURT:
+	case MOD_SUICIDE: case MOD_UNKNOWN: case MOD_TELEFRAG: case MOD_CRUSH:
+		return qfalse;
+	default:
+		break;
+	}
+	if ( targ->client->shinobi.kaitenFx <= level.time ) { // a flare where it struck (not every tick of a flame)
+		targ->client->shinobi.kaitenFx = level.time + 200;
+		G_PlayEffectID( shinobiMedia.fxGates, targ->client->ps.origin, up );
+	}
+	Shinobi_HitText( targ, STX_BLOCK, 0 );
+	return qtrue;
+}
+
+qboolean Shinobi_CastKaiten( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if ( ent->s.number >= MAX_CLIENTS || client->shinobi.kaitenStart || SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse; // (not for clones)
+	if ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
+		return qfalse;
+	if ( client->shinobi.healing )
+		Shinobi_HealStop( ent );
+	client->shinobi.blocking = qfalse;
+	client->shinobi.kaitenStart = level.time;
+	client->shinobi.kaitenTick = level.time + SHINOBI_KAITEN_WINDUP_MS;
+	client->shinobi.kaitenFx = 0;
+	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_KAITEN;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
+	return qtrue;
+}
+
+void Shinobi_KaitenStop( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if ( !client || !client->shinobi.kaitenStart )
+		return;
+	client->shinobi.kaitenStart = 0;
+	client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_KAITEN;
+	client->ps.eFlags &= ~SHINOBI_EF_KAITEN;
+	if ( client->shinobi.chargeJutsu == SJ_KAITEN )
+		client->shinobi.chargeJutsu = SJ_NONE;
+	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT
+		&& ( client->ps.forceDodgeAnim == BOTH_FORCE_PROTECT_FAST || client->ps.forceDodgeAnim == BOTH_FORCE_ABSORB ) )
+		client->ps.forceHandExtend = HANDEXTEND_NONE;
+}
+
+void Shinobi_KaitenInterrupt( gentity_t *ent ) {
+	if ( ent && ent->client && ent->client->shinobi.kaitenStart && !Shinobi_KaitenSpinning( ent ) ) {
+		Shinobi_KaitenStop( ent );
+		Shinobi_HitText( ent, STX_INTERRUPT, 0 );
+	}
+}
+
+// a missile about to reach the dome glances off it (and now belongs to the spinner)
+static void Shinobi_KaitenDeflect( gentity_t *ent ) {
+	vec3_t centre;
+	int    i;
+
+	VectorCopy( ent->client->ps.origin, centre );
+	centre[2] += 8;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *p = &g_entities[i];
+		vec3_t     now, vel, next, d, n, aim, closest;
+		float      t, len, speed, dn;
+
+		if ( !p->inuse || !p->classname || p->r.ownerNum == ent->s.number || p->s.pos.trType == TR_STATIONARY )
+			continue;
+		if ( strcmp( p->classname, "shinobi_fireball" ) && strcmp( p->classname, "shinobi_waterball" )
+			&& strcmp( p->classname, "shinobi_kunai" ) && strcmp( p->classname, "shinobi_exkunai" )
+			&& strcmp( p->classname, "shinobi_shuriken" ) )
+			continue;
+		BG_EvaluateTrajectory( &p->s.pos, level.time, now );
+		BG_EvaluateTrajectoryDelta( &p->s.pos, level.time, vel );
+		if ( DistanceSquared( now, centre ) > 600.0f * 600.0f )
+			continue;
+		// where it will be by the next server frame or two: does that stretch come near the dome?
+		VectorMA( now, 0.1f, vel, next );
+		VectorSubtract( next, now, d );
+		len = VectorNormalize( d );
+		VectorSubtract( centre, now, n );
+		t = DotProduct( n, d );
+		if ( t < 0 ) t = 0;
+		if ( t > len ) t = len;
+		VectorMA( now, t, d, closest );
+		if ( Distance( closest, centre ) > SHINOBI_KAITEN_DEFLECT )
+			continue;
+		// mirror it off the sphere where it touches
+		VectorSubtract( closest, centre, n );
+		if ( VectorNormalize( n ) < 1.0f )
+			VectorScale( d, -1.0f, n );
+		speed = VectorLength( vel );
+		if ( speed < 300 )
+			speed = 300;
+		dn = DotProduct( vel, n );
+		if ( dn >= 0 )
+			continue; // flying away already
+		VectorMA( vel, -2.0f * dn, n, aim );
+		VectorNormalize( aim );
+		p->s.pos.trTime = level.time;
+		VectorCopy( closest, p->s.pos.trBase );
+		VectorScale( aim, speed, p->s.pos.trDelta );
+		VectorCopy( closest, p->r.currentOrigin );
+		p->r.ownerNum = ent->s.number;
+		p->s.owner = ent->s.number;
+		p->parent = ent;
+		if ( !strcmp( p->classname, "shinobi_kunai" ) )
+			Shinobi_KunaiReflect( p, ent );
+		trap->LinkEntity( (sharedEntity_t *)p );
+		Shinobi_EffectDir( shinobiMedia.fxWindGust[0], closest, n );
+		G_SoundAtLoc( closest, CHAN_AUTO, shinobiMedia.sndWind );
+	}
+}
+
+// whoever is close is thrown off the dome and knocked down
+static void Shinobi_KaitenThrow( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 };
+	int        i;
+
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+
+		if ( v == ent || !v->inuse || !v->client || v->health <= 0 || !v->takedamage )
+			continue;
+		if ( i < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )
+			continue;
+		if ( Shinobi_DamageBlocked( v, ent ) )
+			continue; // our own clones
+		if ( level.gametype >= GT_TEAM && i < MAX_CLIENTS && OnSameTeam( ent, v ) )
+			continue;
+		VectorSubtract( v->client->ps.origin, client->ps.origin, d );
+		if ( fabs( d[2] ) > 64 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_KAITEN_RADIUS )
+			continue;
+		if ( dist < 1.0f )
+			AngleVectors( client->ps.viewangles, d, NULL, NULL );
+		v->client->ps.velocity[0] = d[0] * SHINOBI_KAITEN_THROW;
+		v->client->ps.velocity[1] = d[1] * SHINOBI_KAITEN_THROW;
+		v->client->ps.velocity[2] = SHINOBI_KAITEN_THROW_UP;
+		v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+		v->client->ps.pm_time = 300;
+		v->client->ps.groundEntityNum = ENTITYNUM_NONE;
+		if ( !Shinobi_CCImmune( v ) )
+			G_Knockdown( v );
+		Shinobi_InterruptCharge( v );
+		Shinobi_EffectDir( shinobiMedia.fxWindGust[1], v->client->ps.origin, d );
+		G_PlayEffectID( shinobiMedia.fxGates, v->client->ps.origin, up );
+	}
+}
+
+// held Kaiten, every client frame
+static void Shinobi_KaitenThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 };
+
+	if ( !client->shinobi.kaitenStart ) {
+		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_KAITEN;
+		client->ps.eFlags &= ~SHINOBI_EF_KAITEN;
+		return;
+	}
+	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR || !Shinobi_CanAct( ent )
+		|| client->shinobi.chargeJutsu != SJ_KAITEN ) {
+		Shinobi_KaitenStop( ent );
+		return;
+	}
+	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_KAITEN;
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+	client->ps.forceHandExtendTime = level.time + 150;
+
+	if ( !Shinobi_KaitenSpinning( ent ) ) { // winding up
+		client->ps.forceDodgeAnim = BOTH_FORCE_PROTECT_FAST;
+		return;
+	}
+	if ( !( client->ps.eFlags & SHINOBI_EF_KAITEN ) ) { // the dome goes up
+		client->ps.eFlags |= SHINOBI_EF_KAITEN;
+		G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+	}
+	client->ps.forceDodgeAnim = BOTH_FORCE_ABSORB;
+	Shinobi_KaitenDeflect( ent );
+	while ( client->shinobi.kaitenTick <= level.time ) {
+		client->shinobi.kaitenTick += SHINOBI_KAITEN_TICK_MS;
+		if ( client->ps.fd.forcePower < SHINOBI_KAITEN_DRAIN ) {
+			trap->SendServerCommand( ent - g_entities, "cp \"Out of chakra\"" );
+			Shinobi_KaitenStop( ent );
+			return;
+		}
+		client->ps.fd.forcePower -= SHINOBI_KAITEN_DRAIN;
+		Shinobi_KaitenThrow( ent );
+		if ( ( client->shinobi.kaitenTick / SHINOBI_KAITEN_TICK_MS ) % 4 == 0 )
+			G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+	}
+}
+
+/*
+---------------------------------------------------------------------------
 Lightning Dash (Raiton, held): you become a bolt of lightning racing ahead
 (Pmove forces the run, 3x speed, steered with the mouse) for as long as the
 key is held and the chakra lasts. Whoever you pass close to is shocked
@@ -365,6 +590,7 @@ void Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	Shinobi_RaiDashThink( ent );
 	Shinobi_HealThink( ent, ucmd );
+	Shinobi_KaitenThink( ent, ucmd );
 
 	if ( client->shinobi.blindEnd > level.time && ent->health > 0 )
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_BLIND;
