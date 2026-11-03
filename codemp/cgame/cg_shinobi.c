@@ -2339,7 +2339,7 @@ void CG_ShinobiDrawHUD( void ) {
 		c[3] = 0.7f;
 		trap->R_SetColor( c );
 		if ( shinobiShaders.tomoe )
-			CG_DrawRotatePic2( SCREEN_WIDTH - 30, 30, 40, 40, cg.time * 0.03f, shinobiShaders.tomoe );
+			CG_DrawRotatePic2( 30, 30, 40, 40, cg.time * 0.03f, shinobiShaders.tomoe );
 		trap->R_SetColor( NULL );
 	}
 	CG_ShinobiDrawHitText(); // damage numbers and hit effects over heads

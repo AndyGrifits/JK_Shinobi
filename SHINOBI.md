@@ -281,8 +281,8 @@ Not on the map itself; see-through bodies (Kawarimi, fading) get none.
 
 ## Sharingan view
 
-While your Sharingan is open: a dark red rim around the view and the eye turning in the top
-right corner; everyone within its range (1400 u) and in sight has a thin red rim of chakra
+While your Sharingan is open: a dark red rim around the view and the eye turning in the top left
+corner; everyone within its range (1400 u) and in sight has a thin red rim of chakra
 (friends in team games excepted; not through walls - that is the Byakugan); every enemy
 player in plain sight shows a thin red line from his eyes along his look (up to 1600 u), with
 a ring where it points - you see what he is aiming at.
