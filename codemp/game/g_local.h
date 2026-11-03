@@ -832,6 +832,7 @@ struct gclient_s {
 		qboolean kawarimiPhase;	// non-solid until clear of other bodies
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
+		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast
 		int		healing;		// Healing held: chakra into health
 		int		healTick;
 		float	chakraFrac;		// fractions of chakra earned in fights, not yet whole

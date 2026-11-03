@@ -42,6 +42,13 @@ The bonus ones show over your head (`+10 chakra`). Any direct hit (not burning, 
 ash or a fall) breaks the seals of a jutsu being charged ("Interrupted"; a formed Rasengan /
 Chidori stays).
 
+## Quick cast: Shift + the jutsu key
+
+Shift + F (any jutsu that charges; not the held ones, not Shunshin): no charging - its first
+level comes out at once (the Great Fireball: level 2), for the price of the top level. With
+back held too it is that jutsu's alternative form (for now: Storm Wind pulls). Shift is the
+"more chakra" modifier all round.
+
 ## Kawarimi and Shunshin charges
 
 Both work on charges (the pips over the jutsu list): Kawarimi 3, each back 15 s after use

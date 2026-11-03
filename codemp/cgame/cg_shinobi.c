@@ -236,6 +236,14 @@ static void CG_ShinobiJutsuDown( int jutsu ) {
 	if ( ( jutsu == SJ_RASENGAN || jutsu == SJ_CHIDORI || jutsu == SJ_KATON )
 		&& SHINOBI_HAND_ANY( &cg.predictedPlayerState ) )
 		return; // hands busy
+	if ( jutsu != SJ_SHUNSHIN && !SHINOBI_JUTSU_HOLD( jutsu ) ) {
+		usercmd_t cmd;
+		if ( trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd ) ) {
+			// Shift + the key: the server casts it at once (level 1, the top price) - no bars
+			trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
+			return;
+		}
+	}
 	shinobiCharge.jutsu = jutsu;
 	shinobiCharge.start = cg.time;
 	shinobiCharge.fromJump = qfalse;

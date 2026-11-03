@@ -419,7 +419,7 @@ void Shinobi_Debug( const char *fmt, ... ) {
 
 qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	gclient_t *client = ent->client;
-	int        lvl = wanted;
+	int        lvl = wanted, cost;
 	qboolean   cast = qfalse;
 
 	if ( jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
@@ -453,10 +453,13 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s needs a longer charge\"", shinobiJutsuTitles[jutsu] ) );
 		return qfalse;
 	}
-	while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
-		lvl--;
-	if ( client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) ) {
-		Shinobi_NoChakra( ent, Shinobi_JutsuCost( jutsu, lvl ) );
+	if ( !client->shinobi.costLevel ) {
+		while ( lvl > SHINOBI_JUTSU_MIN_LEVEL( jutsu ) && client->ps.fd.forcePower < Shinobi_JutsuCost( jutsu, lvl ) )
+			lvl--;
+	}
+	cost = Shinobi_JutsuCost( jutsu, client->shinobi.costLevel ? client->shinobi.costLevel : lvl ); // (Shift + F: the top price)
+	if ( client->ps.fd.forcePower < cost ) {
+		Shinobi_NoChakra( ent, cost );
 		Shinobi_Debug( "%i casts %s Lv%i: no chakra (%i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl, client->ps.fd.forcePower );
 		return qfalse;
 	}
@@ -500,7 +503,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	}
 
 	if ( cast ) {
-		client->ps.fd.forcePower -= Shinobi_JutsuCost( jutsu, lvl );
+		client->ps.fd.forcePower -= cost;
 		Shinobi_StopCharging( client );
 	}
 	Shinobi_Debug( "%i casts %s Lv%i: %s (chakra %i)", ent->s.number, shinobiJutsuTitles[jutsu], lvl,
@@ -596,6 +599,15 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 	}
 	if ( jutsu == SJ_DOTON && !client->shinobi.prisonCaster && Shinobi_PushWall( ent ) )
 		return; // our wall was right in front: F shoves it forward instead of raising a new one
+	if ( SHINOBI_MODIFIER( &client->pers.cmd ) && !SHINOBI_JUTSU_HOLD( jutsu ) && jutsu != SJ_SHUNSHIN ) {
+		// Shift + the key: no charging - the first level at once, for the price of the top one
+		// (holding back too: its alternative form)
+		client->shinobi.castBack = client->pers.cmd.forwardmove < 0;
+		client->shinobi.costLevel = SHINOBI_MAX_LEVEL;
+		Shinobi_Cast( ent, jutsu, SHINOBI_JUTSU_MIN_LEVEL( jutsu ) );
+		client->shinobi.costLevel = 0;
+		return;
+	}
 	if ( SHINOBI_JUTSU_HOLD( jutsu ) ) { // starts now, lasts until the key comes up
 		Shinobi_Cast( ent, jutsu, 1 );
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
