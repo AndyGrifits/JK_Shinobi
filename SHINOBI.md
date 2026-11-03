@@ -171,6 +171,20 @@ to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on
 that file is on the character screen, its `model_*.skin` files are its looks. Pack the
 folder into a pk3 in shinobi/ and it shows up - nothing else to register.
 
+## Ninja skeleton (shorter upper arms)
+
+The old Naruto rigs have shorter upper arms than `_humanoid` (Asuma 85 %, Kakashi 78 %,
+Sasuke 89 %; forearms, collar bones and legs match within a few %), and a model's bones
+are as long as its skeleton's, so they used to be stretched. `tools/make_skeleton.py
+_humanoid.gla _humanoid_ninja.gla --upper-arm 0.85` writes a copy of the stock skeleton
+with the elbows moved in, every animation carried over (each bone keeps its rotation in
+every frame); `blend2glm.py --gla _humanoid_ninja.gla --stock-gla _humanoid.gla` builds
+models on it (the tags move with the bones). It goes in `zz_shinobi_skeleton.pk3` as
+`models/players/_humanoid/_humanoid_ninja.gla` (the game only takes skeletons from that
+folder; its animation.cfg is shared). It is made from Raven's file: generate it from
+your own game files, it isn't in the repo. The server still traces sabers on the stock
+skeleton, so a blade reaches ~1.5 units further than the shorter arm draws it.
+
 ## Player size
 
 `models/players/<model>/scale.cfg` with `scale 85` draws a character at 85 % of the stock

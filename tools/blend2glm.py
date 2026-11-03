@@ -690,12 +690,27 @@ def build_glm_surfaces(conv, shader_of, surf_name_of, max_verts=990):
     return out
 
 
-def tag_surfaces(path, gla):
-    """The bolt surfaces ('*' names) of a stock model on the same skeleton."""
+def tag_surfaces(path, gla, tags_gla=None):
+    """The bolt surfaces ('*' names) of a stock model on the same bones. When our
+    skeleton has other bone lengths (tags_gla = the one the stock model sits on), each
+    tag vertex moves with the joints its bones moved: *r_hand stays in the hand."""
     head, surfs = g2file.read_glm(path)
     if head["num_bones"] != gla.num_bones:
         raise SystemExit("%s is not on this skeleton" % path)
-    return [s for s in surfs if s.flags & g2file.SURF_BOLT]
+    tags = [s for s in surfs if s.flags & g2file.SURF_BOLT]
+    if tags_gla is not None:
+        old, new = stock_joints(tags_gla), stock_joints(gla)
+        names = [b["name"] for b in gla.bones]
+        moved = 0
+        for t in tags:
+            for k, (v, ws) in enumerate(zip(t.verts, t.weights)):
+                dv = sum(w * (new[names[b]] - old[names[b]]) for b, w in ws)
+                if np.linalg.norm(dv) > 1e-6:
+                    t.verts[k] = tuple(float(x) for x in np.asarray(v) + dv)
+                    moved += 1
+        if moved:
+            print("tags: %d vertices moved with the bones" % moved)
+    return tags
 
 
 def main(argv=None):
@@ -703,6 +718,8 @@ def main(argv=None):
     ap.add_argument("blend")
     ap.add_argument("--gla", required=True, help="_humanoid.gla")
     ap.add_argument("--tags", required=True, help="stock .glm to take the tag surfaces from")
+    ap.add_argument("--stock-gla", help="the stock _humanoid.gla, when --gla is one with other "
+                    "bone lengths (make_skeleton.py): the tags move with the bones")
     ap.add_argument("--stock-skin", help="its .skin (which torso / hips surfaces are shown); "
                     "default: model_default.skin next to it")
     ap.add_argument("--no-stock-weights", action="store_true",
@@ -798,12 +815,12 @@ def main(argv=None):
     for s in mesh_surfs:
         s.parent = 0
         surfaces.append(s)
-    for t in tag_surfaces(a.tags, gla):
+    for t in tag_surfaces(a.tags, gla, g2file.Gla(a.stock_gla) if a.stock_gla else None):
         t.parent = 0
         t.shader = ""
         surfaces.append(t)
     g2file.write_glm(os.path.join(outdir, "model.glm"), gamedir + "/model",
-                     "models/players/_humanoid/_humanoid", gla.num_bones, surfaces)
+                     gla.name, gla.num_bones, surfaces)
     props = [s for s in mesh_surfs if "_prop_" in s.name]
     skins = {"default": True}
     if props:
