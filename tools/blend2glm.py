@@ -850,7 +850,31 @@ class StockWeights:
         return out
 
 
-def convert(src_meshes, src_parents, J, gla, rig, stock=None):
+def armpit_fade(p, raw, T, below=2.5):
+    """The side of the torso under each arm (below the shoulder joint and inboard of it, in
+    the stock bind pose) gives its upper-arm weight to the torso, fading in over `below`
+    units under the joint. jedi_hm's torso is painted with up to a third of the humerus
+    there (its arms start lower), and on a tight shirt (Sasuke) the stances, arms down,
+    pulled it into the ribs: a dent under each arm."""
+    out = []
+    for q, o in zip(p, raw):
+        o = dict(o)
+        for sd in "lr":
+            jh = T[sd + "humerus"]
+            sg = 1.0 if jh[0] > 0 else -1.0
+            if sg * q[0] > sg * jh[0] - 0.3 or sg * q[0] < 0:
+                continue
+            f = min(max((jh[2] - q[2]) / below, 0.0), 1.0)
+            for ab in (sd + "humerus", sd + "humerusX"):
+                if o.get(ab) and f > 0:
+                    moved = o[ab] * f
+                    o[ab] -= moved
+                    o["thoracic"] = o.get("thoracic", 0) + moved
+        out.append(o)
+    return out
+
+
+def convert(src_meshes, src_parents, J, gla, rig, stock=None, armpit=True):
     T = stock_joints(gla)
     D, report = build_drivers(J, T)
     wmap = expand_weights(rig, J.keys())
@@ -916,6 +940,8 @@ def convert(src_meshes, src_parents, J, gla, rig, stock=None):
             raw = [{bone: 1.0} for _ in raw]
         elif stock is not None and not prop:
             raw = stock.blend(p, raw)
+        if armpit and not prop and not m.get("rigid"):
+            raw = armpit_fade(p, raw, T)
         for out in raw:
             final.append(top4(out, gla))
         # normals through the inverse transpose of each vertex's blended matrix

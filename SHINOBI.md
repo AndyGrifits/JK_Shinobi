@@ -185,8 +185,8 @@ shoulder plates with the upper arm). Those are high-poly (Tobirama: 46k triangle
 vertices): blend2glm first leaves out the triangles no ray gets out of the model from
 (layers under layers, the mouth), then collapses the big meshes as a whole to ~80 % of the
 vertex budget (`glm_slim.slim_source_mesh`; their palette textures colour by small flat
-swatches, so a corner keeps a texture point of its own swatch). Tobirama: 8.9k vertices,
-9.6k triangles. `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
+swatches, so a corner keeps a texture point of its own swatch). Tried on Tobirama (8.9k
+vertices, 9.6k triangles): too coarse to keep, so no Shinobi Striker model is in the game. `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
 (Kakashi's book) and `--prop-parts` makes them held props (his kunai). Outline shells (the
 inside-out copies the Wii game draws black around legs, arms, pouches, kunai) are found
 and left out by themselves (`--keep-shells` keeps them). The rips by the same hand as
@@ -204,7 +204,11 @@ used (Part I databooks / MyAnimeList, cm): Sasuke 153, Neji 160, Lee 160, Shikam
 Kabuto 176, Yugao 169, Kisame 195, Anko 167, Baki 188, Gaara 146, Naruto 145, Yamato 178;
 the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size. Yamato's rip points
 at the wood-clone textures (mky_*); it is built with his own (ymt_*) copied under those
-names. Anko's dango skewer pieces inside the hand outline go by --drop-parts. Kisame's Samehada on his back goes
+names. The side of the torso under each arm (below the shoulder joint and inboard of it, in the
+stock bind pose) gives its upper-arm weight to the torso, fading in over 2.5 units below
+the joint (`armpit_fade`): jedi_hm's torso weights put up to a third of the humerus there,
+and on a tight shirt the stances, arms down, pulled it into the ribs (dents under Sasuke
+Rev 2's arms; only he is rebuilt with it so far). Anko's dango skewer pieces inside the hand outline go by --drop-parts. Kisame's Samehada on his back goes
 by --drop-parts too (its bone b_186ken). `--rigid-parts PART[:bone]` puts a piece on one
 bone so it doesn't bend: Gaara's gourd and its stopper (`gar_tex02.png#0`, `#6`) on `thoracic`.
 
