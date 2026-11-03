@@ -933,6 +933,53 @@ static void CG_ShinobiFlame( centity_t *cent ) {
 /*
 Shadow Bind: a dark band along the floor from the binder's feet to the tip.
 */
+// Lightning net (Lightning Trap with 2-3 marks): crackling strands between the kunai
+static void CG_ShinobiRaiNet( centity_t *cent ) {
+	static const int sides[3][2] = { { 0, 1 }, { 1, 2 }, { 2, 0 } };
+	const int count = cent->currentState.frame & 3, lit = cent->currentState.frame >> 2;
+	vec3_t    node[3], rgb = { 0.55f, 0.75f, 1.0f };
+	qboolean  spark = qfalse;
+	int       i, strand;
+
+	VectorCopy( cent->lerpOrigin, node[0] );
+	VectorCopy( cent->currentState.origin2, node[1] );
+	VectorCopy( cent->currentState.angles2, node[2] );
+	if ( cg.time >= cent->trailTime ) { // new strands ~25 times a second, each living a little longer
+		cent->trailTime = cg.time + 40;
+		spark = qtrue;
+	}
+	for ( i = 0; i < ( count == 3 ? 3 : 1 ); i++ ) {
+		const float *a = node[sides[i][0]], *b = node[sides[i][1]];
+		vec3_t mid;
+		if ( !( lit & ( 1 << i ) ) )
+			continue;
+		VectorAdd( a, b, mid );
+		VectorScale( mid, 0.5f, mid );
+		trap->R_AddLightToScene( mid, 90 + 30 * sinf( cg.time * 0.05f + i ), 0.45f, 0.6f, 1.0f );
+		if ( !spark )
+			continue;
+		for ( strand = 0; strand < 2; strand++ ) {
+			addElectricityArgStruct_t p;
+			VectorCopy( a, p.start );
+			VectorCopy( b, p.end );
+			p.size1 = strand ? 1.5f : 3.0f;
+			p.size2 = strand ? 1.0f : 2.0f;
+			p.sizeParm = 0.0f;
+			p.alpha1 = 1.0f;
+			p.alpha2 = 0.4f;
+			p.alphaParm = 0.0f;
+			VectorCopy( rgb, p.sRGB );
+			VectorCopy( rgb, p.eRGB );
+			p.rgbParm = 0.0f;
+			p.chaos = strand ? 4.0f : 1.5f;
+			p.killTime = 90;
+			p.shader = cgs.media.boltShader;
+			p.flags = 0x00000001 | 0x00000100 | ( strand ? 0x02000000 : 0 ); // alpha / size linear, branching
+			trap->FX_AddElectricity( &p );
+		}
+	}
+}
+
 static void CG_ShinobiShadow( centity_t *cent ) {
 	const float *tip = cent->currentState.angles2;
 	vec3_t       d, side, a, b;
@@ -1416,6 +1463,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_SHADOW ) {
 		CG_ShinobiShadow( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_RAINET ) {
+		CG_ShinobiRaiNet( cent );
 		return qtrue;
 	}
 	if ( s->generic1 == SHINOBI_ENT_QUAKE ) {

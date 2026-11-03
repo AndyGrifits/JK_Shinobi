@@ -306,7 +306,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
-| **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 2): stays 30 s; an enemy it hits carries the mark 12 s |
+| **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
 | **2** | fists / saber |
 | **B** | ninja build screen |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
@@ -346,8 +346,8 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Healing | `shosen`, Yang, hold F: chakra turns into health one for one, 20 a second, while you walk slowly; attacking, blocking, full health or an empty pool stops it | 5 + 20/s |
 | Shadow Bind | Yin/Yang. Hold F: your shadow crawls 600 units straight ahead along the floor (900 u/s) (not over gaps or through walls). An enemy standing on it is caught and moves the way you move over the ground (you back off - he comes after you), turns and attacks with you while you hold (walk him off a ledge or into fire). Jump over the shadow to dodge; getting hit, running out of chakra or Kawarimi breaks it | 15 + 10/s |
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
-| Lightning Trap | Raiton. Every marked kunai of yours discharges: 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash) | 20 |
-| Shadow Trap | `kagewana`, Yin/Yang. From each marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |
+| Lightning Trap | Raiton. One marked kunai in place: it discharges - 25 damage and a 0.8 s stun within 110 units (electrifies puddles, sets off ash). Two or three: a lightning net between them for 8 s - a line or a triangle, each side lit while its ends are within 500 u with nothing solid between. Whoever touches a line (not you, your clones, your team): 20 damage and a 1 s stun, the same man once per 1.5 s. A kunai in an enemy is a node that moves with him (he is shocked once as the net comes on). The kunai are used up when the net ends | 20 |
+| Shadow Trap | `kagewana`, Yin/Yang. From each of your two newest marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |
 | Kaiten | `kaiten`, Yin/Yang, hold F: 0.5 s winding up on the spot (a hit breaks it), then you spin inside a dome of chakra for as long as the key is held and the chakra lasts. No damage gets through (falls, lava, drowning aside), no knockdown, stagger, flinch, bind or prison takes; kunai, shuriken, fire- and waterballs glance off the dome (and become yours); whoever comes within ~96 u is thrown away and knocked down every 0.1 s. Rooted, no attacks, no guard. Bots use it to defend | 10 + 30/s |
 
 ### Elements

@@ -7,8 +7,8 @@ JK_Shinobi - kunai and what is built on them.
                if it hits an enemy, that enemy carries the mark for 12 s
   Hiraishin    (Yin/Yang jutsu) teleport to your newest mark - behind the
                marked enemy if it is on one
-  Lightning Trap (Raiton jutsu) every mark of yours discharges: damage and a
-               short stun around it
+  Lightning Trap (Raiton jutsu) one mark: it discharges (damage and a short
+               stun around it); two or three: a lightning net between them
 
 Also here: Shift + attack infuses fists, kicks and the blade with chakra.
 ===========================================================================
@@ -286,54 +286,285 @@ qboolean Shinobi_CastHiraishin( gentity_t *ent ) {
 	return qtrue;
 }
 
+static void Shinobi_RaiShock( gentity_t *v, gentity_t *inflictor, gentity_t *ent, int damage, int stunMs );
+
+// one marked kunai discharges: damage and a short stun around it (the kunai is used up)
+static void Shinobi_RaiDischarge( gentity_t *ent, gentity_t *k ) {
+	vec3_t pos, up = { 0, 0, 1 };
+	int    j;
+
+	VectorCopy( k->r.currentOrigin, pos );
+	for ( j = 0; j < level.num_entities; j++ ) {
+		gentity_t *v = &g_entities[j];
+		trace_t    tr;
+		if ( !v->inuse || !v->client || v == ent || v->health <= 0 )
+			continue;
+		if ( Shinobi_DamageBlocked( v, ent ) || ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) ) )
+			continue;
+		if ( Distance( v->r.currentOrigin, pos ) > SHINOBI_RAITRAP_RADIUS )
+			continue;
+		trap->Trace( &tr, pos, NULL, NULL, v->r.currentOrigin, k->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f && tr.entityNum != v->s.number && !( KUNAI_ON( k ) && j == KUNAI_ON( k ) - 1 ) )
+			continue;
+		Shinobi_RaiShock( v, k, ent, SHINOBI_RAITRAP_DAMAGE, SHINOBI_RAITRAP_STUN_MS );
+	}
+	Shinobi_ElectrifyAt( pos, ent->s.number + 1 );
+	Shinobi_EffectDir( shinobiMedia.fxChidoriHit[1], pos, up );
+	G_PlayEffectID( shinobiMedia.fxEmp, pos, up );
+	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndChidoriHit );
+	G_FreeEntity( k );
+}
+
+// lightning damage and a stun (the stun not through Stone Skin / Kaiten)
+static void Shinobi_RaiShock( gentity_t *v, gentity_t *inflictor, gentity_t *ent, int damage, int stunMs ) {
+	shinobiHitElement = SE_LIGHTNING;
+	G_Damage( v, inflictor, ent, NULL, v->r.currentOrigin, damage, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
+	shinobiHitElement = SE_NONE;
+	if ( v->inuse && v->client && v->health > 0 && v->s.number < MAX_CLIENTS && !Shinobi_CCImmune( v ) ) {
+		v->client->ps.electrifyTime = level.time + stunMs;
+		if ( v->client->ps.weaponTime < stunMs )
+			v->client->ps.weaponTime = stunMs;
+		v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+		v->client->ps.pm_time = stunMs / 2;
+		Shinobi_CCGrant( v, level.time + stunMs );
+	}
+}
+
+/*
+---------------------------------------------------------------------------
+Lightning net: with two or three marks in place, Lightning Trap strings
+lightning between them instead - a line or a triangle, for SHINOBI_RAINET_MS.
+A side lights only while its ends are within SHINOBI_RAINET_SPAN of each other
+with nothing solid between; a kunai riding an enemy is a node that moves with
+him (he is shocked once when the net comes on, never by his own lines).
+Whoever else touches a line: damage and a stun, once per SHINOBI_RAINET_REHIT_MS.
+The net entity is drawn by the cgame: origin, s.origin2, s.angles2 = the nodes,
+s.frame = node count | lit sides << 2.
+---------------------------------------------------------------------------
+*/
+#define RAINET_NODE(n, i)  ( (&(n)->genericValue1)[i] )   // kunai entity numbers + 1
+#define RAINET_COUNT(n)    ( (n)->genericValue4 )
+#define RAINET_END(n)      ( (n)->genericValue5 )
+
+static const int rainetSides[3][2] = { { 0, 1 }, { 1, 2 }, { 2, 0 } };
+
+static gentity_t *Shinobi_RaiNetKunai( gentity_t *net, int i ) {
+	const int num = RAINET_NODE( net, i ) - 1;
+	gentity_t *k;
+	if ( num < MAX_CLIENTS || num >= ENTITYNUM_WORLD )
+		return NULL;
+	k = &g_entities[num];
+	return Shinobi_IsMark( k, net->r.ownerNum ) ? k : NULL;
+}
+
+static void Shinobi_RaiNetEnd( gentity_t *net ) {
+	int i;
+	for ( i = 0; i < RAINET_COUNT( net ); i++ ) {
+		gentity_t *k = Shinobi_RaiNetKunai( net, i );
+		if ( k ) {
+			vec3_t up = { 0, 0, 1 };
+			G_PlayEffectID( shinobiMedia.fxChidoriHit[0], k->r.currentOrigin, up );
+			G_FreeEntity( k );
+		}
+	}
+	G_FreeEntity( net );
+}
+
+// closest distance between segments p1-q1 and p2-q2
+static float Shinobi_SegSegDist( const vec3_t p1, const vec3_t q1, const vec3_t p2, const vec3_t q2 ) {
+	vec3_t d1, d2, r, c1, c2;
+	float  a, e, f, sN, tN, b, c, denom;
+
+	VectorSubtract( q1, p1, d1 );
+	VectorSubtract( q2, p2, d2 );
+	VectorSubtract( p1, p2, r );
+	a = DotProduct( d1, d1 );
+	e = DotProduct( d2, d2 );
+	f = DotProduct( d2, r );
+	if ( a < 0.001f && e < 0.001f )
+		return Distance( p1, p2 );
+	if ( a < 0.001f ) {
+		sN = 0;
+		tN = Com_Clamp( 0, 1, f / e );
+	}
+	else {
+		c = DotProduct( d1, r );
+		if ( e < 0.001f ) {
+			tN = 0;
+			sN = Com_Clamp( 0, 1, -c / a );
+		}
+		else {
+			b = DotProduct( d1, d2 );
+			denom = a * e - b * b;
+			sN = denom > 0.0001f ? Com_Clamp( 0, 1, ( b * f - c * e ) / denom ) : 0;
+			tN = ( b * sN + f ) / e;
+			if ( tN < 0 ) {
+				tN = 0;
+				sN = Com_Clamp( 0, 1, -c / a );
+			}
+			else if ( tN > 1 ) {
+				tN = 1;
+				sN = Com_Clamp( 0, 1, ( b - c ) / a );
+			}
+		}
+	}
+	VectorMA( p1, sN, d1, c1 );
+	VectorMA( p2, tN, d2, c2 );
+	return Distance( c1, c2 );
+}
+
+static void Shinobi_RaiNetThink( gentity_t *net ) {
+	gentity_t *owner = &g_entities[net->r.ownerNum];
+	gentity_t *k[3];
+	vec3_t     node[3];
+	int        i, j, lit = 0, alive = 0;
+
+	if ( level.time >= RAINET_END( net ) || !owner->inuse || !owner->client ) {
+		Shinobi_RaiNetEnd( net );
+		return;
+	}
+	for ( i = 0; i < RAINET_COUNT( net ); i++ ) {
+		k[i] = Shinobi_RaiNetKunai( net, i );
+		if ( k[i] ) {
+			VectorCopy( k[i]->r.currentOrigin, node[i] );
+			alive++;
+		}
+	}
+	if ( alive < 2 ) { // a node is gone (used, knocked away): the net falls apart
+		Shinobi_RaiNetEnd( net );
+		return;
+	}
+	for ( i = 0; i < ( RAINET_COUNT( net ) == 3 ? 3 : 1 ); i++ ) {
+		const int a = rainetSides[i][0], b = rainetSides[i][1];
+		trace_t   tr;
+		if ( !k[a] || !k[b] || Distance( node[a], node[b] ) > SHINOBI_RAINET_SPAN )
+			continue;
+		trap->Trace( &tr, node[a], NULL, NULL, node[b], k[a]->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f && tr.entityNum != k[b]->s.number
+			&& !( KUNAI_ON( k[b] ) && tr.entityNum == KUNAI_ON( k[b] ) - 1 )
+			&& !( KUNAI_ON( k[a] ) && tr.entityNum == KUNAI_ON( k[a] ) - 1 ) )
+			continue; // a wall between
+		lit |= 1 << i;
+	}
+
+	// whoever touches a lit line
+	for ( j = 0; j < level.num_entities; j++ ) {
+		gentity_t *v = &g_entities[j];
+		vec3_t     foot, head;
+		qboolean   carrier = qfalse;
+
+		if ( !lit || !v->inuse || !v->client || v == owner || v->health <= 0 || !v->takedamage )
+			continue;
+		if ( j < MAX_CLIENTS && ( v->client->sess.sessionTeam == TEAM_SPECTATOR || v->client->shinobi.raiNetNext > level.time ) )
+			continue;
+		if ( Shinobi_DamageBlocked( v, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, v ) ) )
+			continue;
+		for ( i = 0; i < RAINET_COUNT( net ); i++ )
+			carrier |= ( k[i] && KUNAI_ON( k[i] ) == j + 1 );
+		if ( carrier )
+			continue; // he carries a node: his own lines run out of him
+		VectorCopy( v->r.currentOrigin, foot );
+		VectorCopy( v->r.currentOrigin, head );
+		foot[2] += v->r.mins[2] + 4;
+		head[2] += v->r.maxs[2] - 4;
+		for ( i = 0; i < 3; i++ ) {
+			const int a = rainetSides[i][0], b = rainetSides[i][1];
+			if ( !( lit & ( 1 << i ) ) )
+				continue;
+			if ( Shinobi_SegSegDist( node[a], node[b], foot, head ) > SHINOBI_RAINET_REACH )
+				continue;
+			Shinobi_RaiShock( v, net, owner, SHINOBI_RAINET_DAMAGE, SHINOBI_RAINET_STUN_MS );
+			if ( v->inuse && v->client && j < MAX_CLIENTS )
+				v->client->shinobi.raiNetNext = level.time + SHINOBI_RAINET_REHIT_MS;
+			{
+				vec3_t up = { 0, 0, 1 };
+				G_PlayEffectID( shinobiMedia.fxChidoriHit[0], v->r.currentOrigin, up );
+				G_SoundAtLoc( v->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndChidoriHit );
+			}
+			break;
+		}
+	}
+
+	// what the cgame draws (a node gone: its sides are dark anyway)
+	if ( k[0] )
+		G_SetOrigin( net, node[0] );
+	if ( k[1] )
+		VectorCopy( node[1], net->s.origin2 );
+	if ( RAINET_COUNT( net ) == 3 && k[2] )
+		VectorCopy( node[2], net->s.angles2 );
+	net->s.frame = RAINET_COUNT( net ) | ( lit << 2 );
+	trap->LinkEntity( (sharedEntity_t *)net );
+	net->nextthink = level.time + SHINOBI_RAINET_THINK_MS;
+}
+
+/*
+Lightning Trap (Raiton): one mark in place - it discharges around itself; two or
+three - a lightning net between them (the newest three).
+*/
 qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
-	int i, n = 0;
+	gentity_t *marks[SHINOBI_MARK_MAX], *net;
+	int        i, j, n = 0;
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *k = &g_entities[i];
-		vec3_t     pos, up = { 0, 0, 1 };
-		int        j;
-
-		if ( !Shinobi_IsMark( k, ent->s.number ) || ( !KUNAI_STUCK( k ) && !KUNAI_ON( k ) ) )
-			continue;
-		VectorCopy( k->r.currentOrigin, pos );
-
-		for ( j = 0; j < level.num_entities; j++ ) {
-			gentity_t *v = &g_entities[j];
-			trace_t    tr;
-			if ( !v->inuse || !v->client || v == ent || v->health <= 0 )
-				continue;
-			if ( Shinobi_DamageBlocked( v, ent ) || ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) ) )
-				continue;
-			if ( Distance( v->r.currentOrigin, pos ) > SHINOBI_RAITRAP_RADIUS )
-				continue;
-			trap->Trace( &tr, pos, NULL, NULL, v->r.currentOrigin, k->s.number, MASK_SOLID, qfalse, 0, 0 );
-			if ( tr.fraction < 1.0f && tr.entityNum != v->s.number && !( KUNAI_ON( k ) && j == KUNAI_ON( k ) - 1 ) )
-				continue;
-			shinobiHitElement = SE_LIGHTNING;
-			G_Damage( v, k, ent, NULL, v->r.currentOrigin, SHINOBI_RAITRAP_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
-			shinobiHitElement = SE_NONE;
-			if ( v->inuse && v->health > 0 && j < MAX_CLIENTS && !Shinobi_CCImmune( v ) ) {
-				v->client->ps.electrifyTime = level.time + SHINOBI_RAITRAP_STUN_MS;
-				if ( v->client->ps.weaponTime < SHINOBI_RAITRAP_STUN_MS )
-					v->client->ps.weaponTime = SHINOBI_RAITRAP_STUN_MS;
-				v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-				v->client->ps.pm_time = SHINOBI_RAITRAP_STUN_MS / 2;
-				Shinobi_CCGrant( v, level.time + SHINOBI_RAITRAP_STUN_MS );
-			}
-		}
-		Shinobi_ElectrifyAt( pos, ent->s.number + 1 );
-		Shinobi_EffectDir( shinobiMedia.fxChidoriHit[1], pos, up );
-		G_PlayEffectID( shinobiMedia.fxEmp, pos, up );
-		G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndChidoriHit );
-		G_FreeEntity( k );
-		n++;
+		if ( !Shinobi_IsMark( k, ent->s.number ) || ( !KUNAI_STUCK( k ) && !KUNAI_ON( k ) ) || k->genericValue6 )
+			continue; // (genericValue6: already a node of a net)
+		if ( n < SHINOBI_MARK_MAX )
+			marks[n++] = k;
+	}
+	for ( i = 1; i < n; i++ ) { // oldest first
+		gentity_t *t = marks[i];
+		for ( j = i - 1; j >= 0 && KUNAI_BORN( marks[j] ) > KUNAI_BORN( t ); j-- )
+			marks[j + 1] = marks[j];
+		marks[j + 1] = t;
 	}
 	if ( !n ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, "cp \"No marked kunai to discharge (Shift+Z)\"" );
 		return qfalse;
 	}
+	if ( n == 1 ) {
+		Shinobi_RaiDischarge( ent, marks[0] );
+		return qtrue;
+	}
+
+	net = G_Spawn();
+	if ( !net )
+		return qfalse;
+	net->classname = "shinobi_rainet";
+	net->s.eType = ET_GENERAL;
+	net->s.generic1 = SHINOBI_ENT_RAINET;
+	net->r.ownerNum = ent->s.number;
+	net->s.owner = ent->s.number;
+	net->r.contents = 0;
+	net->r.svFlags |= SVF_BROADCAST;
+	RAINET_COUNT( net ) = n > 3 ? 3 : n;
+	RAINET_END( net ) = level.time + SHINOBI_RAINET_MS;
+	for ( i = 0; i < RAINET_COUNT( net ); i++ ) {
+		gentity_t *k = marks[i];
+		vec3_t     up = { 0, 0, 1 };
+		RAINET_NODE( net, i ) = k->s.number + 1;
+		k->genericValue6 = net->s.number + 1;
+		if ( KUNAI_EXPIRE( k ) < RAINET_END( net ) + 500 )
+			KUNAI_EXPIRE( k ) = RAINET_END( net ) + 500; // (the net frees them when it ends)
+		if ( KUNAI_STUCK( k ) && !KUNAI_ON( k ) )
+			k->nextthink = KUNAI_EXPIRE( k );
+		if ( KUNAI_ON( k ) ) { // the one carrying it is shocked as the net comes on
+			gentity_t *v = &g_entities[KUNAI_ON( k ) - 1];
+			if ( v->inuse && v->client && v->health > 0 )
+				Shinobi_RaiShock( v, k, ent, SHINOBI_RAITRAP_DAMAGE, SHINOBI_RAITRAP_STUN_MS );
+		}
+		Shinobi_EffectDir( shinobiMedia.fxChidoriHit[1], k->r.currentOrigin, up );
+	}
+	G_SetOrigin( net, marks[0]->r.currentOrigin );
+	VectorCopy( marks[1]->r.currentOrigin, net->s.origin2 );
+	if ( n >= 3 )
+		VectorCopy( marks[2]->r.currentOrigin, net->s.angles2 );
+	net->s.frame = RAINET_COUNT( net );
+	net->think = Shinobi_RaiNetThink;
+	net->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)net );
+	G_SoundAtLoc( marks[0]->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndChidoriHit );
 	return qtrue;
 }
 
@@ -495,8 +726,23 @@ void Shinobi_ShadowTrapVictimThink( gentity_t *ent, usercmd_t *ucmd ) {
 }
 
 qboolean Shinobi_CastShadowTrap( gentity_t *ent ) {
-	int i, marks = 0, n = 0;
+	int i, marks = 0, n = 0, oldestUsed = 0;
 
+	{ // as before there were three marks: only the two newest reach out
+		int born[SHINOBI_MARK_MAX], c = 0, x, y;
+		for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+			gentity_t *k = &g_entities[i];
+			if ( Shinobi_IsMark( k, ent->s.number ) && ( KUNAI_STUCK( k ) || KUNAI_ON( k ) ) && c < SHINOBI_MARK_MAX )
+				born[c++] = KUNAI_BORN( k );
+		}
+		for ( x = 0; x < c; x++ ) { // the 2nd newest birth time
+			int newer = 0;
+			for ( y = 0; y < c; y++ )
+				newer += born[y] > born[x];
+			if ( newer == SHINOBI_SHADOWTRAP_MARKS - 1 )
+				oldestUsed = born[x];
+		}
+	}
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
 		gentity_t *k = &g_entities[i];
 		gentity_t *best = NULL, *t;
@@ -504,7 +750,7 @@ qboolean Shinobi_CastShadowTrap( gentity_t *ent ) {
 		float      bestDist = SHINOBI_SHADOWTRAP_RANGE;
 		int        j;
 
-		if ( !Shinobi_IsMark( k, ent->s.number ) || ( !KUNAI_STUCK( k ) && !KUNAI_ON( k ) ) )
+		if ( !Shinobi_IsMark( k, ent->s.number ) || ( !KUNAI_STUCK( k ) && !KUNAI_ON( k ) ) || KUNAI_BORN( k ) < oldestUsed )
 			continue;
 		marks++;
 		VectorCopy( k->r.currentOrigin, pos );

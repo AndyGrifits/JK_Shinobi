@@ -55,7 +55,7 @@ typedef enum {
 	SJ_SHADOW,    // shadow bind (held)
 	SJ_WATERCLONE,// water clone: casts the next jutsu of your build on its own
 	SJ_HIRAISHIN, // flying thunder god: teleport to your marked kunai
-	SJ_RAITRAP,   // lightning trap: your marked kunai discharge
+	SJ_RAITRAP,   // lightning trap: one marked kunai discharges, two or three string a lightning net
 	SJ_MIST,      // hidden mist: a bank of fog around you
 	SJ_QUAKE,     // earthquake: long charge, the radius grows with it
 	SJ_WINDWALL,  // wind wall: throws projectiles back at their thrower
@@ -643,6 +643,7 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)
 #define SHINOBI_ENT_TAG            235   // explosive tag; s.time = armed at, s.time2 = blast time (0 = waiting)
 #define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
+#define SHINOBI_ENT_RAINET         237   // lightning net; origin, s.origin2, s.angles2 = nodes; s.frame = count | lit sides << 2
 
 // Water Clone: one clone made of water that fights like a shadow clone and casts,
 // on its own, the jutsu that comes after Water Clone in your build (Water Prison:
@@ -662,11 +663,20 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_MARK_COST          10
 #define SHINOBI_MARK_LIFE          30000
 #define SHINOBI_MARK_ON_ENEMY      12000
-#define SHINOBI_MARK_MAX           2      // per player; a third replaces the oldest
+#define SHINOBI_MARK_MAX           3      // per player; a fourth replaces the oldest
 #define SHINOBI_HIRAISHIN_COOLDOWN 8000
 #define SHINOBI_RAITRAP_RADIUS     110
 #define SHINOBI_RAITRAP_DAMAGE     25
 #define SHINOBI_RAITRAP_STUN_MS    800
+// Lightning Trap with two or three marks: a net of lightning between them
+#define SHINOBI_RAINET_MS          8000
+#define SHINOBI_RAINET_SPAN        500    // the longest side that lights
+#define SHINOBI_RAINET_REACH       14     // how close to a line a body must come
+#define SHINOBI_RAINET_DAMAGE      20
+#define SHINOBI_RAINET_STUN_MS     1000
+#define SHINOBI_RAINET_REHIT_MS    1500   // the same man again only after this
+#define SHINOBI_RAINET_THINK_MS    50
+#define SHINOBI_SHADOWTRAP_MARKS   2      // Shadow Trap: from the newest two marks only
 // Shadow Trap: from each marked kunai a shadow reaches out along the floor to the
 // nearest enemy in range and holds him where he stands (no moving, no attacks, no
 // jutsu but Kawarimi) while its maker pays for it. Any damage to him breaks it.
@@ -1097,7 +1107,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
 	"a water clone (30 s) that fights and uses the next water jutsu in your list (paid by you)",
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
-	"your marked kunai (Shift+Z) discharge: damage and a short stun around each",
+	"one marked kunai (Shift+Z) discharges: damage and a short stun around it; two or three: lightning strings between them (a line / a triangle, up to 500 u a side) for 8 s - whoever crosses it is shocked and stunned",
 	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through",
 	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it and leaves dust (water makes it mud). Jump!",
 	"a wall of wind ahead (4-8 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",
@@ -1113,7 +1123,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: melt into your shadow - only a dark patch moves; blades can't touch it, fire, lightning and light drive you out",
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
 	"hold F: chakra turns into health, one for one (20 a second); you walk slowly",
-	"shadows reach out from your marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him",
+	"shadows reach out from your two newest marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him",
 	"hold F: half a second to wind up, then you spin inside a dome of chakra (30 chakra a second): blades, fists and jutsu don't get through, missiles glance off, whoever is close is thrown away and knocked down; rooted, no attacks"
 };
 
