@@ -65,6 +65,12 @@ roll up to a side. Kawarimi works from the floor.
 
 ## Bots defend
 
+Bots wear our characters (a random `shinobi.char` model nobody else wears yet, instead of
+their bots.txt one). `shinobi_botfists` % of their lives (default 50) they fight bare-handed
+with our combo: fists in hand, the attack held while someone is in reach, a finisher picked
+per combo (kick / launcher / sweep / spin), the air combo after their own launcher, and a
+random fist style.
+
 Bots raise the guard against a blow coming at them (`shinobi_botguard`, default 55 %), held
 a moment (a press right before the hit is a perfect parry), drop it when it is nearly gone,
 Kawarimi out of a combo after the second blow half the time (and now and then off the floor

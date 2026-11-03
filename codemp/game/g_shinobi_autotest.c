@@ -916,6 +916,39 @@ static atResult_t T_BotDefend( int t ) {
 	return ATR_RUN;
 }
 
+// a bot on a bare-handed life (its own AI) comes and fights with the combo
+static void T_BotFists_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_SABER );
+	AT_Spot( 160, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	B->client->shinobi.botFists = qtrue;
+	B->client->shinobi.botFinisher = -1;
+	B->client->pers.shinobiFistStyle = SFS_FAST;
+	at.v[0] = shinobiTest.launches;
+	at.v[1] = shinobiTest.airHits;
+	at.v[2] = shinobiTest.slams;
+}
+static atResult_t T_BotFists( int t ) {
+	A->health = A->client->ps.stats[STAT_HEALTH] = A->client->ps.stats[STAT_MAX_HEALTH]; // (a punching bag that lasts)
+	if ( B->client->ps.weapon == WP_MELEE )
+		at.v[3]++;
+	at.v[4]++;
+	if ( t >= 12000 ) {
+		int hits = 0, kicks = 0, i;
+		for ( i = 0; i < SHINOBI_TEST_DMGLOG; i++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[i];
+			if ( d->time >= at.start && d->targ == at.a && d->attacker == at.b && d->mod == MOD_MELEE )
+				hits++;
+		}
+		kicks = shinobiTest.launches - at.v[0];
+		AT_Msg( "12 s with its own AI: fists in hand %i%% of the time, %i blows landed, launchers %i, air blows %i, slams %i",
+			at.v[4] ? at.v[3] * 100 / at.v[4] : 0, hits, kicks, shinobiTest.airHits - at.v[1], shinobiTest.slams - at.v[2] );
+		return ( at.v[3] * 10 >= at.v[4] * 8 && hits >= 4 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
@@ -934,6 +967,7 @@ static atTest_t atTests[] = {
 	{ "marks",        "three marked kunai at most",                               T_Marks_Setup, T_Marks, 3000 },
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
+	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
 };
 #define AT_COUNT ( (int)ARRAY_LEN( atTests ) )
 
@@ -999,7 +1033,7 @@ static void AT_BeginTest( void ) {
 		AT_Spot( 300, 0, p );
 		AT_Place( B, p, at.baseYaw + 180 );
 	}
-	if ( !strcmp( t->name, "bot_defend" ) )
+	if ( !strcmp( t->name, "bot_defend" ) || !strcmp( t->name, "bot_fists" ) )
 		at.drive[1].free = qtrue; // its own defence decides (Shinobi_BotDefend runs for it)
 	if ( t->setup )
 		t->setup();

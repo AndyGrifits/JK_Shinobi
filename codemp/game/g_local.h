@@ -898,6 +898,9 @@ struct gclient_s {
 		int		pillarNext;		// Rock Pillar cooldown end
 		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
 		int		botGuardUntil, botGuardNext, botFlinches, botFlinchSeen, botPunishUntil; // bots: defence
+		qboolean botFists;		// bots: this life fights bare-handed (our combo)
+		int		botFinisher;	// the finisher picked for the combo going on: 0 kick, 1 launch, 2 sweep, 3 spin
+		int		botAirUntil;	// launched someone: jump after him and hit until then
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)

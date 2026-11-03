@@ -168,6 +168,12 @@ void Shinobi_BotPrepare( gentity_t *ent ) {
 		return;
 	Shinobi_BotRandomBuild( &client->pers.shinobiBuildNext );
 	client->pers.shinobiBuildSet = qtrue;
+	// this life: blade or fists (and which fist style)
+	client->shinobi.botFists = Q_irand( 0, 99 ) < shinobi_botfists.integer;
+	client->shinobi.botFinisher = -1;
+	client->shinobi.botAirUntil = 0;
+	if ( client->shinobi.botFists )
+		client->pers.shinobiFistStyle = Q_irand( 0, SFS_COUNT - 1 );
 	Shinobi_BuildString( &client->pers.shinobiBuildNext, str, sizeof( str ) );
 	G_LogPrintf( "[shinobi] bot %s build: %s\n", client->pers.netname, str );
 }
@@ -341,6 +347,8 @@ static qboolean Shinobi_BotThreat( gentity_t *ent, gentity_t *e ) {
 	return qfalse;
 }
 
+static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd );
+
 void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 	gentity_t *threat = NULL, *reeling = NULL;
@@ -349,6 +357,8 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( !( ent->r.svFlags & SVF_BOT ) || ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR
 		|| Shinobi_AutotestControls( ent ) )
 		return;
+	if ( client->shinobi.botFists && !SHINOBI_IS_TOOL_WEAPON( ucmd->weapon ) )
+		ucmd->weapon = WP_MELEE; // a bare-handed life: whatever the AI would pick (Shinobi_BotFists)
 
 	// caught in a combo: after the second blow (counted in Shinobi_Flinch), maybe Kawarimi out
 	if ( client->shinobi.flinchEnd > level.time && client->shinobi.botFlinches >= 2 ) {
@@ -408,6 +418,97 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 	if ( client->shinobi.botPunishUntil > level.time )
 		ucmd->buttons |= BUTTON_ATTACK;
+
+	Shinobi_BotFists( ent, ucmd );
+}
+
+/*
+A bot fighting bare-handed this life (shinobi_botfists % of lives): fists in hand
+(whatever the AI picks), the attack held while an enemy is in reach so the chain runs,
+a finisher picked per combo - nothing (front kick), forward (launcher), back (sweep) or a
+side (spin kick); after its own launcher it jumps after the victim and hits on (the air
+combo ends in the slam). Lying enemies get the ground blow (attack next to them).
+*/
+static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	gentity_t *target = NULL;
+	float      best = SHINOBI_PUNCH_RANGE + 46;
+	vec3_t     fwd, yaw = { 0, 0, 0 };
+	int        i, hit, chain;
+
+	if ( !client->shinobi.botFists || ent->health <= 0 || !Shinobi_CanAct( ent ) )
+		return;
+	if ( !( client->ps.stats[STAT_WEAPONS] & ( 1 << WP_MELEE ) ) )
+		client->ps.stats[STAT_WEAPONS] |= 1 << WP_MELEE;
+	if ( SHINOBI_IS_TOOL_WEAPON( ucmd->weapon ) && client->ps.weapon == ucmd->weapon )
+		return; // throwing a tool right now: let it
+	ucmd->weapon = WP_MELEE;
+	if ( client->ps.weapon != WP_MELEE )
+		return; // still switching
+
+	yaw[YAW] = client->ps.viewangles[YAW];
+	AngleVectors( yaw, fwd, NULL, NULL );
+	for ( i = 0; i < MAX_CLIENTS; i++ ) { // the nearest enemy in reach, roughly in front
+		gentity_t *e = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+		if ( e == ent || !e->inuse || !e->client || e->health <= 0 || e->client->sess.sessionTeam == TEAM_SPECTATOR )
+			continue;
+		if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
+			continue;
+		VectorSubtract( e->client->ps.origin, client->ps.origin, d );
+		if ( fabs( d[2] ) > 80 && client->shinobi.botAirUntil <= level.time )
+			continue;
+		dist = VectorNormalize( d );
+		if ( dist > best || DotProduct( d, fwd ) < 0.5f )
+			continue;
+		best = dist;
+		target = e;
+	}
+
+	// the air combo: up after the one we launched, hitting on
+	if ( client->shinobi.botAirUntil > level.time ) {
+		if ( client->ps.groundEntityNum != ENTITYNUM_NONE && level.time + 300 > client->shinobi.botAirUntil - 450 )
+			ucmd->upmove = 127; // the jump right after the launcher
+		else
+			ucmd->upmove = 0;
+		ucmd->buttons = ( ucmd->buttons & ~( BUTTON_ATTACK | SHINOBI_BUTTON_BLOCK ) ) | ( ( level.time / 120 ) % 2 ? BUTTON_ATTACK : 0 );
+		ucmd->forwardmove = ucmd->rightmove = 0;
+		return;
+	}
+	if ( !target ) {
+		client->shinobi.botFinisher = -1;
+		return;
+	}
+	if ( ucmd->buttons & SHINOBI_BUTTON_BLOCK )
+		return; // guarding (Shinobi_BotDefend)
+
+	// hold attack: the chain goes on by itself
+	ucmd->buttons |= BUTTON_ATTACK;
+	ucmd->buttons &= ~BUTTON_ALT_ATTACK;
+	hit = SHINOBI_COMBO_HIT( &client->ps );
+	chain = shinobiFistChain[SHINOBI_FIST_STYLE( &client->ps )];
+	if ( hit == 0 && client->ps.stats[STAT_SHINOBI_COMBOT] <= 0 )
+		client->shinobi.botFinisher = -1;
+	if ( hit >= chain - 1 ) { // the next blow is the finisher: its direction
+		if ( client->shinobi.botFinisher < 0 ) {
+			const int r = Q_irand( 0, 99 );
+			client->shinobi.botFinisher = r < 30 ? 0 : r < 60 ? 1 : r < 80 ? 2 : 3;
+		}
+		ucmd->forwardmove = ucmd->rightmove = 0;
+		switch ( client->shinobi.botFinisher ) {
+		case 1: ucmd->forwardmove = 127; break;
+		case 2: ucmd->forwardmove = -127; break;
+		case 3: ucmd->rightmove = Q_irand( 0, 1 ) ? 127 : -127; break;
+		default: break;
+		}
+	}
+	else if ( best < SHINOBI_PUNCH_RANGE + 8 )
+		ucmd->forwardmove = 0; // in reach: stand and hit
+	// our launcher just went up: the air combo
+	if ( target->client->shinobi.juggleBy == ent->s.number + 1 && target->client->shinobi.juggleEnd > level.time
+		&& level.time - target->client->shinobi.juggleStart < 200 )
+		client->shinobi.botAirUntil = level.time + 1800;
 }
 
 // every frame for bots: let go of held jutsu in time
