@@ -1332,8 +1332,12 @@ qboolean PM_AdjustAngleForWallRun( playerState_t *ps, usercmd_t *ucmd, qboolean 
 		trace_t	trace;
 		float	dist, yawAdjust;
 
-		VectorSet(mins, -15, -15, 0);
-		VectorSet(maxs, 15, 15, 24);
+		// JK_Shinobi: the player's own width (a smaller ninja is thinner): a fixed 15 box
+		// started inside the wall he runs along, and the run turned him into it.
+		// (pm->mins isn't set yet here: PM_CheckDuck comes later in the move)
+		const float w = 15.0f * BG_ShinobiSize( ps );
+		VectorSet(mins, -w, -w, 0);
+		VectorSet(maxs, w, w, 24);
 		VectorSet(fwdAngles, 0, pm->ps->viewangles[YAW], 0);
 
 		AngleVectors( fwdAngles, fwd, rt, NULL );
@@ -1448,8 +1452,9 @@ qboolean PM_AdjustAngleForWallRunUp( playerState_t *ps, usercmd_t *ucmd, qboolea
 		trace_t	trace;
 		float	dist = 128;
 
-		VectorSet(mins, -15,-15,0);
-		VectorSet(maxs, 15,15,24);
+		const float w = 15.0f * BG_ShinobiSize( ps ); // JK_Shinobi: the player's own width
+		VectorSet(mins, -w, -w, 0);
+		VectorSet(maxs, w, w, 24);
 		VectorSet(fwdAngles, 0, pm->ps->viewangles[YAW], 0);
 
 		AngleVectors( fwdAngles, fwd, NULL, NULL );
@@ -10213,9 +10218,10 @@ static qboolean PM_ShinobiWallBeside( float side )
 {
 	vec3_t  fwdAngles, right, traceto, mins, maxs, idealNormal;
 	trace_t trace;
+	const float w = 15.0f * BG_ShinobiSize( pm->ps ); // pm->mins isn't set yet (PM_CheckDuck is later)
 
-	VectorSet( mins, pm->mins[0], pm->mins[1], 0 );
-	VectorSet( maxs, pm->maxs[0], pm->maxs[1], 24 );
+	VectorSet( mins, -w, -w, 0 );
+	VectorSet( maxs, w, w, 24 );
 	VectorSet( fwdAngles, 0, pm->ps->viewangles[YAW], 0 );
 	AngleVectors( fwdAngles, NULL, right, NULL );
 	VectorMA( pm->ps->origin, side * SHINOBI_WALLRUN_REACH, right, traceto );

@@ -93,6 +93,13 @@ static void SC_ListChars( void ) {
 			name[--len] = 0;
 		if ( !name[0] || name[0] == '.' || name[0] == '_' )
 			continue;
+		// the same folder can come back twice (from a pk3 as "kakashi/" and loose on disk
+		// as "kakashi"): one tile each
+		for ( k = 0; k < sc.numChars; k++ )
+			if ( !Q_stricmp( sc.chars[k].dir, name ) )
+				break;
+		if ( k < sc.numChars )
+			continue;
 		len = trap->FS_Open( va( "models/players/%s/shinobi.char", name ), &fh, FS_READ );
 		if ( !fh )
 			continue; // not one of ours
