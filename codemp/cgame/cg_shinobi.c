@@ -2009,6 +2009,17 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 			continue;
 		VectorCopy( cent->lerpOrigin, top );
 		top[2] += 48;
+		if ( eyes == SP_SHARINGAN ) { // the Sharingan only reads who is in sight (the server sends updates now and then)
+			trace_t tr;
+			vec3_t  mid;
+			CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, top, cg.snap->ps.clientNum, MASK_SOLID );
+			if ( tr.fraction < 1.0f ) {
+				VectorCopy( cent->lerpOrigin, mid );
+				CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, mid, cg.snap->ps.clientNum, MASK_SOLID );
+				if ( tr.fraction < 1.0f )
+					continue;
+			}
+		}
 		if ( !CG_WorldCoordToScreenCoordFloat( top, &x, &y ) )
 			continue;
 		y0 = y;

@@ -117,7 +117,7 @@ nothing else (bots still get their pseudo powers for the AI).
   Curse Seal (awakens at 0 chakra and stays awake until it has eaten your health down
   to 10, ~3 health/s; meanwhile chakra returns 5x faster, dark chakra around you and a darkened screen; at 10 health or less it only stirs (HUD says so);
   `/curseseal` or `C` toggles it).
-  - **Sharingan** (`C` on/off, 5 chakra + 3/s, no natural regen while open): health bars over enemies in sight
+  - **Sharingan** (`C` on/off, 5 chakra + 3/s, no natural regen while open): health bars over enemies in plain sight (a clear line from your eyes - no walls; PVS no longer counts)
     (2000 u), the name of the jutsu they are charging, Kawarimi-hidden enemies within
     1500 u show as ghosts. Clones look like perfect copies (owner's health). Red eyes,
     visible to everyone.

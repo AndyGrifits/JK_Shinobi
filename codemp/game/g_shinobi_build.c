@@ -309,9 +309,20 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 		if ( eyes == SP_SHARINGAN ) {
 			if ( hidden && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
 				continue; // under the ground: only the Byakugan sees that far
-			if ( hidden ? dist > SHINOBI_SHARINGAN_HIDDEN_RANGE
-				: ( dist > SHINOBI_SHARINGAN_RANGE || !trap->InPVS( eye, e->r.currentOrigin ) ) )
+			if ( hidden ? dist > SHINOBI_SHARINGAN_HIDDEN_RANGE : dist > SHINOBI_SHARINGAN_RANGE )
 				continue;
+			{ // only who the eye actually sees: a clear line to his head or his middle (no walls)
+				trace_t tr;
+				vec3_t  head;
+				VectorCopy( e->r.currentOrigin, head );
+				head[2] += e->r.maxs[2] - 8;
+				trap->Trace( &tr, eye, NULL, NULL, head, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+				if ( tr.fraction < 1.0f ) {
+					trap->Trace( &tr, eye, NULL, NULL, e->r.currentOrigin, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+					if ( tr.fraction < 1.0f )
+						continue;
+				}
+			}
 			flags = SHINOBI_SEEN_HEALTH | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
 		}
 		else {
