@@ -5,8 +5,7 @@ shinobi_knife
 	saberType		SABER_SINGLE
 	saberModel		models/weapons2/shinobi_knife/model.glm
 	numBlades		1
-	saberLength		9
-	saberRadius		2
+	saberLength		40
 	saberColor		blue
 	noBlade			1
 	noBlade2		1
@@ -29,12 +28,6 @@ shinobi_knife
 	onInWater		1
 	throwable		0
 	disarmable		0
-	damageScale		0.75
-	damageScale2	0.75
-	knockbackScale	0.7
-	knockbackScale2	0.7
-	animSpeedScale	1.2
-	moveSpeedScale	1.05
 	soundOn			sound/weapons/sword/draw1.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav

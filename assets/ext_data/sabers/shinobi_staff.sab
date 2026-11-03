@@ -5,13 +5,12 @@ shinobi_staff
 	saberType		SABER_STAFF
 	saberModel		models/weapons2/shinobi_staff/model.glm
 	numBlades		2
-	saberLength		35
-	saberRadius		3
+	saberLength		32
 	saberColor		blue
-	saberLength2		35
-	saberRadius2		3
+	saberLength2		32
 	saberColor2		blue
 	twoHanded		1
+	saberStyle		staff
 	noBlade			1
 	noBlade2		1
 	noDlight		1
@@ -33,12 +32,6 @@ shinobi_staff
 	onInWater		1
 	throwable		0
 	disarmable		0
-	damageScale		0.9
-	damageScale2	0.9
-	knockbackScale	1.4
-	knockbackScale2	1.4
-	animSpeedScale	1
-	moveSpeedScale	1
 	soundOn			sound/weapons/sword/catch.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav

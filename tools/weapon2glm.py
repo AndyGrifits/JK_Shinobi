@@ -27,8 +27,9 @@ Entry keys:
   stretch      [start, factor]: past Z = start (game units, after mapping) stretch along Z
   thickness    factor for X and Y (a thinner staff)
   blades       [[start Z, direction +1/-1, length], ...] in game units
-  title, staff (two-handed, saberType SABER_STAFF), damage, speed (animSpeedScale),
-  knockback, move (moveSpeedScale), radius (saberRadius), sounds {swing, hit, block}
+  title, staff (two-handed, saberType SABER_STAFF), sounds {on, off, swing, hit, block,
+  bounce}; left out = the stock saber's: damage, speed (animSpeedScale), knockback,
+  move (moveSpeedScale), radius (saberRadius)
 """
 import argparse
 import json
@@ -180,7 +181,7 @@ def build(entry, name, src_root, out_root, log=print):
             Image.open(os.path.join(os.path.dirname(src), os.path.basename(tex))).convert("RGB").save(
                 os.path.join(outdir, stem + ".tga"))
             shader = "%s/%s" % (gamedir, stem)
-        s = g2file.Surface("%s_%d" % (name, k), shader, 0, -1 if k == 0 else 0)
+        s = g2file.Surface("w_%s_%d" % (name, k), shader, 0, -1 if k == 0 else 0)  # hilt surfaces start with w_
         for p, uv, n in zip(P, UV, Nn):
             ln = np.linalg.norm(n)
             s.verts.append(tuple(float(x) for x in p))
@@ -229,11 +230,11 @@ def write_sab(entry, name, gamedir, sabdir):
              "\tnumBlades\t\t%d" % len(blades)]
     for b, (start, direction, length) in enumerate(blades):
         sfx = "" if b == 0 else str(b + 1)
-        lines += ["\tsaberLength%s\t\t%g" % (sfx, length),
-                  "\tsaberRadius%s\t\t%g" % (sfx, entry.get("radius", 2.5)),
-                  "\tsaberColor%s\t\tblue" % sfx]
+        lines += ["\tsaberLength%s\t\t%g" % (sfx, length), "\tsaberColor%s\t\tblue" % sfx]
+        if "radius" in entry:
+            lines += ["\tsaberRadius%s\t\t%g" % (sfx, entry["radius"])]
     if entry.get("staff"):
-        lines += ["\ttwoHanded\t\t1"]
+        lines += ["\ttwoHanded\t\t1", "\tsaberStyle\t\tstaff"]
     lines += [
         "\tnoBlade\t\t\t1", "\tnoBlade2\t\t1",
         "\tnoDlight\t\t1", "\tnoDlight2\t\t1",
@@ -247,17 +248,18 @@ def write_sab(entry, name, gamedir, sabdir):
         "\tonInWater\t\t1",
         "\tthrowable\t\t0",
         "\tdisarmable\t\t0",
-        "\tdamageScale\t\t%g" % entry.get("damage", 1.0),
-        "\tdamageScale2\t%g" % entry.get("damage", 1.0),
-        "\tknockbackScale\t%g" % entry.get("knockback", 1.0),
-        "\tknockbackScale2\t%g" % entry.get("knockback", 1.0),
-        "\tanimSpeedScale\t%g" % entry.get("speed", 1.0),
-        "\tmoveSpeedScale\t%g" % entry.get("move", 1.0),
         "\tsoundOn\t\t\t%s" % snd.get("on", SILENCE),
         "\tsoundLoop\t\t%s" % SILENCE,
         "\tspinSound\t\t%s" % SILENCE,
         "\tsoundOff\t\t%s" % snd.get("off", SILENCE),
     ]
+    # anything other than the stock saber's numbers only when the entry asks for it
+    for key, sab in (("damage", "damageScale"), ("knockback", "knockbackScale")):
+        if key in entry:
+            lines += ["\t%s\t\t%g" % (sab, entry[key]), "\t%s2\t\t%g" % (sab, entry[key])]
+    for key, sab in (("speed", "animSpeedScale"), ("move", "moveSpeedScale")):
+        if key in entry:
+            lines += ["\t%s\t%g" % (sab, entry[key])]
     for kind in ("swing", "hit", "block", "bounce"):
         files = snd.get(kind, [])
         for i, f in enumerate(files[:3]):

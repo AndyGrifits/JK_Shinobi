@@ -252,19 +252,22 @@ clash flare, with a plain swing trail, the stock sword / tusken staff sounds and
 mark instead of the burn; they can't be switched off. The stock saber combat stays
 (stances, blocks, kata, parries). The Weapon screen picks how you fight - **Fists only**
 (the weapon key does nothing), **One blade**, **Two blades** (a weapon per hand) or a
-**Staff** - and the weapon(s), with reach, speed, damage and knockback against the
-average blade; the preview holds them in the stance that goes with them. Stored in the
+**Staff** - and the weapon(s); the preview holds them in the stance that goes with them. Stored in the
 `shinobi_weapon` userinfo (none / one / two / staff) and the stock `saber1` / `saber2`;
 the server takes only `shinobi_*` weapons, fixes what doesn't fit the style and applies
 it on the next spawn. Bots get one style each by slot (katana, two knives, staff,
 nodachi, fists); shadow clones carry what their maker carries.
 
-| weapon | from | reach | speed | damage | knockback |
-|---|---|---|---|---|---|
-| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | 28 | 1.0 | 1.0 | 1.0 |
-| Nodachi (`shinobi_nodachi`) | the katana, blade x1.55 | 42 | 0.85 | 1.3 | 1.3 |
-| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives | 9 | 1.2 | 0.75 | 0.7 |
-| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends | 35 + 35 | 1.0 | 0.9 | 1.4 |
+| weapon | from |
+|---|---|
+| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade |
+| Nodachi (`shinobi_nodachi`) | the katana, blade x1.55 |
+| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives |
+| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends |
+
+For now they all play as the stock saber: reach 40 (a staff 32 each way), stock speed,
+damage and knockback - only the models and sounds differ. weapons.json can set reach
+(the blades' length) and damage / speed / knockback / move scales per weapon.
 
 New weapons: an entry in `tools/weapons.json` (source mesh .obj / .dae, axis map so the
 blade runs along +Z, the grip point, scale, blade tags and stats), then

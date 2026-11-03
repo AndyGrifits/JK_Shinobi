@@ -5,8 +5,7 @@ shinobi_nodachi
 	saberType		SABER_SINGLE
 	saberModel		models/weapons2/shinobi_nodachi/model.glm
 	numBlades		1
-	saberLength		42
-	saberRadius		2
+	saberLength		40
 	saberColor		blue
 	noBlade			1
 	noBlade2		1
@@ -29,12 +28,6 @@ shinobi_nodachi
 	onInWater		1
 	throwable		0
 	disarmable		0
-	damageScale		1.3
-	damageScale2	1.3
-	knockbackScale	1.3
-	knockbackScale2	1.3
-	animSpeedScale	0.85
-	moveSpeedScale	0.95
 	soundOn			sound/weapons/sword/draw1.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav

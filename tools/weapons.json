@@ -1,5 +1,5 @@
 {
-  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). damage/speed/knockback/move scale the stock saber's. Sounds are game paths (the stock sword / tusken staff ones are in every Jedi Academy).",
+  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). The stock saber's numbers (length 40, a staff's blades 32, speed / damage as stock) unless an entry sets damage, speed, knockback, move (scales) or radius. Sounds are game paths (the stock sword / tusken staff ones are in every Jedi Academy).",
   "katana": {
     "title": "ANBU Katana",
     "source": "Itachi's Anbu Blade/Itachi's Anbu Blade.obj",
@@ -14,13 +14,9 @@
       [
         7.0,
         1,
-        28
+        40
       ]
     ],
-    "damage": 1.0,
-    "speed": 1.0,
-    "knockback": 1.0,
-    "radius": 2.0,
     "sounds": {
       "on": "sound/weapons/sword/draw1.mp3",
       "off": "sound/weapons/sword/catch.mp3",
@@ -62,14 +58,9 @@
       [
         7.0,
         1,
-        42
+        40
       ]
     ],
-    "damage": 1.3,
-    "speed": 0.85,
-    "knockback": 1.3,
-    "move": 0.95,
-    "radius": 2.0,
     "sounds": {
       "on": "sound/weapons/sword/draw1.mp3",
       "off": "sound/weapons/sword/catch.mp3",
@@ -107,14 +98,9 @@
       [
         2.5,
         1,
-        9
+        40
       ]
     ],
-    "damage": 0.75,
-    "speed": 1.2,
-    "knockback": 0.7,
-    "move": 1.05,
-    "radius": 2.0,
     "sounds": {
       "on": "sound/weapons/sword/draw1.mp3",
       "off": "sound/weapons/sword/catch.mp3",
@@ -153,18 +139,14 @@
       [
         0,
         1,
-        35
+        32
       ],
       [
         0,
         -1,
-        35
+        32
       ]
     ],
-    "damage": 0.9,
-    "speed": 1.0,
-    "knockback": 1.4,
-    "radius": 3.0,
     "sounds": {
       "on": "sound/weapons/sword/catch.mp3",
       "off": "sound/weapons/sword/catch.mp3",

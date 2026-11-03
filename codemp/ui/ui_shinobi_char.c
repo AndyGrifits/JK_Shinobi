@@ -684,8 +684,11 @@ static float SC_WeaponStats( float x, float y, const char *hand, int k ) {
 		w = &sc.weapons[sc.wpn[i]];
 	}
 	y += 20;
-	SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f   speed %s   damage %s   knockback %s", w->length,
-		SC_Rating( w->speed ), SC_Rating( w->damage ), SC_Rating( w->knockback ) ) );
+	if ( w->speed != 1.0f || w->damage != 1.0f || w->knockback != 1.0f )
+		SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f   speed %s   damage %s   knockback %s", w->length,
+			SC_Rating( w->speed ), SC_Rating( w->damage ), SC_Rating( w->knockback ) ) );
+	else
+		SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f", w->length ) );
 	return y + 18;
 }
 
@@ -725,8 +728,7 @@ static void SC_DrawWeapons( float x0 ) {
 	}
 	y += 10;
 	SC_Wrapped( x0, y, 315, 0.4f, 15, dim,
-		"Reach is how far the blade cuts. Speed: the swings; damage and knockback: each hit, against the "
-		"average blade. Your choice goes out at once; it takes effect from your next spawn." );
+		"Reach is how far the blade cuts. Your choice goes out at once; it takes effect from your next spawn." );
 }
 
 /*

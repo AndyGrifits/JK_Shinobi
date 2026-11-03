@@ -5,8 +5,7 @@ shinobi_katana
 	saberType		SABER_SINGLE
 	saberModel		models/weapons2/shinobi_katana/model.glm
 	numBlades		1
-	saberLength		28
-	saberRadius		2
+	saberLength		40
 	saberColor		blue
 	noBlade			1
 	noBlade2		1
@@ -29,12 +28,6 @@ shinobi_katana
 	onInWater		1
 	throwable		0
 	disarmable		0
-	damageScale		1
-	damageScale2	1
-	knockbackScale	1
-	knockbackScale2	1
-	animSpeedScale	1
-	moveSpeedScale	1
 	soundOn			sound/weapons/sword/draw1.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav
