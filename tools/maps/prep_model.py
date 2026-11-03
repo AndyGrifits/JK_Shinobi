@@ -27,6 +27,16 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=fbx)
 
 meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+# objects to leave out entirely (map.json "model": {"drop_objects": [names]}), e.g. 2D grass cards
+drop = set(mdl.get("drop_objects", []))
+missing = drop - {o.name for o in meshes}
+if missing:
+    print("DROP: not in the model:", sorted(missing))
+for o in [o for o in meshes if o.name in drop]:
+    bpy.data.objects.remove(o, do_unlink=True)
+meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+if drop:
+    print(f"DROP {len(drop) - len(missing)} objects")
 for o in bpy.context.scene.objects:
     o.select_set(o.type == 'MESH')
 bpy.context.view_layer.objects.active = meshes[0]

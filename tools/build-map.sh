@@ -16,9 +16,11 @@ Q3MAP2="${Q3MAP2:-q3map2}"
 PY="python3 -I"
 
 mkdir -p "$BUILD" "$DIST"
-$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|rror"
+$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|DROP|rror"
 $PY "$ROOT/tools/maps/propclip.py" "$CFG" "$BUILD" | grep -E "PROPCLIP|rror"
 python3 "$ROOT/tools/maps/gen_map.py" "$CFG" "$BUILD"
+SKYENV="$(python3 -c "import json;print(json.load(open('$CFG')).get('sky',{}).get('env',''))")"
+[ -n "$SKYENV" ] && python3 "$ROOT/tools/maps/gen_sky.py" "$CFG" "$BUILD"
 $PY "$ROOT/tools/maps/levelshot.py" "$CFG" "$BUILD" | grep -E "LEVELSHOT|rror"
 
 MAP="$BUILD/base/maps/$NAME.map"
@@ -31,5 +33,5 @@ grep -q "LEAKED" "$BUILD/bsp.log" && { echo "LEAK - see $BUILD/base/maps/$NAME.l
 PK3="$DIST/shinobi_map_$NAME.pk3"
 rm -f "$PK3"
 (cd "$BUILD/base" && zip -q "$PK3" "maps/$NAME.bsp" "shaders/$NAME.shader" "scripts/$NAME.arena" \
-    "levelshots/$NAME.jpg" -r "textures/$(python3 -c "import json;print(json.load(open('$CFG'))['shader_dir'])")")
+    "levelshots/$NAME.jpg" ${SKYENV:+$SKYENV\_*.jpg} -r "textures/$(python3 -c "import json;print(json.load(open('$CFG'))['shader_dir'])")")
 ls -l "$PK3"

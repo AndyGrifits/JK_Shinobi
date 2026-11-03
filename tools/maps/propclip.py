@@ -5,6 +5,8 @@
 Raycasts down onto the triangles of the shaders listed in map.json "prop_clip" only, on a
 grid of "cell" units; each cell gets a box from the floor up to the highest point in it
 (rounded up to 8). Equal-height neighbours are merged into rectangles. -> <build>/propclip.json
+"mode": "shell" (e.g. trees): the box starts at the lowest point seen from below instead of the
+floor, so a canopy is a slab you can stand on and walk under, and the trunk stays a column.
 """
 import json, os, sys
 import bpy
@@ -33,6 +35,7 @@ for group in pc["groups"]:
     x0 = int(min(xs) // cell) * cell; x1 = int(max(xs) // cell + 1) * cell
     y0 = int(min(ys) // cell) * cell; y1 = int(max(ys) // cell + 1) * cell
     floor = group.get("floor", 0)
+    shell = group.get("mode") == "shell"
     hmap = {}
     sub = 4
     rx0, ry0, rx1, ry1 = group.get("region", [-1e9, -1e9, 1e9, 1e9])
@@ -40,15 +43,22 @@ for group in pc["groups"]:
         for cx in range(x0, x1, cell):
             if not (rx0 <= cx and cx + cell <= rx1 and ry0 <= cy and cy + cell <= ry1):
                 continue
-            top = None
+            top = None; bottom = None
             for i in range(sub + 1):
                 for j in range(sub + 1):
-                    p = Vector((cx + cell * i / sub, cy + cell * j / sub, 2000))
-                    h = bvh.ray_cast(p, Vector((0, 0, -1)), 4000)
+                    p = Vector((cx + cell * i / sub, cy + cell * j / sub, 20000))
+                    h = bvh.ray_cast(p, Vector((0, 0, -1)), 40000)
                     if h[0] is not None and (top is None or h[0].z > top):
                         top = h[0].z
+                    if shell:
+                        h = bvh.ray_cast(Vector((p.x, p.y, floor - 200)), Vector((0, 0, 1)), 40000)
+                        if h[0] is not None and (bottom is None or h[0].z < bottom):
+                            bottom = h[0].z
             if top is not None and top > floor + group.get("min_height", 10):
-                hmap[(cx, cy)] = int(-(-top // 8) * 8)
+                b = floor - 8
+                if shell and bottom is not None and bottom > floor + 24:
+                    b = int(bottom // 8 * 8)
+                hmap[(cx, cy)] = (b, int(-(-top // 8) * 8))
     # greedy merge: rows first, then stack equal rows
     boxes = []
     used = set()
@@ -65,7 +75,7 @@ for group in pc["groups"]:
         for k in range(w):
             for m in range(d):
                 used.add((cx + k * cell, cy + m * cell))
-        boxes.append([cx, cy, floor - 8, cx + w * cell, cy + d * cell, h])
+        boxes.append([cx, cy, h[0], cx + w * cell, cy + d * cell, h[1]])
     groups.append({"shader": group["clip_shader"], "boxes": boxes})
     bm.free()
     print(f"PROPCLIP {group['clip_shader']}: {len(hmap)} cells -> {len(boxes)} boxes")

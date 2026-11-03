@@ -21,9 +21,27 @@ for slot in obj.material_slots:
     short = mat.name.split('/')[-1]
     f = [x for x in os.listdir(texdir) if x.startswith(short + '.')][0]
     t = nt.nodes.new('ShaderNodeTexImage'); t.image = bpy.data.images.load(os.path.join(texdir, f))
-    nt.links.new(t.outputs[0], em.inputs[0]); nt.links.new(em.outputs[0], out.inputs[0])
+    nt.links.new(t.outputs[0], em.inputs[0])
+    if f.endswith(".tga"):   # alpha-tested in game: cut out here too
+        tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mix = nt.nodes.new('ShaderNodeMixShader')
+        gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.5
+        nt.links.new(t.outputs[1], gt.inputs[0]); nt.links.new(gt.outputs[0], mix.inputs[0])
+        nt.links.new(tr.outputs[0], mix.inputs[1]); nt.links.new(em.outputs[0], mix.inputs[2])
+        nt.links.new(mix.outputs[0], out.inputs[0])
+    else:
+        nt.links.new(em.outputs[0], out.inputs[0])
 sc = bpy.context.scene
-sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = 16
+sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = 16; sc.cycles.transparent_max_bounces = 32
+if cfg.get("sky"):   # background = the skybox gradient (horizon -> zenith)
+    w = bpy.data.worlds.new("sky"); sc.world = w; w.use_nodes = True; wt = w.node_tree
+    tc = wt.nodes.new('ShaderNodeTexCoord'); sep = wt.nodes.new('ShaderNodeSeparateXYZ')
+    ramp = wt.nodes.new('ShaderNodeValToRGB')
+    hor = [c / 255 for c in cfg["sky"].get("horizon", [196, 222, 245])] + [1]
+    zen = [c / 255 for c in cfg["sky"].get("zenith", [62, 120, 214])] + [1]
+    ramp.color_ramp.elements[0].color = hor; ramp.color_ramp.elements[1].color = zen
+    ramp.color_ramp.elements[1].position = 0.8
+    wt.links.new(tc.outputs['Generated'], sep.inputs[0]); wt.links.new(sep.outputs[2], ramp.inputs[0])
+    wt.links.new(ramp.outputs[0], wt.nodes['Background'].inputs[0])
 sc.view_settings.view_transform = 'Standard'
 sc.render.resolution_x = 1024; sc.render.resolution_y = 768
 sc.render.image_settings.file_format = 'JPEG'; sc.render.image_settings.quality = 88

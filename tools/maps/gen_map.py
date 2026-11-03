@@ -52,6 +52,8 @@ for full, info in materials.items():
     if c.get("mat"):
         lines.append(f"\tq3map_material {c['mat']}")
     lines += ["\tq3map_nonplanar", "\tq3map_shadeAngle 70"]
+    if c.get("samplesize"):
+        lines.append(f"\tq3map_lightmapSampleSize {c['samplesize']}")
     if info["alpha"]:
         lines += ["\tsurfaceparm alphashadow", "\tsurfaceparm trans", "\tcull twosided",
                   "\t{", f"\t\tmap {tex}", "\t\talphaFunc GE128", "\t\tdepthWrite", "\t\trgbGen identity", "\t}",
@@ -62,15 +64,24 @@ for full, info in materials.items():
                   "\t{", f"\t\tmap {tex}", "\t\tblendFunc GL_DST_COLOR GL_ZERO", "\t\trgbGen identity", "\t}"]
     lines.append("}\n")
     sh.append("\n".join(lines))
-tool = {
-    "caulk": ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm nomarks"],
-    "clip_rock": ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm trans", "surfaceparm nonopaque",
-                  "q3map_material rock"],
-    "clip_leaves": ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm trans", "surfaceparm nonopaque",
-                    "q3map_material greenleaves"],
-}
+CLIP = ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm trans", "surfaceparm nonopaque"]
+tool = {"caulk": ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm nomarks"],
+        # players only (shots fly through): invisible walls / ceiling
+        "playerclip": ["surfaceparm nodraw", "surfaceparm nolightmap", "surfaceparm trans", "surfaceparm nomarks",
+                       "surfaceparm playerclip"]}
+clip_mats = {"clip_rock": "rock", "clip_leaves": "greenleaves", **cfg.get("clip_shaders", {})}
+for t, mat in clip_mats.items():
+    tool[t] = CLIP + [f"q3map_material {mat}"]
 for t, parms in tool.items():
     sh.append("\n".join([f"textures/{sd}/{t}", "{", "\tqer_trans 0.4", *[f"\t{p}" for p in parms], "}\n"]))
+sky = cfg.get("sky")
+if sky:
+    sun = sky.get("sun"); sl = sky.get("skylight")
+    sh.append("\n".join([f"textures/{sd}/sky", "{", f"\tqer_editorimage {sky['env']}_up",
+        "\tsurfaceparm sky", "\tsurfaceparm noimpact", "\tsurfaceparm nomarks", "\tsurfaceparm nolightmap",
+        *([f"\tq3map_sun {' '.join(map(str, sun))}"] if sun else []),
+        *([f"\tq3map_skyLight {' '.join(map(str, sl))}"] if sl else []),
+        f"\tskyParms {sky['env']} 512 -", "}\n"]))
 open(os.path.join(base, "shaders", f"{name}.shader"), "w").write("\n".join(sh))
 
 # --- .map ----------------------------------------------------------------------------------
@@ -86,15 +97,44 @@ def box(x0, y0, z0, x1, y1, z1, shader):
         f"( 0 0 {z1} ) ( 0 1 {z1} ) ( 1 0 {z1} ) {s}",   # +Z
         "}"])
 
+def prism(poly, z0, z1, shader):
+    """vertical prism over a convex polygon (counter-clockwise x, y points)"""
+    s = f"{sd}/{shader} 0 0 0 0.5 0.5 0 0 0"
+    f = lambda v: f"{v:.3f}".rstrip("0").rstrip(".")
+    faces = [f"( 0 0 {f(z0)} ) ( 1 0 {f(z0)} ) ( 0 1 {f(z0)} ) {s}", f"( 0 0 {f(z1)} ) ( 0 1 {f(z1)} ) ( 1 0 {f(z1)} ) {s}"]
+    for (ax, ay), (bx, by) in zip(poly, poly[1:] + poly[:1]):
+        # points p0=a(z0), p1=a(z1), p2=b(z0): normal = (p2-p0) x (p1-p0) points outward for a ccw polygon
+        faces.append(f"( {f(ax)} {f(ay)} {f(z0)} ) ( {f(ax)} {f(ay)} {f(z1)} ) ( {f(bx)} {f(by)} {f(z0)} ) {s}")
+    return "{\n" + "\n".join(faces) + "\n}"
+
 def ent(kv, brushes=()):
     return "{\n" + "".join(f'"{k}" "{v}"\n' for k, v in kv.items()) + "".join(b + "\n" for b in brushes) + "}\n"
 
 m = cfg.get("hull_margin", 32); t = 16
 X0, Y0, Z0 = (int(v // 8 * 8) - m for v in mn)
 X1, Y1, Z1 = (int(-(-v // 8) * 8) + m for v in mx)
-hull = [box(X0 - t, Y0 - t, Z0 - t, X1 + t, Y1 + t, Z0, "caulk"), box(X0 - t, Y0 - t, Z1, X1 + t, Y1 + t, Z1 + t, "caulk"),
-        box(X0 - t, Y0 - t, Z0, X0, Y1 + t, Z1, "caulk"), box(X1, Y0 - t, Z0, X1 + t, Y1 + t, Z1, "caulk"),
-        box(X0, Y0 - t, Z0, X1, Y0, Z1, "caulk"), box(X0, Y1, Z0, X1, Y1 + t, Z1, "caulk")]
+hs = "sky" if sky else "caulk"   # open-air maps: the hull's top and sides are sky, the bottom caulk
+hull = [box(X0 - t, Y0 - t, Z0 - t, X1 + t, Y1 + t, Z0, "caulk"), box(X0 - t, Y0 - t, Z1, X1 + t, Y1 + t, Z1 + t, hs),
+        box(X0 - t, Y0 - t, Z0, X0, Y1 + t, Z1, hs), box(X1, Y0 - t, Z0, X1 + t, Y1 + t, Z1, hs),
+        box(X0, Y0 - t, Z0, X1, Y0, Z1, hs), box(X0, Y1, Z0, X1, Y1 + t, Z1, hs)]
+# invisible round boundary (map.json "boundary"): a ring of playerclip segments + a playerclip ceiling
+bnd = cfg.get("boundary")
+if bnd:
+    import math
+    cx, cy = bnd.get("center", [0, 0]); R = bnd["radius"]; n = bnd.get("segments", 64); th = bnd.get("thickness", 32)
+    z0, z1 = bnd.get("z0", -16), bnd["z1"]
+    for i in range(n):
+        a0 = 2 * math.pi * i / n; a1 = 2 * math.pi * (i + 1) / n
+        R2 = (R + th) / math.cos(math.pi / n)   # outer corners so neighbouring segments overlap
+        poly = [(cx + R * math.cos(a0), cy + R * math.sin(a0)), (cx + R2 * math.cos(a0), cy + R2 * math.sin(a0)),
+                (cx + R2 * math.cos(a1), cy + R2 * math.sin(a1)), (cx + R * math.cos(a1), cy + R * math.sin(a1))]
+        hull.append(prism(poly, z0, z1, "playerclip"))   # inner a0 -> outer a0 -> outer a1 -> inner a1 = ccw
+    if "floor_z" in bnd:   # one flat floor brush instead of autoclipping a dense, nearly flat ground mesh
+        e = int(R + th + 64)
+        hull.append(box(cx - e, cy - e, bnd["floor_z"] - 32, cx + e, cy + e, bnd["floor_z"], "clip_floor"))
+    if bnd.get("ceiling", True):
+        e = int(R + th + 64)
+        hull.append(box(cx - e, cy - e, z1, cx + e, cy + e, z1 + 16, "playerclip"))
 props = []
 for g in json.load(open(os.path.join(build, "propclip.json"))):
     props += [box(*b, g["shader"]) for b in g["boxes"]]
@@ -104,9 +144,9 @@ out = [ent(ws, hull + props)]
 # spawnflags 4 = force meta: cut the model into lightmappable meta surfaces (JA: <= 64 verts each)
 out.append(ent({"classname": "misc_model", "model": mdl_rel, "origin": "0 0 0", "spawnflags": "4", "_clipdepth": "8",
                 "_castshadows": "1", "_receiveshadows": "1", "_lightmapscale": ws.get("_lightmapscale", "1")}))
-L = cfg["lights"]
-for x in L["grid_x"]:
-    for y in L["grid_y"]:
+L = cfg.get("lights", {"grid_x": [], "grid_y": []})
+for x in L.get("grid_x", []):
+    for y in L.get("grid_y", []):
         out.append(ent({"classname": "light", "origin": f"{x} {y} {L['z']}", "light": str(L["light"])}))
 for e in L.get("extra", []):
     out.append(ent({"classname": "light", "origin": " ".join(map(str, e["origin"])), "light": str(e["light"])}))
@@ -122,4 +162,5 @@ open(os.path.join(base, "scripts", f"{name}.arena"), "w").write(
     "{\n" + f'map "{name}"\nlongname "{cfg["longname"]}"\ntype "{cfg["arena_type"]}"\n' + "}\n")
 
 print(f"GEN OK {name}: hull {X0},{Y0},{Z0} .. {X1},{Y1},{Z1}; {len(props)} prop clip brushes; "
-      f"{len(materials)} model shaders; {len(L['grid_x']) * len(L['grid_y']) + len(L.get('extra', []))} lights")
+      f"{len(materials)} model shaders; {len(L.get('grid_x', [])) * len(L.get('grid_y', [])) + len(L.get('extra', []))} lights"
+      + (f"; sky {sky['env']}" if sky else "") + (f"; boundary r {bnd['radius']}" if bnd else ""))

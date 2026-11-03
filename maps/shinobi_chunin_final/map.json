@@ -1,0 +1,69 @@
+{
+ "name": "shinobi_chunin_final",
+ "longname": "Chunin Exam Finals",
+ "shader_dir": "shinobi_chunin_final",
+ "source": {
+  "fbx": "C:/Games/Blender My Models/chunin-exams-final-stage/source/coliseo examenes chunin 01.fbx",
+  "textures": "C:/Games/Blender My Models/chunin-exams-final-stage/textures"
+ },
+ "model": {
+  "_comment": "1 FBX unit = 4 u: field diameter ~2810 (wall inner radius 1402-1408), wall 494 high, trees ~380, stands up to 1558.",
+  "scale": 4,
+  "origin": [0, 0, -0.2],
+  "drop_objects": ["Material26", "Material30", "Material31", "Material32", "Material33", "Material34",
+                   "Material35", "Material36", "Material37", "Material38", "Material70"],
+  "_drop": "the 2D grass cards on the field (ntxr002 atlas): the field stays flat ground"
+ },
+ "shaders": {
+  "_comment": "t<N> = ntxr<N>.png. solid = autoclip (q3map_clipModel); samplesize = lightmap luxel size for big far surfaces",
+  "t201": {"solid": false, "mat": "dirt",     "what": "field ground (flat clip_floor brush instead)"},
+  "t211": {"solid": false, "mat": "dirt",     "what": "field ground (flat clip_floor brush instead)"},
+  "t221": {"solid": false, "mat": "dirt",     "what": "field ground (flat clip_floor brush instead)"},
+  "t231": {"solid": false, "mat": "dirt",     "what": "field ground (flat clip_floor brush instead)"},
+  "t39":  {"solid": true,  "mat": "concrete", "what": "arena wall"},
+  "t43":  {"solid": true,  "mat": "concrete", "what": "arena wall"},
+  "t44":  {"solid": true,  "mat": "solidwood", "what": "gate"},
+  "t40":  {"solid": true,  "mat": "concrete", "what": "wall top", "samplesize": 16},
+  "t41":  {"solid": true,  "mat": "concrete", "what": "wall top", "samplesize": 16},
+  "t42":  {"solid": false, "mat": "plaster",  "what": "stands / Hokage building (behind the boundary)", "samplesize": 32},
+  "t02":  {"solid": false, "mat": "greenleaves", "what": "plants on the stands", "samplesize": 32},
+  "t04":  {"solid": false, "mat": "solidwood", "what": "railings on the stands", "samplesize": 32},
+  "t31":  {"solid": false, "what": "stray triangle on the stands"},
+  "t55":  {"solid": false, "mat": "solidwood", "what": "tree trunks (prop clip)"},
+  "t33":  {"solid": false, "mat": "greenleaves", "what": "tree leaves (prop clip) + low bushes"},
+  "t34":  {"solid": false, "mat": "greenleaves", "what": "tree leaves (prop clip) + low bushes"},
+  "t35":  {"solid": false, "mat": "greenleaves", "what": "low bushes"},
+  "t52":  {"solid": false, "mat": "greenleaves", "what": "tree leaves (prop clip)"}
+ },
+ "prop_clip": {
+  "cell": 16,
+  "groups": [
+   {"shaders": ["t55", "t33", "t34", "t52"], "clip_shader": "clip_tree", "mode": "shell", "min_height": 40,
+    "_comment": "trunk = column, canopy = slab you can stand on; the ankle-high bushes stay walk-through"}
+  ]
+ },
+ "clip_shaders": {"clip_tree": "solidwood", "clip_floor": "dirt"},
+ "hull_margin": 256,
+ "worldspawn": {"_lightmapscale": "0.5", "_minlight": "16"},
+ "sky": {
+  "env": "env/shinobi_chunin_final",
+  "_sun": "r g b intensity yaw(0 = east, 90 = north) elevation: sun in the north-east, lighting the stands' front (they face north)",
+  "sun": [1.0, 0.95, 0.85, 200, 60, 50],
+  "skylight": [350, 4],
+  "zenith": [62, 120, 214], "horizon": [196, 222, 245], "ground": [150, 160, 150]
+ },
+ "boundary": {
+  "_comment": "players only: a 64-segment ring on the wall's inner face up to above the stands, plus a ceiling; floor_z = one flat solid floor brush (the ground mesh is flat to +-1 u)",
+  "center": [0, 0], "radius": 1400, "segments": 64, "thickness": 32, "z0": -16, "z1": 1600, "floor_z": 0
+ },
+ "spawns": {
+  "_comment": "[x, y, z, yaw]; picked >= 300 u clear of the tree trunks / canopies (propclip.json)",
+  "info_player_deathmatch": [[987, -359, 40, 160], [-359, 987, 40, 290], [-1014, 272, 40, 345], [359, -987, 40, 110]],
+  "info_player_duel": [[-359, 987, 40, 290], [359, -987, 40, 110]],
+  "info_player_duel1": [[-491, 939, 40, 290], [-227, 1035, 40, 290]],
+  "info_player_duel2": [[227, -1035, 40, 110], [491, -939, 40, 110]],
+  "info_player_start": [[987, -359, 40, 160]]
+ },
+ "levelshot": {"from": [0, -1250, 110], "to": [0, 600, 330], "lens": 14},
+ "arena_type": "ffa duel powerduel team holocron jedi"
+}
