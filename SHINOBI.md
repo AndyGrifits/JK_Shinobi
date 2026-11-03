@@ -162,7 +162,9 @@ used (Part I databooks / MyAnimeList, cm): Sasuke 153, Neji 160, Lee 160, Shikam
 Kabuto 176, Yugao 169, Kisame 195, Anko 167, Baki 188, Gaara 146, Naruto 145, Yamato 178;
 the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size. Yamato's rip points
 at the wood-clone textures (mky_*); it is built with his own (ymt_*) copied under those
-names. Anko's dango skewer pieces inside the hand outline go by --drop-parts.
+names. Anko's dango skewer pieces inside the hand outline go by --drop-parts. Kisame's Samehada on his back goes
+by --drop-parts too (its bone b_186ken). `--rigid-parts PART[:bone]` puts a piece on one
+bone so it doesn't bend: Gaara's gourd on `thoracic`.
 
 ```
 python3 tools/blend2glm.py Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \

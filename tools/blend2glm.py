@@ -773,7 +773,19 @@ def convert(src_meshes, src_parents, J, gla, rig, stock=None):
                 else:
                     out[tgt] = out.get(tgt, 0) + w / tot
             raw.append(out)
-        if stock is not None and not prop:
+        if m.get("rigid"):
+            # one piece that must not bend (Gaara's gourd): every vertex on one bone, the
+            # given one or the one most of its weight goes to
+            tot = {}
+            for out in raw:
+                for b, w in out.items():
+                    tot[b] = tot.get(b, 0) + w
+            bone = m["rigid"] if isinstance(m["rigid"], str) else max(tot, key=tot.get)
+            if bone not in gla.index:
+                raise SystemExit("no bone %s in %s" % (bone, gla.name))
+            print("%s: rigid on %s" % (m["name"], bone))
+            raw = [{bone: 1.0} for _ in raw]
+        elif stock is not None and not prop:
             raw = stock.blend(p, raw)
         for out in raw:
             final.append(top4(out, gla))
@@ -888,6 +900,9 @@ def main(argv=None):
                     "over %d vertices (it will drop the game on Ghoul2 traces)" % VERT_BUDGET)
     ap.add_argument("--keep-shells", action="store_true", help="keep the outline shells (inside-out "
                     "copies the old games draw black around a mesh; left out by default)")
+    ap.add_argument("--rigid-parts", default="", help="part ids that must not bend (a gourd on "
+                    "the back): PART or PART:bone, comma separated; all on one bone (by default "
+                    "the one most of the part's weight goes to)")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
                     "hand, off in model_default.skin, on in model_props.skin")
     a = ap.parse_args(argv)
@@ -912,7 +927,12 @@ def main(argv=None):
             return None
         gone = {d for d in a.drop_parts.split(",") if d} | shells | (held if a.drop_held else set())
         props = {d for d in a.prop_parts.split(",") if d}
-        unknown = (gone | props) - {p["part"] for p in parts}
+        rigid = {}
+        for d in a.rigid_parts.split(","):
+            if d:
+                part, _, bone = d.partition(":")
+                rigid[part] = bone or None
+        unknown = (gone | props | set(rigid)) - {p["part"] for p in parts}
         if unknown:
             raise SystemExit("no such parts: %s" % ", ".join(sorted(unknown)))
         keep, extra = {}, []
@@ -923,6 +943,9 @@ def main(argv=None):
             elif p["part"] in props:
                 print("prop:    ", describe_part(p))
                 extra.append(dict(p, name=p["part"], prop=True))
+            elif p["part"] in rigid:
+                print("rigid:   ", describe_part(p))
+                extra.append(dict(p, name=p["part"], rigid=rigid[p["part"]] or True))
             else:
                 keep.setdefault(p["name"], []).extend(p["tris"])
         meshes = [dict(m, tris=keep[m["name"]]) for m in meshes if m["name"] in keep] + extra
