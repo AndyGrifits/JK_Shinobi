@@ -23,6 +23,22 @@ void Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo ) {
 	client->pers.shinobiBuildNext = next;
 	client->pers.shinobiBuildSet = qtrue;
 
+	// weapon style: bots without one get one of each, by their slot
+	{
+		const char *w = Info_ValueForKey( userinfo, "shinobi_weapon" );
+		int         style;
+		if ( !w[0] && ( ent->r.svFlags & SVF_BOT ) )
+			style = Shinobi_BotWeaponStyle( ent, NULL );
+		else
+			style = Shinobi_WeaponStyleParse( w );
+		if ( client->pers.connected == CON_CONNECTED && client->pers.shinobiWeaponSet && style != client->pers.shinobiWeaponNext )
+			trap->SendServerCommand( ent - g_entities, va( "cp \"^5%s^7 - from your next spawn\"", shinobiWeaponStyleTitles[style] ) );
+		client->pers.shinobiWeaponNext = style;
+		if ( !client->pers.shinobiWeaponSet )
+			client->pers.shinobiWeapon = style; // the first spawn gives it anyway
+		client->pers.shinobiWeaponSet = qtrue;
+	}
+
 	// a userinfo change resets max health; keep the build's
 	if ( client->pers.shinobiBuild.stats[SST_HEALTH] ) {
 		client->pers.maxHealth = 100 + 15 * client->pers.shinobiBuild.stats[SST_HEALTH];
@@ -35,6 +51,7 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 	shinobiBuild_t *b;
 	char            str[256];
 
+	client->pers.shinobiWeapon = client->pers.shinobiWeaponNext;
 	Shinobi_BotPrepare( ent ); // bots: a random build each life
 	if ( !client->pers.shinobiBuildSet ) {
 		Shinobi_BuildDefault( &client->pers.shinobiBuildNext );

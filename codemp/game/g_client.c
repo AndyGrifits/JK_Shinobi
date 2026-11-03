@@ -2271,8 +2271,9 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	// only set the saber name on the first connect.
 	//	it will be read from userinfo on ClientSpawn and stored in client->pers.saber1/2
 	if ( !VALIDSTRING( client->pers.saber1 ) || !VALIDSTRING( client->pers.saber2 ) ) {
-		G_SetSaber( ent, 0, Info_ValueForKey( userinfo, "saber1" ), qfalse );
-		G_SetSaber( ent, 1, Info_ValueForKey( userinfo, "saber2" ), qfalse );
+		// JK_Shinobi: only our weapons, as the weapon style allows
+		G_SetSaber( ent, 0, (char *)Shinobi_SaberFor( ent, 0, Info_ValueForKey( userinfo, "saber1" ) ), qfalse );
+		G_SetSaber( ent, 1, (char *)Shinobi_SaberFor( ent, 1, Info_ValueForKey( userinfo, "saber2" ) ), qfalse );
 	}
 
 	// set max health
@@ -3124,7 +3125,7 @@ void ClientSpawn(gentity_t *ent) {
 	for ( i=0; i<MAX_SABERS; i++ )
 	{
 		saber = (i&1) ? ent->client->pers.saber2 : ent->client->pers.saber1;
-		value = Info_ValueForKey( userinfo, va( "saber%i", i+1 ) );
+		value = (char *)Shinobi_SaberFor( ent, i, Info_ValueForKey( userinfo, va( "saber%i", i+1 ) ) ); // JK_Shinobi
 		if ( saber && value &&
 			(Q_stricmp( value, saber ) || !saber[0] || !ent->client->saber[0].model[0]) )
 		{ //doesn't match up (or our saber is BS), we want to try setting it

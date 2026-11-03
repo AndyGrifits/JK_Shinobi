@@ -207,6 +207,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiSel.index = 0;
 	shinobiActiveSet = qfalse;
 	trap->Cvar_Register( &shinobiBuildCvar, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
+	trap->Cvar_Register( NULL, "shinobi_weapon", "one", CVAR_USERINFO | CVAR_ARCHIVE ); // fists / one / two / staff
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();

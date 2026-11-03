@@ -590,11 +590,66 @@ void Shinobi_StripGuns( gentity_t *ent ) {
 
 	ps->stats[STAT_WEAPONS] &= SHINOBI_ALLOWED_WEAPONS;
 	ps->stats[STAT_WEAPONS] |= ( 1 << WP_MELEE );
+	if ( ent->s.number < MAX_CLIENTS && ent->client->pers.shinobiWeapon == SWS_NONE )
+		ps->stats[STAT_WEAPONS] &= ~( 1 << WP_SABER ); // fists only
 	if ( !( SHINOBI_ALLOWED_WEAPONS & ( 1 << ps->weapon ) ) || !( ps->stats[STAT_WEAPONS] & ( 1 << ps->weapon ) ) ) {
 		ps->weapon = ( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) ? WP_SABER : WP_MELEE;
 		ps->weaponstate = WEAPON_READY;
 		ps->weaponTime = 0;
 	}
+}
+
+/*
+===========================================================================
+Weapons: our blades are sabers with no light blade (ext_data/sabers/shinobi_*.sab).
+What "saber1" / "saber2" ask for is checked against the weapon style
+("shinobi_weapon", applied on the spawn) - nothing but ours, a staff only as
+a staff, a second blade only with two.
+===========================================================================
+*/
+extern qboolean WP_SaberParseParm( const char *saberName, const char *parmname, char *saberData );
+
+static qboolean Shinobi_IsOurSaber( const char *name, qboolean *staff ) {
+	char type[64];
+
+	if ( !name || Q_stricmpn( name, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
+		return qfalse;
+	type[0] = 0;
+	if ( !WP_SaberParseParm( name, "saberType", type ) )
+		return qfalse; // no such saber
+	if ( staff )
+		*staff = !Q_stricmp( type, "SABER_STAFF" ) ? qtrue : qfalse;
+	return qtrue;
+}
+
+// bots: one of each, by slot - katana, two knives, the staff, the nodachi, fists
+int Shinobi_BotWeaponStyle( gentity_t *ent, const char **saber2 ) {
+	static const int styles[] = { SWS_ONE, SWS_TWO, SWS_STAFF, SWS_ONE, SWS_NONE };
+	static const char * const first[] = { "shinobi_katana", "shinobi_knife", "shinobi_staff", "shinobi_nodachi", "shinobi_katana" };
+	int k = ent->s.number % (int)ARRAY_LEN( styles );
+	if ( !Q_stricmpn( ent->client->pers.netname, "Test", 4 ) )
+		k = 0; // the self-test bots (TestA / TestB): the plain katana
+	if ( saber2 )
+		*saber2 = first[k];
+	return styles[k];
+}
+
+const char *Shinobi_SaberFor( gentity_t *ent, int saberNum, const char *wanted ) {
+	const int style = ent->client->pers.shinobiWeaponNext;
+	qboolean  staff = qfalse;
+
+	if ( ( ent->r.svFlags & SVF_BOT ) && !Shinobi_IsOurSaber( wanted, NULL ) )
+		Shinobi_BotWeaponStyle( ent, &wanted ); // a bot's own saber (Kyle...): one of ours
+	if ( saberNum == 1 ) { // the left hand: only with two blades
+		if ( style != SWS_TWO )
+			return "none";
+		if ( Shinobi_IsOurSaber( wanted, &staff ) && !staff )
+			return wanted;
+		return SHINOBI_WEAPON_DEFAULT;
+	}
+	if ( style == SWS_STAFF )
+		return ( Shinobi_IsOurSaber( wanted, &staff ) && staff ) ? wanted : SHINOBI_WEAPON_DEFAULT_STAFF;
+	return ( Shinobi_IsOurSaber( wanted, &staff ) && !staff ) ? wanted : SHINOBI_WEAPON_DEFAULT;
 }
 
 /*

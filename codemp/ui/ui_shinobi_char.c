@@ -18,6 +18,11 @@ character, turned by dragging it. Every change goes out at once through the "mod
 int  Text_Width( const char *text, float scale, int iMenuFont );
 void Text_Paint( float x, float y, float scale, vec4_t color, const char *text, float adjust, int limit, int style, int iMenuFont );
 int  UI_ParseAnimationFile( const char *filename, animation_t *animset, qboolean isHumanoid );
+void UI_SaberLoadParms( void );
+qboolean UI_SaberModelForSaber( const char *saberName, char *saberModel );
+qboolean UI_SaberProperNameForSaber( const char *saberName, char *saberProperName );
+qboolean WP_SaberParseParm( const char *saberName, const char *parmname, char *saberData );
+extern qboolean ui_saber_parms_parsed;
 void UI_InsertG2Pointer( void *ghoul2 );
 void UI_ClearG2Pointer( void *ghoul2 );
 
@@ -25,6 +30,13 @@ void UI_ClearG2Pointer( void *ghoul2 );
 #define SC_MAX_LOOKS 8
 #define SC_MAX_ACC   64
 #define SC_PAGE      10   // character tiles on one page (2 rows of 5)
+#define SC_MAX_WEAPONS 32
+
+typedef struct {
+	char     name[40], title[40];
+	qboolean staff;
+	float    length, damage, speed, knockback;
+} scWeapon_t;
 
 typedef struct {
 	char      dir[32], title[40];
@@ -63,6 +75,16 @@ static struct {
 	qboolean     dragAcc;                    // the slider was an accessory's: send on release
 	qboolean     rotating;
 	float        rotX;
+
+	// the weapon screen (Weapon on the build screen) shares the preview
+	qboolean     weaponMode;
+	scWeapon_t   weapons[SC_MAX_WEAPONS];
+	int          numWeapons;
+	int          style;                      // SWS_*
+	int          wpn[2];                     // right / left hand (index into weapons, -1 none)
+	char         g2Weapons[2][40];           // what is attached to the preview now
+	int          g2Anim;                     // stance it plays (-1: not set yet)
+	int          animIndex;                  // bgAllAnims slot of the model's animation.cfg
 } sc;
 
 #define SC_CX ( (float)uiInfo.uiDC.cursorx )
@@ -246,11 +268,98 @@ static void SC_ApplyAcc( void ) {
 	trap->Cvar_Set( "shinobi_acc", str );
 }
 
+/*
+---------------------------------------------------------------------------
+weapons
+---------------------------------------------------------------------------
+*/
+// every ext_data/sabers/shinobi_*.sab (tools/weapon2glm.py: one saber per file, named as it)
+static void SC_ListWeapons( void ) {
+	static char list[4096];
+	char       *f;
+	int         n, i;
+
+	if ( !ui_saber_parms_parsed )
+		UI_SaberLoadParms();
+	sc.numWeapons = 0;
+	n = trap->FS_GetFileList( "ext_data/sabers", ".sab", list, sizeof( list ) );
+	for ( i = 0, f = list; i < n && sc.numWeapons < SC_MAX_WEAPONS; i++, f += strlen( f ) + 1 ) {
+		scWeapon_t *w = &sc.weapons[sc.numWeapons];
+		char        buf[64], *dot;
+
+		if ( Q_stricmpn( f, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
+			continue;
+		memset( w, 0, sizeof( *w ) );
+		Q_strncpyz( w->name, f, sizeof( w->name ) );
+		if ( ( dot = strrchr( w->name, '.' ) ) != NULL )
+			*dot = 0;
+		if ( !UI_SaberModelForSaber( w->name, buf ) )
+			continue; // not a saber file of its own name
+		if ( !UI_SaberProperNameForSaber( w->name, w->title ) || !w->title[0] )
+			Q_strncpyz( w->title, w->name + strlen( SHINOBI_WEAPON_PREFIX ), sizeof( w->title ) );
+		buf[0] = 0;
+		WP_SaberParseParm( w->name, "saberType", buf );
+		w->staff = !Q_stricmp( buf, "SABER_STAFF" ) ? qtrue : qfalse;
+		buf[0] = 0; w->length = WP_SaberParseParm( w->name, "saberLength", buf ) ? atof( buf ) : 40;
+		buf[0] = 0; w->damage = WP_SaberParseParm( w->name, "damageScale", buf ) ? atof( buf ) : 1;
+		buf[0] = 0; w->speed = WP_SaberParseParm( w->name, "animSpeedScale", buf ) ? atof( buf ) : 1;
+		buf[0] = 0; w->knockback = WP_SaberParseParm( w->name, "knockbackScale", buf ) ? atof( buf ) : 1;
+		sc.numWeapons++;
+	}
+}
+
+static int SC_WeaponIndex( const char *name, qboolean staff ) {
+	int i;
+	for ( i = 0; i < sc.numWeapons; i++ ) {
+		if ( !Q_stricmp( sc.weapons[i].name, name ) && sc.weapons[i].staff == staff )
+			return i;
+	}
+	for ( i = 0; i < sc.numWeapons; i++ ) { // the first that fits
+		if ( sc.weapons[i].staff == staff )
+			return i;
+	}
+	return -1;
+}
+
+// the next weapon of the kind (staff or not) from k, by d
+static int SC_WeaponStep( int k, int d, qboolean staff ) {
+	int i, n = sc.numWeapons;
+	for ( i = 1; i <= n; i++ ) {
+		const int j = ( ( k < 0 ? 0 : k ) + d * i + n * 4 ) % n;
+		if ( sc.weapons[j].staff == staff )
+			return j;
+	}
+	return k;
+}
+
+static void SC_ReadWeaponCvars( void ) {
+	char buf[64];
+	trap->Cvar_VariableStringBuffer( "shinobi_weapon", buf, sizeof( buf ) );
+	sc.style = Shinobi_WeaponStyleParse( buf );
+	trap->Cvar_VariableStringBuffer( "saber1", buf, sizeof( buf ) );
+	sc.wpn[0] = SC_WeaponIndex( buf, sc.style == SWS_STAFF );
+	trap->Cvar_VariableStringBuffer( "saber2", buf, sizeof( buf ) );
+	sc.wpn[1] = SC_WeaponIndex( buf, qfalse );
+}
+
+static void SC_ApplyWeapon( void ) {
+	trap->Cvar_Set( "shinobi_weapon", shinobiWeaponStyleNames[sc.style] );
+	if ( sc.wpn[0] >= 0 )
+		trap->Cvar_Set( "saber1", sc.weapons[sc.wpn[0]].name );
+	trap->Cvar_Set( "saber2", sc.style == SWS_TWO && sc.wpn[1] >= 0 ? sc.weapons[sc.wpn[1]].name : "none" );
+}
+
 void UI_ShinobiCharOpen( void ) {
 	trap->Cvar_Register( NULL, "shinobi_acc", "", CVAR_USERINFO | CVAR_ARCHIVE );
 	SC_ListChars();
 	SC_ListAccessories();
 	SC_ReadCvars();
+	trap->Cvar_Register( NULL, "shinobi_weapon", "one", CVAR_USERINFO | CVAR_ARCHIVE );
+	SC_ListWeapons();
+	SC_ReadWeaponCvars();
+	sc.weaponMode = qfalse;
+	sc.g2Weapons[0][0] = sc.g2Weapons[1][0] = 0;
+	sc.g2Anim = -1;
 	sc.slot = 0;
 	sc.click = sc.mouseDown = sc.rotating = qfalse;
 	sc.drag = NULL;
@@ -301,6 +410,9 @@ static void SC_PrepareModel( void ) {
 			return;
 		}
 		UI_InsertG2Pointer( sc.g2 );
+		sc.g2Weapons[0][0] = sc.g2Weapons[1][0] = 0; // a new model: no weapons on it yet
+		sc.g2Anim = BOTH_STAND1;
+		sc.animIndex = -1;
 		sc.bolt = trap->G2API_AddBolt( sc.g2, 0, "cranium" );
 		// a calm stance
 		gla[0] = 0;
@@ -309,6 +421,7 @@ static void SC_PrepareModel( void ) {
 			int idx;
 			strcpy( slash, "/animation.cfg" );
 			idx = UI_ParseAnimationFile( gla, NULL, qfalse );
+			sc.animIndex = idx;
 			if ( idx != -1 ) {
 				const animation_t *a = &bgAllAnims[idx].anims[BOTH_STAND1];
 				trap->G2API_SetBoneAnim( sc.g2, 0, "model_root", a->firstFrame, a->firstFrame + a->numFrames,
@@ -326,6 +439,46 @@ static void SC_PrepareModel( void ) {
 		Q_strncpyz( sc.skinName, skinName, sizeof( sc.skinName ) );
 		sc.skin = trap->R_RegisterSkin( skinName );
 		trap->G2API_SetSkin( sc.g2, 0, sc.skin, sc.skin );
+	}
+
+	// the weapons in the hands, and a stance that goes with them (weapon screen only)
+	{
+		const char *want[2] = { "", "" };
+		int         anim = BOTH_STAND1, h;
+
+		if ( sc.weaponMode && sc.style != SWS_NONE ) {
+			if ( sc.wpn[0] >= 0 )
+				want[0] = sc.weapons[sc.wpn[0]].name;
+			if ( sc.style == SWS_TWO && sc.wpn[1] >= 0 )
+				want[1] = sc.weapons[sc.wpn[1]].name;
+			anim = sc.style == SWS_TWO ? BOTH_SABERDUAL_STANCE : ( sc.style == SWS_STAFF ? BOTH_SABERSTAFF_STANCE : BOTH_STAND2 );
+		}
+		if ( Q_stricmp( want[0], sc.g2Weapons[0] ) || Q_stricmp( want[1], sc.g2Weapons[1] ) ) {
+			for ( h = 2; h >= 1; h-- ) {
+				if ( trap->G2API_HasGhoul2ModelOnIndex( &sc.g2, h ) )
+					trap->G2API_RemoveGhoul2Model( &sc.g2, h );
+			}
+			for ( h = 0; h < 2; h++ ) {
+				char model[MAX_QPATH];
+				int  idx, bolt;
+				Q_strncpyz( sc.g2Weapons[h], want[h], sizeof( sc.g2Weapons[h] ) );
+				if ( !want[h][0] || !UI_SaberModelForSaber( want[h], model ) )
+					continue;
+				idx = trap->G2API_InitGhoul2Model( &sc.g2, model, 0, 0, 0, 0, 0 );
+				if ( idx < 0 )
+					continue;
+				trap->G2API_SetSkin( sc.g2, idx, 0, 0 );
+				bolt = trap->G2API_AddBolt( sc.g2, 0, h == 0 ? "*r_hand" : "*l_hand" );
+				trap->G2API_AttachG2Model( sc.g2, idx, sc.g2, bolt, 0 );
+			}
+		}
+		if ( anim != sc.g2Anim && sc.animIndex >= 0 ) {
+			const animation_t *a = &bgAllAnims[sc.animIndex].anims[anim];
+			sc.g2Anim = anim;
+			trap->G2API_SetBoneAnim( sc.g2, 0, "model_root", a->firstFrame, a->firstFrame + a->numFrames,
+				BONE_ANIM_OVERRIDE_FREEZE | BONE_ANIM_OVERRIDE_LOOP, 50.0f / ( a->frameLerp ? a->frameLerp : 50 ),
+				uiInfo.uiDC.realTime, -1, 150 );
+		}
 	}
 }
 
@@ -480,6 +633,102 @@ static void SC_UpdateDrag( void ) {
 	}
 }
 
+// word-wrapped text; returns the y below it
+static float SC_Wrapped( float x, float y, float w, float scale, float lineH, const vec4_t color, const char *text ) {
+	char        line[256];
+	const char *p = text;
+
+	while ( *p ) {
+		int len = 0, lastSpace = -1;
+		while ( p[len] && p[len] != '\n' && len < (int)sizeof( line ) - 1 ) {
+			line[len] = p[len];
+			line[len + 1] = 0;
+			if ( p[len] == ' ' )
+				lastSpace = len;
+			if ( Text_Width( line, scale, FONT_MEDIUM ) > w && lastSpace > 0 ) {
+				len = lastSpace;
+				break;
+			}
+			len++;
+		}
+		line[len] = 0;
+		SC_Text( x, y, scale, color, line );
+		y += lineH;
+		p += len;
+		while ( *p == ' ' || *p == '\n' )
+			p++;
+	}
+	return y;
+}
+
+static const char *SC_Rating( float v ) { // 1.0 = the stock saber
+	return v >= 1.25f ? "high" : v >= 1.05f ? "above avg" : v > 0.95f ? "average" : v > 0.8f ? "below avg" : "low";
+}
+
+static float SC_WeaponStats( float x, float y, const char *hand, int k ) {
+	const vec4_t white = { 1, 1, 1, 1 }, dim = { 0.7f, 0.7f, 0.7f, 1 };
+	const scWeapon_t *w;
+	int d;
+
+	SC_Text( x, y + 1, 0.45f, white, hand );
+	if ( k < 0 ) {
+		SC_Text( x + 90, y + 1, 0.42f, dim, "no weapons of this kind installed" );
+		return y + 22;
+	}
+	w = &sc.weapons[k];
+	d = SC_Spinner( x + 90, y, 225, w->title, qfalse );
+	if ( d ) {
+		const int i = sc.style == SWS_TWO && !Q_stricmp( hand, "Left hand" ) ? 1 : 0;
+		sc.wpn[i] = SC_WeaponStep( k, d, w->staff );
+		SC_ApplyWeapon();
+		w = &sc.weapons[sc.wpn[i]];
+	}
+	y += 20;
+	SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f   speed %s   damage %s   knockback %s", w->length,
+		SC_Rating( w->speed ), SC_Rating( w->damage ), SC_Rating( w->knockback ) ) );
+	return y + 18;
+}
+
+static void SC_DrawWeapons( float x0 ) {
+	const vec4_t white = { 1, 1, 1, 1 }, dim = { 0.75f, 0.75f, 0.75f, 1 };
+	float y = 40;
+	int   i;
+
+	SC_Text( x0, y, 0.5f, white, "HOW YOU FIGHT" );
+	y += 22;
+	for ( i = 0; i < SWS_COUNT; i++ ) {
+		if ( SC_Button( x0 + i * 80, y, 76, 22, shinobiWeaponStyleTitles[i], sc.style == i ) && sc.style != i ) {
+			sc.style = i;
+			if ( i == SWS_STAFF || sc.wpn[0] < 0 || sc.weapons[sc.wpn[0]].staff )
+				sc.wpn[0] = SC_WeaponIndex( "", i == SWS_STAFF );
+			if ( sc.wpn[1] < 0 )
+				sc.wpn[1] = SC_WeaponIndex( "", qfalse );
+			SC_ApplyWeapon();
+		}
+	}
+	y += 30;
+	y = SC_Wrapped( x0, y, 315, 0.42f, 15, dim, shinobiWeaponStyleInfo[sc.style] ) + 10;
+
+	switch ( sc.style ) {
+	case SWS_ONE:
+		y = SC_WeaponStats( x0, y, "Weapon", sc.wpn[0] );
+		break;
+	case SWS_TWO:
+		y = SC_WeaponStats( x0, y, "Right hand", sc.wpn[0] );
+		y = SC_WeaponStats( x0, y, "Left hand", sc.wpn[1] );
+		break;
+	case SWS_STAFF:
+		y = SC_WeaponStats( x0, y, "Staff", sc.wpn[0] );
+		break;
+	default:
+		break;
+	}
+	y += 10;
+	SC_Wrapped( x0, y, 315, 0.4f, 15, dim,
+		"Reach is how far the blade cuts. Speed: the swings; damage and knockback: each hit, against the "
+		"average blade. Your choice goes out at once; it takes effect from your next spawn." );
+}
+
 /*
 ---------------------------------------------------------------------------
 input / screen
@@ -523,8 +772,9 @@ qboolean UI_ShinobiCharDraw( void ) {
 	SC_UpdateDrag();
 
 	UI_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, back );
-	SC_Text( 20, 8, 0.8f, title, "CHARACTER" );
-	SC_Text( 230, 16, 0.4f, dim, "drag the model to turn it - everything shows at once, to everyone" );
+	SC_Text( 20, 8, 0.8f, title, sc.weaponMode ? "WEAPON" : "CHARACTER" );
+	SC_Text( 230, 16, 0.4f, dim, sc.weaponMode ? "drag the model to turn it - fists, one blade, two, or a staff"
+		: "drag the model to turn it - everything shows at once, to everyone" );
 
 	// --- preview ------------------------------------------------------------
 	UI_FillRect( 20, 40, 260, 400, box );
@@ -536,6 +786,14 @@ qboolean UI_ShinobiCharDraw( void ) {
 		sc.click = qfalse;
 		sc.rotating = qtrue;
 		sc.rotX = SC_CX;
+	}
+
+	if ( sc.weaponMode ) {
+		SC_DrawWeapons( x0 );
+		if ( SC_Button( 20, 448, 160, 24, "Back to the build", qfalse ) )
+			back_ = 1;
+		sc.click = qfalse;
+		return back_ ? qtrue : qfalse;
 	}
 
 	// --- characters (tiles: icon + name), a page at a time -------------------------
@@ -645,4 +903,10 @@ qboolean UI_ShinobiCharDraw( void ) {
 
 	sc.click = qfalse; // a click on nothing is dropped
 	return back_ ? qtrue : qfalse;
+}
+
+// the weapon screen: the character screen's preview with the weapon panel
+void UI_ShinobiWeaponOpen( void ) {
+	UI_ShinobiCharOpen();
+	sc.weaponMode = qtrue;
 }

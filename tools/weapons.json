@@ -1,5 +1,5 @@
 {
-  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). damage/speed/knockback/move scale the stock saber's.",
+  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). damage/speed/knockback/move scale the stock saber's. Sounds are game paths (the stock sword / tusken staff ones are in every Jedi Academy).",
   "katana": {
     "title": "ANBU Katana",
     "source": "Itachi's Anbu Blade/Itachi's Anbu Blade.obj",
@@ -22,23 +22,25 @@
     "knockback": 1.0,
     "radius": 2.0,
     "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
       "swing": [
-        "swing1.wav",
-        "swing2.wav",
-        "swing3.wav"
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing3.mp3"
       ],
       "hit": [
-        "cut1.wav",
-        "cut2.wav",
-        "cut3.wav"
+        "sound/weapons/sword/stab1.mp3",
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab3.mp3"
       ],
       "block": [
-        "clang1.wav",
-        "clang2.wav",
-        "clang3.wav"
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
       ],
       "bounce": [
-        "clang1.wav"
+        "sound/effects/metal_bounce2.mp3"
       ]
     }
   },
@@ -69,23 +71,25 @@
     "move": 0.95,
     "radius": 2.0,
     "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
       "swing": [
-        "swing_heavy1.wav",
-        "swing_heavy2.wav",
-        "swing_heavy3.wav"
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing4.mp3",
+        "sound/weapons/sword/swing3.mp3"
       ],
       "hit": [
-        "cut1.wav",
-        "cut2.wav",
-        "cut3.wav"
+        "sound/weapons/sword/stab3.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
       ],
       "block": [
-        "clang1.wav",
-        "clang2.wav",
-        "clang3.wav"
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
       ],
       "bounce": [
-        "clang2.wav"
+        "sound/effects/metal_bounce2.mp3"
       ]
     }
   },
@@ -112,23 +116,25 @@
     "move": 1.05,
     "radius": 2.0,
     "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
       "swing": [
-        "swing_light1.wav",
-        "swing_light2.wav",
-        "swing_light3.wav"
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing3.mp3",
+        "sound/weapons/sword/swing4.mp3"
       ],
       "hit": [
-        "cut1.wav",
-        "cut2.wav",
-        "cut3.wav"
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
       ],
       "block": [
-        "clang_light1.wav",
-        "clang_light2.wav",
-        "clang_light1.wav"
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
       ],
       "bounce": [
-        "clang_light1.wav"
+        "sound/effects/metal_bounce2.mp3"
       ]
     }
   },
@@ -160,23 +166,25 @@
     "knockback": 1.4,
     "radius": 3.0,
     "sounds": {
+      "on": "sound/weapons/sword/catch.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
       "swing": [
-        "swing_heavy1.wav",
-        "swing_heavy2.wav",
-        "swing_heavy3.wav"
+        "sound/weapons/tusken_staff/swing1.mp3",
+        "sound/weapons/tusken_staff/swing2.mp3",
+        "sound/weapons/tusken_staff/swing3.mp3"
       ],
       "hit": [
-        "thud1.wav",
-        "thud2.wav",
-        "thud3.wav"
+        "sound/weapons/tusken_staff/stickhit1.mp3",
+        "sound/weapons/tusken_staff/stickhit2.mp3",
+        "sound/weapons/tusken_staff/stickhit3.mp3"
       ],
       "block": [
-        "clank1.wav",
-        "clank2.wav",
-        "clank1.wav"
+        "sound/weapons/tusken_staff/stickhit4.mp3",
+        "sound/effects/metal_bounce.mp3",
+        "sound/weapons/tusken_staff/stickhit2.mp3"
       ],
       "bounce": [
-        "clank2.wav"
+        "sound/weapons/tusken_staff/stickhit4.mp3"
       ]
     },
     "thickness": 0.55

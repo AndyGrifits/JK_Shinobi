@@ -507,3 +507,17 @@ gfx/shinobi/outline3
 		rgbGen const ( 0 0 0 )
 	}
 }
+
+// ---- weapons --------------------------------------------------------------
+// the mark a blade leaves on a body (g2MarksShader of the shinobi_*.sab): a dark cut,
+// not the saber's glowing burn
+gfx/shinobi/cutmark
+{
+	polygonOffset
+	{
+		map gfx/shinobi/cutmark
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen identity
+		alphaGen vertex
+	}
+}

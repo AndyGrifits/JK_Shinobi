@@ -40,6 +40,7 @@ static qboolean sbChar; // the character screen is up (Appearance)
 qboolean UI_ShinobiCharKey( int key, qboolean down );
 qboolean UI_ShinobiCharDraw( void );
 void     UI_ShinobiCharOpen( void );
+void     UI_ShinobiWeaponOpen( void );
 
 
 static const vec4_t sbSchoolColor[SS_COUNT] = {
@@ -85,6 +86,7 @@ void UI_ShinobiMenuOpen( void ) {
 
 	trap->Cvar_Register( &ui_shinobiBuild, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
 	trap->Cvar_Register( &ui_shinobiAcc, "shinobi_acc", "", CVAR_USERINFO | CVAR_ARCHIVE );
+	trap->Cvar_Register( NULL, "shinobi_weapon", "one", CVAR_USERINFO | CVAR_ARCHIVE );
 	Menus_CloseAll();
 	trap->Key_SetCatcher( KEYCATCH_UI );
 
@@ -522,19 +524,23 @@ void UI_ShinobiMenuDraw( void ) {
 	else if ( SB_Button( 20, y, 140, 24, "Apply", qtrue, qtrue ) ) {
 		SB_Apply();
 	}
-	if ( sb.open && SB_Button( 170, y, 100, 24, "Default", qtrue, qfalse ) ) {
+	if ( sb.open && SB_Button( 166, y, 80, 24, "Default", qtrue, qfalse ) ) {
 		Shinobi_BuildDefault( &sb.edit );
 		SB_Message( qfalse, "Default build - Join / Apply to keep it" );
 	}
-	if ( sb.open && SB_Button( 280, y, 110, 24, "Appearance", qtrue, qfalse ) ) {
+	if ( sb.open && SB_Button( 252, y, 106, 24, "Appearance", qtrue, qfalse ) ) {
 		UI_ShinobiCharOpen();
 		sbChar = qtrue;
 	}
-	if ( sb.open && team != TEAM_SPECTATOR && SB_Button( 400, y, 100, 24, "Spectate", qtrue, qfalse ) ) {
+	if ( sb.open && SB_Button( 364, y, 86, 24, "Weapon", qtrue, qfalse ) ) {
+		UI_ShinobiWeaponOpen();
+		sbChar = qtrue;
+	}
+	if ( sb.open && team != TEAM_SPECTATOR && SB_Button( 456, y, 84, 24, "Spectate", qtrue, qfalse ) ) {
 		UI_ShinobiMenuClose( qtrue );
 		trap->Cmd_ExecuteText( EXEC_APPEND, "team spectator\n" );
 	}
-	if ( sb.open && SB_Button( 510, y, 110, 24, "Close", qtrue, qfalse ) )
+	if ( sb.open && SB_Button( 546, y, 74, 24, "Close", qtrue, qfalse ) )
 		UI_ShinobiMenuClose( qtrue );
 
 	sb.click = qfalse; // a click on nothing is dropped

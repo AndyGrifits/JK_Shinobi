@@ -64,8 +64,10 @@ def bolt_matrix(tri):
     columns."""
     p = [np.asarray(q, dtype=float) for q in tri]
     s0, s2 = p[1] - p[0], p[0] - p[2]
-    y = s0 / np.linalg.norm(s0)
     x = s2 / np.linalg.norm(s2)
+    y = s0 / np.linalg.norm(s0)
+    y = y - np.dot(y, x) * x            # (the engine squares the long side to the short one)
+    y = y / np.linalg.norm(y)
     z = np.cross(s0, s2)
     z = -z / np.linalg.norm(z)
     return np.column_stack([x, y, z, p[2]])
@@ -281,8 +283,10 @@ def main(argv=None):
                                 if q and q[0] == ("saberLength" if n == 1 else "saberLength%d" % n):
                                     length = float(q[1])
                         a0 = T[:, 3]
-                        a1 = a0 - T[:, 1] * length * (scale if spec != "base" else 1.0)
-                        side = np.cross(T[:, 1], [0, 1, 0])
+                        # out along the blade: away from vertex 0 (the stock hilts' tags)
+                        bd = (pw[2] - pw[0]) / np.linalg.norm(pw[2] - pw[0])
+                        a1 = a0 + bd * length * (scale if spec != "base" else 1.0)
+                        side = np.cross(bd, [0, 1, 0])
                         side = side / (np.linalg.norm(side) + 1e-9) * 0.4
                         q = [a0 - side, a1 - side, a1 + side, a0 + side]
                         q = [(np.array(x) @ R.T + offset).tolist() for x in q]

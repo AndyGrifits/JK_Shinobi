@@ -261,12 +261,27 @@ static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 	Shinobi_CloneApplyTeam( clone, owner );
 	clone->client->leader = owner;
 
-	// carry the owner's saber (single blade or staff)
-	if ( owner->client->saber[0].name[0] && WP_SaberParseParms( owner->client->saber[0].name, &clone->client->saber[0] ) ) {
-		int b;
-		for ( b = 0; b < MAX_BLADES; b++ )
-			clone->client->saber[0].blade[b].color = owner->client->saber[0].blade[b].color;
-		clone->s.npcSaber1 = G_ModelIndex( va( "@%s", owner->client->saber[0].name ) );
+	// carry the owner's weapons (one blade, two, a staff - or just fists)
+	if ( owner->s.number < MAX_CLIENTS && owner->client->pers.shinobiWeapon == SWS_NONE ) {
+		clone->client->ps.stats[STAT_WEAPONS] = ( 1 << WP_MELEE );
+		clone->client->ps.weapon = WP_MELEE;
+		clone->s.weapon = WP_MELEE;
+	}
+	else {
+		int k;
+		for ( k = 0; k < MAX_SABERS; k++ ) {
+			const char *name = owner->client->saber[k].name;
+			if ( name[0] && owner->client->saber[k].model[0] && WP_SaberParseParms( name, &clone->client->saber[k] ) ) {
+				int b;
+				for ( b = 0; b < MAX_BLADES; b++ )
+					clone->client->saber[k].blade[b].color = owner->client->saber[k].blade[b].color;
+				if ( k == 0 )
+					clone->s.npcSaber1 = G_ModelIndex( va( "@%s", name ) );
+				else
+					clone->s.npcSaber2 = G_ModelIndex( va( "@%s", name ) );
+			}
+		}
+		clone->client->ps.fd.saberAnimLevel = owner->client->ps.fd.saberAnimLevel;
 	}
 
 	return clone;

@@ -1,0 +1,59 @@
+// JK_Shinobi: written by tools/weapon2glm.py from tools/weapons.json - edit that
+shinobi_knife
+{
+	name			"Trench Knife"
+	saberType		SABER_SINGLE
+	saberModel		models/weapons2/shinobi_knife/model.glm
+	numBlades		1
+	saberLength		9
+	saberRadius		2
+	saberColor		blue
+	noBlade			1
+	noBlade2		1
+	noDlight		1
+	noDlight2		1
+	noClashFlare	1
+	noClashFlare2	1
+	noWallMarks		1
+	noWallMarks2	1
+	noIdleEffect	1
+	noIdleEffect2	1
+	trailStyle		1
+	trailStyle2		1
+	noManualDeactivate	1
+	noManualDeactivate2	1
+	g2MarksShader		gfx/shinobi/cutmark
+	g2MarksShader2		gfx/shinobi/cutmark
+	g2WeaponMarkShader	gfx/shinobi/cutmark
+	g2WeaponMarkShader2	gfx/shinobi/cutmark
+	onInWater		1
+	throwable		0
+	disarmable		0
+	damageScale		0.75
+	damageScale2	0.75
+	knockbackScale	0.7
+	knockbackScale2	0.7
+	animSpeedScale	1.2
+	moveSpeedScale	1.05
+	soundOn			sound/weapons/sword/draw1.mp3
+	soundLoop		sound/weapons/shinobi/silence.wav
+	spinSound		sound/weapons/shinobi/silence.wav
+	soundOff		sound/weapons/sword/catch.mp3
+	swingSound1		sound/weapons/sword/swing1.mp3
+	swingSound2		sound/weapons/sword/swing3.mp3
+	swingSound3		sound/weapons/sword/swing4.mp3
+	hitSound1		sound/weapons/sword/stab2.mp3
+	hit2Sound1		sound/weapons/sword/stab2.mp3
+	hitSound2		sound/weapons/sword/stab4.mp3
+	hit2Sound2		sound/weapons/sword/stab4.mp3
+	hitSound3		sound/weapons/sword/stab1.mp3
+	hit2Sound3		sound/weapons/sword/stab1.mp3
+	blockSound1		sound/effects/metal_bounce.mp3
+	block2Sound1		sound/effects/metal_bounce.mp3
+	blockSound2		sound/effects/metal_bounce2.mp3
+	block2Sound2		sound/effects/metal_bounce2.mp3
+	blockSound3		sound/weapons/sword/fall1.mp3
+	block2Sound3		sound/weapons/sword/fall1.mp3
+	bounceSound1		sound/effects/metal_bounce2.mp3
+	bounce2Sound1		sound/effects/metal_bounce2.mp3
+}

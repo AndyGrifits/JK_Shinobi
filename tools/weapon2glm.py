@@ -13,11 +13,11 @@ kata) stays, only the look and sound change. For each entry of the json this wri
     <out>/ext_data/sabers/shinobi_<name>.sab
 
 The glm is on the engine's built-in one-bone skeleton ("*default", as the stock hilts).
-The game puts the weapon's origin at the hand bolt (*r_hand / *l_hand), whose axes are:
-+Z out of the thumb side of the fist (where a held blade points), +Y up the back of the
-hand when the arm hangs, X across. The damage line starts at the *blade<n> tag and runs
-along its -Y for the .sab's saberLength; the tags here point along +Z (a staff's second
-one along -Z), from where the blade leaves the guard.
+The game puts the weapon's origin at the hand bolt (*r_hand / *l_hand) the way it puts
+the stock hilts there: those lie along +Z, the blade coming out of the +Z end, so a
+weapon here has its grip at the origin and its blade along +Z. The damage line starts at
+the *blade<n> tag and runs out along the blade for the .sab's saberLength; the tags are
+shaped like the stock hilt's (a staff's second one points along -Z).
 
 Entry keys:
   source       mesh file (.obj or .dae) under --src
@@ -134,13 +134,14 @@ def axis_map(spec):
 
 
 def tag_surface(name, start, direction):
-    """A bolt triangle whose tag matrix (G2_ProcessSurfaceBolt: origin = vertex 2, Y = the
-    first side, X = the third) has its -Y along +Z * direction."""
-    o = np.array([0.0, 0.0, start])
+    """A bolt triangle shaped like the stock hilts' *blade1 (saber_1.glm: the corner at
+    the blade's start, one leg back down the hilt, the long one across): the game then
+    runs the blade out along +Z * direction from vertex 2."""
     d = float(direction)
+    o = np.array([0.0, 0.0, start])
+    p0 = o + np.array([0.0, 0.0, -1.0 * d])
+    p1 = o + np.array([2.0 * d, 0.0, 0.0])
     p2 = o
-    p0 = o + np.array([0.5, 0.0, 0.0])
-    p1 = p0 + np.array([0.0, 0.0, -2.0 * d])
     s = g2file.Surface(name, "", g2file.SURF_BOLT, 0)
     for p in (p0, p1, p2):
         s.verts.append(tuple(float(x) for x in p))
@@ -201,7 +202,19 @@ def build(entry, name, src_root, out_root, log=print):
     return nv
 
 
-SOUND = "sound/weapons/shinobi/"
+SILENCE = "sound/weapons/shinobi/silence.wav"   # no hum: written next to the .sab
+
+
+def write_silence(out_root):
+    """A tenth of a second of nothing: the loop that takes the place of the saber hum."""
+    import wave
+    path = os.path.join(out_root, SILENCE)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"\0\0" * 2205)
 
 
 def write_sab(entry, name, gamedir, sabdir):
@@ -229,6 +242,9 @@ def write_sab(entry, name, gamedir, sabdir):
         "\tnoIdleEffect\t1", "\tnoIdleEffect2\t1",
         "\ttrailStyle\t\t1", "\ttrailStyle2\t\t1",
         "\tnoManualDeactivate\t1", "\tnoManualDeactivate2\t1",
+        "\tg2MarksShader\t\tgfx/shinobi/cutmark", "\tg2MarksShader2\t\tgfx/shinobi/cutmark",
+        "\tg2WeaponMarkShader\tgfx/shinobi/cutmark", "\tg2WeaponMarkShader2\tgfx/shinobi/cutmark",
+        "\tonInWater\t\t1",
         "\tthrowable\t\t0",
         "\tdisarmable\t\t0",
         "\tdamageScale\t\t%g" % entry.get("damage", 1.0),
@@ -237,19 +253,20 @@ def write_sab(entry, name, gamedir, sabdir):
         "\tknockbackScale2\t%g" % entry.get("knockback", 1.0),
         "\tanimSpeedScale\t%g" % entry.get("speed", 1.0),
         "\tmoveSpeedScale\t%g" % entry.get("move", 1.0),
-        "\tsoundOn\t\t\t%s" % (SOUND + snd.get("on", "draw.wav")),
-        "\tsoundLoop\t\t%s" % (SOUND + "silence.wav"),
-        "\tsoundOff\t\t%s" % (SOUND + snd.get("off", "sheathe.wav")),
+        "\tsoundOn\t\t\t%s" % snd.get("on", SILENCE),
+        "\tsoundLoop\t\t%s" % SILENCE,
+        "\tspinSound\t\t%s" % SILENCE,
+        "\tsoundOff\t\t%s" % snd.get("off", SILENCE),
     ]
     for kind in ("swing", "hit", "block", "bounce"):
         files = snd.get(kind, [])
         for i, f in enumerate(files[:3]):
             key = {"swing": "swingSound%d", "hit": "hitSound%d", "block": "blockSound%d",
                    "bounce": "bounceSound%d"}[kind] % (i + 1)
-            lines.append("\t%s\t\t%s" % (key, SOUND + f))
+            lines.append("\t%s\t\t%s" % (key, f))
             if kind != "swing":
                 k2 = key.replace("Sound", "2Sound")
-                lines.append("\t%s\t\t%s" % (k2, SOUND + f))
+                lines.append("\t%s\t\t%s" % (k2, f))
     lines.append("}")
     with open(os.path.join(sabdir, "shinobi_%s.sab" % name), "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
@@ -264,6 +281,7 @@ def main():
     a = ap.parse_args()
     spec = json.load(open(a.spec))
     only = {x for x in a.only.split(",") if x}
+    write_silence(a.out)
     for name, entry in spec.items():
         if name.startswith("_") or (only and name not in only):
             continue

@@ -518,6 +518,9 @@ typedef struct clientPersistant_s {
 	shinobiBuild_t	shinobiBuild;		// in effect since the last spawn
 	shinobiBuild_t	shinobiBuildNext;	// chosen, applied on the next spawn
 	qboolean	shinobiBuildSet;	// shinobiBuildNext came from the player
+	int			shinobiWeapon;		// weapon style (SWS_*) in effect since the last spawn
+	int			shinobiWeaponNext;	// chosen ("shinobi_weapon" userinfo), applied on the next spawn
+	qboolean	shinobiWeaponSet;
 	qboolean	shinobiCurseOff;	// Curse Seal turned off by /curseseal
 	int			shinobiFistStyle;	// taijutsu style (SFS_*), L with fists
 } clientPersistant_t;
@@ -1529,6 +1532,8 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower );
 qboolean Shinobi_ShadowHideDamage( gentity_t *targ );
 int      Shinobi_PickupItem( gentity_t *ent, gentity_t *other );
 void     Shinobi_StripGuns( gentity_t *ent );
+const char *Shinobi_SaberFor( gentity_t *ent, int saberNum, const char *wanted );
+int      Shinobi_BotWeaponStyle( gentity_t *ent, const char **saber2 );
 qboolean Shinobi_SpawnAllowed( const char *classname, const gitem_t *item );
 void     Cmd_ExKunai_f( gentity_t *ent );
 void     Cmd_ExTag_f( gentity_t *ent );

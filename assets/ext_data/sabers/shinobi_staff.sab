@@ -1,0 +1,63 @@
+// JK_Shinobi: written by tools/weapon2glm.py from tools/weapons.json - edit that
+shinobi_staff
+{
+	name			"Adamantine Staff"
+	saberType		SABER_STAFF
+	saberModel		models/weapons2/shinobi_staff/model.glm
+	numBlades		2
+	saberLength		35
+	saberRadius		3
+	saberColor		blue
+	saberLength2		35
+	saberRadius2		3
+	saberColor2		blue
+	twoHanded		1
+	noBlade			1
+	noBlade2		1
+	noDlight		1
+	noDlight2		1
+	noClashFlare	1
+	noClashFlare2	1
+	noWallMarks		1
+	noWallMarks2	1
+	noIdleEffect	1
+	noIdleEffect2	1
+	trailStyle		1
+	trailStyle2		1
+	noManualDeactivate	1
+	noManualDeactivate2	1
+	g2MarksShader		gfx/shinobi/cutmark
+	g2MarksShader2		gfx/shinobi/cutmark
+	g2WeaponMarkShader	gfx/shinobi/cutmark
+	g2WeaponMarkShader2	gfx/shinobi/cutmark
+	onInWater		1
+	throwable		0
+	disarmable		0
+	damageScale		0.9
+	damageScale2	0.9
+	knockbackScale	1.4
+	knockbackScale2	1.4
+	animSpeedScale	1
+	moveSpeedScale	1
+	soundOn			sound/weapons/sword/catch.mp3
+	soundLoop		sound/weapons/shinobi/silence.wav
+	spinSound		sound/weapons/shinobi/silence.wav
+	soundOff		sound/weapons/sword/catch.mp3
+	swingSound1		sound/weapons/tusken_staff/swing1.mp3
+	swingSound2		sound/weapons/tusken_staff/swing2.mp3
+	swingSound3		sound/weapons/tusken_staff/swing3.mp3
+	hitSound1		sound/weapons/tusken_staff/stickhit1.mp3
+	hit2Sound1		sound/weapons/tusken_staff/stickhit1.mp3
+	hitSound2		sound/weapons/tusken_staff/stickhit2.mp3
+	hit2Sound2		sound/weapons/tusken_staff/stickhit2.mp3
+	hitSound3		sound/weapons/tusken_staff/stickhit3.mp3
+	hit2Sound3		sound/weapons/tusken_staff/stickhit3.mp3
+	blockSound1		sound/weapons/tusken_staff/stickhit4.mp3
+	block2Sound1		sound/weapons/tusken_staff/stickhit4.mp3
+	blockSound2		sound/effects/metal_bounce.mp3
+	block2Sound2		sound/effects/metal_bounce.mp3
+	blockSound3		sound/weapons/tusken_staff/stickhit2.mp3
+	block2Sound3		sound/weapons/tusken_staff/stickhit2.mp3
+	bounceSound1		sound/weapons/tusken_staff/stickhit4.mp3
+	bounce2Sound1		sound/weapons/tusken_staff/stickhit4.mp3
+}

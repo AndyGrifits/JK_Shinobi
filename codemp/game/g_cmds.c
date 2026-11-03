@@ -2733,6 +2733,9 @@ void Cmd_ToggleSaber_f(gentity_t *ent)
 				G_Sound(ent, CHAN_AUTO, ent->client->saber[1].soundOn);
 			}
 		}
+		else if ( ent->client->saber[0].saberFlags2 & SFL2_NO_MANUAL_DEACTIVATE )
+		{ // JK_Shinobi: a sword has no off switch
+		}
 		else
 		{
 			ent->client->ps.saberHolstered = 2;
