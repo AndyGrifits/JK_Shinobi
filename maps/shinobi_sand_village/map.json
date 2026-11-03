@@ -141,7 +141,7 @@
   "p_pooltile": {
    "solid": true,
    "mat": "tiles",
-   "what": "pool walls / floor / steps (generated)"
+   "what": "pool walls / floor / steps (generated, weathered stone tiles)"
   },
   "p_wood": {
    "solid": true,
@@ -1046,10 +1046,12 @@
  "_worldspawn": "_blocksize 0: an open map gets nothing from the default 1024-block BSP split (it made 4400 vis clusters)",
  "extra_shaders": {
   "water": {
-   "gen": "water",
+   "_": "the game's own water textures (textures/common/water_1, every JA install has them): tints what is under it, soft highlights",
    "raw": [
+    "qer_editorimage textures/common/water_1",
     "qer_trans 0.5",
     "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
     "surfaceparm water",
     "surfaceparm trans",
     "surfaceparm nomarks",
@@ -1057,26 +1059,26 @@
     "q3map_material water",
     "cull twosided",
     "{",
-    "\tmap {tex}",
-    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
-    "\talphaGen const 0.75",
-    "\trgbGen identity",
-    "\ttcMod scale 0.3 0.3",
-    "\ttcMod scroll 0.012 0.008",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_DST_COLOR GL_ZERO",
+    "\ttcMod scale 0.5 0.5",
+    "\ttcMod turb 0.01 0.03 5 0.1",
+    "\ttcMod scroll 0.01 0.005",
     "}",
     "{",
-    "\tmap {tex}",
+    "\tmap textures/common/water_1",
     "\tblendFunc GL_ONE GL_ONE",
-    "\trgbGen const ( 0.22 0.26 0.26 )",
-    "\ttcMod scale 0.17 0.17",
-    "\ttcMod turb 0 0.02 0 0.07",
-    "\ttcMod scroll -0.01 0.015",
+    "\trgbGen const ( 0.35 0.35 0.35 )",
+    "\ttcMod scale 0.35 0.35",
+    "\ttcMod turb 0.02 -0.06 0 0.1",
+    "\ttcMod scroll -0.01 0.01",
     "}"
    ]
   }
  },
  "clip_shaders": {
-  "clip_wood": "solidwood"
+  "clip_wood": "solidwood",
+  "clip_stairs": "plaster"
  },
  "slabs": [
   {
@@ -1221,6 +1223,30 @@
      0.6
     ]
    }
+  ]
+ },
+ "stairs": {
+  "_": "staircases of the village get one smooth ramp each (tools/maps/stairs.py)",
+  "shaders": [
+   "sm_daoju_tex_01_b",
+   "sm_daoju_tex_01_c",
+   "sm_daoju_tex_01_d"
+  ],
+  "area": [
+   -2400,
+   -2300,
+   2200,
+   2600
+  ],
+  "cell": 8,
+  "min_cells": 16,
+  "clip": "clip_stairs",
+  "skip": [
+   [
+    -743,
+    -220,
+    80
+   ]
   ]
  }
 }

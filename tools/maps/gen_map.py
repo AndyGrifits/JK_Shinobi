@@ -206,7 +206,9 @@ for g in json.load(open(os.path.join(build, "propclip.json"))):
 
 # walkway clip (map.json "slabs": [{"from": [x, y, z], "to": [x, y, z], "width", "thick", "shader"}]): a smooth
 # floor over a bumpy deck whose own collision was dropped (split_details "regions")
-for sl in [s_ for s_ in cfg.get("slabs", []) if "from" in s_]:
+stairs_json = os.path.join(build, "stairs.json")   # tools/maps/stairs.py: one smooth ramp per staircase
+stair_ramps = json.load(open(stairs_json)) if cfg.get("stairs") and os.path.exists(stairs_json) else []
+for sl in [s_ for s_ in cfg.get("slabs", []) if "from" in s_] + stair_ramps:
     props.append(slab(sl["from"], sl["to"], sl.get("width", 96), sl.get("thick", 24), sl.get("shader", "clip_floor")))
 # water volumes (map.json "water": [{"box": [x0, y0, z0, x1, y1, z1], "shader": short}])
 for wv in [w_ for w_ in cfg.get("water", []) if "box" in w_]:

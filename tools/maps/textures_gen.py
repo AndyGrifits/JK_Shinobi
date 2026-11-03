@@ -119,14 +119,14 @@ def make(kind, path, n=None):
         frame = ((x < 0.09) | (x > 0.91))
         img = np.where(planks[..., None], img * 0.55, img)
         img = np.where((frame[None, :] | frame[:, None])[..., None], img * 0.82 + col(10, 6, 2), img)
-    elif kind == "pooltile":                                          # turquoise glazed tiles, light grout
+    elif kind == "pooltile":                                          # weathered grey-green stone tiles, sandy grout
         n = n or 256
         x = np.linspace(0, 1, n, endpoint=False)
         gx = np.abs(((x * 8) % 1) - 0.5) > 0.44; grout = gx[None, :] | gx[:, None]
         tint = np.floor(x * 8)[None, :] * 7 + np.floor(x * 8)[:, None] * 13
         var = (np.sin(tint) * 0.5 + 0.5)[..., None] * col(-18, -10, -6)
-        img = col(70, 170, 178) + var + (fbm(n, 6, rng, 3) - 0.5)[..., None] * col(20, 26, 26)
-        img = np.where(grout[..., None], col(214, 206, 186) + (fbm(n, 30, rng, 2) - 0.5)[..., None] * 16, img)
+        img = col(118, 132, 122) + var * 0.6 + (fbm(n, 6, rng, 3) - 0.5)[..., None] * col(26, 26, 22)
+        img = np.where(grout[..., None], col(176, 160, 128) + (fbm(n, 30, rng, 2) - 0.5)[..., None] * 16, img)
     elif kind == "paper":                                             # scroll paper
         n = n or 64
         img = col(226, 214, 184) + (fbm(n, 4, rng, 3) - 0.5)[..., None] * 18
