@@ -18,6 +18,8 @@ static void CG_ShinobiRaiDashForm( centity_t *cent );
 static void CG_ShinobiIceShard( centity_t *cent );
 static int  CG_ShinobiMyEyes( void );
 #include "fx_local.h"
+
+static void CG_ShinobiPrecacheModels( void );
 #include "ui/keycodes.h"
 
 #define SHINOBI_HAND_FX_INTERVAL  60   // ms between hand spark effects
@@ -208,6 +210,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiActiveSet = qfalse;
 	trap->Cvar_Register( &shinobiBuildCvar, "shinobi_build", "", CVAR_USERINFO | CVAR_ARCHIVE );
 	trap->Cvar_Register( NULL, "shinobi_weapon", "one", CVAR_USERINFO | CVAR_ARCHIVE ); // fists / one / two / staff
+	CG_ShinobiPrecacheModels();
 
 	if ( CG_ShinobiDebug() )
 		CG_ShinobiDiag_f();
@@ -336,6 +339,52 @@ void CG_ShinobiMelee_f( void ) {
 		return;
 	cg.weaponSelectTime = cg.time;
 	cg.weaponSelect = want;
+}
+
+/*
+==================
+CG_ShinobiPrecacheModels
+
+Every weapon (ext_data/sabers/shinobi_*.sab -> models/weapons2/<name>/model.glm) and
+every character (models/players/<name> with a shinobi.char), loaded by the client while
+the map loads, so they count as this level's and don't wait to be first loaded by the
+server (bots, their weapons).
+==================
+*/
+static void CG_ShinobiPrecacheModels( void ) {
+	static char list[8192];
+	char       *f;
+	int         n, i, k = 0;
+
+	n = trap->FS_GetFileList( "ext_data/sabers", ".sab", list, sizeof( list ) );
+	for ( i = 0, f = list; i < n; i++, f += strlen( f ) + 1 ) {
+		char name[64], *dot;
+		if ( Q_stricmpn( f, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
+			continue;
+		Q_strncpyz( name, f, sizeof( name ) );
+		if ( ( dot = strrchr( name, '.' ) ) != NULL )
+			*dot = 0;
+		if ( trap->R_RegisterModel( va( "models/weapons2/%s/model.glm", name ) ) )
+			k++;
+	}
+	n = trap->FS_GetFileList( "models/players", "/", list, sizeof( list ) );
+	for ( i = 0, f = list; i < n; i++, f += strlen( f ) + 1 ) {
+		char         name[64];
+		int          len = strlen( f );
+		fileHandle_t fh;
+		Q_strncpyz( name, f, sizeof( name ) );
+		if ( len && ( name[len - 1] == '/' || name[len - 1] == '\\' ) )
+			name[len - 1] = 0;
+		if ( !name[0] || name[0] == '.' || name[0] == '_' )
+			continue;
+		trap->FS_Open( va( "models/players/%s/shinobi.char", name ), &fh, FS_READ );
+		if ( !fh )
+			continue;
+		trap->FS_Close( fh );
+		if ( trap->R_RegisterModel( va( "models/players/%s/model.glm", name ) ) )
+			k++;
+	}
+	Com_Printf( "[shinobi] %i weapon / character models precached\n", k );
 }
 
 /*
