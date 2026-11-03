@@ -269,7 +269,7 @@ kubikiribocho, fists); shadow clones carry what their maker carries.
 | ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | 40 |
 | Trench Knife (`shinobi_knife`) | Asuma's knuckle knives | 40 (as far as the fists) |
 | Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends (64 long) | 40 each way from the middle |
-| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (26 long) | 41 (as far as the fists) |
+| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | 41 (as far as the fists) |
 | Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | 52 |
 | Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | 49 |
 
