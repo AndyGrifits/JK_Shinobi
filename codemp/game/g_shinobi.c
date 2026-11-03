@@ -422,8 +422,11 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	int        lvl = wanted;
 	qboolean   cast = qfalse;
 
-	if ( !Shinobi_CanAct( ent ) || jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
+	if ( jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return qfalse;
+	if ( !Shinobi_CanAct( ent ) && !( jutsu == SJ_KAWARIMI && client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN
+		&& ent->health > 0 && client->sess.sessionTeam != TEAM_SPECTATOR ) )
+		return qfalse; // (Kawarimi works lying on the floor too)
 	if ( client->shinobi.flinchEnd > level.time && jutsu != SJ_KAWARIMI )
 		return qfalse; // flinching from a combo punch: only Kawarimi breaks out
 	if ( !Shinobi_HasJutsu( ent, jutsu ) ) {
@@ -660,6 +663,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	qboolean   attackPressed;
 
 	Shinobi_StripGuns( ent ); // no blasters for anyone
+	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
 	BG_ShinobiBlockAttack( &client->ps, ucmd ); // block + attack = the blade's special attack, not a guard
 	Shinobi_TaijutsuThink( ent ); // the diving kick's landing
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
@@ -668,6 +672,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
 	Shinobi_BlockThink( ent, ucmd );
+	Shinobi_ChargesToStats( client ); // Kawarimi / Shunshin charges for the HUD
 	Shinobi_EarthThink( ent, ucmd ); // burrow, stone skin
 	Shinobi_YinYangThink( ent, ucmd ); // shadow hide, blindness
 	Shinobi_BotThink( ent );
@@ -732,6 +737,44 @@ Shunshin no Jutsu (body flicker): Shift + jump blinks forward along the view,
 Shift + back + jump blinks backward. Holding jump charges the distance.
 ===========================================================================
 */
+// charges that come back one by one: how many are ready / take one (qfalse: none)
+static int Shinobi_ChargesReady( const int *ready, int n ) {
+	int i, k = 0;
+	for ( i = 0; i < n; i++ )
+		if ( ready[i] <= level.time )
+			k++;
+	return k;
+}
+
+static int Shinobi_ChargeWait( const int *ready, int n ) {
+	int i, best = 0;
+	for ( i = 0; i < n; i++ )
+		if ( ready[i] > level.time && ( !best || ready[i] < best ) )
+			best = ready[i];
+	return best ? best - level.time : 0;
+}
+
+static qboolean Shinobi_ChargeTake( int *ready, int n, int recharge ) {
+	int i;
+	for ( i = 0; i < n; i++ ) {
+		if ( ready[i] <= level.time ) {
+			ready[i] = level.time + recharge;
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// the charges the HUD shows
+void Shinobi_ChargesToStats( gclient_t *client ) {
+	const int k = Shinobi_ChargesReady( client->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES );
+	const int s = Shinobi_ChargesReady( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES );
+	client->ps.stats[STAT_SHINOBI2] = ( client->ps.stats[STAT_SHINOBI2] & ~( ( 3 << SHINOBI_STAT2_KAWA_SHIFT ) | ( 3 << SHINOBI_STAT2_SHUN_SHIFT ) ) )
+		| ( k << SHINOBI_STAT2_KAWA_SHIFT ) | ( s << SHINOBI_STAT2_SHUN_SHIFT );
+	client->ps.stats[STAT_SHINOBI2] = ( client->ps.stats[STAT_SHINOBI2] & ~( 3 << SHINOBI_STAT2_FIST_SHIFT ) )
+		| ( ( client->pers.shinobiFistStyle % SFS_COUNT ) << SHINOBI_STAT2_FIST_SHIFT );
+}
+
 static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 	gclient_t   *client = ent->client;
 	const float  range = (float)shinobiShunshinDist[lvl - 1];
@@ -739,10 +782,10 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 	trace_t      tr;
 	float        dist;
 
-	if ( client->shinobi.shunshinNext > level.time ) {
+	if ( !Shinobi_ChargesReady( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"Shunshin ready in %.1f s\"",
-			( client->shinobi.shunshinNext - level.time ) / 1000.0f ) );
+			Shinobi_ChargeWait( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES ) / 1000.0f ) );
 		return qfalse;
 	}
 	if ( SHINOBI_HAND_DASH( &client->ps ) )
@@ -769,7 +812,7 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 		return qfalse;
 	}
 
-	client->shinobi.shunshinNext = level.time + SHINOBI_SHUNSHIN_COOLDOWN;
+	Shinobi_ChargeTake( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES, SHINOBI_SHUNSHIN_RECHARGE );
 	Shinobi_StopCharging( client );
 
 	// smoke and leaves where we were, and where we land
@@ -825,10 +868,10 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 		return qfalse; // already substituted
 	if ( client->shinobi.burrowEnd || client->shinobi.shadowHideEnd )
 		return qfalse; // under the ground / in the shadow
-	if ( client->shinobi.kawarimiNext > level.time ) {
+	if ( !Shinobi_ChargesReady( client->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"Kawarimi ready in %.1f s\"",
-			( client->shinobi.kawarimiNext - level.time ) / 1000.0f ) );
+			Shinobi_ChargeWait( client->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) / 1000.0f ) );
 		return qfalse;
 	}
 
@@ -840,6 +883,12 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 	if ( client->shinobi.shadowTrapEnt )
 		Shinobi_ShadowTrapRelease( ent );
 	client->shinobi.stunEnd = 0;
+	client->shinobi.flinchEnd = client->shinobi.juggleEnd = client->shinobi.juggleBy = 0; // out of a combo too
+	if ( client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) { // off the floor: the double lies there instead
+		client->ps.forceHandExtend = HANDEXTEND_NONE;
+		client->ps.forceHandExtendTime = 0;
+		client->ps.legsTimer = client->ps.torsoTimer = 0;
+	}
 
 	// drop whatever we were doing - the double carries on instead
 	if ( SHINOBI_HAND_ANY( &client->ps ) )
@@ -856,7 +905,7 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 	client->shinobi.kawarimiDecoy = decoy->s.number + 1;
 	client->shinobi.kawarimiPending = qtrue;
 	client->shinobi.kawarimiPhase = qtrue;
-	client->shinobi.kawarimiNext = level.time + SHINOBI_KAWARIMI_COOLDOWN;
+	Shinobi_ChargeTake( client->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES, SHINOBI_KAWARIMI_RECHARGE );
 	return qtrue;
 }
 
@@ -867,6 +916,18 @@ void Shinobi_Hide( gentity_t *ent ) {
 	client->shinobi.kawarimiPending = qfalse;
 	client->shinobi.kawarimiEnd = level.time + SHINOBI_KAWARIMI_MAX_MS;
 	SHINOBI_SET_HIDDEN( &client->ps, 1 );
+	{ // already unseen, a hop back from where the double stands
+		vec3_t  yaw, fwd, start, end;
+		trace_t tr;
+		VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+		AngleVectors( yaw, fwd, NULL, NULL );
+		VectorCopy( client->ps.origin, start );
+		start[2] += 1;
+		VectorMA( start, -SHINOBI_KAWARIMI_HOP, fwd, end );
+		trap->Trace( &tr, start, ent->r.mins, ent->r.maxs, end, ent->s.number, MASK_PLAYERSOLID & ~CONTENTS_BODY, qfalse, 0, 0 );
+		if ( !tr.startsolid && !tr.allsolid && tr.fraction > 0.2f )
+			Shinobi_TeleportClient( ent, tr.endpos );
+	}
 	ent->r.svFlags |= SVF_BROADCASTCLIENTS; // only to us and Sharingan eyes (Shinobi_PerkBroadcasts)
 	ent->r.broadcastClients[0] = ent->r.broadcastClients[1] = 0;
 	trap->LinkEntity( (sharedEntity_t *)ent );
@@ -902,6 +963,35 @@ void Shinobi_Reveal( gentity_t *ent ) {
 		client->shinobi.kawarimiPhase = qfalse;
 		trap->LinkEntity( (sharedEntity_t *)ent ); // svFlags changed
 	}
+}
+
+// the seals of a jutsu being charged are broken (a held jutsu already going is not)
+void Shinobi_InterruptCharge( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if ( !client || ent->s.number >= MAX_CLIENTS || client->shinobi.chargeJutsu == SJ_NONE
+		|| SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) )
+		return;
+	client->shinobi.chargeJutsu = SJ_NONE;
+	Shinobi_StopCharging( client );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+	Shinobi_HitText( ent, STX_INTERRUPT, 0 );
+	if ( !( ent->r.svFlags & SVF_BOT ) )
+		trap->SendServerCommand( ent - g_entities, "sjc" ); // the cgame drops its charge bars
+}
+
+// a hit landed on targ: a direct one (not burning, drowning, ash, falling...) breaks his seals
+void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod ) {
+	if ( !targ || !targ->client || !attacker || attacker == targ )
+		return;
+	switch ( mod ) {
+	case MOD_LAVA: case MOD_WATER: case MOD_SLIME: case MOD_FALLING: case MOD_TRIGGER_HURT:
+	case MOD_SUICIDE: case MOD_UNKNOWN: case MOD_TELEFRAG:
+		return;
+	default:
+		break;
+	}
+	Shinobi_InterruptCharge( targ );
 }
 
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker ) {

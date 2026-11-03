@@ -519,6 +519,7 @@ typedef struct clientPersistant_s {
 	shinobiBuild_t	shinobiBuildNext;	// chosen, applied on the next spawn
 	qboolean	shinobiBuildSet;	// shinobiBuildNext came from the player
 	qboolean	shinobiCurseOff;	// Curse Seal turned off by /curseseal
+	int			shinobiFistStyle;	// taijutsu style (SFS_*), L with fists
 } clientPersistant_t;
 
 typedef struct renderInfo_s
@@ -817,14 +818,14 @@ struct gclient_s {
 		int		formEnd;
 		int		armedEnd;
 		int		dashEnd;
-		int		shunshinNext;	// cooldown end
+		int		shunshinReady[SHINOBI_SHUNSHIN_CHARGES];	// when each charge is back
 		int		handSoundNext;	// Chidori chirp repeat
 		int		fireballNext;	// cooldown end
 		int		wallNext;		// cooldown end
 		int		chargeJutsu;	// shinobiJutsu_t being held (SJ_NONE = 0)
 		int		chargeStart;	// level.time the jutsu key went down
 		int		cloneDrainNext;	// next chakra drain tick for living shadow clones
-		int		kawarimiNext;	// cooldown end
+		int		kawarimiReady[SHINOBI_KAWARIMI_CHARGES];
 		int		kawarimiEnd;	// hidden until (0 = not substituted)
 		int		kawarimiDecoy;	// the double's entity number + 1
 		qboolean kawarimiPending; // waiting for the double to appear before hiding
@@ -833,6 +834,7 @@ struct gclient_s {
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		healing;		// Healing held: chakra into health
 		int		healTick;
+		float	chakraFrac;		// fractions of chakra earned in fights, not yet whole
 		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
 		// elements (g_shinobi_nature.c)
 		int		burnEnd, burnTick, burnAttacker; // on fire until; attacker num + 1
@@ -863,6 +865,7 @@ struct gclient_s {
 		int		guardRegen;		// guard starts coming back at
 		int		staggerEnd;		// reeling (guard broken / parried) until
 		int		flinchEnd;		// flinching from a combo punch until (no attacks / jutsu)
+		int		juggleStart, juggleEnd, juggleBy, slamNoFall; // launched: helpless in the air (air combo)
 		int		ccImmuneEnd;	// immune to hard crowd control until
 		int		flameEnt;		// Fire Breath stream entity num + 1 (0 = not breathing)
 		vec3_t	flameAngles;	// where the stream points (turns slowly toward the view)
@@ -884,6 +887,7 @@ struct gclient_s {
 		int		burrowEnd, burrowTick, burrowFx, burrowNext; // Burrow
 		int		pillarNext;		// Rock Pillar cooldown end
 		int		botJutsuNext, botHoldEnd; // bots: next jutsu, let go of a held one at
+		int		botGuardUntil, botGuardNext, botFlinches, botFlinchSeen, botPunishUntil; // bots: defence
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)
@@ -1495,6 +1499,8 @@ void Cmd_Kunai_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
+void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod );
+void Shinobi_InterruptCharge( gentity_t *ent );
 // g_shinobi_build.c
 void  Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo );
 void  Shinobi_ApplyBuild( gentity_t *ent );
@@ -1521,10 +1527,12 @@ extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
 qboolean Shinobi_ComboPlainKick( gentity_t *ent );
+void Shinobi_CycleFistStyle( gentity_t *ent ); // g_shinobi_taijutsu.c
 int Shinobi_ComboPunchDamage( gentity_t *ent );
 int Shinobi_ComboKickDamage( gentity_t *ent );
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ); // g_shinobi_build.c
 void Shinobi_HitText( gentity_t *targ, int kind, int value );
+void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ); // g_shinobi_build.c
 qboolean Shinobi_SaberGuardUp( gentity_t *ent ); // g_shinobi_block.c
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity

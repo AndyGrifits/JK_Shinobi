@@ -58,6 +58,12 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	switch ( kind ) {
 	case SCK_HIT: { // a chain punch: held until the next one can land (the finisher has none)
 		int ms = client->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
+		if ( ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) && v->client->shinobi.juggleEnd > level.time ) {
+			// up in the air: the punch keeps him up there
+			if ( v->client->ps.velocity[2] < SHINOBI_AIR_LIFT )
+				v->client->ps.velocity[2] = SHINOBI_AIR_LIFT;
+			v->client->shinobi.juggleEnd = level.time + 1500;
+		}
 		if ( ms < SHINOBI_COMBO_FLINCH_MIN )
 			ms = SHINOBI_COMBO_FLINCH_MIN;
 		if ( ms > SHINOBI_COMBO_FLINCH_MAX )
@@ -65,12 +71,20 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 		Shinobi_Flinch( v, ms );
 		break;
 	}
-	case SCK_LAUNCH: // up into the air - jump after him and dive
+	case SCK_LAUNCH: // up into the air - jump after him (the air combo) or dive
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
+		v->client->shinobi.juggleStart = level.time;
+		v->client->shinobi.juggleEnd = level.time + 2500;
+		v->client->shinobi.juggleBy = ent->s.number + 1;
 		Shinobi_HitText( v, STX_LAUNCH, 0 );
 		Shinobi_ComboPush( v, dir, 60, 520 );
 		Shinobi_CCGrant( v, level.time + 1100 );
 		break;
+	case SCK_SPIN:
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
+		break;
 	case SCK_KICK: // knocked down and away
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
 		Shinobi_ComboPush( v, dir, 480, 220 );
 		if ( !Shinobi_CCImmune( v ) )
 			G_Knockdown( v );
@@ -135,6 +149,18 @@ static void Shinobi_GroundBlow( gentity_t *ent ) {
 	}
 }
 
+// L with fists: the next taijutsu style (kept in the stats, for prediction and the HUD)
+void Shinobi_CycleFistStyle( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const int  next = ( SHINOBI_FIST_STYLE( &c->ps ) + 1 ) % SFS_COUNT;
+
+	if ( c->ps.weaponTime > 0 || ( SHINOBI_COMBO_KIND( &c->ps ) != SCK_NONE && c->ps.stats[STAT_SHINOBI_COMBOT] > 0 ) )
+		return; // not in the middle of a chain
+	c->pers.shinobiFistStyle = next; // (kept over respawns; Shinobi_ChargesToStats puts it in the stats)
+	c->ps.stats[STAT_SHINOBI2] = ( c->ps.stats[STAT_SHINOBI2] & ~( 3 << SHINOBI_STAT2_FIST_SHIFT ) ) | ( next << SHINOBI_STAT2_FIST_SHIFT );
+	trap->SendServerCommand( ent - g_entities, va( "cp \"Taijutsu: %s\"", shinobiFistStyleNames[next] ) );
+}
+
 // a combo punch: its damage by the step of the chain (0: not a combo punch)
 int Shinobi_ComboPunchDamage( gentity_t *ent ) {
 	int hit;
@@ -142,17 +168,20 @@ int Shinobi_ComboPunchDamage( gentity_t *ent ) {
 		|| SHINOBI_COMBO_KIND( &ent->client->ps ) != SCK_HIT )
 		return 0;
 	hit = SHINOBI_COMBO_HIT( &ent->client->ps );
-	return ( hit >= 1 && hit <= 3 ) ? shinobiComboPunch[hit - 1] : 0;
+	return ( hit >= 1 && hit <= 3 ) ? shinobiFistHit[SHINOBI_FIST_STYLE( &ent->client->ps )][hit - 1] : 0;
 }
 
 // a combo kick (finisher): its damage (0: a stock kick)
 int Shinobi_ComboKickDamage( gentity_t *ent ) {
+	float f;
 	if ( !ent->client || ent->s.number >= MAX_CLIENTS || ent->client->ps.weapon != WP_MELEE )
 		return 0;
+	f = shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )];
 	switch ( SHINOBI_COMBO_KIND( &ent->client->ps ) ) {
-	case SCK_KICK:   return SHINOBI_COMBO_KICK_DAMAGE;
-	case SCK_LAUNCH: return SHINOBI_COMBO_LAUNCH_DAMAGE;
-	case SCK_SPIN:   return SHINOBI_COMBO_SPIN_DAMAGE;
+	case SCK_HIT:    return Shinobi_ComboPunchDamage( ent ); // a kick or a ram of the chain (medium / strong)
+	case SCK_KICK:   return (int)( SHINOBI_COMBO_KICK_DAMAGE * f + 0.5f );
+	case SCK_LAUNCH: return (int)( SHINOBI_COMBO_LAUNCH_DAMAGE * f + 0.5f );
+	case SCK_SPIN:   return (int)( SHINOBI_COMBO_SPIN_DAMAGE * f + 0.5f );
 	default:         return 0;
 	}
 }
@@ -160,7 +189,7 @@ int Shinobi_ComboKickDamage( gentity_t *ent ) {
 // the spin kick (left / right finisher) only does damage: no stock kick knockdown
 qboolean Shinobi_ComboPlainKick( gentity_t *ent ) {
 	return ( ent->client && ent->s.number < MAX_CLIENTS && ent->client->ps.weapon == WP_MELEE
-		&& SHINOBI_COMBO_KIND( &ent->client->ps ) == SCK_SPIN ) ? qtrue : qfalse;
+		&& ( SHINOBI_COMBO_KIND( &ent->client->ps ) == SCK_SPIN || SHINOBI_COMBO_KIND( &ent->client->ps ) == SCK_HIT ) ) ? qtrue : qfalse;
 }
 
 // the rolling sweep (back finisher): bowls over whoever it rolls into
@@ -181,19 +210,61 @@ static void Shinobi_SweepRoll( gentity_t *ent ) {
 		d[2] = 0;
 		if ( VectorLength( d ) > SHINOBI_SWEEP_RADIUS + 16 )
 			continue;
-		G_Damage( v, ent, ent, up, v->r.currentOrigin, SHINOBI_SWEEP_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		G_Damage( v, ent, ent, up, v->r.currentOrigin, (int)( SHINOBI_SWEEP_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f ),
+			DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 		if ( !v->inuse || v->health <= 0 || !v->client || shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED )
 			continue;
 		VectorClear( v->client->ps.velocity );
 		if ( !Shinobi_CCImmune( v ) )
 			G_Knockdown( v );
 		Shinobi_CCGrant( v, level.time + 1500 );
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
+	}
+}
+
+// the air combo's diving kick: whoever we keep up there is slammed down
+static void Shinobi_AirSlam( gentity_t *ent ) {
+	int i;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     dir;
+		if ( !v->inuse || !v->client || v->health <= 0 || v->client->shinobi.juggleBy != ent->s.number + 1
+			|| v->client->shinobi.juggleEnd <= level.time
+			|| Distance( v->r.currentOrigin, ent->r.currentOrigin ) > SHINOBI_SLAM_REACH )
+			continue;
+		VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, dir );
+		VectorNormalize( dir );
+		v->client->shinobi.juggleEnd = 0;
+		v->client->shinobi.juggleBy = 0;
+		v->client->shinobi.slamNoFall = level.time + 2000; // the slam hurts, not the floor
+		G_Damage( v, ent, ent, dir, v->r.currentOrigin, (int)( SHINOBI_SLAM_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f ),
+			DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		if ( !v->inuse || v->health <= 0 )
+			continue;
+		v->client->ps.velocity[0] = dir[0] * 120;
+		v->client->ps.velocity[1] = dir[1] * 120;
+		v->client->ps.velocity[2] = -900;
+		G_Knockdown( v );
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
+		G_Sound( v, CHAN_AUTO, shinobiMedia.sndWallBreak );
 	}
 }
 
 // every client frame, before Pmove
 void Shinobi_TaijutsuThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+
+	// launched: helpless until we land (a flinch that lasts); the air combo's slam
+	if ( client->shinobi.juggleEnd ) {
+		if ( client->shinobi.juggleEnd <= level.time || ent->health <= 0
+			|| ( client->ps.groundEntityNum != ENTITYNUM_NONE && level.time - client->shinobi.juggleStart > 300 ) )
+			client->shinobi.juggleEnd = client->shinobi.juggleBy = 0;
+		else if ( client->shinobi.flinchEnd < level.time + 150 )
+			client->shinobi.flinchEnd = level.time + 150;
+	}
+	if ( ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE ) && ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) )
+		Shinobi_AirSlam( ent );
 
 	if ( client->ps.weapon == WP_MELEE && SHINOBI_COMBO_KIND( &client->ps ) == SCK_SWEEP
 		&& client->ps.legsAnim == BOTH_ROLL_F && client->ps.legsTimer > 0 && ent->health > 0 )

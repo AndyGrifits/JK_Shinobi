@@ -39,16 +39,17 @@ void Shinobi_Flinch( gentity_t *ent, int ms ) {
 		return;
 	if ( client->shinobi.flinchEnd < level.time + ms )
 		client->shinobi.flinchEnd = level.time + ms;
+	if ( level.time - client->shinobi.botFlinchSeen > 1200 ) // (bots count the blows of a combo)
+		client->shinobi.botFlinches = 0;
+	client->shinobi.botFlinches++;
+	client->shinobi.botFlinchSeen = level.time;
 	client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
 	Shinobi_HitText( ent, STX_FLINCH, 0 );
 	if ( client->ps.weaponTime < ms )
 		client->ps.weaponTime = ms;
 	if ( client->ps.weapon == WP_SABER && BG_SaberInAttack( client->ps.saberMove ) )
 		client->ps.saberBlocked = BLOCKED_ATK_BOUNCE;
-	if ( client->shinobi.chargeJutsu != SJ_NONE && !SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) ) {
-		client->shinobi.chargeJutsu = SJ_NONE;
-		Shinobi_StopCharging( client );
-	}
+	Shinobi_InterruptCharge( ent );
 }
 
 static void Shinobi_GuardBreak( gentity_t *ent ) {
@@ -212,6 +213,7 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		G_Sound( targ, CHAN_AUTO, shinobiMedia.sndParry );
 		Shinobi_HitText( targ, STX_PARRY, 0 );
 		Shinobi_ShieldShell( targ, src, dmg );
+		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
 		return qtrue;
 	}
 	guard = client->ps.stats[STAT_ARMOR];
@@ -219,9 +221,11 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 	if ( dmg >= guard ) { // the guard gives
 		Shinobi_GuardBreak( targ );
 		Shinobi_ShieldShell( targ, src, guard );
+		Shinobi_GainChakra( attacker, SHINOBI_GAIN_GUARDBREAK, qtrue );
 		return qfalse;
 	}
 	client->ps.stats[STAT_ARMOR] = guard - dmg;
+	Shinobi_GainChakra( attacker, SHINOBI_GAIN_BLOCKED, qfalse );
 	Shinobi_HitText( targ, STX_BLOCK, dmg );
 	Shinobi_ShieldShell( targ, src, dmg );
 	return qtrue;
@@ -265,6 +269,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 
 	if ( shinobiGuardBreaker ) { // a full Rasengan / Chidori goes straight through
 		Shinobi_GuardBreak( targ );
+		Shinobi_GainChakra( attacker, SHINOBI_GAIN_GUARDBREAK, qtrue );
 		shinobiBlockResult = SBR_BROKEN;
 		return damage;
 	}
@@ -285,6 +290,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 		}
 		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
 		Shinobi_ShieldShell( targ, src, damage );
+		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
 		return 0;
 	}
 	if ( taijutsu && Shinobi_WindEdgeActive( attacker ) ) {
@@ -295,6 +301,8 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 
 	absorb = taijutsu ? damage : ( damage + 1 ) / 2;
 	cost = absorb;
+	if ( mod == MOD_MELEE && attacker->client && attacker->s.number < MAX_CLIENTS && attacker->client->ps.weapon == WP_MELEE )
+		cost = (int)( cost * shinobiFistGuard[SHINOBI_FIST_STYLE( &attacker->client->ps )] + 0.5f ); // heavier styles eat the guard
 	if ( mod == MOD_MELEE && attacker->client && attacker->s.number < MAX_CLIENTS
 		&& attacker->client->shinobi.eyes == SP_BYAKUGAN )
 		cost *= 2; // the Gentle Fist (Byakugan open) goes through guards
@@ -307,11 +315,13 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 		Shinobi_GuardBreak( targ );
 		shinobiBlockResult = SBR_BROKEN;
 		Shinobi_ShieldShell( targ, src, held );
+		Shinobi_GainChakra( attacker, SHINOBI_GAIN_GUARDBREAK, qtrue );
 		return damage - held;
 	}
 	client->ps.stats[STAT_ARMOR] = guard - cost;
 	Shinobi_ShieldShell( targ, src, absorb );
 	Shinobi_HitText( targ, STX_BLOCK, absorb );
+	Shinobi_GainChakra( attacker, SHINOBI_GAIN_BLOCKED, qfalse );
 	shinobiBlockResult = SBR_BLOCKED;
 	return damage - absorb;
 }

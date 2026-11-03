@@ -4394,7 +4394,7 @@ void G_Knockdown( gentity_t *victim )
 			Shinobi_HitText( victim, STX_KNOCKDOWN, 0 ); // JK_Shinobi
 		victim->client->ps.forceHandExtend = HANDEXTEND_KNOCKDOWN;
 		victim->client->ps.forceDodgeAnim = 0;
-		victim->client->ps.forceHandExtendTime = level.time + 1100;
+		victim->client->ps.forceHandExtendTime = level.time + SHINOBI_KNOCKDOWN_MS; // JK_Shinobi: was 1100
 		victim->client->ps.quickerGetup = qfalse;
 	}
 }
@@ -4485,7 +4485,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 	}
 	if ( mod == MOD_FALLING && targ->client && targ->s.number < MAX_CLIENTS
 		&& ( ( targ->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_SKYSTEP )
-			|| ( targ->client->ps.stats[STAT_SHINOBI2] & ( SHINOBI_STAT2_DIVE | SHINOBI_STAT2_DIVELAND ) ) ) )
+			|| ( targ->client->ps.stats[STAT_SHINOBI2] & ( SHINOBI_STAT2_DIVE | SHINOBI_STAT2_DIVELAND ) )
+			|| targ->client->shinobi.slamNoFall > level.time ) )
 	{ // JK_Shinobi: Sky Step - lands like a feather
 		return;
 	}
@@ -4512,6 +4513,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_
 			dflags |= DAMAGE_NO_KNOCKBACK;
 		}
 		Shinobi_Damaged( targ, attacker );
+		Shinobi_HitInterrupt( targ, attacker, mod ); // JK_Shinobi: a real hit breaks the seals of a jutsu being charged
 	}
 	else
 	{

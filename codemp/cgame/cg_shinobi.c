@@ -242,6 +242,11 @@ static void CG_ShinobiJutsuDown( int jutsu ) {
 	trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
 }
 
+// "sjc": a hit broke our seals - the bars go (the key must be pressed again)
+void CG_ShinobiChargeCancel_f( void ) {
+	shinobiCharge.jutsu = SJ_NONE;
+}
+
 static void CG_ShinobiJutsuUp( int jutsu ) {
 	if ( shinobiCharge.jutsu != jutsu )
 		return;
@@ -1519,6 +1524,37 @@ static void CG_ShinobiDrawChargeBars( void ) {
 }
 
 // the row of selectable jutsu at the bottom of the screen
+// Kawarimi / Shunshin charges: a row of pips over the jutsu list
+static void CG_ShinobiDrawCharges( void ) {
+	const playerState_t *ps = &cg.predictedPlayerState;
+	const int   have[2] = { SHINOBI_KAWA_CHARGES( ps ), SHINOBI_SHUN_CHARGES( ps ) };
+	const int   max[2] = { SHINOBI_KAWARIMI_CHARGES, SHINOBI_SHUNSHIN_CHARGES };
+	const char *names[2] = { "Kawarimi", "Shunshin" };
+	const float scale = 0.36f, y = 432;
+	float       x = SCREEN_WIDTH * 0.5f - 120;
+	int         g, i;
+
+	if ( ps->stats[STAT_HEALTH] <= 0 || ps->pm_type == PM_SPECTATOR )
+		return;
+	if ( ps->weapon == WP_MELEE ) { // the taijutsu style (L)
+		const vec4_t c = { 1.0f, 0.85f, 0.45f, 0.9f };
+		const char *t = va( "Taijutsu: %s", shinobiFistStyleNames[SHINOBI_FIST_STYLE( ps )] );
+		CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, scale, FONT_MEDIUM ) * 0.5f, y - 16, scale, (float *)c, t, 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	}
+	for ( g = 0; g < 2; g++ ) {
+		const vec4_t label = { 0.8f, 0.85f, 0.9f, 0.85f };
+		const vec4_t on = { 0.45f, 0.8f, 1.0f, 0.95f }, off = { 0.2f, 0.25f, 0.3f, 0.7f };
+		CG_Text_Paint( x, y - 2, scale, (float *)label, names[g], 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+		x += CG_Text_Width( names[g], scale, FONT_MEDIUM ) + 6;
+		for ( i = 0; i < max[g]; i++ ) {
+			CG_FillRect( x, y + 2, 8, 8, i < have[g] ? on : off );
+			x += 11;
+		}
+		x += 28;
+	}
+}
+
 static void CG_ShinobiDrawJutsuList( void ) {
 	const float scale = 0.42f, gap = 10, y = 448;
 	const int   chakra = cg.predictedPlayerState.fd.forcePower;
@@ -2140,8 +2176,11 @@ static void CG_ShinobiDrawHitText( void ) {
 		}
 		else {
 			text = kind == STX_BLOCK && shinobiHitText[i].value > 0
-				? va( "%s %i", shinobiHitTextNames[kind], shinobiHitText[i].value ) : shinobiHitTextNames[kind];
-			if ( kind == STX_BLOCK || kind == STX_PARRY )
+				? va( "%s %i", shinobiHitTextNames[kind], shinobiHitText[i].value )
+				: ( kind == STX_CHAKRA ? va( "+%i chakra", shinobiHitText[i].value ) : shinobiHitTextNames[kind] );
+			if ( kind == STX_CHAKRA )
+				VectorSet( color, 0.4f, 0.75f, 1.0f );
+			else if ( kind == STX_BLOCK || kind == STX_PARRY )
 				VectorSet( color, 0.5f, 1.0f, 0.55f );
 			else if ( kind == STX_GUARDBREAK )
 				VectorSet( color, 1.0f, 0.45f, 0.2f );
@@ -2239,6 +2278,7 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawEyeInfo();
 
 	CG_ShinobiDrawJutsuList();
+	CG_ShinobiDrawCharges();
 
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {

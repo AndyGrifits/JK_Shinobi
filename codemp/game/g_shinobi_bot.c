@@ -213,6 +213,105 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	return qtrue;
 }
 
+/*
+Bots defend themselves like players: they raise the guard against a blow coming
+at them (shinobi_botguard % of the time, held a moment - a press right before the
+hit is a perfect parry), let it down when it is almost gone, Kawarimi out of a
+combo once they are caught in it, and hit back at someone reeling (parried,
+guard broken). Every client frame, before the guard code reads the buttons.
+*/
+static qboolean Shinobi_BotThreat( gentity_t *ent, gentity_t *e ) {
+	const playerState_t *eps;
+	vec3_t d, fwd, yaw;
+
+	if ( !e->inuse || !e->client || e == ent || e->health <= 0 || e->client->sess.sessionTeam == TEAM_SPECTATOR )
+		return qfalse;
+	if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
+		return qfalse;
+	eps = &e->client->ps;
+	VectorSubtract( ent->r.currentOrigin, e->r.currentOrigin, d );
+	if ( VectorLength( d ) > ( eps->weapon == WP_SABER ? 150 : 110 ) )
+		return qfalse;
+	VectorNormalize( d );
+	VectorSet( yaw, 0, eps->viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	if ( DotProduct( d, fwd ) < 0.5f )
+		return qfalse; // not turned at us
+	if ( eps->weapon == WP_SABER && ( BG_SaberInAttack( eps->saberMove ) || BG_SaberInSpecial( eps->saberMove ) ) )
+		return qtrue;
+	if ( eps->weapon == WP_MELEE && eps->weaponTime > 0 )
+		return qtrue; // a punch or a kick on its way
+	if ( BG_KickingAnim( eps->legsAnim ) )
+		return qtrue;
+	return qfalse;
+}
+
+void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	gentity_t *threat = NULL, *reeling = NULL;
+	int        i;
+
+	if ( !( ent->r.svFlags & SVF_BOT ) || ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
+		return;
+
+	// caught in a combo: after the second blow (counted in Shinobi_Flinch), maybe Kawarimi out
+	if ( client->shinobi.flinchEnd > level.time && client->shinobi.botFlinches >= 2 ) {
+		client->shinobi.botFlinches = 0;
+		if ( Q_irand( 0, 99 ) < 50 ) {
+			Shinobi_Cast( ent, SJ_KAWARIMI, 1 );
+			return;
+		}
+	}
+	// down on the floor with someone over us: now and then Kawarimi
+	if ( client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && client->shinobi.botGuardNext <= level.time ) {
+		client->shinobi.botGuardNext = level.time + 600;
+		for ( i = 0; i < MAX_CLIENTS; i++ ) {
+			gentity_t *e = &g_entities[i];
+			if ( e != ent && e->inuse && e->client && e->health > 0 && !( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
+				&& Distance( e->r.currentOrigin, ent->r.currentOrigin ) < 120 && Q_irand( 0, 99 ) < 25 ) {
+				Shinobi_Cast( ent, SJ_KAWARIMI, 1 );
+				return;
+			}
+		}
+	}
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( Shinobi_BotThreat( ent, e ) ) {
+			threat = e;
+			break;
+		}
+		if ( e != ent && e->inuse && e->client && e->health > 0 && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
+			&& Distance( e->r.currentOrigin, ent->r.currentOrigin ) < 120 && !( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) ) )
+			reeling = e;
+	}
+
+	// a blow coming: maybe the guard (decided once per blow, held a moment)
+	if ( threat && client->shinobi.botGuardNext <= level.time && client->shinobi.botGuardUntil <= level.time ) {
+		client->shinobi.botGuardNext = level.time + 450;
+		if ( client->ps.stats[STAT_ARMOR] * 4 > SHINOBI_GUARD_MAX && Q_irand( 0, 99 ) < shinobi_botguard.integer )
+			client->shinobi.botGuardUntil = level.time + Q_irand( 350, 800 );
+	}
+	if ( client->shinobi.botGuardUntil > level.time ) {
+		if ( client->ps.stats[STAT_ARMOR] * 6 < SHINOBI_GUARD_MAX ) {
+			client->shinobi.botGuardUntil = 0; // almost gone: let it down
+		}
+		else {
+			ucmd->buttons |= SHINOBI_BUTTON_BLOCK;
+			ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+			ucmd->upmove = 0;
+			return;
+		}
+	}
+
+	// someone reeling in front of us: hit him
+	if ( reeling && !threat ) {
+		client->shinobi.botPunishUntil = level.time + 400;
+	}
+	if ( client->shinobi.botPunishUntil > level.time )
+		ucmd->buttons |= BUTTON_ATTACK;
+}
+
 // every frame for bots: let go of held jutsu in time
 void Shinobi_BotThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;

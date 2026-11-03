@@ -2779,6 +2779,11 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 	}
 
 
+	if ( ent->client->ps.weapon == WP_MELEE )
+	{ // JK_Shinobi: fists have styles too - fast / medium / strong
+		Shinobi_CycleFistStyle( ent );
+		return;
+	}
 	if ( ent->client->ps.weapon != WP_SABER )
 	{
         return;

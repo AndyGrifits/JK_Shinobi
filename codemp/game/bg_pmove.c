@@ -10310,7 +10310,8 @@ client predicts it exactly like the server runs it.
 */
 static void PM_ShinobiComboSet( int hit, int kind, int timeMs )
 {
-	pm->ps->stats[STAT_SHINOBI_COMBO] = ( hit & 7 ) | ( ( kind & 7 ) << 3 );
+	pm->ps->stats[STAT_SHINOBI_COMBO] = ( hit & 7 ) | ( ( kind & 7 ) << 3 )
+		| ( pm->ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ); // (the air combo flag stays)
 	pm->ps->stats[STAT_SHINOBI_COMBOT] = timeMs > 0 ? timeMs : 0;
 }
 
@@ -10416,10 +10417,40 @@ static void PM_ShinobiComboPre( void )
 		return;
 	}
 
+	// the air combo: jump right after the launcher - you fly after him
+	if ( SHINOBI_COMBO_KIND( ps ) == SCK_LAUNCH && ps->stats[STAT_SHINOBI_COMBOT] > 0 && pm->cmd.upmove > 0
+		&& ps->groundEntityNum != ENTITYNUM_NONE && !( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
+		&& !BG_KickingAnim( ps->legsAnim ) )
+	{
+		vec3_t fwd, ang;
+		VectorSet( ang, 0, ps->viewangles[YAW], 0 );
+		AngleVectors( ang, fwd, NULL, NULL );
+		ps->velocity[0] = fwd[0] * SHINOBI_AIR_JUMP_FWD;
+		ps->velocity[1] = fwd[1] * SHINOBI_AIR_JUMP_FWD;
+		ps->velocity[2] = SHINOBI_AIR_JUMP;
+		ps->groundEntityNum = ENTITYNUM_NONE;
+		ps->pm_flags |= PMF_JUMP_HELD;
+		PM_SetAnim( SETANIM_BOTH, BOTH_FORCEJUMP1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+		ps->weaponTime = 0;
+		ps->stats[STAT_SHINOBI_COMBO] = SHINOBI_COMBO_AIR | ( SCK_HIT << 3 ); // hit 0 of the air part
+		ps->stats[STAT_SHINOBI_COMBOT] = 1500;
+		pm->cmd.upmove = 0;
+		return;
+	}
+	if ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
+	{
+		if ( ps->groundEntityNum != ENTITYNUM_NONE && ps->velocity[2] <= 0 )
+			ps->stats[STAT_SHINOBI_COMBO] &= ~SHINOBI_COMBO_AIR; // down again
+		else if ( ps->velocity[2] < 120 && msec > 0 ) // hanging up there with him (gravity partly undone)
+			ps->velocity[2] += ps->gravity * ( 1.0f - SHINOBI_AIR_GRAVITY ) * msec * 0.001f;
+	}
+
 	// attack pressed in the air (off a wall run, a flip, anything): dive as soon as it can
+	// (in an air combo only once the air punches are done: then it is the slam)
 	if ( ps->groundEntityNum != ENTITYNUM_NONE )
 		ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVEREQ;
-	else if ( attackNew && !( pm->cmd.buttons & ( BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK ) ) )
+	else if ( attackNew && !( pm->cmd.buttons & ( BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK ) )
+		&& !( ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) && SHINOBI_COMBO_HIT( ps ) < SHINOBI_AIR_HITS ) )
 		ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVEREQ;
 	if ( ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVEREQ )
 		&& !BG_KickingAnim( ps->legsAnim ) && !BG_InGrappleMove( ps->torsoAnim )
@@ -10464,6 +10495,15 @@ static qboolean PM_ShinobiMeleeCombo( void )
 
 	if ( ps->clientNum >= MAX_CLIENTS )
 		return qfalse;
+	if ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
+	{ // up in the air after him: punches (the slam is the diving kick, PM_ShinobiComboPre)
+		anim = ( hit & 1 ) ? BOTH_MELEE2 : BOTH_MELEE1;
+		PM_StartTorsoAnim( anim );
+		if ( ps->torsoAnim == anim )
+			ps->weaponTime = ps->torsoTimer;
+		PM_ShinobiComboSet( hit + 1, SCK_HIT, ps->weaponTime + SHINOBI_COMBO_WINDOW * 2 );
+		return qfalse;
+	}
 	if ( PM_ShinobiLyingAhead() )
 	{ // someone lying in front: a two-handed blow down at him
 		PM_SetAnim( SETANIM_BOTH, BOTH_STABDOWN, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
@@ -10475,20 +10515,27 @@ static qboolean PM_ShinobiMeleeCombo( void )
 			return qtrue;
 		}
 	}
-	if ( hit >= SHINOBI_COMBO_CHAIN )
+	if ( hit >= shinobiFistChain[SHINOBI_FIST_STYLE( ps )] )
 	{ // the finisher, by the direction held
 		qboolean ok;
 		if ( pm->cmd.forwardmove > 0 )
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, hit + 1, SCK_LAUNCH, qtrue );
-		else if ( pm->cmd.forwardmove < 0 && ps->groundEntityNum != ENTITYNUM_NONE )
+		else if ( pm->cmd.forwardmove < 0 && ps->groundEntityNum != ENTITYNUM_NONE && ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) == 0 )
 			ok = PM_ShinobiComboKick( BOTH_ROLL_F, hit + 1, SCK_SWEEP, qfalse ); // a roll into his legs (the stock roll moves us)
 		else if ( pm->cmd.rightmove )
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_S, hit + 1, SCK_SPIN, qfalse );
 		else
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F, hit + 1, SCK_KICK, qtrue );
-		ps->stats[STAT_SHINOBI_COMBOT] = 0; // the chain is over
+		// the chain is over (after the launcher: a moment to jump after him)
+		ps->stats[STAT_SHINOBI_COMBOT] = ( ok && SHINOBI_COMBO_KIND( ps ) == SCK_LAUNCH ) ? ps->legsTimer + SHINOBI_AIR_WINDOW : 0;
 		return ok;
 	}
+
+	// the chain by the style: kicks and rams go through the kick traces (no punch event)
+	if ( SHINOBI_FIST_STYLE( ps ) == SFS_MEDIUM && hit >= 1 )
+		return PM_ShinobiComboKick( hit == 1 ? BOTH_A7_KICK_R : BOTH_A7_KICK_L, hit + 1, SCK_HIT, qtrue );
+	if ( SHINOBI_FIST_STYLE( ps ) == SFS_STRONG )
+		return PM_ShinobiComboKick( hit == 0 ? BOTH_A7_HILT : BOTH_A7_KICK_BF, hit + 1, SCK_HIT, qtrue );
 
 	// a punch: left, right, left (the punch event follows in PM_Weapon)
 	anim = ( hit & 1 ) ? BOTH_MELEE2 : BOTH_MELEE1;

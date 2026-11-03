@@ -5090,9 +5090,15 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			{
 				self->client->ps.forceHandExtend = HANDEXTEND_NONE;
 			}
+			else if ( ( self->r.svFlags & SVF_BOT ) && Q_irand( 0, 2 )
+				&& ( self->client->pers.cmd.rightmove = Q_irand( 0, 1 ) ? 127 : -127, self->client->pers.cmd.forwardmove = 0,
+					G_SpecialRollGetup( self ) ) )
+			{ // JK_Shinobi: bots roll up to one side most of the time
+				self->client->ps.forceHandExtend = HANDEXTEND_NONE;
+			}
 			else
 			{ //hmm.. ok.. no more getting up on your own, you've gotta push something, unless..
-				if ((level.time-self->client->ps.forceHandExtendTime) > 4000)
+				if ((level.time-self->client->ps.forceHandExtendTime) > SHINOBI_GETUP_AUTO_MS) // JK_Shinobi: was 4000
 				{ //4 seconds elapsed, I guess they're too dumb to push something to get up!
 					if (self->client->pers.cmd.upmove &&
 						self->client->ps.fd.forcePowerLevel[FP_LEVITATION] > FORCE_LEVEL_1)

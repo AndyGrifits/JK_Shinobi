@@ -7629,6 +7629,7 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 				}
 				else if ( Shinobi_ComboPlainKick( ent ) )
 				{ // JK_Shinobi: the spin kick finisher is just damage
+					Shinobi_ComboHit( ent, hitEnt );
 				}
 				else
 				{

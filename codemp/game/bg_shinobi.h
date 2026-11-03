@@ -107,7 +107,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{ 15, 30, 50 }, // Katon
 	{ 15, 30, 50 }, // Doton
 	{ 25, 45, 70 }, // Kage Bunshin
-	{ 20, 30, 40 }, // Shunshin
+	{ 10, 15, 20 }, // Shunshin (charges limit it now)
 	{ 35, 35, 35 }, // Kawarimi
 	{ 10, 18, 26 }, // Water Bullets (1 / 2 / 3 bullets)
 	{ 15, 25, 40 }, // Storm Wind
@@ -261,11 +261,14 @@ static const float shinobiChidoriRadius[3] = { 6.0f, 9.0f, 13.0f };
 // distance (about 4 / 10 / 18 metres)
 static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
 #define SHINOBI_SHUNSHIN_MIN_DIST  24   // don't bother if a wall is right there
-#define SHINOBI_SHUNSHIN_COOLDOWN  5000
+#define SHINOBI_SHUNSHIN_CHARGES   3    // blinks ready at once; each one comes back on its own
+#define SHINOBI_SHUNSHIN_RECHARGE  6000
 
 // Kawarimi (substitution): an AI double takes your place, you turn invisible
 // and creep away; any action but moving ends it and the double becomes a log
-#define SHINOBI_KAWARIMI_COOLDOWN  30000
+#define SHINOBI_KAWARIMI_CHARGES   3    // substitutions ready at once (also from the ground); each comes back on its own
+#define SHINOBI_KAWARIMI_RECHARGE  15000
+#define SHINOBI_KAWARIMI_HOP       80   // you are put this far back, already hidden
 #define SHINOBI_KAWARIMI_MAX_MS    12000 // hidden at most this long
 #define SHINOBI_KAWARIMI_DECOY_MS  15000
 #define SHINOBI_KAWARIMI_MOVE      40    // movement while hidden (127 = run, 46 = walk)
@@ -687,6 +690,22 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 
 // After any hard crowd control ends, a short immunity to the next one
 #define SHINOBI_CC_IMMUNE_MS       2500
+// Chakra from fighting: the pool comes back at the normal pace up to 30%, four times slower
+// above that - the rest is earned (x(1 + 10% per Chakra regen point), x2 with the Curse Seal awake)
+#define SHINOBI_REGEN_FULL_UPTO    30     // % of the pool
+#define SHINOBI_REGEN_SLOW_ABOVE   4.0f   // regen interval x this above it
+#define SHINOBI_GAIN_HIT_PCT       25     // fist / blade damage you deal
+#define SHINOBI_GAIN_JUTSU_PCT     12     // jutsu damage you deal
+#define SHINOBI_GAIN_HURT_PCT      10     // damage you take (a way back into the fight)
+#define SHINOBI_GAIN_BLOCKED       3      // your hit lands on a guard
+#define SHINOBI_GAIN_COMBO         10     // a combo finisher lands
+#define SHINOBI_GAIN_GUARDBREAK    15     // you break a guard
+#define SHINOBI_GAIN_PARRY         10     // your perfect parry
+// knocked down: on the floor this long at least (stock 1.1 s), then a direction key rolls
+// you up that way and jump flips you up (stock); doing nothing you stand up after this
+// much more (stock 4 s)
+#define SHINOBI_KNOCKDOWN_MS       750
+#define SHINOBI_GETUP_AUTO_MS      700
 
 // Extra predicted status bits that only the player himself needs
 #define STAT_SHINOBI               12    // ps.stats[] slot (unused by the base game)
@@ -701,13 +720,17 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
 // floating combat text over a target ("stx <ent> <kind> <value>", shinobi_hitnumbers 1)
 enum { STX_DAMAGE, STX_FLINCH, STX_STAGGER, STX_KNOCKDOWN, STX_LAUNCH, STX_STUN, STX_TRAPPED, STX_BOUND,
-	STX_BLOCK, STX_PARRY, STX_GUARDBREAK, STX_IMPRISONED, STX_COUNT };
+	STX_BLOCK, STX_PARRY, STX_GUARDBREAK, STX_IMPRISONED, STX_INTERRUPT, STX_CHAKRA, STX_COUNT };
 static const char * const shinobiHitTextNames[STX_COUNT] = {
 	"", "Flinch", "Stagger", "Knockdown", "Launch", "Stunned", "Shadow Trap", "Shadow Bind",
-	"Block", "Parry!", "Guard break!", "Water Prison"
+	"Block", "Parry!", "Guard break!", "Water Prison", "Interrupted", "chakra"
 };
 #define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
 #define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
+#define SHINOBI_STAT2_KAWA_SHIFT   9     // bits 9-10: Kawarimi charges ready (0-3)
+#define SHINOBI_STAT2_SHUN_SHIFT   11    // bits 11-12: Shunshin charges ready (0-3)
+#define SHINOBI_KAWA_CHARGES(ps)   ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_KAWA_SHIFT ) & 3 )
+#define SHINOBI_SHUN_CHARGES(ps)   ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_SHUN_SHIFT ) & 3 )
 
 /*
 Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
@@ -727,10 +750,33 @@ around where you land. Block + attack: the stock grab.
 #define SHINOBI_COMBO_WINDOW       450
 #define SHINOBI_COMBO_HIT(ps)      ( (ps)->stats[STAT_SHINOBI_COMBO] & 7 )
 #define SHINOBI_COMBO_KIND(ps)     ( ( (ps)->stats[STAT_SHINOBI_COMBO] >> 3 ) & 7 )
+// Air combo: jump right after the launcher (SHINOBI_AIR_WINDOW) and you fly after him; in the
+// air your punches keep him up (two of them), the next attack is the diving kick that slams
+// him down. While up there he is helpless (a flinch until he lands) - Kawarimi still works
+#define SHINOBI_COMBO_AIR          ( 1 << 6 ) // STAT_SHINOBI_COMBO: in an air combo
+#define SHINOBI_AIR_WINDOW         450   // ms after the launcher to jump after him
+#define SHINOBI_AIR_JUMP           620   // the leap after him (up)
+#define SHINOBI_AIR_JUMP_FWD       200   // ... and forward
+#define SHINOBI_AIR_GRAVITY        0.45f // hanging in the air while the combo goes on
+#define SHINOBI_AIR_HITS           2     // punches up there before the slam
+#define SHINOBI_AIR_LIFT           220   // each air punch keeps him this high up (speed)
+#define SHINOBI_SLAM_DAMAGE        18
+#define SHINOBI_SLAM_REACH         110
 enum { SCK_NONE, SCK_HIT, SCK_SPIN, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
 // combo damage grows hit by hit, the finisher hardest: the four make a bit less than four
 // blade swings (-30% after a play test) - get out of the way or raise the guard once a chain starts
-static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab
+static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab (fast style)
+// Taijutsu styles (L, like the blade stances): fast - jab, cross, jab, finisher (the above);
+// medium - jab, roundhouse kick, side kick, finisher: slower, longer reach, more per hit;
+// strong - shoulder ram, double kick, finisher: slow, few hits, eats the guard
+enum { SFS_FAST, SFS_MEDIUM, SFS_STRONG, SFS_COUNT };
+static const char * const shinobiFistStyleNames[SFS_COUNT] = { "Fast", "Medium", "Strong" };
+static const int   shinobiFistChain[SFS_COUNT] = { 3, 3, 2 };                // chain hits before the finisher
+static const int   shinobiFistHit[SFS_COUNT][3] = { { 11, 15, 21 }, { 14, 20, 26 }, { 24, 32, 0 } };
+static const float shinobiFistFinisher[SFS_COUNT] = { 1.0f, 1.15f, 1.3f }; // finisher damage x
+static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // guard eaten x
+#define SHINOBI_STAT2_FIST_SHIFT   13    // bits 13-14: the taijutsu style
+#define SHINOBI_FIST_STYLE(ps)     ( ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_FIST_SHIFT ) & 3 ) % SFS_COUNT )
 #define SHINOBI_COMBO_KICK_DAMAGE  35    // front kick finisher
 #define SHINOBI_COMBO_LAUNCH_DAMAGE 32   // rising kick
 #define SHINOBI_COMBO_SPIN_DAMAGE  25    // spin kick, to everyone around
@@ -743,7 +789,7 @@ static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab
 // hit can land (his weapon time + this); only the guard or Kawarimi gets him out
 #define SHINOBI_COMBO_FLINCH_MS    250
 #define SHINOBI_COMBO_FLINCH_MIN   400
-#define SHINOBI_COMBO_FLINCH_MAX   900
+#define SHINOBI_COMBO_FLINCH_MAX   1100  // (the strong style's blows come slowly)
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        10
@@ -982,7 +1028,7 @@ static const char * const shinobiStatTitles[SST_COUNT] = {
 };
 static const char * const shinobiStatInfo[SST_COUNT] = {
 	"+20 max chakra per point", "+15 max health per point", "+10% fist, kick and blade damage per point",
-	"charge bars fill 8% faster per point", "chakra comes back 12% faster per point"
+	"charge bars fill 8% faster per point", "chakra comes back 12% faster and fights give 10% more of it, per point"
 };
 
 typedef enum {
@@ -1002,7 +1048,7 @@ static const char * const shinobiPerkTitles[SP_COUNT] = {
 };
 static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"no special ability",
-	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster, your mind clouds; C: on/off",
+	"awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster (2x from fighting), your mind clouds; C: on/off",
 	"C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
 	"C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
 	"C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute"

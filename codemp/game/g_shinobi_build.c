@@ -121,6 +121,8 @@ float Shinobi_RegenScale( gentity_t *ent ) {
 	f = 1.0f - 0.12f * ent->client->pers.shinobiBuild.stats[SST_REGEN];
 	if ( ent->client->shinobi.curseAwake )
 		f *= 0.2f;
+	if ( ent->client->ps.fd.forcePower * 100 > ent->client->ps.fd.forcePowerMax * SHINOBI_REGEN_FULL_UPTO )
+		f *= SHINOBI_REGEN_SLOW_ABOVE; // above 30%: slow - the rest is earned fighting
 	if ( ent->client->shinobi.gatesTiredEnd > level.time && ent->client->shinobi.gatesEnd <= level.time )
 		f = 1000.0f; // exhausted after the Gates: no chakra comes back
 	return f;
@@ -463,6 +465,31 @@ static void Shinobi_DpsFlush( gentity_t *attacker ) {
 	c->shinobi.dpsHits = c->shinobi.dpsTotal = 0;
 }
 
+// chakra earned fighting (scaled by the Chakra regen stat, doubled by an awake Curse Seal)
+void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ) {
+	gclient_t *c;
+	int        whole;
+
+	if ( !ent || !ent->client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 || amount <= 0 )
+		return;
+	c = ent->client;
+	amount *= 1.0f + 0.1f * c->pers.shinobiBuild.stats[SST_REGEN];
+	if ( c->shinobi.curseAwake )
+		amount *= 2.0f;
+	c->shinobi.chakraFrac += amount;
+	whole = (int)c->shinobi.chakraFrac;
+	if ( whole <= 0 )
+		return;
+	c->shinobi.chakraFrac -= whole;
+	if ( c->ps.fd.forcePower >= c->ps.fd.forcePowerMax )
+		return;
+	c->ps.fd.forcePower += whole;
+	if ( c->ps.fd.forcePower > c->ps.fd.forcePowerMax )
+		c->ps.fd.forcePower = c->ps.fd.forcePowerMax;
+	if ( show )
+		Shinobi_HitText( ent, STX_CHAKRA, whole );
+}
+
 // floating combat text over a target, for everyone who can see it (shinobi_hitnumbers)
 void Shinobi_HitText( gentity_t *targ, int kind, int value ) {
 	if ( !shinobi_hitnumbers.integer || !targ || !targ->inuse || kind < 0 || kind >= STX_COUNT )
@@ -474,8 +501,14 @@ void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	gclient_t *c;
 	int        kind;
 
-	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker )
+	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker ) {
 		Shinobi_HitText( targ, STX_DAMAGE, take ); // the damage number over him
+		// the fight feeds chakra: to the one hitting, and a little to the one hit
+		Shinobi_GainChakra( attacker, take * ( ( ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )
+			? SHINOBI_GAIN_HIT_PCT : SHINOBI_GAIN_JUTSU_PCT ) / 100.0f, qfalse );
+		if ( mod != MOD_FALLING )
+			Shinobi_GainChakra( targ, take * SHINOBI_GAIN_HURT_PCT / 100.0f, qfalse );
+	}
 
 	if ( take <= 0 || !attacker || !attacker->client || attacker->s.number >= MAX_CLIENTS || targ == attacker
 		|| !trap->Cvar_VariableIntegerValue( "shinobi_dps" ) )

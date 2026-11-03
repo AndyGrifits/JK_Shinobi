@@ -22,7 +22,58 @@ rigid on the `cranium` bone (bolt now x inverse bind pose from `_humanoid.gla`, 
 axis/scale fix between the gla's and the glm's frames - see `Shinobi_AccPlace`). Export a
 .glm and convert: `python3 tools/glm2acc.py model.glm texture.png <name>`.
 
+## Fighting for chakra
+
+Chakra comes back by itself at the normal pace only up to 30% of the pool, four times slower
+above that; the rest is earned in the fight (x1.1 per Chakra regen point, x2 with the Curse
+Seal awake):
+
+| | chakra |
+|---|---|
+| fist / blade damage you deal | 25% of it |
+| jutsu damage you deal | 12% of it |
+| damage you take | 10% of it (a way back into the fight) |
+| your hit lands on a guard | +3 |
+| a combo finisher (or the air slam) lands | +10 |
+| you break a guard | +15 |
+| your perfect parry | +10 |
+
+The bonus ones show over your head (`+10 chakra`). Any direct hit (not burning, drowning,
+ash or a fall) breaks the seals of a jutsu being charged ("Interrupted"; a formed Rasengan /
+Chidori stays).
+
+## Kawarimi and Shunshin charges
+
+Both work on charges (the pips over the jutsu list): Kawarimi 3, each back 15 s after use
+on its own; Shunshin 3, each back in 6 s (and cheaper: 10 / 15 / 20). Kawarimi puts you
+80 u back, already hidden, works lying on the floor too, and breaks you out of a combo
+(flinch, air juggle), a Water Prison, a Shadow Bind or Trap.
+
+## Knocked down
+
+On the floor 0.75 s at least (stock 1.1), then a direction key rolls you up that way, jump
+flips you up (stock moves); doing nothing you stand up 0.7 s later (stock 4 s). Bots mostly
+roll up to a side. Kawarimi works from the floor.
+
+## Bots defend
+
+Bots raise the guard against a blow coming at them (`shinobi_botguard`, default 55 %), held
+a moment (a press right before the hit is a perfect parry), drop it when it is nearly gone,
+Kawarimi out of a combo after the second blow half the time (and now and then off the floor
+with someone over them), and hit whoever is reeling in front of them.
+
 ## Taijutsu combo (fists)
+
+Three styles, switched with **L** (like the blade stances; shown over the jutsu list):
+
+| style | chain | per hit | finisher | guard eaten |
+|---|---|---|---|---|
+| Fast | jab, cross, jab | 11 / 15 / 21 | x1 | x1 |
+| Medium | jab, roundhouse kick, side kick | 14 / 20 / 26 | x1.15 | x1.2 |
+| Strong | shoulder ram, double kick | 24 / 32 | x1.3 | x1.8 |
+
+Slower styles hold the victim longer per blow (the flinch follows the attacker's pace). The
+style stays over respawns.
 
 Hold attack (or keep pressing it): jab - cross - jab, each next one within ~0.45 s of the
 last move's end, then a finisher picked by the direction held at that moment:
@@ -40,7 +91,12 @@ Punches reach ~60 u from you (stock fists: ~35, you had to be in his face). Each
 time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
 progress bounces, a charge is dropped); only raising the guard (which breaks the chain) or
 Kawarimi gets him out. The finisher has no flinch.
-The kicks keep the stock kick knockdown. A blocked or parried
+The kicks keep the stock kick knockdown.
+
+**Air combo**: jump within ~0.45 s after the launcher (forward + attack finisher) and you
+leap after him; he is helpless until he lands (Kawarimi still works). Up there two punches
+keep him up (you hang in the air with him), the next attack is the diving kick that slams
+him down: 18 damage (x the style's finisher), knocked down, no falling damage on top. A blocked or parried
 hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 21 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
