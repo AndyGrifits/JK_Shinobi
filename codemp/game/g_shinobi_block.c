@@ -75,6 +75,14 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_STAGGER;
 	else
 		client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_STAGGER;
+	{ // guard up: tell everyone how much is left (the bubble's colour)
+		int lvl = 0;
+		if ( client->shinobi.blocking && ent->health > 0 ) {
+			const int g = client->ps.stats[STAT_ARMOR];
+			lvl = g * 3 > SHINOBI_GUARD_MAX * 2 ? 1 : ( g * 3 > SHINOBI_GUARD_MAX ? 2 : 3 );
+		}
+		client->ps.eFlags = ( client->ps.eFlags & ~SHINOBI_EF_GUARD_MASK ) | ( lvl << SHINOBI_EF_GUARD_SHIFT );
+	}
 	if ( client->shinobi.flinchEnd > level.time && ent->health > 0 )
 		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
 	else
@@ -169,6 +177,57 @@ static void Shinobi_ShieldShell( gentity_t *targ, const vec3_t src, int amount )
 }
 
 /*
+Guard up with a blade in hand: the stock saber block (w_saber.c) does the parrying -
+the ready stance turns toward each blow, the attacker bounces off, a strong enough
+blow crushes the parry. Here the guard pays for every blocked swing (as much as it
+would have hurt) and may give; a perfect parry costs nothing and staggers him.
+*/
+qboolean Shinobi_SaberGuardUp( gentity_t *ent ) {
+	return ( ent && ent->client && ent->s.number < MAX_CLIENTS && ent->client->shinobi.blocking
+		&& ent->client->ps.weapon == WP_SABER && ent->client->ps.stats[STAT_ARMOR] > 0 ) ? qtrue : qfalse;
+}
+
+// a blade swing of 'attacker' is about to be blocked by targ's blade: qfalse = the guard gave, it goes through
+qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at ) {
+	gclient_t *client;
+	qboolean   perfect;
+	vec3_t     src;
+	int        guard;
+
+	if ( !targ || !targ->client || targ->s.number >= MAX_CLIENTS )
+		return qtrue; // NPCs: the stock block as it is
+	client = targ->client;
+	if ( dmg <= 1 )
+		return qtrue; // the blade just touching: no cost
+	VectorCopy( attacker ? attacker->r.currentOrigin : at, src );
+	perfect = level.time - client->shinobi.blockPress <= SHINOBI_PARRY_MS
+		&& client->shinobi.blockPress - client->shinobi.blockPrevPress >= SHINOBI_PARRY_SPAM_MS;
+	if ( perfect ) {
+		if ( attacker && attacker->client && attacker->s.number < MAX_CLIENTS
+			&& Distance( attacker->r.currentOrigin, targ->r.currentOrigin ) <= SHINOBI_PARRY_REACH ) {
+			Shinobi_Stagger( attacker, SHINOBI_PARRY_STAGGER_MS );
+			trap->SendServerCommand( attacker - g_entities, "cp \"^3Parried!\"" );
+		}
+		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
+		G_Sound( targ, CHAN_AUTO, shinobiMedia.sndParry );
+		Shinobi_HitText( targ, STX_PARRY, 0 );
+		Shinobi_ShieldShell( targ, src, dmg );
+		return qtrue;
+	}
+	guard = client->ps.stats[STAT_ARMOR];
+	client->shinobi.guardRegen = level.time + SHINOBI_GUARD_REGEN_DELAY;
+	if ( dmg >= guard ) { // the guard gives
+		Shinobi_GuardBreak( targ );
+		Shinobi_ShieldShell( targ, src, guard );
+		return qfalse;
+	}
+	client->ps.stats[STAT_ARMOR] = guard - dmg;
+	Shinobi_HitText( targ, STX_BLOCK, dmg );
+	Shinobi_ShieldShell( targ, src, dmg );
+	return qtrue;
+}
+
+/*
 From G_Damage (after element and build modifiers). Returns what still goes
 to health; 0 means the hit is fully stopped.
 */
@@ -184,6 +243,9 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 	client = targ->client;
 	if ( !client->shinobi.blocking || !attacker || attacker == targ )
 		return damage;
+	if ( mod == MOD_SABER && inflictor == attacker && attacker->client && attacker->client->ps.weapon == WP_SABER
+		&& client->ps.weapon == WP_SABER && !shinobiJutsuDamage )
+		return damage; // blade on blade: the stock saber block decided already (Shinobi_SaberGuard) - this one got through
 	switch ( mod ) { // the world, statuses and zones: no guard against those
 	case MOD_FALLING: case MOD_LAVA: case MOD_WATER: case MOD_SLIME: case MOD_CRUSH:
 	case MOD_TRIGGER_HURT: case MOD_SUICIDE: case MOD_TELEFRAG: case MOD_UNKNOWN:

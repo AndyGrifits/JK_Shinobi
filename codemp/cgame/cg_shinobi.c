@@ -26,7 +26,7 @@ static void CG_ShinobiIceShard( centity_t *cent );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice;
+	qhandle_t sand, puddleWater, stoneShell, ice, guardShell;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -169,6 +169,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
+	shinobiShaders.guardShell  = trap->R_RegisterShader( "gfx/shinobi/guardshell" );
 	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
 		// (shinobi_puddleShader names any other shader)
 		char         name[MAX_QPATH];
@@ -1759,6 +1760,67 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 			ent.customShader = shinobiShaders.stoneShell; // stone all over
 		trap->R_AddRefEntityToScene( &ent );
 	}
+}
+
+/*
+Guard bubble: while someone holds block a faint sphere stands around him, blue while
+the guard is strong, yellow at half, red when it is about to give; each blocked hit
+(the stock shield-hit event) makes it flare.
+*/
+static void CG_ShinobiGuardColor( int lvl, byte rgb[3], float k ) {
+	static const float col[4][3] = { { 1.0f, 0.25f, 0.2f }, { 0.3f, 0.55f, 1.0f }, { 1.0f, 0.82f, 0.25f }, { 1.0f, 0.25f, 0.2f } };
+	int i;
+	if ( lvl < 0 || lvl > 3 )
+		lvl = 0;
+	for ( i = 0; i < 3; i++ )
+		rgb[i] = (byte)Com_Clamp( 0, 255, col[lvl][i] * 255.0f * k );
+}
+
+static void CG_ShinobiGuardDraw( centity_t *cent, int lvl, float k, const vec3_t facing ) {
+	refEntity_t ent;
+	vec3_t      d, ang;
+	float       s;
+
+	if ( !cgs.media.halfShieldModel || !shinobiShaders.guardShell || k <= 0.01f )
+		return;
+	memset( &ent, 0, sizeof( ent ) );
+	VectorCopy( cent->lerpOrigin, ent.origin );
+	ent.origin[2] += 10.0f;
+	if ( facing )
+		VectorCopy( facing, d );
+	else
+		VectorSubtract( cg.refdef.vieworg, ent.origin, d ); // the half sphere turned to whoever looks
+	vectoangles( d, ang );
+	AnglesToAxis( ang, ent.axis );
+	s = 1.15f;
+	VectorScale( ent.axis[0], s, ent.axis[0] );
+	VectorScale( ent.axis[1], s, ent.axis[1] );
+	VectorScale( ent.axis[2], s, ent.axis[2] );
+	ent.nonNormalizedAxes = qtrue;
+	ent.hModel = cgs.media.halfShieldModel;
+	ent.customShader = shinobiShaders.guardShell;
+	CG_ShinobiGuardColor( lvl, ent.shaderRGBA, k );
+	ent.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &ent );
+}
+
+void CG_ShinobiGuardBubble( centity_t *cent ) {
+	const int lvl = SHINOBI_EF_GUARD( cent->currentState.eFlags );
+	if ( !lvl || ( cent->currentState.eFlags & EF_DEAD ) )
+		return;
+	if ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson )
+		return; // (from inside it would fill the view)
+	CG_ShinobiGuardDraw( cent, lvl, 0.35f + 0.05f * sinf( cg.time * 0.006f ), NULL );
+}
+
+// a blocked hit: the stock shield flash, in the guard's colour (qtrue = drawn here)
+qboolean CG_ShinobiGuardShell( centity_t *cent, refEntity_t *ent, int alpha ) {
+	vec3_t fwd;
+	if ( !shinobiShaders.guardShell )
+		return qfalse;
+	VectorCopy( ent->axis[0], fwd ); // facing the blow
+	CG_ShinobiGuardDraw( cent, SHINOBI_EF_GUARD( cent->currentState.eFlags ), 0.4f + 0.8f * alpha / 255.0f, fwd );
+	return qtrue;
 }
 
 // the tool in hand (the stock weapon model is emptied for it)

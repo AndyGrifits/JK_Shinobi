@@ -394,3 +394,17 @@ models/shinobi/pill_chakra
 		rgbGen wave sin 0.25 0.15 0 0.7
 	}
 }
+
+// the guard bubble around someone blocking (half sphere turned to the viewer; the
+// colour - blue / yellow / red by the guard left - comes from the entity)
+gfx/shinobi/guardshell
+{
+	cull none
+	nopicmip
+	{
+		map gfx/shinobi/guardshell
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+		tcGen environment
+	}
+}

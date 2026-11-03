@@ -349,6 +349,15 @@ def streak(n=64):
     return np.exp(-(y / 0.08) ** 2) * np.clip(np.sin((x + 1) / 2 * math.pi), 0, 1) ** 0.7
 
 
+def guardshell(n=128):
+    """The guard bubble, environment-mapped: almost clear in the middle, bright toward the
+    rim (a sphere's edge reads as its outline), a faint ripple of chakra in it."""
+    _, _, r, a = grid(n)
+    rim = np.clip(r, 0, 1) ** 3
+    ripple = 0.5 + 0.5 * np.sin(r * 22.0 + 3.0 * np.sin(a * 3.0))
+    return np.clip(0.06 + 0.85 * rim + 0.08 * ripple * rim, 0, 1)
+
+
 def shadow_band(n=64):
     """Shadow Bind strip: black, solid in the middle of the width, soft edges."""
     _, y, _, _ = grid(n)
@@ -468,6 +477,7 @@ def main():
     save_rgba("watersphere", *water_sphere())
     save_rgba("droplet", *droplet())
     save("streak", streak())
+    save("guardshell", guardshell())
     save_rgba("shadowband", *shadow_band())
 
     models = os.path.join(ROOT, "assets", "models", "shinobi")

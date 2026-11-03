@@ -4566,10 +4566,12 @@ static QINLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int rBl
 
 		didHit = qtrue;
 
-		if ( !d_saberSPStyleDamage.integer//let's trying making blocks have to be blocked by a saber
+		if ( ( !d_saberSPStyleDamage.integer//let's trying making blocks have to be blocked by a saber
+				|| Shinobi_SaberGuardUp( &g_entities[tr.entityNum] ) ) // JK_Shinobi: guard up with a blade - the stock block
 			&& g_entities[tr.entityNum].client
 			&& !unblockable
-			&& WP_SaberCanBlock(&g_entities[tr.entityNum], tr.endpos, 0, MOD_SABER, qfalse, attackStr))
+			&& WP_SaberCanBlock(&g_entities[tr.entityNum], tr.endpos, 0, MOD_SABER, qfalse, attackStr)
+			&& Shinobi_SaberGuard( &g_entities[tr.entityNum], self, dmg, tr.endpos )) // JK_Shinobi: the guard pays for it, may break
 		{//hit a client who blocked the attack (fake: didn't actually hit their saber)
 			if (dmg <= SABER_NONATTACK_DAMAGE)
 			{
@@ -9298,8 +9300,8 @@ int WP_SaberCanBlock(gentity_t *self, vec3_t point, int dflags, int mod, qboolea
 		return 0;
 	}
 
-	if ( self->s.number < MAX_CLIENTS )
-	{ // JK_Shinobi: no automatic saber blocks for players - hold Ctrl to block (Shinobi_BlockDamage)
+	if ( self->s.number < MAX_CLIENTS && !Shinobi_SaberGuardUp( self ) )
+	{ // JK_Shinobi: players block with a blade only while holding block (then the stock checks below)
 		return 0;
 	}
 

@@ -670,7 +670,7 @@ void CG_DrawArmor( menuDef_t *menuHUD )
 		return;
 	}
 
-	maxArmor = ps->stats[STAT_MAX_HEALTH];
+	maxArmor = SHINOBI_GUARD_MAX; // JK_Shinobi: the armour bar is the guard
 
 	currValue = ps->stats[STAT_ARMOR];
 	inc = (float) maxArmor / MAX_HUD_TICS;

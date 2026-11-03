@@ -10663,9 +10663,25 @@ static void PM_ShinobiPreMove( void )
 		}
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
 			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE );
-		ps->forceHandExtend = HANDEXTEND_TAUNT;
-		ps->forceDodgeAnim = SHINOBI_BLOCK_ANIM;
-		ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+		if ( ps->weapon == WP_SABER )
+		{ // a blade: the stock saber block takes over - ready stance, parries toward each
+		  // blow, the attacker bounces (w_saber.c); our pose over it would stop it working
+			if ( BG_SabersOff( ps ) && ps->weaponTime <= 0 && !ps->saberInFlight )
+			{
+				ps->saberHolstered = 0;
+				PM_AddEvent( EV_SABER_UNHOLSTER );
+			}
+			if ( ps->forceHandExtend == HANDEXTEND_TAUNT && ps->forceDodgeAnim == SHINOBI_BLOCK_ANIM )
+			{
+				ps->forceHandExtend = HANDEXTEND_NONE;
+			}
+		}
+		else
+		{ // fists: our own guard pose
+			ps->forceHandExtend = HANDEXTEND_TAUNT;
+			ps->forceDodgeAnim = SHINOBI_BLOCK_ANIM;
+			ps->forceHandExtendTime = pm->cmd.serverTime + 150;
+		}
 	}
 	else if ( ps->forceHandExtend == HANDEXTEND_TAUNT && ps->forceDodgeAnim == SHINOBI_BLOCK_ANIM )
 	{ // guard down: drop the stance now, or it would hold the body over whatever starts next

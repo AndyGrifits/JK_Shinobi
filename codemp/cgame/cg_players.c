@@ -5182,6 +5182,8 @@ void CG_DrawPlayerShield(centity_t *cent, vec3_t origin)
 	ent.shaderRGBA[1] = alpha;
 	ent.shaderRGBA[2] = alpha;
 	ent.shaderRGBA[3] = 255;
+	if ( CG_ShinobiGuardShell( cent, &ent, alpha ) )
+		return; // JK_Shinobi: the guard's own bubble, coloured by what is left of it
 	trap->R_AddRefEntityToScene( &ent );
 }
 
@@ -11080,6 +11082,7 @@ stillDoSaber:
 	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
 	CG_ShinobiStoneShell( cent, &legs ); // JK_Shinobi: Stone Skin / Earth Clone
 	CG_ShinobiAccessory( cent, ci, &legs ); // JK_Shinobi: hat / mask / headband on the head
+	CG_ShinobiGuardBubble( cent ); // JK_Shinobi: guard up - a bubble around him (blue / yellow / red)
 	CG_ShinobiHandTool( cent, ci, &legs ); // JK_Shinobi: the explosive kunai / tag / shuriken in hand
 
 	// Electricity

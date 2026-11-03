@@ -545,7 +545,7 @@ any guard at once. Perfect parry: a hit landing within the first moments of
 pressing block does nothing, and a close attacker is staggered.
 The shield no longer soaks damage on its own.
 */
-#define SHINOBI_GUARD_MAX          100
+#define SHINOBI_GUARD_MAX          200    // twice the first version: one combo no longer breaks it
 #define SHINOBI_GUARD_REGEN_DELAY  1500   // after a blocked hit or letting go
 #define SHINOBI_GUARD_REGEN_MS     80     // +1 guard
 #define SHINOBI_BLOCK_SLOW         0.4f
@@ -764,6 +764,9 @@ static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab
 // eFlags bits the stock game leaves unused (seen by everyone)
 #define SHINOBI_EF_STONE           (1<<12) // Stone Skin / Earth Clone: drawn as stone
 #define SHINOBI_EF_RAIDASH         (1<<15) // Lightning Dash: drawn as a bolt, the body hidden
+#define SHINOBI_EF_GUARD_SHIFT     16      // guard up: 1 = strong (blue), 2 = half (yellow), 3 = low (red); 0 = down
+#define SHINOBI_EF_GUARD_MASK      ( 3 << SHINOBI_EF_GUARD_SHIFT )
+#define SHINOBI_EF_GUARD(ef)       ( ( (ef) & SHINOBI_EF_GUARD_MASK ) >> SHINOBI_EF_GUARD_SHIFT )
 #define SHINOBI_EF2_SHARINGAN      (1<<8)
 #define SHINOBI_EF2_BYAKUGAN       (1<<9)
 

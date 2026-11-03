@@ -176,20 +176,34 @@ reads them) and let go at the bar of the level they want; held jutsu are let go 
 
 ## Block (right mouse button)
 
-Hold the right mouse button (`+button13`; Ctrl works too) for a guard stance. It replaces
-the stock alt-attack on that button: no saber throw (the force setup has none anyway) and no
-attack+alt-attack special moves as such - instead, attacking with a blade while holding
-block does the blade's special attack (the stock kata: standing still, on the ground, costs
-chakra). Guard stance: slow steps, no jumping, no attacks, no
-jutsu (raising it lets go of fire breath / shadow bind). Hits from the front (~150°)
-go into the guard - the shield bar (100) - instead of health: fists, kicks and blades
-fully, jutsu half (the other half hurts). An empty guard breaks: 1 s stagger. A full
-(level 3) Rasengan or Chidori breaks any guard at once; lower levels are just blocked
-(half damage, no knockdown). Perfect parry: a hit within 0.2 s of pressing block does
-nothing, and an attacker within reach staggers for 0.8 s (spamming block gives no
-window). The guard refills ~12/s from 1.5 s after the last blocked hit. With the Byakugan open
-(Gentle Fist) fists burn guard twice as fast. Burning, drowning, ash and zones ignore the guard. The
-shield no longer soaks damage on its own, and the automatic saber block is gone.
+Hold the right mouse button (`+button13`; Ctrl works too) to guard. It replaces the stock
+alt-attack on that button: no saber throw (the force setup has none anyway) - attacking with
+a blade while holding block does the blade's special attack (the stock kata: standing still,
+on the ground, costs chakra); with fists it is the stock grab. Guarding: slow steps, no
+jumping, no attacks, no jutsu (raising it lets go of fire breath / shadow bind).
+
+- **With a blade** the guard switches on the stock saber block (the automatic one of the
+  base game, otherwise off for players and bots; NPCs keep it): you stand in the ready
+  stance, your blade parries toward each swing from the front (a wide arc), the attacker
+  bounces off, a strong enough swing crushes the parry. Each blocked swing costs the guard
+  what it would have done to you; the swing that empties it gets through and breaks the
+  guard. Special attacks (kata, lunges, jump attacks) are unblockable, as stock. The saber
+  switches on by itself when you raise the guard.
+- **With fists** (and against fists, kicks, thrown things and jutsu for everyone): our
+  guard pose; hits from the front (~150 degrees) go into the guard - fists, kicks and blades
+  fully, jutsu half (the other half hurts).
+
+The guard is the shield bar (200); an empty guard breaks: 1 s stagger. A full (level 3)
+Rasengan or Chidori breaks any guard at once; lower levels are just blocked (half damage, no
+knockdown). Perfect parry: a hit within 0.2 s of pressing block does nothing (costs nothing),
+and an attacker within reach staggers for 0.8 s (spamming block gives no window). The guard
+refills slowly, ~12/s from 1.5 s after the last blocked hit (empty to full ~16 s). With the
+Byakugan open (Gentle Fist) fists burn guard twice as fast. Burning, drowning, ash and zones
+ignore the guard. The shield no longer soaks damage on its own.
+
+While someone guards, a faint bubble stands around him: blue while the guard is above 2/3,
+yellow above 1/3, red below; each blocked hit makes it flare (the stock shield flash, in that
+colour).
 
 ## Controls (prototype)
 
