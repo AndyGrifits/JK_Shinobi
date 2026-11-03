@@ -27,7 +27,7 @@ static int  CG_ShinobiMyEyes( void );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim;
+	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim, outline[3];
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -174,6 +174,9 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.vignette    = trap->R_RegisterShader( "gfx/shinobi/vignette" );
 	shinobiShaders.tomoe       = trap->R_RegisterShader( "gfx/shinobi/tomoe" );
 	shinobiShaders.sharinganRim = trap->R_RegisterShader( "gfx/shinobi/sharinganrim" );
+	shinobiShaders.outline[0]  = trap->R_RegisterShader( "gfx/shinobi/outline1" );
+	shinobiShaders.outline[1]  = trap->R_RegisterShader( "gfx/shinobi/outline2" );
+	shinobiShaders.outline[2]  = trap->R_RegisterShader( "gfx/shinobi/outline3" );
 	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
 		// (shinobi_puddleShader names any other shader)
 		char         name[MAX_QPATH];
@@ -1693,6 +1696,33 @@ static void CG_ShinobiMistShell( centity_t *cent, refEntity_t *body ) {
 
 // called from CG_Player with the finished body: Byakugan sees it through walls,
 // anyone sees shapes in the Hidden Mist
+/*
+Anime outline (cg_shinobiOutline 1-3): the model once more, pushed out along its normals,
+black, only its back faces - the front of the body hides it but at the silhouette a dark
+line shows. Characters, their accessories and the tool in hand; not the map.
+*/
+void CG_ShinobiOutline( centity_t *cent, const refEntity_t *src ) {
+	refEntity_t o;
+	int         lvl = cg_shinobiOutline.integer;
+
+	if ( lvl <= 0 || !src || ( !src->hModel && !src->ghoul2 ) )
+		return;
+	if ( lvl > 3 )
+		lvl = 3;
+	if ( !shinobiShaders.outline[lvl - 1] )
+		return;
+	if ( ( src->renderfx & RF_FORCE_ENT_ALPHA ) || ( src->shaderRGBA[3] && src->shaderRGBA[3] < 255 ) )
+		return; // see-through (Kawarimi, cloaks, fading): no hard line around it
+	if ( cent && ( cent->currentState.eFlags & ( EF_NODRAW | SHINOBI_EF_RAIDASH ) ) )
+		return;
+	o = *src;
+	o.customShader = shinobiShaders.outline[lvl - 1];
+	o.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT | RF_NODEPTH | RF_FORCEPOST );
+	o.shaderRGBA[0] = o.shaderRGBA[1] = o.shaderRGBA[2] = 0;
+	o.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &o );
+}
+
 // Sharingan: a thin red rim of chakra around everyone in sight (not through walls)
 static void CG_ShinobiSharinganRim( centity_t *cent, refEntity_t *body ) {
 	refEntity_t shell;
@@ -1827,6 +1857,7 @@ void CG_ShinobiAccessory( centity_t *cent, clientInfo_t *ci, refEntity_t *body )
 		if ( cent->currentState.eFlags & SHINOBI_EF_STONE )
 			ent.customShader = shinobiShaders.stoneShell; // stone all over
 		trap->R_AddRefEntityToScene( &ent );
+		CG_ShinobiOutline( cent, &ent );
 	}
 }
 
@@ -1925,6 +1956,7 @@ void CG_ShinobiHandTool( centity_t *cent, clientInfo_t *ci, refEntity_t *body ) 
 	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = 255;
 	ent.shaderRGBA[3] = body->shaderRGBA[3] ? body->shaderRGBA[3] : 255;
 	trap->R_AddRefEntityToScene( &ent );
+	CG_ShinobiOutline( cent, &ent );
 }
 
 // Lightning Dash: a crackling bolt where the body would be

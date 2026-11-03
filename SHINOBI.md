@@ -205,6 +205,13 @@ While someone guards, a faint bubble stands around him: blue while the guard is 
 yellow above 1/3, red below; each blocked hit makes it flare (the stock shield flash, in that
 colour).
 
+## Anime outline (test)
+
+`cg_shinobiOutline 1` / `2` / `3` (thin / medium / thick, `0` off - the default): a black
+outline around characters, their accessories and the tool in hand. The model is drawn once
+more, pushed out along its normals, only its back faces, in black (the "inverted hull").
+Not on the map itself; see-through bodies (Kawarimi, fading) get none.
+
 ## Sharingan view
 
 While your Sharingan is open: a dark red rim around the view and the eye turning in the top

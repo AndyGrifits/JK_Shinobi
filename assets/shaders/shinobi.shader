@@ -446,3 +446,36 @@ gfx/shinobi/sharinganrim
 		tcGen environment
 	}
 }
+
+// anime outline, 1 of 3 (cg_shinobiOutline 1): back faces of the model pushed out 0.5 units, black
+gfx/shinobi/outline1
+{
+	cull back
+	deformVertexes wave 100 sin 0.5 0 0 0
+	{
+		map $whiteimage
+		rgbGen const ( 0 0 0 )
+	}
+}
+
+// anime outline, 2 of 3 (cg_shinobiOutline 2): back faces of the model pushed out 0.9 units, black
+gfx/shinobi/outline2
+{
+	cull back
+	deformVertexes wave 100 sin 0.9 0 0 0
+	{
+		map $whiteimage
+		rgbGen const ( 0 0 0 )
+	}
+}
+
+// anime outline, 3 of 3 (cg_shinobiOutline 3): back faces of the model pushed out 1.4 units, black
+gfx/shinobi/outline3
+{
+	cull back
+	deformVertexes wave 100 sin 1.4 0 0 0
+	{
+		map $whiteimage
+		rgbGen const ( 0 0 0 )
+	}
+}

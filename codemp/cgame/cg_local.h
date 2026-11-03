@@ -1807,6 +1807,7 @@ void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
 void CG_ShinobiHitText_f( void );
 void CG_ShinobiGuardBubble( centity_t *cent );
+void CG_ShinobiOutline( centity_t *cent, const refEntity_t *src );
 qboolean CG_ShinobiGuardShell( centity_t *cent, refEntity_t *ent, int alpha );
 
 void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body );
