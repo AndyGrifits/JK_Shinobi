@@ -26,6 +26,19 @@ Collision: shaders marked `"solid"` in `map.json` get `q3map_clipModel` (q3map2 
 from their triangles, 8 u thick, flat walls stay flat for wall runs); the rest are `nonsolid` and,
 if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footstep / impact sounds.
 
+## Other model options (map.json "model" / top level)
+
+- `.blend` sources work like FBX (armature modifiers are dropped); `"shader_names": "basename"` names
+  shaders after the texture file (when the files share digits).
+- `split_details`: loose parts of the listed shaders that are tiny (< `max_dim`) or thin narrow ribbons
+  (wires, poles, railings) go to a `<shader>_d` copy without collision; flat horizontal pieces and
+  wide sheets (steps, wall tops, single-plane floors) always keep it.
+- `fullbright` shaders (sky dome, horizon cards): unlit, no collision, light passes through.
+- `texture_recolor` {shader: [[dark], [light]]}, `texture_copy` {new shader: model shader}.
+- `ground_shaders`: props sit on that terrain; `ring`: an adobe ring along a superellipse (props.py
+  `plan_ring`), pushed outwards where it would hit the model; `boundary.superellipse` for the edge.
+- `worldspawn._blocksize "0"` for big open maps (no pointless 1024-block vis split).
+
 ## Items
 
 `map.json` "items": `{"class": ..., "at": [x, y, z]}` with stock classnames; the mod turns them into
@@ -79,3 +92,13 @@ a rock slab (172), five boulder groups, three logs, three stumps, three training
 (r 300) stays open. Spawns >= 224 u from anything solid. Items: Fuma Shuriken on the tall pillar,
 Explosive Kunai on the short pillar and the east boulder, Explosive Tag on the rock slab, Healing Pill
 by the north wall, Chakra Pill by the south-west wall.
+
+## shinobi_sand_village - Village Hidden in the Sand
+
+Source: `Crimson Storm - Sand Village 1` (.blend, 28.5k tris, metres). Scale 30. Kept: the whole village,
+its terrain and the rip's anime sky dome; the horizon mountain cards recoloured from snow to desert
+rock; flat sand added out to the horizon. Added: a ring of 33 Tatooine-like adobe towers, blocks and
+town walls around it (the map's edge; roofs to fight on), sandstone pillars and slabs, ruins, crates
+and boulders on the empty sand. 8 FFA spawns (open ground, >= 212 u from anything solid), duel /
+power duel, 11 items (Fuma on the Kazekage tower and the NW pillar, tags on the slabs, kunai on the
+pillar / boulder / ruin, pills by the ring). Boundary: playerclip superellipse outside the ring up to 2700.

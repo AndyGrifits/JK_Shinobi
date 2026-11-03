@@ -124,3 +124,4 @@ for group in pc["groups"]:
     bm.free()
     print(f"PROPCLIP {group['clip_shader']}: {len(hmap)} cells -> {len(boxes)} boxes")
 json.dump(groups, open(os.path.join(build, "propclip.json"), "w"), indent=0)
+print(f"PROPCLIP done: {len(groups)} groups")

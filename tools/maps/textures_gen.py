@@ -40,7 +40,8 @@ def col(*c):
 
 
 def make(kind, path, n=None):
-    rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41}[kind])
+    rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
+                                 "dark": 61, "crate": 67}[kind])
     if kind == "concrete":
         n = n or 1024
         v = np.linspace(1, 0, n)[:, None]                        # 1 at the image top, 0 at the bottom
@@ -83,6 +84,37 @@ def make(kind, path, n=None):
         grain = np.sin((fbm(n, 4, rng, 3, aspect=(1, 6)) * 40 + np.linspace(0, 40 * np.pi, n)[None, :]))
         img = col(176, 134, 88) + grain[..., None] * col(16, 13, 10) + (fbm(n, 6, rng, 3) - 0.5)[..., None] * 30
         img = np.round(img / 8) * 8
+    elif kind == "adobe":                                             # warm desert plaster
+        n = n or 512
+        base = col(206, 176, 132)
+        blot = fbm(n, 3, rng, 5) - 0.5; mid = fbm(n, 12, rng, 3) - 0.5
+        img = base + blot[..., None] * col(44, 38, 30) + mid[..., None] * 16
+        img = np.round(img / 6) * 6
+        cr = np.abs(fbm(n, 5, rng, 3) - 0.5)
+        img -= (cr < 0.004)[..., None] * col(16, 14, 12)               # faint hairline cracks
+        img += (fbm(n, 90, rng, 2) - 0.5)[..., None] * 10              # grain
+        img -= ((fbm(n, 4, rng, 3) > 0.64) * 12)[..., None]            # weathered patches
+    elif kind == "sandrock":                                          # sandstone for desert rocks
+        n = n or 512
+        base = col(196, 158, 108)
+        big = fbm(n, 3, rng, 4); mid = fbm(n, 9, rng, 4)
+        strata = np.sin(np.linspace(0, 18 * np.pi, n))[:, None] * 0.5 + (fbm(n, 6, rng, 3) - 0.5)
+        lum = (big - 0.5) * 50 + (mid - 0.5) * 30 + strata * 14
+        lum = np.round(lum / 10) * 10
+        img = base + lum[..., None] * col(1.0, 0.9, 0.75)
+        img += (fbm(n, 64, rng, 2) - 0.5)[..., None] * 12
+    elif kind == "dark":                                              # window / door holes
+        n = n or 64
+        img = col(46, 34, 26) + (fbm(n, 2, rng, 2) - 0.5)[..., None] * 10
+    elif kind == "crate":                                             # wooden crate: planks + frame
+        n = n or 256
+        x = np.linspace(0, 1, n)
+        grain = np.sin((fbm(n, 4, rng, 3, aspect=(1, 6)) * 30 + np.linspace(0, 30 * np.pi, n)[None, :]))
+        img = col(160, 116, 70) + grain[..., None] * col(14, 11, 8) + (fbm(n, 8, rng, 3) - 0.5)[..., None] * 24
+        planks = (np.abs(((x * 4) % 1) - 0.5) > 0.47)[:, None]          # plank gaps (rows)
+        frame = ((x < 0.09) | (x > 0.91))
+        img = np.where(planks[..., None], img * 0.55, img)
+        img = np.where((frame[None, :] | frame[:, None])[..., None], img * 0.82 + col(10, 6, 2), img)
     else:
         raise SystemExit(f"unknown kind {kind}")
     im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))

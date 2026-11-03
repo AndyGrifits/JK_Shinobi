@@ -38,6 +38,14 @@ def find_tex(name):
             return p
     return None
 
+# unlit shaders (nolightmap and no $lightmap stage: sky domes, horizon cards) draw the texture as is
+import glob, re
+fullbright = set()
+for shf in glob.glob(os.path.join(base, "shaders", "*.shader")):
+    for nm, body in re.findall(r"^(\S+)\s*\n\{(.*?)\n\}", open(shf).read(), re.S | re.M):
+        if "nolightmap" in body and "$lightmap" not in body and "nodraw" not in body:
+            fullbright.add(nm)
+
 # group triangles by (shader, lightmap)
 groups = {}
 for i in range(L[13][0], L[13][0] + L[13][1], 148):
@@ -84,7 +92,9 @@ for name, lmn in mat_list:
         t.extension = 'REPEAT'; nt.links.new(t.outputs[0], mul.inputs[1]); alpha = t.outputs[1] if p.endswith(".tga") else None
     else:
         mul.inputs[1].default_value = (1, 0, 1, 1)   # missing texture: magenta
-    if lmn >= 0:
+    if name in fullbright:
+        mul.inputs[2].default_value = (1, 1, 1, 1)
+    elif lmn >= 0:
         lt = nt.nodes.new('ShaderNodeTexImage'); lt.image = lm_imgs[lmn]; lt.interpolation = 'Linear'
         uvl = nt.nodes.new('ShaderNodeUVMap'); uvl.uv_map = "lm"; nt.links.new(uvl.outputs[0], lt.inputs[0])
         nt.links.new(lt.outputs[0], mul.inputs[2])
@@ -106,7 +116,7 @@ sc.view_settings.view_transform = 'Standard'
 w = bpy.data.worlds.new("w"); sc.world = w; w.use_nodes = True
 w.node_tree.nodes['Background'].inputs[0].default_value = (0.55, 0.72, 0.95, 1)
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
-cam.data.clip_end = 1e5; cam.data.clip_start = 2
+cam.data.clip_end = 1e6; cam.data.clip_start = 2
 os.makedirs(outdir, exist_ok=True)
 for c in cams:
     sc.render.resolution_x = c.get("w", 1100); sc.render.resolution_y = c.get("h", 700)

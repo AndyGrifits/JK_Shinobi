@@ -1,0 +1,763 @@
+{
+ "name": "shinobi_sand_village",
+ "longname": "Village Hidden in the Sand",
+ "shader_dir": "shinobi_sand",
+ "source": {
+  "blend": "C:/Games/Blender My Models/Crimson Storm - Sand Village 1/CrimsonStormSandVillage1.blend",
+  "textures": "C:/Games/Blender My Models/Crimson Storm - Sand Village 1"
+ },
+ "model": {
+  "_comment": "model units are metres (barrels 0.98, street lamps 4.4). 1 m = 30 u: the village core ~3000 x 1900, Kazekage tower ~1830 high. The rip's own anime sky dome is kept (fullbright, light passes through it).",
+  "scale": 30,
+  "origin": [
+   -20,
+   25,
+   0
+  ],
+  "shader_names": "basename",
+  "drop_objects": [],
+  "split_details": {
+   "shaders": [
+    "sm_daoju_tex_01_b",
+    "sm_daoju_tex_01_c"
+   ],
+   "max_dim": 24,
+   "thin": 6,
+   "ribbon": 64
+  },
+  "_split": "no collision only for tiny bits (< 24 u) and thin narrow ribbons (wires, poles, railings); 64 made the stair steps walk-through"
+ },
+ "shaders": {
+  "sm_daoju_tex_01_b": {
+   "solid": true,
+   "mat": "plaster",
+   "what": "buildings (atlas)"
+  },
+  "sm_daoju_tex_01_b_d": {
+   "solid": false,
+   "mat": "plaster",
+   "what": "building details: lamps, wires, signs, barrels"
+  },
+  "sm_daoju_tex_01_c": {
+   "solid": true,
+   "mat": "plaster",
+   "what": "walls, arches"
+  },
+  "sm_daoju_tex_01_c_d": {
+   "solid": false,
+   "mat": "plaster",
+   "what": "wall details"
+  },
+  "sm_daoju_tex_01_d": {
+   "solid": true,
+   "mat": "rock",
+   "what": "ruins, rubble"
+  },
+  "sm_dibiao_tex_01": {
+   "solid": true,
+   "mat": "sand",
+   "what": "ground"
+  },
+  "sm_dibiao_tex_02": {
+   "solid": true,
+   "mat": "dirt",
+   "what": "ground"
+  },
+  "sm_dibiao_tex_03": {
+   "solid": true,
+   "mat": "sand",
+   "what": "desert sand terrain",
+   "samplesize": 32
+  },
+  "sd08abac003": {
+   "solid": false,
+   "fullbright": true,
+   "what": "distant mountain cards, recoloured from snow to desert rock"
+  },
+  "p_adobe": {
+   "solid": true,
+   "mat": "plaster",
+   "what": "ring buildings, town walls, ruins (generated)"
+  },
+  "p_dark": {
+   "solid": false,
+   "what": "window / door holes"
+  },
+  "p_rock": {
+   "solid": true,
+   "mat": "rock",
+   "what": "sandstone rocks (generated)"
+  },
+  "p_crate": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "crates (generated)"
+  },
+  "sd08abac001": {
+   "solid": false,
+   "fullbright": true,
+   "what": "sky dome (the rip's anime sky)"
+  },
+  "p_sandfar": {
+   "solid": false,
+   "mat": "sand",
+   "samplesize": 256,
+   "what": "flat sand to the horizon under the terrain's edge"
+  }
+ },
+ "ground_shaders": [
+  "sm_dibiao_tex_03",
+  "sm_dibiao_tex_01",
+  "sm_dibiao_tex_02"
+ ],
+ "ignore_shaders": [
+  "sd08abac001",
+  "sd08abac003",
+  "sm_daoju_tex_01_b_d",
+  "sm_daoju_tex_01_c_d"
+ ],
+ "ground_default_z": -330,
+ "ring": {
+  "_comment": "Tatooine-like adobe ring around the village (props.py plan_ring): towers, blocks and town walls along a superellipse; elements that would hit a village building are pushed outwards. It is also the map's edge.",
+  "center": [
+   -150,
+   150
+  ],
+  "a": 2250,
+  "b": 2400,
+  "n": 3,
+  "seed": 7,
+  "pattern": [
+   "tower",
+   "wall",
+   "block",
+   "wall",
+   "block",
+   "wall",
+   "tower",
+   "wall",
+   "block",
+   "wall"
+  ],
+  "tower_r": [
+   200,
+   300
+  ],
+  "tower_h": [
+   760,
+   1250
+  ],
+  "block_w": [
+   520,
+   860
+  ],
+  "block_h": [
+   460,
+   820
+  ],
+  "wall_len": [
+   240,
+   480
+  ],
+  "wall_h": [
+   400,
+   480
+  ]
+ },
+ "prop_textures": {
+  "p_rock": "sandrock"
+ },
+ "props": [
+  {
+   "_": "sand all the way to the horizon: the terrain mesh ends at about +-3900"
+  },
+  {
+   "type": "ground_plane",
+   "at": [
+    0,
+    0
+   ],
+   "size": 9000,
+   "z": -340,
+   "shader": "p_sandfar",
+   "tile": 1100,
+   "ground": false
+  },
+  {
+   "_": "NW: a ruined house + crates on the open sand"
+  },
+  {
+   "type": "ruin",
+   "at": [
+    -800,
+    1700
+   ],
+   "len": 440,
+   "len2": 320,
+   "h": 300,
+   "yaw": 25,
+   "seed": 3
+  },
+  {
+   "type": "crates",
+   "at": [
+    -640,
+    1560
+   ],
+   "yaw": 10
+  },
+  {
+   "_": "NW dune: sandstone pillar (a perch)"
+  },
+  {
+   "type": "pillar",
+   "at": [
+    -1500,
+    1600
+   ],
+   "r": 95,
+   "h": 520,
+   "seed": 5
+  },
+  {
+   "_": "north centre: sandstone slab (high ground)"
+  },
+  {
+   "type": "mesa",
+   "at": [
+    -100,
+    1100
+   ],
+   "size": [
+    380,
+    280,
+    230
+   ],
+   "yaw": -20,
+   "seed": 6
+  },
+  {
+   "_": "NE: ruin + crates"
+  },
+  {
+   "type": "ruin",
+   "at": [
+    800,
+    1900
+   ],
+   "len": 380,
+   "len2": 260,
+   "h": 260,
+   "yaw": -110,
+   "seed": 8
+  },
+  {
+   "type": "crates",
+   "at": [
+    960,
+    1780
+   ],
+   "yaw": -30,
+   "stack": [
+    [
+     0,
+     0,
+     80,
+     0
+    ],
+    [
+     85,
+     0,
+     80,
+     5
+    ],
+    [
+     40,
+     0,
+     70,
+     -8
+    ],
+    [
+     0,
+     90,
+     70,
+     20
+    ]
+   ]
+  },
+  {
+   "_": "E: sandstone pillar + boulders"
+  },
+  {
+   "type": "pillar",
+   "at": [
+    1500,
+    900
+   ],
+   "r": 85,
+   "h": 440,
+   "seed": 9
+  },
+  {
+   "type": "boulder",
+   "at": [
+    800,
+    -500
+   ],
+   "size": [
+    190,
+    170,
+    170
+   ],
+   "yaw": 30,
+   "seed": 10
+  },
+  {
+   "type": "boulder",
+   "at": [
+    910,
+    -420
+   ],
+   "size": [
+    110,
+    100,
+    100
+   ],
+   "seed": 11
+  },
+  {
+   "type": "boulder",
+   "at": [
+    700,
+    -600
+   ],
+   "size": [
+    90,
+    90,
+    80
+   ],
+   "seed": 12
+  },
+  {
+   "_": "SE: slab + boulder"
+  },
+  {
+   "type": "mesa",
+   "at": [
+    1000,
+    -1400
+   ],
+   "size": [
+    320,
+    250,
+    190
+   ],
+   "yaw": 35,
+   "seed": 13
+  },
+  {
+   "type": "boulder",
+   "at": [
+    1180,
+    -1260
+   ],
+   "size": [
+    130,
+    120,
+    120
+   ],
+   "seed": 14
+  },
+  {
+   "_": "SW: boulders + a broken wall"
+  },
+  {
+   "type": "boulder",
+   "at": [
+    -1400,
+    -1200
+   ],
+   "size": [
+    200,
+    180,
+    180
+   ],
+   "yaw": -15,
+   "seed": 15
+  },
+  {
+   "type": "boulder",
+   "at": [
+    -1270,
+    -1310
+   ],
+   "size": [
+    110,
+    110,
+    95
+   ],
+   "seed": 16
+  },
+  {
+   "type": "ruin",
+   "at": [
+    -1600,
+    -1000
+   ],
+   "len": 360,
+   "h": 240,
+   "yaw": 70,
+   "seed": 17
+  },
+  {
+   "_": "W: crates + a broken wall"
+  },
+  {
+   "type": "crates",
+   "at": [
+    -1700,
+    -500
+   ],
+   "yaw": 40
+  },
+  {
+   "type": "ruin",
+   "at": [
+    -1800,
+    -320
+   ],
+   "len": 300,
+   "h": 220,
+   "yaw": 100,
+   "seed": 18
+  },
+  {
+   "_": "east street: market crates"
+  },
+  {
+   "type": "crates",
+   "at": [
+    600,
+    700
+   ],
+   "yaw": -15,
+   "stack": [
+    [
+     0,
+     0,
+     70,
+     0
+    ],
+    [
+     80,
+     10,
+     70,
+     10
+    ],
+    [
+     0,
+     85,
+     64,
+     -5
+    ]
+   ]
+  }
+ ],
+ "prop_clip": {
+  "cell": 16,
+  "groups": []
+ },
+ "hull_margin": 512,
+ "worldspawn": {
+  "_lightmapscale": "1",
+  "_minlight": "40",
+  "_blocksize": "0"
+ },
+ "arena_type": "ffa duel powerduel team holocron jedi",
+ "texture_recolor": {
+  "sd08abac003": [
+   [
+    120,
+    82,
+    52
+   ],
+   [
+    232,
+    196,
+    150
+   ]
+  ]
+ },
+ "texture_copy": {
+  "p_sandfar": "sm_dibiao_tex_03"
+ },
+ "sky": {
+  "env": "env/shinobi_sand_village",
+  "_sun": "high desert sun from the south-west",
+  "sun": [
+   1.0,
+   0.94,
+   0.82,
+   190,
+   225,
+   58
+  ],
+  "skylight": [
+   600,
+   4
+  ],
+  "zenith": [
+   56,
+   110,
+   180
+  ],
+  "horizon": [
+   190,
+   220,
+   235
+  ],
+  "ground": [
+   200,
+   170,
+   125
+  ],
+  "_light": "sunlit ~200-230, shade lifted by the sky light + _minlight 40 (desert shade is bright, warm sand bounce)"
+ },
+ "boundary": {
+  "_comment": "players only: a superellipse ring just outside the adobe ring, up to above the Kazekage tower, plus a ceiling",
+  "center": [
+   -150,
+   150
+  ],
+  "superellipse": [
+   2900,
+   3050,
+   3
+  ],
+  "segments": 96,
+  "thickness": 40,
+  "z0": -600,
+  "z1": 2700
+ },
+ "spawns": {
+  "_comment": "[x, y, z, yaw]; open ground picked by farthest-point sampling, >= 212 u from anything solid, ~900+ apart",
+  "info_player_deathmatch": [
+   [
+    -1250,
+    1950,
+    16,
+    301
+   ],
+   [
+    -1200,
+    -1650,
+    -91,
+    60
+   ],
+   [
+    1650,
+    600,
+    165,
+    194
+   ],
+   [
+    -400,
+    100,
+    214,
+    11
+   ],
+   [
+    300,
+    1400,
+    20,
+    250
+   ],
+   [
+    800,
+    -800,
+    39,
+    135
+   ],
+   [
+    -1850,
+    -800,
+    24,
+    29
+   ],
+   [
+    -600,
+    1250,
+    155,
+    292
+   ]
+  ],
+  "info_player_duel": [
+   [
+    -400,
+    100,
+    214,
+    11
+   ],
+   [
+    300,
+    1400,
+    20,
+    250
+   ]
+  ],
+  "info_player_duel1": [
+   [
+    -1200,
+    -1650,
+    -91,
+    60
+   ],
+   [
+    -1850,
+    -800,
+    24,
+    29
+   ]
+  ],
+  "info_player_duel2": [
+   [
+    1650,
+    600,
+    165,
+    194
+   ],
+   [
+    800,
+    -800,
+    39,
+    135
+   ]
+  ],
+  "info_player_start": [
+   [
+    -400,
+    100,
+    214,
+    11
+   ]
+  ]
+ },
+ "items": [
+  {
+   "_": "stock classnames -> ninja items (bg_shinobi.c): weapon_thermal = Explosive Kunai, weapon_trip_mine = Explosive Tag, weapon_rocket_launcher = Fuma Shuriken, item_medpac = Healing Pill, ammo_force = Chakra Pill. Items drop onto what is below 'at'."
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    -1238,
+    533,
+    1700
+   ],
+   "_": "Fuma Shuriken on top of the Kazekage tower"
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    -1500,
+    1600,
+    650
+   ],
+   "_": "Fuma Shuriken on the NW sandstone pillar"
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    -100,
+    1100,
+    340
+   ],
+   "_": "Explosive Tag on the north sandstone slab"
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    1000,
+    -1400,
+    280
+   ],
+   "_": "Explosive Tag on the SE slab"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    1500,
+    900,
+    560
+   ],
+   "_": "Explosive Kunai on the east pillar"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    -1400,
+    -1200,
+    230
+   ],
+   "_": "Explosive Kunai on the SW boulder"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    760,
+    1780,
+    400
+   ],
+   "_": "Explosive Kunai on top of the NE ruin wall"
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    1550,
+    1300,
+    37
+   ],
+   "_": "Healing Pill by the NE ring"
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    -700,
+    -1650,
+    39
+   ],
+   "_": "Healing Pill by the south ring"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    1600,
+    -250,
+    125
+   ],
+   "_": "Chakra Pill by the east ring"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    -1800,
+    1300,
+    235
+   ],
+   "_": "Chakra Pill by the NW ring"
+  }
+ ],
+ "levelshot": {
+  "from": [
+   600,
+   -1500,
+   260
+  ],
+  "to": [
+   -900,
+   600,
+   700
+  ],
+  "lens": 16
+ },
+ "_worldspawn": "_blocksize 0: an open map gets nothing from the default 1024-block BSP split (it made 4400 vis clusters)"
+}

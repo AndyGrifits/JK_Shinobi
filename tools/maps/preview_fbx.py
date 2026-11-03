@@ -1,12 +1,22 @@
-"""Flat-lit preview renders of a raw FBX (before prep): top ortho + 3 perspectives + per-object labels.
+"""Flat-lit preview renders of a raw FBX or .blend (before prep): top ortho + 3 perspectives + per-object labels.
     python3 tools/maps/preview_fbx.py <model.fbx> <texture dir> <out dir> [cam json]"""
 import bpy, sys, os, json, math, mathutils
-args = sys.argv[sys.argv.index(__file__) + 1:] if __file__ in sys.argv else sys.argv[-3:]
+args = sys.argv[1:]
 fbx, texdir, out = args[:3]
 cams = json.loads(args[3]) if len(args) > 3 else None
 os.makedirs(out, exist_ok=True)
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.fbx(filepath=fbx)
+if fbx.lower().endswith(".blend"):
+    bpy.ops.wm.open_mainfile(filepath=fbx)
+    for o in list(bpy.context.scene.objects):
+        if o.type == 'ARMATURE': bpy.data.objects.remove(o, do_unlink=True)
+        elif o.type == 'MESH':
+            for m in list(o.modifiers): o.modifiers.remove(m)
+    skip = set(cams[0].get("hide", [])) if cams and isinstance(cams, list) and cams and "hide" in cams[0] else set()
+    for o in list(bpy.context.scene.objects):
+        if o.name in skip: bpy.data.objects.remove(o, do_unlink=True)
+else:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=fbx)
 for mat in bpy.data.materials:
     if not mat.node_tree: continue
     nt = mat.node_tree; img = None
@@ -46,7 +56,8 @@ def look(name, loc, tgt, lens=20):
     cam.rotation_euler = (mathutils.Vector(tgt) - mathutils.Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
     sc.render.filepath = os.path.join(out, name); bpy.ops.render.render(write_still=True)
 if cams:
-    for c in cams: look(c["name"], c["from"], c["to"], c.get("lens", 20))
+    for c in cams:
+        if "name" in c: look(c["name"], c["from"], c["to"], c.get("lens", 20))
 else:
     look('persp.png', (ctr.x + size.x * 0.9, ctr.y - size.y * 0.9, mx.z + size.z * 1.5), tuple(ctr), 22)
 print("CTR", tuple(round(c, 1) for c in ctr), "SIZE", tuple(round(c, 1) for c in size))

@@ -27,8 +27,19 @@ cfg = json.load(open(cfg_path))
 mdl = cfg["model"]
 shader_dir = cfg["shader_dir"]
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.fbx(filepath=fbx)
+if fbx.lower().endswith(".blend"):
+    # a .blend source (e.g. an XPS import): take the meshes as they are, drop armatures and their modifiers
+    bpy.ops.wm.open_mainfile(filepath=fbx)
+    for o in list(bpy.context.scene.objects):
+        if o.type == 'MESH':
+            for md in list(o.modifiers):
+                o.modifiers.remove(md)
+    for o in list(bpy.context.scene.objects):
+        if o.type != 'MESH':
+            bpy.data.objects.remove(o, do_unlink=True)
+else:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=fbx)
 
 meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 # objects to leave out entirely (map.json "model": {"drop_objects": [names]}), e.g. 2D grass cards
@@ -64,7 +75,12 @@ def tex_of(mat):
 
 tex_names = sorted({tex_of(s.material) for o in meshes for s in o.material_slots if s.material} - {None},
                    key=lambda t: int(''.join(c for c in t if c.isdigit()) or 0))
-shader_for_tex = {t: f"textures/{shader_dir}/t{int(''.join(c for c in t if c.isdigit())):02d}" for t in tex_names}
+if mdl.get("shader_names") == "basename":   # e.g. SM_DaoJu_Tex_01_b.png -> sm_daoju_tex_01_b
+    import re
+    shader_for_tex = {t: f"textures/{shader_dir}/" + re.sub(r"[^a-z0-9]+", "_", os.path.splitext(t)[0].lower()).strip("_")
+                      for t in tex_names}
+else:                                       # digits: ntxr0201.png -> t201
+    shader_for_tex = {t: f"textures/{shader_dir}/t{int(''.join(c for c in t if c.isdigit())):02d}" for t in tex_names}
 merged = {}
 for t, sh in shader_for_tex.items():
     mat = bpy.data.materials.new(sh)
@@ -107,7 +123,53 @@ if cfg.get("props"):
         full = f"textures/{shader_dir}/{short}"
         return bpy.data.materials.get(full) or bpy.data.materials.new(full)
     props_mod.UV_NAME = meshes[0].data.uv_layers.active.name if meshes[0].data.uv_layers else "UVMap"
+    # terrain under each prop (map.json "ground_shaders"): sets _zmin / _zmax over its footprint
+    gsh = {f"textures/{shader_dir}/{x}" for x in cfg.get("ground_shaders", [])}
+    if gsh or cfg.get("ring"):
+        import bmesh
+        from mathutils.bvhtree import BVHTree
+        bt = bmesh.new(); bs = bmesh.new()
+        for o in meshes:
+            m2 = o.data.copy(); m2.transform(o.matrix_world)
+            names = [sl.material.name if sl.material else "" for sl in o.material_slots]
+            tmp = bmesh.new(); tmp.from_mesh(m2)
+            g = [f for f in tmp.faces if f.material_index < len(names) and names[f.material_index] in gsh]
+            other = tmp.copy()
+            bmesh.ops.delete(tmp, geom=[f for f in tmp.faces if f not in set(g)], context='FACES')
+            gi = {f.index for f in g}
+            bmesh.ops.delete(other, geom=[f for f in other.faces if f.index in gi or (f.material_index < len(names)
+                             and names[f.material_index].split("/")[-1] in cfg.get("ignore_shaders", []))], context='FACES')
+            mt = bpy.data.meshes.new("t"); tmp.to_mesh(mt); bt.from_mesh(mt)
+            mo = bpy.data.meshes.new("o"); other.to_mesh(mo); bs.from_mesh(mo)
+            tmp.free(); other.free()
+        terrain = BVHTree.FromBMesh(bt); struct = BVHTree.FromBMesh(bs)
+        down = mathutils.Vector((0, 0, -1))
+        def ground_z(x, y):
+            h = terrain.ray_cast(mathutils.Vector((x, y, 30000)), down, 60000)
+            return h[0].z if h[0] is not None else cfg.get("ground_default_z", 0)
+        def occupied(x, y, r):
+            for dx, dy in ((0, 0), (r, 0), (-r, 0), (0, r), (0, -r)):
+                g = ground_z(x + dx, y + dy)
+                h = struct.ray_cast(mathutils.Vector((x + dx, y + dy, 30000)), down, 60000)
+                if h[0] is not None and h[0].z > g + 40:
+                    return True
+            return False
+        if cfg.get("ring"):
+            ring = props_mod.plan_ring(cfg["ring"], occupied)
+            cfg["props"] = list(cfg.get("props", [])) + ring
+            print(f"RING {len(ring)} elements, {sum(1 for e in ring if e.get('_pushed'))} pushed out of the way")
+            json.dump(ring, open(os.path.join(out, "ring.json"), "w"), indent=0)
+        for pr in cfg["props"]:
+            if "type" not in pr or pr.get("ground") is False or pr["type"] == "ground_plane":
+                continue
+            rad = pr.get("r") or (max(pr["size"][:2]) / 2 if "size" in pr else pr.get("len", 100) / 2)
+            zs = [ground_z(pr["at"][0] + dx * rad, pr["at"][1] + dy * rad)
+                  for dx in (-0.7, 0, 0.7) for dy in (-0.7, 0, 0.7)]
+            pr["_zmin"], pr["_zmax"] = min(zs), max(zs) if pr["type"] not in ("adobe_tower", "adobe_block", "adobe_wall") else sorted(zs)[4]
     gen_tex.update(props_mod.build(cfg["props"], mat_for))
+    for short, kind in cfg.get("prop_textures", {}).items():   # e.g. {"p_rock": "sandrock"}
+        if short in gen_tex:
+            gen_tex[short] = kind
     meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
     print(f"PROPS {sum('type' in p for p in cfg['props'])} built, shaders {sorted(gen_tex)}")
 
@@ -121,6 +183,45 @@ obj = bpy.context.view_layer.objects.active
 obj.name = cfg["name"]
 mod = obj.modifiers.new("tri", 'TRIANGULATE')
 bpy.ops.object.modifier_apply(modifier=mod.name)
+
+# small / thin loose parts of a shader (lamps, wires, signs, barrels on a building atlas) go to a copy of
+# the shader "<name>_d" that has no collision: map.json "model": {"split_details": {"shaders": [...],
+# "max_dim": u, "thin": u, "ribbon": u}} - a part is detail if its largest size < max_dim, or if it is
+# thinner than "thin" and narrower than "ribbon" (wires, poles, railings, strings of flags); thin but
+# wide parts (single-plane floors and roofs) and flat horizontal pieces (steps, wall tops) stay solid
+if mdl.get("split_details"):
+    import bmesh
+    sd_cfg = mdl["split_details"]
+    me = obj.data
+    bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+    names = [sl.material.name for sl in obj.material_slots]
+    targets = {i for i, n in enumerate(names) if n.split("/")[-1] in sd_cfg["shaders"]}
+    copies = {}
+    for i in targets:
+        dn = names[i] + "_d"
+        m2 = bpy.data.materials.get(dn) or bpy.data.materials.new(dn)
+        me.materials.append(m2); copies[i] = len(me.materials) - 1
+    seen = set(); moved = parts = 0
+    for f in bm.faces:
+        if f.index in seen or f.material_index not in targets: continue
+        isl = []; st = [f]; seen.add(f.index)
+        while st:
+            g = st.pop(); isl.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen and h.material_index == f.material_index:
+                        seen.add(h.index); st.append(h)
+        co = [v.co for g in isl for v in g.verts]
+        ext = [max(c[k] for c in co) - min(c[k] for c in co) for k in range(3)]
+        dims = sorted(ext)
+        parts += 1
+        # a flat horizontal piece (wall top strip, step, ledge) is walkable: never a detail
+        sheet = ext[2] == dims[0] and min(ext[0], ext[1]) >= 16 and max(ext[0], ext[1]) >= 40
+        if not sheet and (dims[2] < sd_cfg.get("max_dim", 64) or (dims[0] < sd_cfg.get("thin", 6) and dims[1] < sd_cfg.get("ribbon", 64))):
+            for g in isl: g.material_index = copies[g.material_index]
+            moved += 1
+    bm.to_mesh(me); bm.free(); me.update()
+    print(f"SPLIT {moved} of {parts} loose parts -> no-collision detail shaders")
 
 # ground that must face up (map.json "model": {"face_up": [shaders]}): a few flipped triangles seed a
 # whole meta surface that the game then back-face culls (a hole) and q3map2 leaves unlit
@@ -168,10 +269,27 @@ for t, sh in shader_for_tex.items():
     short = os.path.basename(sh)
     sources[sh] = (textures_gen.make(override[short], os.path.join(gen_dir, short + ".jpg")), f"gen:{override[short]}") \
         if short in override else (os.path.join(texdir, t), t)
+for sl in obj.material_slots:               # "<shader>_d" detail copies use their parent's texture
+    n = sl.material.name
+    if n.endswith("_d") and n[:-2] in sources:
+        sources[n] = sources[n[:-2]]
 for short, kind in gen_tex.items():
     sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ".jpg")), f"gen:{kind}")
+for short, parent in cfg.get("texture_copy", {}).items():   # a generated shader reusing a model texture
+    full = f"textures/{shader_dir}/{short}"; pf = f"textures/{shader_dir}/{parent}"
+    if pf in sources:
+        sources[full] = sources[pf]
+recolor = cfg.get("texture_recolor", {})                  # short -> [[dark rgb], [light rgb]] (keeps alpha)
 for sh, (src, t) in sources.items():
     im = Image.open(src)
+    if os.path.basename(sh) in recolor:
+        import numpy as np
+        dk, lt = (np.array(c, float) for c in recolor[os.path.basename(sh)])
+        a_ = np.asarray(im.convert("RGBA")).astype(float)
+        lum = (a_[..., :3] @ [0.3, 0.59, 0.11]) / 255.0
+        lum = (lum - lum.min()) / max(1e-6, lum.max() - lum.min())
+        rgb = dk + (lt - dk) * lum[..., None]
+        im = Image.fromarray(np.concatenate([rgb, a_[..., 3:]], 2).clip(0, 255).astype(np.uint8), "RGBA")
     alpha = im.mode in ('RGBA', 'LA', 'P') and im.convert('RGBA').getchannel('A').getextrema()[0] < 128
     base = os.path.basename(sh)
     if alpha:

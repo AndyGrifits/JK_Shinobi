@@ -45,6 +45,11 @@ for full, info in materials.items():
     c = cfg["shaders"].get(short, {})
     tex = os.path.splitext(info["file"])[0]
     lines = [full, "{", f"\tqer_editorimage {info['file']}", f"\t// {c.get('what', '')}"]
+    if c.get("fullbright"):   # sky dome / horizon cards: unlit, no collision, and light passes through them
+        lines += ["\tsurfaceparm nonsolid", "\tsurfaceparm nolightmap", "\tsurfaceparm trans", "\tsurfaceparm nomarks",
+                  "\tsurfaceparm noimpact"] + (["\tcull twosided"] if info["alpha"] else []) + [
+                  "\t{", f"\t\tmap {tex}"] + (["\t\talphaFunc GE128"] if info["alpha"] else []) + ["\t\trgbGen identity", "\t}", "}\n"]
+        sh.append("\n".join(lines)); continue
     if c.get("solid"):
         lines.append("\tq3map_clipModel")
     else:
@@ -121,14 +126,31 @@ hull = [box(X0 - t, Y0 - t, Z0 - t, X1 + t, Y1 + t, Z0, "caulk"), box(X0 - t, Y0
 bnd = cfg.get("boundary")
 if bnd:
     import math
-    cx, cy = bnd.get("center", [0, 0]); R = bnd["radius"]; n = bnd.get("segments", 64); th = bnd.get("thickness", 32)
+    cx, cy = bnd.get("center", [0, 0]); n = bnd.get("segments", 64); th = bnd.get("thickness", 32)
     z0, z1 = bnd.get("z0", -16), bnd["z1"]
+    if "superellipse" in bnd:   # [a, b, exponent]: |x/a|^n + |y/b|^n = 1
+        A, Bq, N = bnd["superellipse"]
+        def curve(t):
+            c, s_ = math.cos(t), math.sin(t)
+            return (cx + A * math.copysign(abs(c) ** (2 / N), c), cy + Bq * math.copysign(abs(s_) ** (2 / N), s_))
+    else:
+        R = bnd["radius"]
+        def curve(t):
+            return (cx + R * math.cos(t), cy + R * math.sin(t))
+    pts = [curve(2 * math.pi * i / n) for i in range(n)]
+    def outward(i):   # vertex normal of the ccw polygon
+        (ax, ay), (bx, by) = pts[i - 1], pts[(i + 1) % n]
+        tx, ty = bx - ax, by - ay; L = math.hypot(tx, ty) or 1
+        return ty / L, -tx / L
     for i in range(n):
-        a0 = 2 * math.pi * i / n; a1 = 2 * math.pi * (i + 1) / n
-        R2 = (R + th) / math.cos(math.pi / n)   # outer corners so neighbouring segments overlap
-        poly = [(cx + R * math.cos(a0), cy + R * math.sin(a0)), (cx + R2 * math.cos(a0), cy + R2 * math.sin(a0)),
-                (cx + R2 * math.cos(a1), cy + R2 * math.sin(a1)), (cx + R * math.cos(a1), cy + R * math.sin(a1))]
-        hull.append(prism(poly, z0, z1, "playerclip"))   # inner a0 -> outer a0 -> outer a1 -> inner a1 = ccw
+        j = (i + 1) % n
+        (ix, iy), (jx, jy) = pts[i], pts[j]
+        (nix, niy), (njx, njy) = outward(i), outward(j)
+        e = th * 1.6   # outer corners pushed further so neighbours overlap
+        poly = [(ix, iy), (ix + nix * e, iy + niy * e), (jx + njx * e, jy + njy * e), (jx, jy)]
+        hull.append(prism(poly, z0, z1, "playerclip"))   # inner i -> outer i -> outer j -> inner j = ccw
+    xs_ = [p[0] for p in pts]; ys_ = [p[1] for p in pts]
+    R = max(max(xs_) - cx, cx - min(xs_), max(ys_) - cy, cy - min(ys_))
     if "floor_z" in bnd:   # one flat floor brush instead of autoclipping a dense, nearly flat ground mesh
         e = int(R + th + 64)
         hull.append(box(cx - e, cy - e, bnd["floor_z"] - 32, cx + e, cy + e, bnd["floor_z"], "clip_floor"))
@@ -169,5 +191,5 @@ open(os.path.join(base, "scripts", f"{name}.arena"), "w").write(
 
 print(f"GEN OK {name}: hull {X0},{Y0},{Z0} .. {X1},{Y1},{Z1}; {len(props)} prop clip brushes; "
       f"{len(materials)} model shaders; {len(L.get('grid_x', [])) * len(L.get('grid_y', [])) + len(L.get('extra', []))} lights"
-      + (f"; sky {sky['env']}" if sky else "") + (f"; boundary r {bnd['radius']}" if bnd else "")
+      + (f"; sky {sky['env']}" if sky else "") + (f"; boundary {bnd.get('superellipse') or bnd.get('radius')}" if bnd else "")
       + f"; {sum('class' in it for it in cfg.get('items', []))} items")
