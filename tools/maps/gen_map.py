@@ -138,6 +138,7 @@ if bnd:
 props = []
 for g in json.load(open(os.path.join(build, "propclip.json"))):
     props += [box(*b, g["shader"]) for b in g["boxes"]]
+    props += [prism([tuple(v) for v in pr["poly"]], pr["z0"], pr["z1"], g["shader"]) for pr in g.get("prisms", [])]
 
 ws = {"classname": "worldspawn", "message": cfg["longname"], **cfg.get("worldspawn", {})}
 out = [ent(ws, hull + props)]

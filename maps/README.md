@@ -61,7 +61,8 @@ Spawns: 4 FFA, duel / power duel. No bot routes yet.
 ## shinobi_chunin_final - Chunin Exam Finals
 
 Source: `chunin-exams-final-stage` (98k tris; 79k after dropping the 2D grass cards). Scale 4: round
-field, diameter ~2810, wall 494, 7 trees ~380 high (trunk = column, canopy = slab to stand on), stands
+field, diameter ~2810, wall 494, 8 trees ~380 high (collision: a trunk column up to the fork with a small
+landing on top; roots, branches and leaves are walk-through, so you can hide in the canopy), stands
 and Hokage building behind the wall (visual only). Open sky, sun from the north-east lighting the stands.
 Boundary: playerclip ring on the wall face up to 1600 + ceiling (players only, shots pass); one flat
 floor brush. The wall is plain concrete (`texture_override`). 22 props: two rock pillars (410 / 309 high),

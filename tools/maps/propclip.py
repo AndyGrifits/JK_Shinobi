@@ -5,6 +5,7 @@
 Raycasts down onto the triangles of the shaders listed in map.json "prop_clip" only, on a
 grid of "cell" units; each cell gets a box from the floor up to the highest point in it
 (rounded up to 8). Equal-height neighbours are merged into rectangles. -> <build>/propclip.json
+"mode": "trunk": one octagonal column per tree trunk up to the fork (roots and leaves stay walk-through).
 "mode": "shell" (e.g. trees): the box starts at the lowest point seen from below instead of the
 floor, so a canopy is a slab you can stand on and walk under, and the trunk stays a column.
 """
@@ -21,8 +22,51 @@ cell = pc.get("cell", 16)
 bpy.ops.wm.open_mainfile(filepath=os.path.join(build, "model.blend"))
 obj = [o for o in bpy.context.scene.objects if o.type == 'MESH'][0]
 
+def trunks(group, obj):
+    """mode "trunk": one octagonal column per tree trunk, from below the floor up to the fork.
+    Trunk = cluster of the group's vertices inside the height "band" (above the roots); radius =
+    90th percentile there (>= min_r); fork = first 24 u slice above the band whose spread > fork_ratio x r."""
+    import math
+    import numpy as np
+    shaders = {f"textures/{cfg['shader_dir']}/{s}" for s in group["shaders"]}
+    idx = {i for i, s in enumerate(obj.material_slots) if s.material and s.material.name in shaders}
+    vs = {v for p in obj.data.polygons if p.material_index in idx for v in p.vertices}
+    P = np.array([obj.data.vertices[i].co[:] for i in vs])
+    b0, b1 = group.get("band", [40, 120])
+    low = P[(P[:, 2] > b0) & (P[:, 2] < b1)]
+    cl = []
+    for p in low:
+        for c in cl:
+            if math.hypot(p[0] - c[0][0], p[1] - c[0][1]) < 120:
+                c[1].append(p); c[0] = np.mean(c[1], 0)[:2]; break
+        else:
+            cl.append([p[:2].copy(), [p]])
+    prisms = []
+    for c, pts in cl:
+        q = np.array(pts); ctr = q[:, :2].mean(0)
+        r = max(group.get("min_r", 16), float(np.percentile(np.hypot(*(q[:, :2] - ctr).T), 90)) + 2)
+        h = group.get("max_h", 200)
+        for z in range(int(b1), int(group.get("max_h", 200)), 8):
+            sl = P[(P[:, 2] >= z) & (P[:, 2] < z + 24) & (np.hypot(P[:, 0] - ctr[0], P[:, 1] - ctr[1]) < 150)]
+            if len(sl) and np.percentile(np.hypot(sl[:, 0] - ctr[0], sl[:, 1] - ctr[1]), 90) > group.get("fork_ratio", 2.5) * r:
+                h = z + 8; break
+        poly = [(float(ctr[0] + r * math.cos(math.pi / 8 + k * math.pi / 4)), float(ctr[1] + r * math.sin(math.pi / 8 + k * math.pi / 4)))
+                for k in range(8)]
+        prisms.append({"poly": poly, "z0": group.get("floor", 0) - 8, "z1": int(h)})
+        tr = group.get("top_r")
+        if tr and tr > r:   # a small landing at the fork (the branches spread there anyway)
+            top = [(float(ctr[0] + tr * math.cos(math.pi / 8 + k * math.pi / 4)), float(ctr[1] + tr * math.sin(math.pi / 8 + k * math.pi / 4)))
+                   for k in range(8)]
+            prisms.append({"poly": top, "z0": int(h) - 8, "z1": int(h)})
+        print(f"TRUNK at ({ctr[0]:.0f},{ctr[1]:.0f}) r {r:.0f} up to {h}")
+    return prisms
+
 groups = []
 for group in pc["groups"]:
+    if group.get("mode") == "trunk":
+        groups.append({"shader": group["clip_shader"], "boxes": [], "prisms": trunks(group, obj)})
+        print(f"PROPCLIP {group['clip_shader']}: {len(groups[-1]['prisms'])} trunk columns")
+        continue
     shaders = {f"textures/{cfg['shader_dir']}/{s}" for s in group["shaders"]}
     bm = bmesh.new()
     bm.from_mesh(obj.data)

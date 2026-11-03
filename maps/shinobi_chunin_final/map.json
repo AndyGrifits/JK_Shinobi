@@ -45,8 +45,8 @@
  "prop_clip": {
   "cell": 16,
   "groups": [
-   {"shaders": ["t55", "t33", "t34", "t52"], "clip_shader": "clip_tree", "mode": "shell", "min_height": 40,
-    "_comment": "trunk = column, canopy = slab you can stand on; the ankle-high bushes stay walk-through"}
+   {"shaders": ["t55"], "clip_shader": "clip_tree", "mode": "trunk", "band": [40, 120], "min_r": 18, "top_r": 32, "fork_ratio": 2.5, "max_h": 200,
+    "_comment": "a plain trunk column up to the fork: roots, branches and leaves have no collision - jump onto the 32 u landing at the fork and hide in the leaves"}
   ]
  },
  "clip_shaders": {"clip_tree": "solidwood", "clip_floor": "dirt"},
