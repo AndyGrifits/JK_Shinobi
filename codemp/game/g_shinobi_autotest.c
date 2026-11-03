@@ -206,7 +206,7 @@ static void AT_Reset( gentity_t *e ) {
 	c->ps.stats[STAT_SHINOBI2] &= ~( SHINOBI_STAT2_FLINCH | SHINOBI_STAT2_KAITEN | SHINOBI_STAT2_ROOTED );
 	c->ps.stats[STAT_SHINOBI_COMBO] = c->ps.stats[STAT_SHINOBI_COMBOT] = 0;
 	c->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX;
-	e->health = c->ps.stats[STAT_HEALTH] = c->ps.stats[STAT_MAX_HEALTH];
+	e->health = c->ps.stats[STAT_HEALTH] = 500; // (well over the max: a test's real blows must not kill)
 	c->ps.fd.forcePower = c->ps.fd.forcePowerMax;
 	c->pers.shinobiFistStyle = SFS_FAST;
 	c->pers.shinobiBuild.perk = SP_NONE; // no eyes, seal or gates in the way
@@ -585,7 +585,7 @@ static atResult_t T_Regen( int t ) {
 	if ( STAGE( 3 ) && SINCE() >= 3000 ) {
 		const float low = at.v[1] / 1.5f, high = ( c->ps.fd.forcePower - at.v[2] ) / 3.0f;
 		AT_Msg( "regen below 30%%: %.1f/s, above: %.1f/s (ratio %.1f, want ~%i)", low, high, high > 0 ? low / high : 99.0f,
-			(int)( 1.0f / SHINOBI_REGEN_SLOW_ABOVE + 0.5f ) );
+			(int)SHINOBI_REGEN_SLOW_ABOVE );
 		return ( low > 0 && high > 0 && low / high > 2.5f && low / high < 6.0f ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
@@ -754,8 +754,18 @@ static atResult_t T_Kaiten( int t ) {
 		at.v[2] = A->health == h;
 		at.v[3] = shinobiTest.kaitenDeflects;
 		at.v[6] = A->health;
-		B->client->pers.cmd.buttons &= ~BUTTON_WALKING;
-		Cmd_Kunai_f( B ); // a kunai at him
+		{ // a kunai at him: B looks straight at his middle and throws
+			vec3_t d, ang, eye;
+			VectorCopy( B->client->ps.origin, eye );
+			eye[2] += B->client->ps.viewheight;
+			VectorSubtract( A->client->ps.origin, eye, d );
+			vectoangles( d, ang );
+			SetClientViewAngle( B, ang );
+			B->client->shinobi.kunaiNext = 0;
+			B->client->pers.cmd.buttons &= ~BUTTON_WALKING;
+			Cmd_Kunai_f( B );
+			at.v[8] = AT_CountClass( "shinobi_kunai", at.b );
+		}
 		NEXT();
 	}
 	if ( STAGE( 4 ) && SINCE() >= 700 ) {
@@ -780,9 +790,9 @@ static atResult_t T_Kaiten( int t ) {
 	if ( STAGE( 6 ) && SINCE() >= 200 ) {
 		const qboolean off = !A->client->shinobi.kaitenStart && !( A->client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_KAITEN )
 			&& !( A->client->ps.eFlags & SHINOBI_EF_KAITEN );
-		AT_Msg( "wind-up broken by a blow: %s; spinning: %s; blade blow blocked: %s; kunai glanced off: %i (A lost %i); "
+		AT_Msg( "wind-up broken by a blow: %s; spinning: %s; blade blow blocked: %s; kunai thrown %i, glanced off: %i (A lost %i); "
 			"B at 50 u thrown to %.0f u, knocked down: %s; let go - all off: %s",
-			at.v[0] ? "yes" : "NO", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[4], at.v[7], at.f[1],
+			at.v[0] ? "yes" : "NO", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[8], at.v[4], at.v[7], at.f[1],
 			at.v[5] ? "yes" : "no", off ? "yes" : "NO" );
 		return ( at.v[0] && at.v[1] && at.v[2] && at.v[4] >= 1 && !at.v[7] && at.f[1] > SHINOBI_KAITEN_RADIUS && off ) ? ATR_PASS : ATR_FAIL;
 	}
@@ -868,6 +878,12 @@ static atResult_t T_RaiNet( int t ) {
 		vec3_t p, mid;
 		at.v[4] = B->client->shinobi.stunEnd > level.time;
 		at.v[5] = at.v[3] - B->health;
+		{
+			gentity_t *net = AT_FindClass( "shinobi_rainet", at.a );
+			at.f[5] = net ? Distance( B->r.currentOrigin, at.f ) : -1;
+			at.v[9] = B->takedamage;
+			at.v[10] = B->client->invulnerableTimer > level.time;
+		}
 		AT_Spot( 400, 120, p );
 		AT_Place( B, p, at.baseYaw + 180 );
 		VectorCopy( at.f, mid );
@@ -878,9 +894,9 @@ static atResult_t T_RaiNet( int t ) {
 	}
 	if ( STAGE( 6 ) && SINCE() >= 400 ) {
 		const qboolean selfStun = A->client->shinobi.stunEnd > level.time, selfHurt = A->health < at.v[6];
-		AT_Msg( "one mark: net %s; two marks: net %s, side lit %s; B on the line: stunned %s, lost %i; "
+		AT_Msg( "one mark: net %s; two marks: net %s, side lit %s; B on the line (%.0f u off its middle, takedamage %i, spawn shield %i): stunned %s, lost %i; "
 			"its maker on it: stunned %s, hurt %s",
-			at.v[0] ? "YES (wrong)" : "none", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[4] ? "yes" : "NO", at.v[5],
+			at.v[0] ? "YES (wrong)" : "none", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.f[5], at.v[9], at.v[10], at.v[4] ? "yes" : "NO", at.v[5],
 			selfStun ? "yes" : "NO", selfHurt ? "yes" : "NO" );
 		return ( !at.v[0] && at.v[1] && at.v[2] && at.v[4] && at.v[5] > 0 && selfStun && selfHurt ) ? ATR_PASS : ATR_FAIL;
 	}
