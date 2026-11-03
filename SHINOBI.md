@@ -175,7 +175,14 @@ python3 tools/glmpreview.py models/players/asuma/model.glm --gla _humanoid.gla \
 ```
 
 The source can also be the rip's own `.smd` (skeleton + weights, no Blender needed for
-that part). `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
+that part). Or a skinned `.dae` (Shinobi Striker rips: Mixamo-like bone names, renamed to the
+CoN ones by `DAE_RENAME`; twist, hair, face and armour bones go with their parents, the
+shoulder plates with the upper arm). Those are high-poly (Tobirama: 46k triangles, 50k
+vertices): blend2glm first leaves out the triangles no ray gets out of the model from
+(layers under layers, the mouth), then collapses the big meshes as a whole to ~80 % of the
+vertex budget (`glm_slim.slim_source_mesh`; their palette textures colour by small flat
+swatches, so a corner keeps a texture point of its own swatch). Tobirama: 8.9k vertices,
+9.6k triangles. `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
 (Kakashi's book) and `--prop-parts` makes them held props (his kunai). Outline shells (the
 inside-out copies the Wii game draws black around legs, arms, pouches, kunai) are found
 and left out by themselves (`--keep-shells` keeps them). The rips by the same hand as
@@ -195,7 +202,7 @@ the fillers (Kagura, Komachi, Towa, Rogue Ninja) are left at full size. Yamato's
 at the wood-clone textures (mky_*); it is built with his own (ymt_*) copied under those
 names. Anko's dango skewer pieces inside the hand outline go by --drop-parts. Kisame's Samehada on his back goes
 by --drop-parts too (its bone b_186ken). `--rigid-parts PART[:bone]` puts a piece on one
-bone so it doesn't bend: Gaara's gourd on `thoracic`.
+bone so it doesn't bend: Gaara's gourd and its stopper (`gar_tex02.png#0`, `#6`) on `thoracic`.
 
 ```
 python3 tools/blend2glm.py Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \

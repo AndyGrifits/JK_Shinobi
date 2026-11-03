@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JK_Shinobi: a rigged character from an old Naruto game (.blend) -> a Jedi Academy
+"""JK_Shinobi: a rigged character from a Naruto game (.blend / .smd / .dae) -> a Jedi Academy
 player model (models/players/<name>/model.glm + model_default.skin + textures).
 
     python3 tools/blend2glm.py Asuma.blend|Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \
@@ -310,6 +310,135 @@ def load_smd(path, tex_dir=None, scale=SMD_SCALE, flip_v=False, hard_angle=60.0)
                   % (m["name"], hard_angle))
         out.append(m)
     return joints, parents, out
+
+
+# Shinobi Striker (UE4, Mixamo-like names) -> the CoN names the rest of this file uses;
+# bones not listed (twist "Bend" bones, hair, face, armour plates) go with their parent
+DAE_RENAME = {"CharacterRoot": "nw4r_root", "Hips": "hip", "Spine": "waist", "Spine1": "breast",
+              "Neck": "neck", "Head": "head"}
+for _s, _S in (("Left", "L_"), ("Right", "R_")):
+    DAE_RENAME.update({_s + "Shoulder": _S + "collar", _s + "Arm": _S + "harm",
+                       _s + "ForeArm": _S + "larm", _s + "Hand": _S + "hand",
+                       _s + "UpLeg": _S + "hleg", _s + "Leg": _S + "lleg",
+                       _s + "Foot": _S + "foot", _s + "ToeBase": _S + "toe"})
+    for _f, _c in (("Thumb", "Oy"), ("Index", "Hi"), ("Middle", "Na"), ("Ring", "Ku"), ("Pinky", "Ko")):
+        for _k in (1, 2, 3):
+            DAE_RENAME["%sHand%s%d" % (_s, _f, _k)] = "%sfin%s%02d" % (_S, _c, _k)
+
+
+def load_dae(path, tex_dir=None):
+    """A skinned Collada rip (one skin controller, the joints as scene nodes): bind pose
+    from the nodes, one mesh per material. Same output as load_blend."""
+    import collada
+    c = collada.Collada(path, ignore=[collada.common.DaeUnsupportedError,
+                                      collada.common.DaeBrokenRefError])
+    ct = c.controllers[0]
+    world, par = {}, {}
+
+    def walk(n, m, parent):
+        if isinstance(n, collada.scene.Node):
+            m2 = m @ n.matrix
+            world[n.id], par[n.id] = m2, parent
+            for ch in n.children:
+                walk(ch, m2, n.id)
+    for n in c.scene.nodes:
+        walk(n, np.eye(4), None)
+    # node ids carry the armature's name as a prefix ("Armature_Hips"); the skin uses bare names
+    jn = [str(x[0]) for x in ct.weight_joints.data]
+    pre = next(p for p in ("Armature_", "") if all(p + j in world for j in jn))
+    bare = lambda nid: nid[len(pre):] if nid and nid.startswith(pre) else nid
+    ren = lambda b: DAE_RENAME.get(b, b)
+    joints, parents = {}, {}
+    for nid, m in world.items():
+        b = bare(nid)
+        if not pre or nid.startswith(pre):
+            joints[ren(b)] = m[:3, 3].copy()
+            p = par[nid]
+            parents[ren(b)] = ren(bare(p)) if p and (not pre or p.startswith(pre)) else None
+    # shoulder plates hang from the collar bone in these rigs but sit on the upper arm: on
+    # the collar they stay out level when the arms come down
+    for b in list(parents):
+        if "SholdArmer" in b and b[:2] in ("L_", "R_"):
+            if parents[b] in (b[:2] + "collar",):
+                parents[b] = b[:2] + "harm"
+    bsm = np.asarray(ct.bind_shape_matrix)
+    wdat = np.asarray(ct.weights.data).ravel()
+    vweights = []
+    for vi in range(len(ct.index)):
+        ws = [(ren(jn[int(j)]), float(wdat[int(w)])) for j, w in ct.index[vi]]
+        vweights.append([x for x in ws if x[1] > 1e-4])
+    geo = ct.geometry
+    out = []
+    for p in geo.primitives:
+        if not len(p.vertex_index):
+            continue
+        V = p.vertex @ bsm[:3, :3].T + bsm[:3, 3]
+        Nn = p.normal @ np.linalg.inv(bsm[:3, :3])
+        Nn /= np.linalg.norm(Nn, axis=1)[:, None] + 1e-12
+        UV = p.texcoordset[0]
+        used = np.unique(p.vertex_index)
+        remap = {int(v): i for i, v in enumerate(used)}
+        loop_n, loop_uv, tris = [], [], []
+        for t, nt, ut in zip(p.vertex_index, p.normal_index, p.texcoord_indexset[0]):
+            tri = []
+            for k in range(3):
+                loop_n.append(Nn[nt[k]])
+                loop_uv.append((float(UV[ut[k]][0]), float(UV[ut[k]][1])))
+                tri.append((remap[int(t[k])], len(loop_n) - 1))
+            tris.append(tri)
+        tex = None
+        for m in c.materials:
+            if m.id == p.material or m.name == p.material:
+                d = m.effect.diffuse
+                if hasattr(d, "sampler"):
+                    tex = os.path.basename(d.sampler.surface.image.path)
+        if tex is None:
+            stem = p.material.replace("-material", "").replace("_png", ".png")
+            tex = stem if tex_dir and os.path.exists(os.path.join(tex_dir, stem)) else None
+        out.append(dict(name=p.material.replace("-material", "").replace("_png", ""),
+                        co=V[used], loop_n=np.array(loop_n), loop_uv=loop_uv,
+                        weights=[vweights[int(v)] for v in used], tris=tris, texture=tex))
+        print("%s: %d verts, %d tris, texture %s" % (out[-1]["name"], len(used), len(tris), tex))
+    return joints, parents, out
+
+
+def drop_hidden(meshes, rays=48):
+    """Leave out the triangles no ray from them gets out of the model through (layers under
+    other layers: the leggings under the trousers, the shirt under the armour, the mouth):
+    a high-poly rip is collapsed hard, and a collapsed outer layer sinks into its
+    surface, the layer under it showing through in patches. In the bind pose."""
+    import bpy  # noqa: F401  (brings mathutils)
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    allV, allF, own, off = [], [], [], 0
+    for mi, m in enumerate(meshes):
+        co = np.asarray(m["co"], float)
+        allV.append(co)
+        allF.append(np.array([[vi for vi, _ in t] for t in m["tris"]], int).reshape(-1, 3) + off)
+        own += [mi] * len(m["tris"])
+        off += len(co)
+    V, F, own = np.concatenate(allV), np.concatenate(allF), np.array(own)
+    tree = BVHTree.FromPolygons([tuple(v) for v in V], [tuple(int(x) for x in f) for f in F],
+                                all_triangles=True)
+    i = np.arange(rays) + 0.5
+    phi, th = np.arccos(1 - 2 * i / rays), np.pi * (1 + 5 ** 0.5) * i
+    D = np.stack([np.cos(th) * np.sin(phi), np.sin(th) * np.sin(phi), np.cos(phi)], 1)
+    Dv = [Vector(d) for d in D]
+    eps = 1e-3 * float(np.ptp(V[:, 2]))
+    far = 10 * float(np.ptp(V, axis=0).max())
+    cen = V[F].mean(1)
+    vis = np.zeros(len(F), bool)
+    for k, c in enumerate(cen):
+        for d, dv in zip(D, Dv):
+            if tree.ray_cast(Vector(c + d * eps), dv, far)[0] is None:
+                vis[k] = True
+                break
+    out = []
+    for mi, m in enumerate(meshes):
+        keep = vis[own == mi]
+        out.append(dict(m, tris=[t for t, kk in zip(m["tris"], keep) if kk]))
+    print("hidden: %d of %d triangles no ray gets out from, left out" % ((~vis).sum(), len(F)))
+    return out
 
 
 def upright(J, meshes):
@@ -911,6 +1040,8 @@ def main(argv=None):
     gla = g2file.Gla(a.gla)
     if a.blend.lower().endswith(".smd"):
         J, parents, meshes = load_smd(a.blend, a.textures, flip_v=a.flip_v, hard_angle=a.hard_angle)
+    elif a.blend.lower().endswith(".dae"):
+        J, parents, meshes = load_dae(a.blend, a.textures)
     else:
         J, parents, meshes = load_blend(a.blend, a.armature)
     J, meshes = upright(J, meshes)
@@ -950,6 +1081,37 @@ def main(argv=None):
                 keep.setdefault(p["name"], []).extend(p["tris"])
         meshes = [dict(m, tris=keep[m["name"]]) for m in meshes if m["name"] in keep] + extra
 
+    # a high-poly rip (Shinobi Striker, ~50k vertices): collapse the big meshes as a whole
+    # first, the 1000-vertex surfaces it is cut into later would hold the collapse back at
+    # their borders; the final pass below takes it the rest of the way
+    def game_verts(m):
+        luv = m.get("loop_uv")
+        return len({(vi, tuple(np.round(luv[li], 4)) if luv is not None else None,
+                     tuple(np.round(np.asarray(m["loop_n"][li]), 2))) for t in m["tris"] for vi, li in t})
+    est = {m["name"]: game_verts(m) for m in meshes}
+    total = sum(est.values())
+    if total > 1.5 * VERT_BUDGET and not a.no_slim:
+        import glm_slim
+        meshes = drop_hidden(meshes)
+        est = {m["name"]: game_verts(m) for m in meshes}
+        total = sum(est.values())
+        big = [m for m in meshes if est[m["name"]] > 0.2 * total]
+        rest = total - sum(est[m["name"]] for m in big)
+        perc = max(0.02, (0.8 * VERT_BUDGET - rest) / (total - rest))
+        src = meshes
+        for _ in range(3):           # the share of vertices left isn't the share of triangles
+            meshes = [glm_slim.slim_source_mesh(m, perc, texture=os.path.join(a.textures, m["texture"])
+                                                if m.get("texture") else None)
+                      if m in big else m for m in src]
+            got = sum(game_verts(m) for m in meshes)
+            # (cutting into 1000-vertex surfaces copies the vertices on the cuts: ~10 % more)
+            if 0.76 * VERT_BUDGET <= got <= 0.84 * VERT_BUDGET:
+                break
+            perc *= 0.8 * VERT_BUDGET / got
+        print("high-poly: %s collapsed to %d%% (about %d -> %d game vertices)"
+              % (", ".join(m["name"] for m in big), round(perc * 100), total,
+                 sum(game_verts(m) for m in meshes)))
+
     stock = None
     if not a.no_stock_weights:
         skin = a.stock_skin or os.path.join(os.path.dirname(a.tags), "model_default.skin")
@@ -988,6 +1150,17 @@ def main(argv=None):
         return "%s%s" % (base, "" if counter[base] == 0 else "_%d" % counter[base])
 
     mesh_surfs = build_glm_surfaces(conv, lambda c: textures.get(c["texture"], ""), surf_name)
+    # names must be unique, the .skin goes by them: a second mesh whose texture ends the same
+    # way (T_CHR_Tobirama_Eye_BC after T_CHR_Tobirama_BC's chunks _0, _1, ...) took the name
+    # of a body chunk and put its eye texture on it
+    seen = set()
+    for sf in mesh_surfs:
+        nm, k = sf.name, 0
+        while nm in seen:
+            k += 1
+            nm = "%s_%c" % (sf.name, chr(ord("a") + k - 1))
+        sf.name = nm
+        seen.add(nm)
     root = g2file.Surface("hips", "", 0, -1)
     surfaces = [root]
     for s in mesh_surfs:
