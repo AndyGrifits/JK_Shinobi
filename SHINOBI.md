@@ -142,12 +142,23 @@ python3 tools/glmpreview.py models/players/asuma/model.glm --gla _humanoid.gla \
     --cfg animation.cfg --anims base,BOTH_STAND1,BOTH_RUN1:0.3 --tags
 ```
 
+The source can also be the rip's own `.smd` (skeleton + weights, no Blender needed for
+that part). `--parts` lists the model's connected pieces; `--drop-parts` leaves some out
+(Kakashi's book) and `--prop-parts` makes them held props (his kunai):
+
+```
+python3 tools/blend2glm.py Kakashi.smd --gla _humanoid.gla --tags jedi_hm.glm \
+    --textures Kakashi --parts
+```
+
 (`pip install bpy` for Blender's Python.) Ghoul2 skins a .glm against the bind pose
 stored in `_humanoid.gla`, so a skeleton of the model's own never reaches the game: the
-mesh is bent into the stock pose instead (limbs turned and stretched joint to joint, torso
-and head scaled), its own game's weights are renamed onto the stock bones (spine spread
+mesh is bent into the stock pose instead (limbs turned and stretched joint to joint; the
+torso mapped by height so the hip and shoulder joints land on the stock ones; neck and
+head scaled with the shoulders), its own game's weights are renamed onto the stock bones (spine spread
 over pelvis / lumbar / thoracic by height, fingers onto d1 / d2 / d4), and the tag
-surfaces (`*r_hand`, `*l_leg_foot`, ...) are copied from `jedi_hm`. A mesh weighted only
+surfaces (`*r_hand`, `*l_leg_foot`, ...) are copied from `jedi_hm`. Source bones the table
+doesn't know (hair, shoulder pads) go with their nearest known parent. A mesh weighted only
 to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on in
 `model_props.skin`. In the game: `/model asuma` or `/model asuma/props`.
 
