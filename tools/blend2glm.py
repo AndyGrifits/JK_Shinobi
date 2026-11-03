@@ -646,6 +646,8 @@ def main(argv=None):
     ap.add_argument("--textures", required=True, help="folder with the textures the materials use")
     ap.add_argument("--name", help="player model name (default: the .blend's name, lower case)")
     ap.add_argument("--out", default=".", help="writes <out>/models/players/<name>/")
+    ap.add_argument("--title", help="the name on the character screen (default: the model name, capitalised)")
+    ap.add_argument("--female", action="store_true", help="a woman (the character screen sets sex female)")
     ap.add_argument("--armature", help="source armature (default: the one the meshes use)")
     ap.add_argument("--drop", default="", help="comma-separated mesh objects to leave out")
     ap.add_argument("--parts", action="store_true", help="list the connected parts and stop")
@@ -743,6 +745,9 @@ def main(argv=None):
             for s in mesh_surfs:
                 on = with_props or s not in props
                 f.write("%s,%s\n" % (s.name, s.shader if on else "*off"))
+    # the character screen lists every player model with this file: its title, then "female" for a woman
+    with open(os.path.join(outdir, "shinobi.char"), "w", newline="\n") as f:
+        f.write("%s\n%s" % (a.title or name.capitalize(), "female\n" if a.female else ""))
     nv = sum(len(s.verts) for s in mesh_surfs)
     nt = sum(len(s.tris) for s in mesh_surfs)
     print("wrote %s: %d mesh surfaces, %d verts, %d tris, %d tags"

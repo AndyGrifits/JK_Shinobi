@@ -5,9 +5,10 @@ Naruto-style jutsu mod for Star Wars Jedi Knight: Jedi Academy multiplayer, buil
 ## Character screen (Appearance)
 
 **Appearance** on the build screen opens our own character screen instead of the stock
-profile menu: a live 3D preview (drag to turn it), the base (Human Male `jedi_hm` /
-Human Female `jedi_hf`) with all its head / torso / legs skins, the cloth colour (RGB),
-and up to 4 accessories, each with its own fit: size (40-250%), forward / left / up
+profile menu: a live 3D preview (drag to turn it), the character (a tile per player
+model with a `shinobi.char` - Asuma, Kakashi and whatever is added; icon_<look>.tga on
+the tile), its look (`model_<look>.skin`: default, props...), a "Take all off" button
+for the accessories, and up to 4 accessories, each with its own fit: size (40-250%), forward / left / up
 (+-15 units) and tilt forward / turn / tilt sideways. Everything goes out at once through
 the userinfo (`model`, `sex`, `char_color_*`, `shinobi_acc`), so all players see it.
 
@@ -165,7 +166,10 @@ wrapper (`--no-stock-weights` for the old way). `glmpreview.py --twist 70` turns
 the way the game does, to look at it. Source bones the table
 doesn't know (hair, shoulder pads) go with their nearest known parent. A mesh weighted only
 to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on in
-`model_props.skin`. In the game: `/model asuma` or `/model asuma/props`.
+`model_props.skin`. In the game: `/model asuma` or `/model asuma/props`. It also writes
+`shinobi.char` (`--title "Asuma Sarutobi"`, `--female`): every player model folder with
+that file is on the character screen, its `model_*.skin` files are its looks. Pack the
+folder into a pk3 in shinobi/ and it shows up - nothing else to register.
 
 ## Item models
 

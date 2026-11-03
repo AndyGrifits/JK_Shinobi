@@ -2,12 +2,13 @@
 ===========================================================================
 JK_Shinobi - the character screen (Appearance on the build screen).
 
-Instead of the stock profile menu: a base (Human Male / Human Female, the
-customisable jedi_hm / jedi_hf with their head / torso / legs skins), the
-cloth colour, and up to SHINOBI_ACC_MAX of our accessories, each with its own
-scale, offset and turn. A live preview of the whole character, turned by
-dragging it. Every change goes out at once through the "model",
-"char_color_*", "sex" and "shinobi_acc" userinfo, so everyone sees it.
+Instead of the stock profile menu: a character (every player model folder with a
+shinobi.char file - models/players/<name>/shinobi.char: its title on the first line,
+"female" on the second for a woman; tools/blend2glm.py writes it), its look (the
+model_<look>.skin files there: default, props...), and up to SHINOBI_ACC_MAX of our
+accessories, each with its own scale, offset and turn. A live preview of the whole
+character, turned by dragging it. Every change goes out at once through the "model",
+"sex" and "shinobi_acc" userinfo, so everyone sees it.
 ===========================================================================
 */
 #include "ui_local.h"
@@ -20,22 +21,25 @@ int  UI_ParseAnimationFile( const char *filename, animation_t *animset, qboolean
 void UI_InsertG2Pointer( void *ghoul2 );
 void UI_ClearG2Pointer( void *ghoul2 );
 
-#define SC_MAX_SKINS 48
+#define SC_MAX_CHARS 40
+#define SC_MAX_LOOKS 8
 #define SC_MAX_ACC   64
-
-static const char * const scBases[2]      = { "jedi_hm", "jedi_hf" };
-static const char * const scBaseTitles[2] = { "Human Male", "Human Female" };
+#define SC_PAGE      10   // character tiles on one page (2 rows of 5)
 
 typedef struct {
-	char head[SC_MAX_SKINS][32], torso[SC_MAX_SKINS][32], legs[SC_MAX_SKINS][32];
-	int  numHead, numTorso, numLegs;
-} scParts_t;
+	char      dir[32], title[40];
+	qboolean  female;
+	char      looks[SC_MAX_LOOKS][24];   // "default", "props"...
+	int       numLooks;
+	qhandle_t icon;
+} scChar_t;
 
 static struct {
 	qboolean     ready;
-	scParts_t    parts[2];
-	int          base, head, torso, legs; // base 0/1; the rest index parts[base]
-	int          color[3];
+	scChar_t     chars[SC_MAX_CHARS];
+	int          numChars;
+	int          cur, look;                  // the character worn (-1: none of ours), its look
+	int          page;
 	shinobiAcc_t acc[SHINOBI_ACC_MAX];      // name "" = empty slot
 	int          slot;                       // slot being edited
 	char         accList[SC_MAX_ACC][32];
@@ -43,7 +47,7 @@ static struct {
 	int          accCount;
 
 	void        *g2;
-	int          g2Base;                     // the base g2 was made for (-1 none)
+	int          g2Char;                     // the character g2 was made for (-1 none)
 	qhandle_t    skin;
 	char         skinName[MAX_QPATH];
 	int          bolt;
@@ -69,25 +73,69 @@ static struct {
 lists and cvars
 ---------------------------------------------------------------------------
 */
-static void SC_ListSkins( int base ) {
-	static char list[16384];
-	scParts_t  *p = &sc.parts[base];
-	char       *f;
-	int         n, i;
+// every models/players/<dir> with a shinobi.char, and its looks (model_*.skin)
+static void SC_ListChars( void ) {
+	static char dirs[8192], skins[2048];
+	char       *d;
+	int         nd, i;
 
-	memset( p, 0, sizeof( *p ) );
-	n = trap->FS_GetFileList( va( "models/players/%s", scBases[base] ), ".skin", list, sizeof( list ) );
-	for ( i = 0, f = list; i < n; i++, f += strlen( f ) + 1 ) {
-		char  name[32], *dot;
-		Q_strncpyz( name, f, sizeof( name ) );
-		if ( ( dot = strrchr( name, '.' ) ) != NULL )
-			*dot = 0;
-		if ( !Q_stricmpn( name, "head_", 5 ) && p->numHead < SC_MAX_SKINS )
-			Q_strncpyz( p->head[p->numHead++], name, 32 );
-		else if ( !Q_stricmpn( name, "torso_", 6 ) && p->numTorso < SC_MAX_SKINS )
-			Q_strncpyz( p->torso[p->numTorso++], name, 32 );
-		else if ( !Q_stricmpn( name, "lower_", 6 ) && p->numLegs < SC_MAX_SKINS )
-			Q_strncpyz( p->legs[p->numLegs++], name, 32 );
+	sc.numChars = 0;
+	nd = trap->FS_GetFileList( "models/players", "/", dirs, sizeof( dirs ) );
+	for ( i = 0, d = dirs; i < nd && sc.numChars < SC_MAX_CHARS; i++, d += strlen( d ) + 1 ) {
+		scChar_t    *c = &sc.chars[sc.numChars];
+		char         name[32], text[256], *f, *nl;
+		fileHandle_t fh;
+		int          len, ns, k;
+
+		Q_strncpyz( name, d, sizeof( name ) );
+		len = strlen( name );
+		if ( len && ( name[len - 1] == '/' || name[len - 1] == '\\' ) )
+			name[--len] = 0;
+		if ( !name[0] || name[0] == '.' || name[0] == '_' )
+			continue;
+		len = trap->FS_Open( va( "models/players/%s/shinobi.char", name ), &fh, FS_READ );
+		if ( !fh )
+			continue; // not one of ours
+		memset( c, 0, sizeof( *c ) );
+		Q_strncpyz( c->dir, name, sizeof( c->dir ) );
+		Q_strncpyz( c->title, name, sizeof( c->title ) );
+		if ( len > 0 ) {
+			if ( len > (int)sizeof( text ) - 1 )
+				len = sizeof( text ) - 1;
+			trap->FS_Read( text, len, fh );
+			text[len] = 0;
+			if ( ( nl = strchr( text, '\n' ) ) != NULL ) {
+				*nl = 0;
+				char low[256];
+				Q_strncpyz( low, nl + 1, sizeof( low ) );
+				Q_strlwr( low );
+				c->female = strstr( low, "female" ) != NULL;
+			}
+			if ( ( nl = strchr( text, '\r' ) ) != NULL )
+				*nl = 0;
+			if ( text[0] )
+				Q_strncpyz( c->title, text, sizeof( c->title ) );
+		}
+		trap->FS_Close( fh );
+		ns = trap->FS_GetFileList( va( "models/players/%s", name ), ".skin", skins, sizeof( skins ) );
+		for ( k = 0, f = skins; k < ns && c->numLooks < SC_MAX_LOOKS; k++, f += strlen( f ) + 1 ) {
+			char look[32], *dot;
+			if ( Q_stricmpn( f, "model_", 6 ) )
+				continue;
+			Q_strncpyz( look, f + 6, sizeof( look ) );
+			if ( ( dot = strrchr( look, '.' ) ) != NULL )
+				*dot = 0;
+			if ( !Q_stricmp( look, "default" ) && c->numLooks ) { // "default" first
+				Q_strncpyz( c->looks[c->numLooks++], c->looks[0], sizeof( c->looks[0] ) );
+				Q_strncpyz( c->looks[0], look, sizeof( c->looks[0] ) );
+			}
+			else
+				Q_strncpyz( c->looks[c->numLooks++], look, sizeof( c->looks[0] ) );
+		}
+		if ( !c->numLooks )
+			continue;
+		c->icon = trap->R_RegisterShaderNoMip( va( "models/players/%s/icon_%s", name, c->looks[0] ) );
+		sc.numChars++;
 	}
 }
 
@@ -110,15 +158,6 @@ static void SC_ListAccessories( void ) {
 	}
 }
 
-static int SC_Find( char list[][32], int n, const char *name ) {
-	int i;
-	for ( i = 0; i < n; i++ ) {
-		if ( !Q_stricmp( list[i], name ) )
-			return i;
-	}
-	return 0;
-}
-
 static int SC_AccIndex( const char *name ) {
 	int i;
 	for ( i = 0; i < sc.accCount; i++ ) {
@@ -130,47 +169,31 @@ static int SC_AccIndex( const char *name ) {
 
 // read what the player wears now
 static void SC_ReadCvars( void ) {
-	char model[MAX_QPATH], buf[256], *slash, *p1, *p2;
-	int  i;
+	char model[MAX_QPATH], buf[256], *slash;
+	int  i, k;
 
 	trap->Cvar_VariableStringBuffer( "model", model, sizeof( model ) );
-	sc.base = 0;
-	sc.head = sc.torso = sc.legs = 0;
+	sc.cur = -1;
+	sc.look = 0;
 	slash = strchr( model, '/' );
-	if ( slash ) {
-		*slash = 0;
-		for ( i = 0; i < 2; i++ ) {
-			if ( !Q_stricmp( model, scBases[i] ) )
-				sc.base = i;
-		}
-		p1 = strchr( slash + 1, '|' );
-		p2 = p1 ? strchr( p1 + 1, '|' ) : NULL;
-		if ( p1 && p2 && !Q_stricmp( model, scBases[sc.base] ) ) {
-			*p1 = *p2 = 0;
-			sc.head = SC_Find( sc.parts[sc.base].head, sc.parts[sc.base].numHead, slash[1] == '|' ? slash + 2 : slash + 1 );
-			sc.torso = SC_Find( sc.parts[sc.base].torso, sc.parts[sc.base].numTorso, p1 + 1 );
-			sc.legs = SC_Find( sc.parts[sc.base].legs, sc.parts[sc.base].numLegs, p2 + 1 );
-		}
+	if ( slash )
+		*slash++ = 0;
+	for ( i = 0; i < sc.numChars; i++ ) {
+		if ( Q_stricmp( model, sc.chars[i].dir ) )
+			continue;
+		sc.cur = i;
+		for ( k = 0; slash && k < sc.chars[i].numLooks; k++ )
+			if ( !Q_stricmp( slash, sc.chars[i].looks[k] ) )
+				sc.look = k;
 	}
-	sc.color[0] = (int)trap->Cvar_VariableValue( "char_color_red" );
-	sc.color[1] = (int)trap->Cvar_VariableValue( "char_color_green" );
-	sc.color[2] = (int)trap->Cvar_VariableValue( "char_color_blue" );
-	if ( !sc.color[0] && !sc.color[1] && !sc.color[2] )
-		sc.color[0] = sc.color[1] = sc.color[2] = 255;
+	if ( sc.cur >= 0 )
+		sc.page = sc.cur / SC_PAGE;
 
 	memset( sc.acc, 0, sizeof( sc.acc ) );
 	for ( i = 0; i < SHINOBI_ACC_MAX; i++ )
 		Shinobi_AccDefault( &sc.acc[i] );
 	trap->Cvar_VariableStringBuffer( "shinobi_acc", buf, sizeof( buf ) );
 	Shinobi_AccParse( buf, sc.acc, SHINOBI_ACC_MAX );
-}
-
-static const char *SC_PartTitle( int kind, int i ) {
-	const scParts_t *p = &sc.parts[sc.base];
-	const char      *n = kind == 0 ? ( p->numHead ? p->head[i] : "-" )
-		: kind == 1 ? ( p->numTorso ? p->torso[i] : "-" ) : ( p->numLegs ? p->legs[i] : "-" );
-	const char      *u = strchr( n, '_' );
-	return u ? u + 1 : n; // "head_a1" -> "a1"
 }
 
 static const char *SC_AccTitle( const char *name ) {
@@ -190,17 +213,18 @@ static const char *SC_AccTitle( const char *name ) {
 
 // send the look out (userinfo: everyone sees it at once)
 static void SC_ApplyBody( void ) {
-	const scParts_t *p = &sc.parts[sc.base];
-	if ( !p->numHead || !p->numTorso || !p->numLegs )
+	const scChar_t *c;
+	if ( sc.cur < 0 || sc.cur >= sc.numChars )
 		return;
-	trap->Cvar_Set( "model", va( "%s/%s|%s|%s", scBases[sc.base], p->head[sc.head], p->torso[sc.torso], p->legs[sc.legs] ) );
-	trap->Cvar_Set( "sex", sc.base == 1 ? "female" : "male" );
-}
-
-static void SC_ApplyColor( void ) {
-	trap->Cvar_Set( "char_color_red", va( "%i", sc.color[0] ) );
-	trap->Cvar_Set( "char_color_green", va( "%i", sc.color[1] ) );
-	trap->Cvar_Set( "char_color_blue", va( "%i", sc.color[2] ) );
+	c = &sc.chars[sc.cur];
+	if ( sc.look <= 0 || sc.look >= c->numLooks )
+		trap->Cvar_Set( "model", c->dir );
+	else
+		trap->Cvar_Set( "model", va( "%s/%s", c->dir, c->looks[sc.look] ) );
+	trap->Cvar_Set( "sex", c->female ? "female" : "male" );
+	trap->Cvar_Set( "char_color_red", "255" ); // (our models aren't tinted)
+	trap->Cvar_Set( "char_color_green", "255" );
+	trap->Cvar_Set( "char_color_blue", "255" );
 }
 
 static void SC_ApplyAcc( void ) {
@@ -217,14 +241,13 @@ static void SC_ApplyAcc( void ) {
 
 void UI_ShinobiCharOpen( void ) {
 	trap->Cvar_Register( NULL, "shinobi_acc", "", CVAR_USERINFO | CVAR_ARCHIVE );
-	SC_ListSkins( 0 );
-	SC_ListSkins( 1 );
+	SC_ListChars();
 	SC_ListAccessories();
 	SC_ReadCvars();
 	sc.slot = 0;
 	sc.click = sc.mouseDown = sc.rotating = qfalse;
 	sc.drag = NULL;
-	sc.g2Base = -1;
+	sc.g2Char = -1;
 	sc.yaw = 0;
 	sc.ready = qtrue;
 }
@@ -251,10 +274,10 @@ static void SC_LoadInv( void ) {
 }
 
 static void SC_PrepareModel( void ) {
-	const scParts_t *p = &sc.parts[sc.base];
-	char             skinName[MAX_QPATH];
+	const scChar_t *c;
+	char            skinName[MAX_QPATH];
 
-	if ( sc.g2Base != sc.base ) {
+	if ( sc.g2Char != sc.cur ) {
 		char gla[MAX_QPATH], *slash;
 
 		if ( sc.g2 ) {
@@ -262,9 +285,11 @@ static void SC_PrepareModel( void ) {
 			trap->G2API_CleanGhoul2Models( &sc.g2 );
 			sc.g2 = NULL;
 		}
-		sc.g2Base = sc.base;
+		sc.g2Char = sc.cur;
 		sc.skinName[0] = 0;
-		if ( trap->G2API_InitGhoul2Model( &sc.g2, va( "models/players/%s/model.glm", scBases[sc.base] ), 0, 0, 0, 0, 0 ) < 0 || !sc.g2 ) {
+		if ( sc.cur < 0 )
+			return;
+		if ( trap->G2API_InitGhoul2Model( &sc.g2, va( "models/players/%s/model.glm", sc.chars[sc.cur].dir ), 0, 0, 0, 0, 0 ) < 0 || !sc.g2 ) {
 			sc.g2 = NULL;
 			return;
 		}
@@ -285,10 +310,11 @@ static void SC_PrepareModel( void ) {
 			}
 		}
 	}
-	if ( !sc.g2 || !p->numHead || !p->numTorso || !p->numLegs )
+	if ( !sc.g2 || sc.cur < 0 )
 		return;
-	Com_sprintf( skinName, sizeof( skinName ), "models/players/%s/|%s|%s|%s", scBases[sc.base],
-		p->head[sc.head], p->torso[sc.torso], p->legs[sc.legs] );
+	c = &sc.chars[sc.cur];
+	Com_sprintf( skinName, sizeof( skinName ), "models/players/%s/model_%s.skin", c->dir,
+		c->looks[sc.look >= 0 && sc.look < c->numLooks ? sc.look : 0] );
 	if ( Q_stricmp( skinName, sc.skinName ) ) {
 		Q_strncpyz( sc.skinName, skinName, sizeof( sc.skinName ) );
 		sc.skin = trap->R_RegisterSkin( skinName );
@@ -333,10 +359,7 @@ static void SC_DrawPreview( float x, float y, float w, float h ) {
 	VectorCopy( origin, ent.oldorigin );
 	VectorCopy( origin, ent.lightingOrigin );
 	ent.renderfx = RF_LIGHTING_ORIGIN | RF_NOSHADOW;
-	ent.shaderRGBA[0] = sc.color[0];
-	ent.shaderRGBA[1] = sc.color[1];
-	ent.shaderRGBA[2] = sc.color[2];
-	ent.shaderRGBA[3] = 255;
+	ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = ent.shaderRGBA[3] = 255;
 	trap->R_AddRefEntityToScene( &ent );
 
 	if ( sc.invOk && sc.bolt >= 0
@@ -469,8 +492,7 @@ qboolean UI_ShinobiCharKey( int key, qboolean down ) {
 			if ( sc.drag ) { // let go of a slider: send it
 				if ( sc.dragAcc )
 					SC_ApplyAcc();
-				else
-					SC_ApplyColor();
+
 			}
 			sc.drag = NULL;
 			sc.rotating = qfalse;
@@ -486,14 +508,11 @@ qboolean UI_ShinobiCharKey( int key, qboolean down ) {
 qboolean UI_ShinobiCharDraw( void ) {
 	const vec4_t back = { 0.02f, 0.03f, 0.05f, 0.88f }, frame = { 0.5f, 0.7f, 1, 0.5f }, box = { 0, 0, 0, 0.55f };
 	const vec4_t white = { 1, 1, 1, 1 }, dim = { 0.7f, 0.7f, 0.7f, 1 }, title = { 0.55f, 0.85f, 1, 1 };
-	const scParts_t *p;
 	float        x0 = 300, y;
 	int          i, d, back_ = 0;
-	static const char * const kinds[3] = { "HEAD", "TORSO", "LEGS" };
 
 	if ( !sc.ready )
 		UI_ShinobiCharOpen();
-	p = &sc.parts[sc.base];
 	SC_UpdateDrag();
 
 	UI_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, back );
@@ -504,48 +523,62 @@ qboolean UI_ShinobiCharDraw( void ) {
 	UI_FillRect( 20, 40, 260, 400, box );
 	_UI_DrawRect( 20, 40, 260, 400, 1, frame );
 	SC_DrawPreview( 21, 41, 258, 398 );
+	if ( sc.cur < 0 )
+		SC_Text( 40, 230, 0.45f, dim, "pick a character on the right" );
 	if ( sc.click && SC_Over( 20, 40, 260, 400 ) && sc.clickX >= 20 && sc.clickX < 280 && sc.clickY >= 40 && sc.clickY < 440 ) {
 		sc.click = qfalse;
 		sc.rotating = qtrue;
 		sc.rotX = SC_CX;
 	}
 
-	// --- body ---------------------------------------------------------------
-	y = 44;
-	SC_Text( x0, y + 2, 0.5f, white, "BODY" );
-	for ( i = 0; i < 2; i++ ) {
-		if ( SC_Button( x0 + 70 + i * 125, y, 120, 20, scBaseTitles[i], sc.base == i ) && sc.base != i ) {
-			sc.base = i;
-			sc.head = sc.torso = sc.legs = 0;
+	// --- characters (tiles: icon + name), a page at a time -------------------------
+	y = 40;
+	SC_Text( x0, y, 0.5f, white, "CHARACTER" );
+	if ( sc.numChars > SC_PAGE ) {
+		const int pages = ( sc.numChars + SC_PAGE - 1 ) / SC_PAGE;
+		d = SC_Spinner( x0 + 190, y, 130, va( "page %i/%i", sc.page + 1, pages ), qfalse );
+		if ( d )
+			sc.page = ( sc.page + d + pages ) % pages;
+	}
+	y += 20;
+	if ( !sc.numChars )
+		SC_Text( x0, y + 4, 0.4f, dim, "no characters: models/players/<name>/shinobi.char" );
+	for ( i = 0; i < SC_PAGE; i++ ) {
+		const int   k = sc.page * SC_PAGE + i;
+		const float tx = x0 + ( i % 5 ) * 64, ty = y + ( i / 5 ) * 70;
+		const vec4_t tile = { 0.1f, 0.18f, 0.28f, 0.9f }, tileHot = { 0.18f, 0.32f, 0.5f, 0.95f }, tileSel = { 0.15f, 0.45f, 0.2f, 0.95f };
+		const scChar_t *c;
+		float       tw;
+		char        name[16];
+		if ( k >= sc.numChars )
+			break;
+		c = &sc.chars[k];
+		UI_FillRect( tx, ty, 60, 66, k == sc.cur ? tileSel : ( SC_Over( tx, ty, 60, 66 ) ? tileHot : tile ) );
+		_UI_DrawRect( tx, ty, 60, 66, 1, frame );
+		if ( c->icon )
+			UI_DrawHandlePic( tx + 6, ty + 3, 48, 48, c->icon );
+		Q_strncpyz( name, c->title, sizeof( name ) );
+		tw = Text_Width( name, 0.32f, FONT_SMALL );
+		Text_Paint( tx + ( 60 - tw ) * 0.5f, ty + 52, 0.32f, (float *)white, name, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
+		if ( SC_Clicked( tx, ty, 60, 66 ) && k != sc.cur ) {
+			sc.cur = k;
+			sc.look = 0;
 			SC_ApplyBody();
 		}
 	}
-	y += 28;
-	for ( i = 0; i < 3; i++, y += 22 ) {
-		const int n = i == 0 ? p->numHead : i == 1 ? p->numTorso : p->numLegs;
-		int      *cur = i == 0 ? &sc.head : i == 1 ? &sc.torso : &sc.legs;
-		SC_Text( x0, y + 1, 0.45f, white, kinds[i] );
-		d = SC_Spinner( x0 + 70, y, 245, n ? va( "%s  (%i/%i)", SC_PartTitle( i, *cur ), *cur + 1, n ) : "-", qfalse );
-		if ( d && n ) {
-			*cur = ( *cur + d + n ) % n;
-			SC_ApplyBody();
-		}
-	}
+	y += 142;
 
-	// --- colour ---------------------------------------------------------------
-	y += 6;
-	{
-		vec4_t sw;
-		SC_Text( x0, y + 1, 0.5f, white, "COLOUR" );
-		VectorSet( sw, sc.color[0] / 255.0f, sc.color[1] / 255.0f, sc.color[2] / 255.0f );
-		sw[3] = 1;
-		UI_FillRect( x0 + 70, y + 2, 30, 12, sw );
-		_UI_DrawRect( x0 + 70, y + 2, 30, 12, 1, frame );
+	// --- its look ------------------------------------------------------------------
+	if ( sc.cur >= 0 ) {
+		const scChar_t *c = &sc.chars[sc.cur];
+		SC_Text( x0, y + 1, 0.45f, white, "LOOK" );
+		d = SC_Spinner( x0 + 70, y, 245, va( "%s  (%i/%i)", c->looks[sc.look], sc.look + 1, c->numLooks ), qfalse );
+		if ( d && c->numLooks > 1 ) {
+			sc.look = ( sc.look + d + c->numLooks ) % c->numLooks;
+			SC_ApplyBody();
+		}
 	}
-	y += 18;
-	SC_Slider( x0, y, "red", &sc.color[0], 0, 255, "%.0f", 1, qfalse );  y += 15;
-	SC_Slider( x0, y, "green", &sc.color[1], 0, 255, "%.0f", 1, qfalse ); y += 15;
-	SC_Slider( x0, y, "blue", &sc.color[2], 0, 255, "%.0f", 1, qfalse );  y += 22;
+	y += 24;
 
 	// --- accessories --------------------------------------------------------------
 	SC_Text( x0, y, 0.5f, white, "ACCESSORIES" );
@@ -590,6 +623,11 @@ qboolean UI_ShinobiCharDraw( void ) {
 	y = 448;
 	if ( SC_Button( 20, y, 160, 24, "Back to the build", qfalse ) )
 		back_ = 1;
+	if ( SC_Button( 460, y, 150, 24, "Take all off", qfalse ) ) {
+		for ( i = 0; i < SHINOBI_ACC_MAX; i++ )
+			Shinobi_AccDefault( &sc.acc[i] );
+		SC_ApplyAcc();
+	}
 	if ( sc.acc[sc.slot].name[0] && SC_Button( 300, y, 150, 24, "Reset its fit", qfalse ) ) {
 		char name[32];
 		Q_strncpyz( name, sc.acc[sc.slot].name, sizeof( name ) );
