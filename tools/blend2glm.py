@@ -384,6 +384,88 @@ def outline_shells(parts):
     return shells
 
 
+WEAPON_HINTS = ("katana", "weapon", "kunai", "kagi", "saya", "w_15", "_kan")
+
+
+def held_items(parts, parents):
+    """Part ids of things held in the hands (kunai, swords, claws, books): parts on one
+    hand bone only (or a weapon bone below it) that are not the hand itself, grouped with
+    the ones touching them; a group that sticks out of the hand is in the hand. Small
+    things on the hand (a glove plate) stay."""
+    def side_of(bone):
+        b = bone
+        while b is not None:
+            if b in ("L_hand", "R_hand"):
+                return b[0]
+            if any(h in b.lower() for h in WEAPON_HINTS):
+                lo = b.lower()
+                if "_l" in lo or lo.startswith("l_") or "l_" in lo or lo.endswith("l"):
+                    return "L"
+                if "_r" in lo or lo.startswith("r_") or "r_" in lo or lo.endswith("r"):
+                    return "R"
+            b = parents.get(b)
+        return None
+
+    info, hand_box = [], {}
+    rig_fingers = any(is_finger(b) for b in parents)     # some rigs have mitts, no fingers
+    for p in parts:
+        vs = sorted({vi for t in p["tris"] for vi, _ in t})
+        pts = np.asarray(p["co"])[vs]
+        bones = {b for v in vs for b, w in p["weights"][v] if w > 1e-3}
+        sides = {side_of(b) for b in bones}
+        fingers = any(is_finger(b) for b in bones)
+        lo, hi = pts.min(0), pts.max(0)
+        arms = any(b[2:] in ("larm", "harm") for b in bones)
+        if fingers or arms or (not rig_fingers and len(p["tris"]) > 150):
+            # a hand (maybe with its forearm): the box of its vertices mostly on the hand
+            for sd in "LR":
+                hv = [v for v in vs if max(p["weights"][v], key=lambda bw: bw[1])[0] in
+                      (sd + "_hand",) or is_finger(max(p["weights"][v], key=lambda bw: bw[1])[0])
+                      and max(p["weights"][v], key=lambda bw: bw[1])[0].startswith(sd)]
+                if len(hv) < 8:
+                    continue
+                hp = np.asarray(p["co"])[hv]
+                box = hand_box.get(sd)
+                hlo, hhi = hp.min(0), hp.max(0)
+                hand_box[sd] = (hlo, hhi) if box is None else (np.minimum(box[0], hlo), np.maximum(box[1], hhi))
+        elif len(sides) == 1 and None not in sides:
+            # on a weapon bone hanging off the hand (not the hand itself): a grip, a claw
+            weapon = not any(b in ("L_hand", "R_hand") or is_finger(b) for b in bones)
+            info.append([p["part"], sides.pop(), lo, hi, weapon])
+    held = set()
+    for sd in "LR":
+        box = hand_box.get(sd)
+        # what lies flat on the hand inside its outline (glove plates) is part of it
+        held.update(x[0] for x in info if x[1] == sd and x[4])
+        items = [x for x in info if x[1] == sd and not x[4] and not (
+            box is not None and np.all(x[2] >= box[0] - 0.3) and np.all(x[3] <= box[1] + 0.3))]
+        if not items:
+            continue
+        # group the small parts that touch each other
+        group = list(range(len(items)))
+
+        def root(i):
+            while group[i] != i:
+                group[i] = group[group[i]]
+                i = group[i]
+            return i
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                a, b = items[i], items[j]
+                if np.all(a[2] <= b[3] + 0.4) and np.all(b[2] <= a[3] + 0.4):
+                    group[root(i)] = root(j)
+        clusters = {}
+        for i in range(len(items)):
+            clusters.setdefault(root(i), []).append(items[i])
+        for members in clusters.values():
+            lo = np.min([m[2] for m in members], axis=0)
+            hi = np.max([m[3] for m in members], axis=0)
+            out = 99.0 if box is None else max(float(np.max(box[0] - lo)), float(np.max(hi - box[1])))
+            if out > 2.0:
+                held.update(m[0] for m in members)
+    return held
+
+
 def describe_part(p):
     vs = sorted({vi for t in p["tris"] for vi, _ in t})
     pts = np.array([p["co"][v] for v in vs])
@@ -482,10 +564,13 @@ def build_drivers(J, T):
         S = s.upper() + "_"
         D[S + "collar"], _, k1 = segment(J[S + "collar"], J[S + "harm"], T[s + "clavical"], T[s + "humerus"])
         D[S + "harm"], _, k2 = segment(J[S + "harm"], J[S + "larm"], T[s + "humerus"], T[s + "radius"])
-        D[S + "larm"], _, k3 = segment(J[S + "larm"], J[S + "hand"], T[s + "radius"], T[s + "hand"])
-        sk = mid(J[S + "finHi01"], J[S + "finKu01"])
-        tk = mid(T[s + "_d2_j1"], T[s + "_d4_j1"])
-        D[S + "hand"], _, k4 = segment(J[S + "hand"], sk, T[s + "hand"], tk, (0.8, 1.25))
+        D[S + "larm"], rf, k3 = segment(J[S + "larm"], J[S + "hand"], T[s + "radius"], T[s + "hand"])
+        if S + "finHi01" in J and S + "finKu01" in J:
+            sk = mid(J[S + "finHi01"], J[S + "finKu01"])
+            tk = mid(T[s + "_d2_j1"], T[s + "_d4_j1"])
+            D[S + "hand"], _, k4 = segment(J[S + "hand"], sk, T[s + "hand"], tk, (0.8, 1.25))
+        else:                                   # a rig without finger bones (mitts)
+            D[S + "hand"], k4 = affine(rf, J[S + "hand"], T[s + "hand"]), 1.0
         D[S + "hleg"], _, k5 = segment(J[S + "hleg"], J[S + "lleg"], T[s + "femurYZ"], T[s + "tibia"])
         D[S + "lleg"], rl, k6 = segment(J[S + "lleg"], J[S + "foot"], T[s + "tibia"], T[s + "talus"])
         D[S + "foot"] = affine(rl, J[S + "foot"], T[s + "talus"])
@@ -770,6 +855,8 @@ def main(argv=None):
     ap.add_argument("--height", type=float, help="the character's height in cm (Naruto databooks); "
                     "the game draws him at height / %d of the stock size, hitbox included" % ADULT_CM)
     ap.add_argument("--drop-parts", default="", help="comma-separated part ids (see --parts) to leave out")
+    ap.add_argument("--drop-held", action="store_true", help="leave out what the hands hold "
+                    "(kunai, swords, claws, books: found by themselves; --parts shows them)")
     ap.add_argument("--keep-shells", action="store_true", help="keep the outline shells (inside-out "
                     "copies the old games draw black around a mesh; left out by default)")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
@@ -788,11 +875,13 @@ def main(argv=None):
     if True:
         parts = split_parts(meshes)
         shells = set() if a.keep_shells else outline_shells(parts)
+        held = held_items([p for p in parts if p["part"] not in shells], parents)
         if a.parts:
             for p in parts:
-                print(describe_part(p) + ("   <- outline shell" if p["part"] in shells else ""))
+                print(describe_part(p) + ("   <- outline shell" if p["part"] in shells else "")
+                      + ("   <- held" if p["part"] in held else ""))
             return None
-        gone = {d for d in a.drop_parts.split(",") if d} | shells
+        gone = {d for d in a.drop_parts.split(",") if d} | shells | (held if a.drop_held else set())
         props = {d for d in a.prop_parts.split(",") if d}
         unknown = (gone | props) - {p["part"] for p in parts}
         if unknown:
@@ -800,7 +889,8 @@ def main(argv=None):
         keep, extra = {}, []
         for p in parts:
             if p["part"] in gone:
-                print("left out:", describe_part(p), "(outline shell)" if p["part"] in shells else "")
+                print("left out:", describe_part(p), "(outline shell)" if p["part"] in shells
+                      else "(held)" if p["part"] in held else "")
             elif p["part"] in props:
                 print("prop:    ", describe_part(p))
                 extra.append(dict(p, name=p["part"], prop=True))
