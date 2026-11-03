@@ -197,11 +197,15 @@ def build_drivers(J, T):
     rep.append("torso scale x %.3f y %.3f z %.3f" % (sx, sy, sz))
     for n in ("nw4r_root", "Y", "X", "Z", "hip", "waist", "breast", "h_202nuno", "h_203nuno"):
         D[n] = torso
-    # neck / head
-    D["neck"], rn, k = segment(J["neck"], J["head"], T["cervical"], T["cranium"], (0.5, 2.0))
+    # neck / head: the old rigs put the neck joint higher than _humanoid's cervical,
+    # stretching the neck onto it would make a giraffe; the head and neck follow
+    # the torso fit instead (head scaled uniformly), only the pivots differ.
+    D["neck"] = torso
     hs = (sx + sz) / 2
-    D["head"] = affine(hs * rn, J["head"], T["cranium"])
-    rep.append("neck stretch %.2f, head scale %.2f" % (k, hs))
+    hp = (torso @ np.append(J["head"], 1))[:3]
+    D["head"] = affine(hs * np.eye(3), J["head"], hp)
+    d = hp - T["cranium"]
+    rep.append("head scale %.2f, head joint lands %.1f %.1f %.1f from cranium" % (hs, *d))
     for s in "lr":
         S = s.upper() + "_"
         D[S + "collar"], _, k1 = segment(J[S + "collar"], J[S + "harm"], T[s + "clavical"], T[s + "humerus"])

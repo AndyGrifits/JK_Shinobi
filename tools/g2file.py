@@ -80,9 +80,16 @@ class Gla:
     def frame_skin(self, frame):
         """Skinning matrices (3x4) of all bones in a frame."""
         out = [None] * self.num_bones
-        for i, b in enumerate(self.bones):          # parents come before children
-            m = self.frame_bone(frame, i)
-            out[i] = m if b["parent"] < 0 else mul34(out[b["parent"]], m)
+
+        def get(i):                                 # parents can come after children
+            if out[i] is None:
+                m = self.frame_bone(frame, i)
+                p = self.bones[i]["parent"]
+                out[i] = m if p < 0 else mul34(get(p), m)
+            return out[i]
+
+        for i in range(self.num_bones):
+            get(i)
         return out
 
 

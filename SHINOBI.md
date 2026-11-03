@@ -130,6 +130,27 @@ fists / blade / jutsu, to the console and qconsole.log (`[dps] ...`).
   look; the blast stays the same).
 - Enemy projectiles are still thrown back at whoever threw them.
 
+## Player models from old Naruto games
+
+A character ripped with its own game's rig (for now the Clash of Ninja one: `hip`,
+`L_harm`, `R_lleg`, `L_finNa01`...) goes in as a whole player model:
+
+```
+python3 tools/blend2glm.py Asuma.blend --gla _humanoid.gla --tags jedi_hm.glm \
+    --textures <folder with the png> [--drop <duplicate mesh objects>]
+python3 tools/glmpreview.py models/players/asuma/model.glm --gla _humanoid.gla \
+    --cfg animation.cfg --anims base,BOTH_STAND1,BOTH_RUN1:0.3 --tags
+```
+
+(`pip install bpy` for Blender's Python.) Ghoul2 skins a .glm against the bind pose
+stored in `_humanoid.gla`, so a skeleton of the model's own never reaches the game: the
+mesh is bent into the stock pose instead (limbs turned and stretched joint to joint, torso
+and head scaled), its own game's weights are renamed onto the stock bones (spine spread
+over pelvis / lumbar / thoracic by height, fingers onto d1 / d2 / d4), and the tag
+surfaces (`*r_hand`, `*l_leg_foot`, ...) are copied from `jedi_hm`. A mesh weighted only
+to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on in
+`model_props.skin`. In the game: `/model asuma` or `/model asuma/props`.
+
 ## Item models
 
 The kunai, explosive kunai, explosive tag, fuma shuriken and the healing / chakra pills

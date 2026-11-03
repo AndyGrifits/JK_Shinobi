@@ -128,6 +128,8 @@ def main(argv=None):
             R = np.array([[np.cos(rot), -np.sin(rot), 0], [np.sin(rot), np.cos(rot), 0], [0, 0, 1]])
             offset = np.array([(ci * len(views) + vi) * spacing, 0, 0])
             for s, p in skin(surfs, mats):
+                if shaders.get(s.name) == "*off":
+                    continue
                 me = bpy.data.meshes.new(s.name)
                 pts = (p @ R.T) + offset
                 # game triangles are clockwise from outside: flip back for Blender
@@ -155,7 +157,7 @@ def main(argv=None):
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     cam.data.type = "ORTHO"
     cam.data.ortho_scale = max(spacing * n, 90) * 1.0
-    cam.location = ((n - 1) * spacing / 2, -300, 32)
+    cam.location = ((n - 1) * spacing / 2, -300, 26)
     cam.rotation_euler = (np.pi / 2, 0, 0)
     sc.collection.objects.link(cam)
     sc.camera = cam
@@ -164,8 +166,8 @@ def main(argv=None):
     sc.display.shading.color_type = "TEXTURE"
     sc.display.shading.show_backface_culling = True
     sc.render.resolution_x = int(a.size * max(n, 1.5) * 60 / 90)
-    sc.render.resolution_y = a.size
-    cam.data.ortho_scale = max(spacing * n, 90)
+    sc.render.resolution_y = int(a.size * 1.2)
+    cam.data.ortho_scale = max(spacing * n, 90 * 1.2)
     sc.render.film_transparent = False
     sc.world = bpy.data.worlds.new("w")
     sc.render.filepath = os.path.abspath(a.out)
