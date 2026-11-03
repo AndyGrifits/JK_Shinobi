@@ -725,6 +725,7 @@ static void Shinobi_SpawnWaterBullet( gentity_t *ent ) {
 	ball->s.generic1 = SHINOBI_ENT_WATERBALL + li;
 	WATERBALL_LEVEL( ball ) = li + 1;
 	ball->r.ownerNum = ent->s.number;
+	ball->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
 	ball->parent = ent;
 	VectorCopy( mins, ball->r.mins );
 	VectorCopy( maxs, ball->r.maxs );
@@ -1728,6 +1729,7 @@ static void Shinobi_WindWallReflect( gentity_t *w, gentity_t *p, const vec3_t at
 	VectorScale( aim, speed, p->s.pos.trDelta );
 	VectorCopy( at, p->r.currentOrigin );
 	p->r.ownerNum = owner->s.number;
+	p->s.owner = owner->s.number;
 	p->parent = owner;
 	p->enemy = w; // caught once
 

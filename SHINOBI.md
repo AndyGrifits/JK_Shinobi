@@ -205,6 +205,15 @@ While someone guards, a faint bubble stands around him: blue while the guard is 
 yellow above 1/3, red below; each blocked hit makes it flare (the stock shield flash, in that
 colour).
 
+## Sharingan view
+
+While your Sharingan is open: a dark red rim around the view and the eye turning in the top
+right corner; everyone within its range (1400 u) and in sight has a thin red rim of chakra
+(friends in team games excepted; not through walls - that is the Byakugan); every enemy
+missile in flight (kunai, explosive kunai, shuriken, fireballs, water bullets, icicles)
+within 1600 u shows a thin red line along its path for the next 0.6 s, with a ring where it
+will strike.
+
 ## Controls (prototype)
 
 Pick a jutsu with **Q / E** (the list is at the bottom of the screen), **hold F** to

@@ -408,3 +408,41 @@ gfx/shinobi/guardshell
 		tcGen environment
 	}
 }
+
+// Sharingan: a dark red rim around the view (2D, alpha from the texture)
+gfx/shinobi/vignette
+{
+	nopicmip
+	{
+		clampmap gfx/shinobi/vignette
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// Sharingan: the eye in the corner of the view
+gfx/shinobi/tomoe
+{
+	nopicmip
+	{
+		clampmap gfx/shinobi/tomoe
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}
+
+// Sharingan: a thin red rim of chakra around everyone in sight (the body again, a hair
+// bigger, bright only at its edges)
+gfx/shinobi/sharinganrim
+{
+	cull none
+	deformVertexes wave 100 sin 0.5 0 0 0
+	{
+		map gfx/shinobi/guardshell
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+		tcGen environment
+	}
+}

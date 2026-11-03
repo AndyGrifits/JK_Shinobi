@@ -16,6 +16,7 @@ used for loose particles (sparks, smoke, embers) and one-shot bursts.
 static void CG_ShinobiDumpWaterShaders( void );
 static void CG_ShinobiRaiDashForm( centity_t *cent );
 static void CG_ShinobiIceShard( centity_t *cent );
+static int  CG_ShinobiMyEyes( void );
 #include "fx_local.h"
 #include "ui/keycodes.h"
 
@@ -26,7 +27,7 @@ static void CG_ShinobiIceShard( centity_t *cent );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
-	qhandle_t sand, puddleWater, stoneShell, ice, guardShell;
+	qhandle_t sand, puddleWater, stoneShell, ice, guardShell, vignette, tomoe, sharinganRim;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -170,6 +171,9 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.guardShell  = trap->R_RegisterShader( "gfx/shinobi/guardshell" );
+	shinobiShaders.vignette    = trap->R_RegisterShader( "gfx/shinobi/vignette" );
+	shinobiShaders.tomoe       = trap->R_RegisterShader( "gfx/shinobi/tomoe" );
+	shinobiShaders.sharinganRim = trap->R_RegisterShader( "gfx/shinobi/sharinganrim" );
 	{ // puddles and the wave: the game's own Bespin water when it is there, ours otherwise
 		// (shinobi_puddleShader names any other shader)
 		char         name[MAX_QPATH];
@@ -1295,6 +1299,45 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 	}
 }
 
+/*
+Sharingan: the eye reads where an enemy's missile is going - a thin red line along its
+flight (0.6 s ahead, bending with gravity) to where it will strike.
+*/
+#define SHINOBI_PATH_RANGE   1600
+#define SHINOBI_PATH_AHEAD   600   // ms
+#define SHINOBI_PATH_STEPS   8
+static void CG_ShinobiMissilePath( centity_t *cent ) {
+	entityState_t *s = &cent->currentState;
+	vec3_t         a, b, red = { 1.0f, 0.12f, 0.08f };
+	trace_t        tr;
+	int            k;
+
+	if ( CG_ShinobiMyEyes() != SP_SHARINGAN || s->pos.trType == TR_STATIONARY || s->pos.trType == TR_INTERPOLATE )
+		return;
+	if ( s->owner == cg.snap->ps.clientNum )
+		return; // our own
+	if ( s->owner >= 0 && s->owner < MAX_CLIENTS && cgs.gametype >= GT_TEAM
+		&& cgs.clientinfo[s->owner].team == cg.snap->ps.persistant[PERS_TEAM] )
+		return; // a friend's
+	if ( DistanceSquared( cent->lerpOrigin, cg.refdef.vieworg ) > Square( SHINOBI_PATH_RANGE ) )
+		return;
+	VectorCopy( cent->lerpOrigin, a );
+	for ( k = 1; k <= SHINOBI_PATH_STEPS; k++ ) {
+		const float f0 = (float)( k - 1 ) / SHINOBI_PATH_STEPS, f1 = (float)k / SHINOBI_PATH_STEPS;
+		BG_EvaluateTrajectory( &s->pos, cg.time + SHINOBI_PATH_AHEAD * k / SHINOBI_PATH_STEPS, b );
+		CG_Trace( &tr, a, NULL, NULL, b, s->number, MASK_SOLID );
+		if ( tr.fraction < 1.0f )
+			VectorCopy( tr.endpos, b );
+		trap->FX_AddLine( a, b, 1.2f, 1.2f, 0.0f, 0.75f * ( 1.0f - f0 ), 0.75f * ( 1.0f - f1 ), 0.0f, red, red, 0.0f, 1,
+			shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+		if ( tr.fraction < 1.0f ) { // where it strikes
+			CG_ShinobiSpriteA( b, 5.0f, 0, shinobiShaders.ring, 1.0f, 0.15f, 0.1f, 0.8f );
+			break;
+		}
+		VectorCopy( b, a );
+	}
+}
+
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -1304,6 +1347,12 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 
 	if ( s->eType != ET_GENERAL )
 		return qfalse;
+	if ( s->generic1 == SHINOBI_ENT_KUNAI || s->generic1 == SHINOBI_ENT_KUNAI_MARKED || s->generic1 == SHINOBI_ENT_SHURIKEN
+		|| ( s->generic1 == SHINOBI_ENT_EXKUNAI && !s->time2 )
+		|| ( s->generic1 >= SHINOBI_ENT_FIREBALL && s->generic1 < SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL )
+		|| ( s->generic1 >= SHINOBI_ENT_WATERBALL && s->generic1 < SHINOBI_ENT_WATERBALL + SHINOBI_MAX_LEVEL )
+		|| ( s->generic1 >= SHINOBI_ENT_ICESHARD && s->generic1 < SHINOBI_ENT_ICESHARD + SHINOBI_MAX_LEVEL ) )
+		CG_ShinobiMissilePath( cent );
 	if ( s->generic1 >= SHINOBI_ENT_ZONE && s->generic1 < SHINOBI_ENT_ZONE + SZ_COUNT ) {
 		CG_ShinobiZone( cent );
 		return qtrue;
@@ -1644,12 +1693,31 @@ static void CG_ShinobiMistShell( centity_t *cent, refEntity_t *body ) {
 
 // called from CG_Player with the finished body: Byakugan sees it through walls,
 // anyone sees shapes in the Hidden Mist
+// Sharingan: a thin red rim of chakra around everyone in sight (not through walls)
+static void CG_ShinobiSharinganRim( centity_t *cent, refEntity_t *body ) {
+	refEntity_t shell;
+	const int   num = cent->currentState.number;
+
+	if ( !shinobiShaders.sharinganRim || ( cent->currentState.eFlags & ( EF_NODRAW | SHINOBI_EF_RAIDASH ) )
+		|| DistanceSquared( cent->lerpOrigin, cg.snap->ps.origin ) > Square( SHINOBI_SHARINGAN_RANGE ) )
+		return;
+	if ( num < MAX_CLIENTS && cgs.gametype >= GT_TEAM && cgs.clientinfo[num].team == cg.snap->ps.persistant[PERS_TEAM] )
+		return; // a friend
+	shell = *body;
+	shell.customShader = shinobiShaders.sharinganRim;
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT );
+	shell.shaderRGBA[0] = 210; shell.shaderRGBA[1] = 30; shell.shaderRGBA[2] = 22; shell.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
 void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
 	const shinobiSeen_t *seen;
 	refEntity_t shell;
 
 	if ( cent->currentState.number == cg.snap->ps.clientNum || ( cent->currentState.eFlags & EF_DEAD ) )
 		return;
+	if ( CG_ShinobiMyEyes() == SP_SHARINGAN )
+		CG_ShinobiSharinganRim( cent, body );
 	if ( CG_ShinobiMyEyes() != SP_BYAKUGAN || !cgs.media.sightShell
 		|| DistanceSquared( cent->lerpOrigin, cg.snap->ps.origin ) > Square( SHINOBI_BYAKUGAN_RANGE )
 		|| !( seen = CG_ShinobiSeen( cent->currentState.number ) ) ) {
@@ -2079,6 +2147,16 @@ void CG_ShinobiDrawHUD( void ) {
 		}
 	}
 
+	if ( CG_ShinobiMyEyes() == SP_SHARINGAN && shinobiShaders.vignette ) { // the eyes are open: a red rim, the eye in the corner
+		vec4_t c = { 1, 1, 1, 0.85f };
+		trap->R_SetColor( c );
+		CG_DrawPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, shinobiShaders.vignette );
+		c[3] = 0.7f;
+		trap->R_SetColor( c );
+		if ( shinobiShaders.tomoe )
+			CG_DrawRotatePic2( SCREEN_WIDTH - 30, 30, 40, 40, cg.time * 0.03f, shinobiShaders.tomoe );
+		trap->R_SetColor( NULL );
+	}
 	CG_ShinobiDrawHitText(); // damage numbers and hit effects over heads
 	if ( !CG_ShinobiCanCharge() ) {
 		shinobiCharge.jutsu = SJ_NONE;

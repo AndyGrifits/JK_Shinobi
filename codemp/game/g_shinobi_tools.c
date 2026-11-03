@@ -166,6 +166,7 @@ static void Shinobi_SpawnExKunai( gentity_t *ent ) {
 	k->s.modelindex = shinobiMedia.exKunaiModel;
 	k->s.generic1 = SHINOBI_ENT_EXKUNAI;
 	k->r.ownerNum = ent->s.number;
+	k->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
 	k->parent = ent;
 	k->r.contents = 0;
 	VectorSet( k->r.mins, -2, -2, -2 );
@@ -480,6 +481,7 @@ static void Shinobi_SpawnShuriken( gentity_t *ent ) {
 	s->s.modelindex = shinobiMedia.shurikenModel;
 	s->s.generic1 = SHINOBI_ENT_SHURIKEN;
 	s->r.ownerNum = ent->s.number;
+	s->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
 	s->parent = ent;
 	s->r.contents = 0;
 	s->genericValue1 = level.time + SHINOBI_SHURIKEN_LIFE;

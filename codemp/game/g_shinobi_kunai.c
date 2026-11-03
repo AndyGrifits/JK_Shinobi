@@ -175,6 +175,7 @@ void Cmd_Kunai_f( gentity_t *ent ) {
 	k->s.modelindex = kunaiModel;
 	k->s.generic1 = marked ? SHINOBI_ENT_KUNAI_MARKED : SHINOBI_ENT_KUNAI;
 	k->r.ownerNum = ent->s.number;
+	k->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
 	k->parent = ent;
 	k->r.contents = 0;
 	VectorSet( k->r.mins, -2, -2, -2 );

@@ -153,6 +153,7 @@ qboolean Shinobi_CastKaton( gentity_t *ent, int lvl ) {
 	ball->s.generic1 = SHINOBI_ENT_FIREBALL + li;
 	ball->genericValue2 = lvl;
 	ball->r.ownerNum = ent->s.number;
+	ball->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
 	ball->parent = ent;
 	VectorCopy( mins, ball->r.mins );
 	VectorCopy( maxs, ball->r.maxs );

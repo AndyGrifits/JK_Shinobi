@@ -358,6 +358,37 @@ def guardshell(n=128):
     return np.clip(0.06 + 0.85 * rim + 0.08 * ripple * rim, 0, 1)
 
 
+def vignette(n=256):
+    """Sharingan: a dark red rim around the view, clear in the middle (alpha)."""
+    x, y, _, _ = grid(n)
+    r = np.sqrt((x * 0.92) ** 2 + (y * 1.05) ** 2)
+    alpha = np.clip((r - 0.62) / 0.55, 0, 1) ** 1.6 * 0.85
+    rgb = np.dstack([np.full((n, n), 0.42), np.full((n, n), 0.02), np.full((n, n), 0.03)])
+    return rgb, alpha
+
+
+def tomoe(n=128):
+    """The Sharingan: a red iris, a black pupil and ring, three black tomoe around it."""
+    x, y, r, a = grid(n)
+    iris = (r < 0.92).astype(np.float32)
+    ring = np.exp(-((r - 0.55) / 0.035) ** 2)
+    pupil = (r < 0.16).astype(np.float32)
+    marks = np.zeros((n, n), np.float32)
+    for k in range(3):
+        ang = k * 2 * math.pi / 3 - math.pi / 2
+        cx, cy = 0.55 * math.cos(ang), 0.55 * math.sin(ang)
+        marks = np.maximum(marks, (np.sqrt((x - cx) ** 2 + (y - cy) ** 2) < 0.13).astype(np.float32))
+        # the tail sweeps back along the ring
+        for t in np.linspace(0.0, 0.55, 14):
+            tx, ty = 0.55 * math.cos(ang - t), 0.55 * math.sin(ang - t)
+            w = 0.11 * (1 - t / 0.6)
+            marks = np.maximum(marks, (np.sqrt((x - tx) ** 2 + (y - ty) ** 2) < w).astype(np.float32))
+    black = np.clip(np.maximum(np.maximum(ring, pupil), marks), 0, 1)
+    rgb = np.dstack([0.85 * (1 - black), 0.05 * (1 - black), 0.06 * (1 - black)])
+    edge = np.clip((0.92 - r) / 0.04, 0, 1)
+    return rgb, iris * edge
+
+
 def shadow_band(n=64):
     """Shadow Bind strip: black, solid in the middle of the width, soft edges."""
     _, y, _, _ = grid(n)
@@ -478,6 +509,8 @@ def main():
     save_rgba("droplet", *droplet())
     save("streak", streak())
     save("guardshell", guardshell())
+    save_rgba("vignette", *vignette())
+    save_rgba("tomoe", *tomoe())
     save_rgba("shadowband", *shadow_band())
 
     models = os.path.join(ROOT, "assets", "models", "shinobi")
