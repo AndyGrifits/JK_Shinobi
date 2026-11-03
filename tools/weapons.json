@@ -87,17 +87,17 @@
   "knife": {
     "title": "Trench Knife",
     "source": "Ninja Knuckle Knives/Ninja Knuckle Knives.obj",
-    "map": "Y,-Z,-X",
+    "map": "-Y,-Z,X",
     "grip": [
       4.5,
       0,
       -1.0
     ],
-    "scale": 0.55,
+    "scale": 0.32,
     "blades": [
       [
-        2.5,
-        1,
+        -2.0,
+        -1,
         40
       ]
     ],
