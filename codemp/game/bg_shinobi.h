@@ -55,7 +55,7 @@ typedef enum {
 	SJ_SHADOW,    // shadow bind (held)
 	SJ_WATERCLONE,// water clone: casts the next jutsu of your build on its own
 	SJ_HIRAISHIN, // flying thunder god: teleport to your marked kunai
-	SJ_RAITRAP,   // lightning trap: one marked kunai discharges, two or three string a lightning net
+	SJ_RAITRAP,   // lightning trap: two or three marked kunai string a lightning net
 	SJ_MIST,      // hidden mist: a bank of fog around you
 	SJ_QUAKE,     // earthquake: long charge, the radius grows with it
 	SJ_WINDWALL,  // wind wall: throws projectiles back at their thrower
@@ -557,7 +557,14 @@ The shield no longer soaks damage on its own.
 #define SHINOBI_BLOCK_ARC          0.26f  // cos of the half-angle covered (~75 deg)
 #define SHINOBI_PARRY_MS           200    // perfect parry window after pressing block
 #define SHINOBI_PARRY_SPAM_MS      700    // presses closer than this get no parry window
-#define SHINOBI_PARRY_STAGGER_MS   800    // the parried attacker reels
+#define SHINOBI_PARRY_STAGGER_MS   1500   // the parried attacker reels (long enough to step in and hit)
+// a blade swing on a blade guard costs by the swing's style, once per swing (the
+// stock SP-style damage of the touch itself is only a few points)
+#define SHINOBI_GUARD_SWING_FAST   24
+#define SHINOBI_GUARD_SWING_MEDIUM 34
+#define SHINOBI_GUARD_SWING_STRONG 50
+#define SHINOBI_GUARD_SWING_OTHER  30     // dual / staff
+#define SHINOBI_GUARD_SWING_MS     350    // the same attacker's next touch within this is the same swing
 #define SHINOBI_GUARD_BREAK_MS     1000   // the guard broke: reeling
 #define SHINOBI_PARRY_REACH        160    // parried attackers this close get staggered
 #define SHINOBI_BLOCK_ANIM         BOTH_P1_S1_T_
@@ -630,9 +637,9 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 // Fuma Shuriken: only one carried; thrown like a saber, it flies out, turns and comes back
 // to the hand (catch it to throw again); a wall on the way keeps it - go and pull it out
 #define SHINOBI_SHURIKEN_MAX       1
-#define SHINOBI_SHURIKEN_SPEED     1100
+#define SHINOBI_SHURIKEN_SPEED     750
 #define SHINOBI_SHURIKEN_RANGE     850   // flies out this far, then turns back
-#define SHINOBI_SHURIKEN_BACK_SPEED 1000
+#define SHINOBI_SHURIKEN_BACK_SPEED 700
 #define SHINOBI_SHURIKEN_CATCH     48    // close enough to the thrower: caught
 #define SHINOBI_SHURIKEN_DAMAGE    45    // to each one it cuts, once out and once back
 #define SHINOBI_SHURIKEN_LIFE      5000  // in the air at most (then it just drops)
@@ -1107,7 +1114,7 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"hold F: a shadow crawls ahead; whoever it catches copies your moves",
 	"a water clone (30 s) that fights and uses the next water jutsu in your list (paid by you)",
 	"teleport to your marked kunai (Shift+Z), or behind the enemy it marked",
-	"one marked kunai (Shift+Z) discharges: damage and a short stun around it; two or three: lightning strings between them (a line / a triangle, up to 500 u a side) for 8 s - whoever crosses it is shocked and stunned",
+	"needs two or three marked kunai (Shift+Z): lightning strings between them (a line / a triangle, up to 500 u a side) for 8 s - whoever crosses it (you too) is shocked and stunned",
 	"a bank of fog around you: only shapes show inside; wind blows it away, Byakugan sees through",
 	"long charge (bigger radius): the ground cracks, then knocks down everyone standing on it and leaves dust (water makes it mud). Jump!",
 	"a wall of wind ahead (4-8 s): fireballs, water bullets and kunai fly back at whoever threw them; fireballs grow",

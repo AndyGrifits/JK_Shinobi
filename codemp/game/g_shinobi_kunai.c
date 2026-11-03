@@ -7,8 +7,7 @@ JK_Shinobi - kunai and what is built on them.
                if it hits an enemy, that enemy carries the mark for 12 s
   Hiraishin    (Yin/Yang jutsu) teleport to your newest mark - behind the
                marked enemy if it is on one
-  Lightning Trap (Raiton jutsu) one mark: it discharges (damage and a short
-               stun around it); two or three: a lightning net between them
+  Lightning Trap (Raiton jutsu) two or three marks: a lightning net between them
 
 Also here: Shift + attack infuses fists, kicks and the blade with chakra.
 ===========================================================================
@@ -286,48 +285,13 @@ qboolean Shinobi_CastHiraishin( gentity_t *ent ) {
 	return qtrue;
 }
 
-static void Shinobi_RaiShock( gentity_t *v, gentity_t *inflictor, gentity_t *ent, int damage, int stunMs );
-
-// one marked kunai discharges: damage and a short stun around it (the kunai is used up)
-static void Shinobi_RaiDischarge( gentity_t *ent, gentity_t *k ) {
-	vec3_t pos, up = { 0, 0, 1 };
-	int    j;
-
-	VectorCopy( k->r.currentOrigin, pos );
-	for ( j = 0; j < level.num_entities; j++ ) {
-		gentity_t *v = &g_entities[j];
-		trace_t    tr;
-		if ( !v->inuse || !v->client || v == ent || v->health <= 0 )
-			continue;
-		if ( Shinobi_DamageBlocked( v, ent ) || ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) ) )
-			continue;
-		if ( Distance( v->r.currentOrigin, pos ) > SHINOBI_RAITRAP_RADIUS )
-			continue;
-		trap->Trace( &tr, pos, NULL, NULL, v->r.currentOrigin, k->s.number, MASK_SOLID, qfalse, 0, 0 );
-		if ( tr.fraction < 1.0f && tr.entityNum != v->s.number && !( KUNAI_ON( k ) && j == KUNAI_ON( k ) - 1 ) )
-			continue;
-		Shinobi_RaiShock( v, k, ent, SHINOBI_RAITRAP_DAMAGE, SHINOBI_RAITRAP_STUN_MS );
-	}
-	Shinobi_ElectrifyAt( pos, ent->s.number + 1 );
-	Shinobi_EffectDir( shinobiMedia.fxChidoriHit[1], pos, up );
-	G_PlayEffectID( shinobiMedia.fxEmp, pos, up );
-	G_SoundAtLoc( pos, CHAN_AUTO, shinobiMedia.sndChidoriHit );
-	G_FreeEntity( k );
-}
-
-// lightning damage and a stun (the stun not through Stone Skin / Kaiten)
+// lightning damage and a real stun - rooted, no attacks (not through Stone Skin / Kaiten / fresh CC immunity)
 static void Shinobi_RaiShock( gentity_t *v, gentity_t *inflictor, gentity_t *ent, int damage, int stunMs ) {
 	shinobiHitElement = SE_LIGHTNING;
-	G_Damage( v, inflictor, ent, NULL, v->r.currentOrigin, damage, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
+	G_Damage( v, inflictor, v == ent ? inflictor : ent, NULL, v->r.currentOrigin, damage, DAMAGE_NO_KNOCKBACK, MOD_DEMP2 );
 	shinobiHitElement = SE_NONE;
-	if ( v->inuse && v->client && v->health > 0 && v->s.number < MAX_CLIENTS && !Shinobi_CCImmune( v ) ) {
-		v->client->ps.electrifyTime = level.time + stunMs;
-		if ( v->client->ps.weaponTime < stunMs )
-			v->client->ps.weaponTime = stunMs;
-		v->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-		v->client->ps.pm_time = stunMs / 2;
-		Shinobi_CCGrant( v, level.time + stunMs );
-	}
+	if ( v->inuse && v->client && v->health > 0 )
+		Shinobi_Paralyse( v, stunMs );
 }
 
 /*
@@ -427,6 +391,8 @@ static void Shinobi_RaiNetThink( gentity_t *net ) {
 		k[i] = Shinobi_RaiNetKunai( net, i );
 		if ( k[i] ) {
 			VectorCopy( k[i]->r.currentOrigin, node[i] );
+			if ( KUNAI_STUCK( k[i] ) && !KUNAI_ON( k[i] ) )
+				VectorMA( node[i], 6, k[i]->movedir, node[i] ); // a stuck kunai bites into the surface: the line starts at its grip
 			alive++;
 		}
 	}
@@ -453,11 +419,11 @@ static void Shinobi_RaiNetThink( gentity_t *net ) {
 		vec3_t     foot, head;
 		qboolean   carrier = qfalse;
 
-		if ( !lit || !v->inuse || !v->client || v == owner || v->health <= 0 || !v->takedamage )
-			continue;
+		if ( !lit || !v->inuse || !v->client || v->health <= 0 || !v->takedamage )
+			continue; // (its maker too: his own lightning doesn't know him)
 		if ( j < MAX_CLIENTS && ( v->client->sess.sessionTeam == TEAM_SPECTATOR || v->client->shinobi.raiNetNext > level.time ) )
 			continue;
-		if ( Shinobi_DamageBlocked( v, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, v ) ) )
+		if ( v != owner && ( Shinobi_DamageBlocked( v, owner ) || ( level.gametype >= GT_TEAM && OnSameTeam( owner, v ) ) ) )
 			continue;
 		for ( i = 0; i < RAINET_COUNT( net ); i++ )
 			carrier |= ( k[i] && KUNAI_ON( k[i] ) == j + 1 );
@@ -498,8 +464,7 @@ static void Shinobi_RaiNetThink( gentity_t *net ) {
 }
 
 /*
-Lightning Trap (Raiton): one mark in place - it discharges around itself; two or
-three - a lightning net between them (the newest three).
+Lightning Trap (Raiton): two or three marks in place - a lightning net between them.
 */
 qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
 	gentity_t *marks[SHINOBI_MARK_MAX], *net;
@@ -518,14 +483,10 @@ qboolean Shinobi_CastRaiTrap( gentity_t *ent ) {
 			marks[j + 1] = marks[j];
 		marks[j + 1] = t;
 	}
-	if ( !n ) {
+	if ( n < 2 ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		trap->SendServerCommand( ent - g_entities, "cp \"No marked kunai to discharge (Shift+Z)\"" );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"Lightning Trap needs 2-3 marked kunai (Shift+Z): %i in place\"", n ) );
 		return qfalse;
-	}
-	if ( n == 1 ) {
-		Shinobi_RaiDischarge( ent, marks[0] );
-		return qtrue;
 	}
 
 	net = G_Spawn();

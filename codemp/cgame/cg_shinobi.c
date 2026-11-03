@@ -1363,45 +1363,6 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 	}
 }
 
-/*
-Sharingan: the eye reads where an enemy's missile is going - a thin red line along its
-flight (0.6 s ahead, bending with gravity) to where it will strike.
-*/
-#define SHINOBI_PATH_RANGE   1600
-#define SHINOBI_PATH_AHEAD   600   // ms
-#define SHINOBI_PATH_STEPS   8
-static void CG_ShinobiMissilePath( centity_t *cent ) {
-	entityState_t *s = &cent->currentState;
-	vec3_t         a, b, red = { 1.0f, 0.12f, 0.08f };
-	trace_t        tr;
-	int            k;
-
-	if ( CG_ShinobiMyEyes() != SP_SHARINGAN || s->pos.trType == TR_STATIONARY || s->pos.trType == TR_INTERPOLATE )
-		return;
-	if ( s->owner == cg.snap->ps.clientNum )
-		return; // our own
-	if ( s->owner >= 0 && s->owner < MAX_CLIENTS && cgs.gametype >= GT_TEAM
-		&& cgs.clientinfo[s->owner].team == cg.snap->ps.persistant[PERS_TEAM] )
-		return; // a friend's
-	if ( DistanceSquared( cent->lerpOrigin, cg.refdef.vieworg ) > Square( SHINOBI_PATH_RANGE ) )
-		return;
-	VectorCopy( cent->lerpOrigin, a );
-	for ( k = 1; k <= SHINOBI_PATH_STEPS; k++ ) {
-		const float f0 = (float)( k - 1 ) / SHINOBI_PATH_STEPS, f1 = (float)k / SHINOBI_PATH_STEPS;
-		BG_EvaluateTrajectory( &s->pos, cg.time + SHINOBI_PATH_AHEAD * k / SHINOBI_PATH_STEPS, b );
-		CG_Trace( &tr, a, NULL, NULL, b, s->number, MASK_SOLID );
-		if ( tr.fraction < 1.0f )
-			VectorCopy( tr.endpos, b );
-		trap->FX_AddLine( a, b, 1.2f, 1.2f, 0.0f, 0.75f * ( 1.0f - f0 ), 0.75f * ( 1.0f - f1 ), 0.0f, red, red, 0.0f, 1,
-			shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
-		if ( tr.fraction < 1.0f ) { // where it strikes
-			CG_ShinobiSpriteA( b, 5.0f, 0, shinobiShaders.ring, 1.0f, 0.15f, 0.1f, 0.8f );
-			break;
-		}
-		VectorCopy( b, a );
-	}
-}
-
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -1411,12 +1372,6 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 
 	if ( s->eType != ET_GENERAL )
 		return qfalse;
-	if ( s->generic1 == SHINOBI_ENT_KUNAI || s->generic1 == SHINOBI_ENT_KUNAI_MARKED || s->generic1 == SHINOBI_ENT_SHURIKEN
-		|| ( s->generic1 == SHINOBI_ENT_EXKUNAI && !s->time2 )
-		|| ( s->generic1 >= SHINOBI_ENT_FIREBALL && s->generic1 < SHINOBI_ENT_FIREBALL + SHINOBI_MAX_LEVEL )
-		|| ( s->generic1 >= SHINOBI_ENT_WATERBALL && s->generic1 < SHINOBI_ENT_WATERBALL + SHINOBI_MAX_LEVEL )
-		|| ( s->generic1 >= SHINOBI_ENT_ICESHARD && s->generic1 < SHINOBI_ENT_ICESHARD + SHINOBI_MAX_LEVEL ) )
-		CG_ShinobiMissilePath( cent );
 	if ( s->generic1 >= SHINOBI_ENT_ZONE && s->generic1 < SHINOBI_ENT_ZONE + SZ_COUNT ) {
 		CG_ShinobiZone( cent );
 		return qtrue;
@@ -1819,6 +1774,35 @@ void CG_ShinobiOutline( centity_t *cent, const refEntity_t *src ) {
 	trap->R_AddRefEntityToScene( &o );
 }
 
+/*
+Sharingan: the eye reads where an enemy is aiming - a thin red line from his eyes
+along his look to the first thing it meets (only for those in plain sight).
+*/
+#define SHINOBI_AIM_RANGE    1600
+static void CG_ShinobiAimRay( centity_t *cent ) {
+	vec3_t  eye, fwd, end, mid, red = { 1.0f, 0.12f, 0.08f };
+	trace_t tr;
+
+	VectorCopy( cent->lerpOrigin, eye );
+	eye[2] += 30;
+	CG_Trace( &tr, cg.refdef.vieworg, NULL, NULL, eye, cg.snap->ps.clientNum, MASK_SOLID );
+	if ( tr.fraction < 1.0f )
+		return; // not in sight
+	AngleVectors( cent->lerpAngles, fwd, NULL, NULL );
+	VectorMA( eye, 10, fwd, eye );
+	VectorMA( eye, SHINOBI_AIM_RANGE, fwd, end );
+	CG_Trace( &tr, eye, NULL, NULL, end, cent->currentState.number, MASK_SHOT );
+	VectorCopy( tr.endpos, end );
+	VectorAdd( eye, end, mid );
+	VectorScale( mid, 0.5f, mid );
+	trap->FX_AddLine( eye, mid, 0.9f, 0.9f, 0.0f, 0.7f, 0.5f, 0.0f, red, red, 0.0f, 1,
+		shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	trap->FX_AddLine( mid, end, 0.9f, 0.9f, 0.0f, 0.5f, 0.25f, 0.0f, red, red, 0.0f, 1,
+		shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	if ( tr.fraction < 1.0f ) // where it points
+		CG_ShinobiSpriteA( end, 4.0f, 0, shinobiShaders.ring, 1.0f, 0.15f, 0.1f, 0.8f );
+}
+
 // Sharingan: a thin red rim of chakra around everyone in sight (not through walls)
 static void CG_ShinobiSharinganRim( centity_t *cent, refEntity_t *body ) {
 	refEntity_t shell;
@@ -1834,6 +1818,8 @@ static void CG_ShinobiSharinganRim( centity_t *cent, refEntity_t *body ) {
 	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT );
 	shell.shaderRGBA[0] = 210; shell.shaderRGBA[1] = 30; shell.shaderRGBA[2] = 22; shell.shaderRGBA[3] = 255;
 	trap->R_AddRefEntityToScene( &shell );
+	if ( num < MAX_CLIENTS )
+		CG_ShinobiAimRay( cent );
 }
 
 void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
@@ -2016,16 +2002,18 @@ static void CG_ShinobiKaitenDome( centity_t *cent ) {
 	for ( side = 0; side < 2; side++ ) {
 		memset( &ent, 0, sizeof( ent ) );
 		VectorCopy( cent->lerpOrigin, ent.origin );
-		ent.origin[2] += 4.0f;
+		ent.origin[2] += DEFAULT_MINS_2 + 2.0f; // the middle at the feet: a dome over the ground
 		VectorSubtract( cg.refdef.vieworg, ent.origin, d );
 		if ( side )
 			VectorScale( d, -1.0f, d );
 		vectoangles( d, ang );
 		ang[ROLL] = cg.time * 0.4f * ( side ? -1.0f : 1.0f ); // turning
 		AnglesToAxis( ang, ent.axis );
-		s = 1.6f + 0.04f * sinf( cg.time * 0.02f );
-		for ( i = 0; i < 3; i++ )
+		s = 1.75f + 0.04f * sinf( cg.time * 0.02f );
+		for ( i = 0; i < 3; i++ ) {
 			VectorScale( ent.axis[i], s, ent.axis[i] );
+			ent.axis[i][2] *= 0.62f; // squashed: wider than tall
+		}
 		ent.nonNormalizedAxes = qtrue;
 		ent.hModel = cgs.media.halfShieldModel;
 		ent.customShader = shinobiShaders.kaitenShell;
@@ -2201,7 +2189,13 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 			continue;
 		y0 = y;
 
-		if ( s->flags & SHINOBI_SEEN_HEALTH ) {
+		if ( ( s->flags & SHINOBI_SEEN_HEALTH ) && ( s->flags & SHINOBI_SEEN_CLONE ) ) { // the Sharingan sees through it
+			vec4_t      c = { 1.0f, 0.55f, 0.5f, 0.95f };
+			const float w = CG_Text_Width( "clone", 0.4f, FONT_SMALL );
+			CG_Text_Paint( x - w * 0.5f, y - 4, 0.4f, c, "clone", 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
+			y += 10;
+		}
+		else if ( s->flags & SHINOBI_SEEN_HEALTH ) {
 			vec4_t c = { 0.9f, 0.15f, 0.1f, 0.9f };
 			frac = s->maxhp > 0 ? Com_Clamp( 0, 1, (float)s->hp / s->maxhp ) : 0;
 			CG_FillRect( x - 26, y, 52, 6, back );

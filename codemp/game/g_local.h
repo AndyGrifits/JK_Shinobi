@@ -830,6 +830,7 @@ struct gclient_s {
 		int		kawarimiDecoy;	// the double's entity number + 1
 		qboolean kawarimiPending; // waiting for the double to appear before hiding
 		qboolean kawarimiPhase;	// non-solid until clear of other bodies
+		int		kawarimiHeld;	// buttons already held when it was cast (only a new press reveals; -1 bit 31: jump held)
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast
@@ -839,6 +840,7 @@ struct gclient_s {
 		int		kaitenTick, kaitenFx;
 		int		raiNetNext;		// a lightning net shocks him again only after this
 		float	chakraFrac;		// fractions of chakra earned in fights, not yet whole
+		int		chakraShow, chakraShowNext; // earned chakra not yet shown as "+N chakra", next time it may show
 		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
 		// elements (g_shinobi_nature.c)
 		int		burnEnd, burnTick, burnAttacker; // on fire until; attacker num + 1
@@ -866,6 +868,7 @@ struct gclient_s {
 		int		gatesFx;		// next aura puff
 		qboolean blocking;		// guard up this frame (Ctrl)
 		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)
+		int		guardSwingBy, guardSwingUntil; // a blade swing already paid for (attacker num + 1, until)
 		int		guardRegen;		// guard starts coming back at
 		int		staggerEnd;		// reeling (guard broken / parried) until
 		int		flinchEnd;		// flinching from a combo punch until (no attacks / jutsu)
@@ -1501,6 +1504,8 @@ void Cmd_Kagemane_f( gentity_t *ent );
 void Cmd_MizuBunshin_f( gentity_t *ent );
 void Cmd_Kunai_f( gentity_t *ent );
 void Shinobi_RunFrame( void );
+void Cmd_ShinobiAutotest_f( gentity_t *ent );
+extern gentity_t *shinobiTestInflictor; // the inflictor of the damage being logged (Shinobi_DpsLog)
 void Shinobi_Reveal( gentity_t *ent );
 void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
 void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod );

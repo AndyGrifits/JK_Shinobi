@@ -67,6 +67,8 @@ static void Shinobi_BotRandomBuild( shinobiBuild_t *b ) {
 	Shinobi_BuildFix( b );
 }
 
+void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b ) { Shinobi_BotRandomBuild( b ); } // (the autotest)
+
 // called from Shinobi_ApplyBuild before the build is copied in
 void Shinobi_BotPrepare( gentity_t *ent ) {
 	gclient_t *client = ent->client;
@@ -126,6 +128,8 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 
 	if ( !( ent->r.svFlags & SVF_BOT ) || forcePower == FP_LEVITATION )
 		return qfalse;
+	if ( Shinobi_AutotestControls( ent ) )
+		return qtrue; // a test drives it
 	if ( !Shinobi_CanAct( ent ) || client->shinobi.chargeJutsu != SJ_NONE || client->shinobi.botJutsuNext > level.time )
 		return qtrue;
 
@@ -252,7 +256,8 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	gentity_t *threat = NULL, *reeling = NULL;
 	int        i;
 
-	if ( !( ent->r.svFlags & SVF_BOT ) || ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
+	if ( !( ent->r.svFlags & SVF_BOT ) || ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR
+		|| Shinobi_AutotestControls( ent ) )
 		return;
 
 	// caught in a combo: after the second blow (counted in Shinobi_Flinch), maybe Kawarimi out
@@ -290,8 +295,10 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	// a blow coming: maybe the guard (decided once per blow, held a moment)
 	if ( threat && client->shinobi.botGuardNext <= level.time && client->shinobi.botGuardUntil <= level.time ) {
 		client->shinobi.botGuardNext = level.time + 450;
-		if ( client->ps.stats[STAT_ARMOR] * 4 > SHINOBI_GUARD_MAX && Q_irand( 0, 99 ) < shinobi_botguard.integer )
+		if ( client->ps.stats[STAT_ARMOR] * 4 > SHINOBI_GUARD_MAX && Q_irand( 0, 99 ) < shinobi_botguard.integer ) {
 			client->shinobi.botGuardUntil = level.time + Q_irand( 350, 800 );
+			shinobiTest.botGuards++;
+		}
 	}
 	if ( client->shinobi.botGuardUntil > level.time ) {
 		if ( client->ps.stats[STAT_ARMOR] * 6 < SHINOBI_GUARD_MAX ) {
@@ -317,7 +324,7 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 void Shinobi_BotThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
-	if ( !( ent->r.svFlags & SVF_BOT ) )
+	if ( !( ent->r.svFlags & SVF_BOT ) || Shinobi_AutotestControls( ent ) )
 		return;
 	if ( client->shinobi.chargeJutsu != SJ_NONE && level.time >= client->shinobi.botHoldEnd )
 		Cmd_JutsuRelease_f( ent ); // a held jutsu let go / a charged one cast at its bar

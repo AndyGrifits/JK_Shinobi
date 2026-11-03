@@ -113,6 +113,26 @@ qboolean  Shinobi_CastHiraishin( gentity_t *ent );
 qboolean  Shinobi_CastRaiTrap( gentity_t *ent );
 qboolean  Shinobi_CastShadowTrap( gentity_t *ent );
 void      Shinobi_HealStop( gentity_t *ent );
+void      Shinobi_ChakraTextThink( gentity_t *ent );
+
+// g_shinobi_autotest.c: what happened, counted for the automatic tests
+#define SHINOBI_TEST_DMGLOG 128
+typedef struct {
+	int  time, targ, attacker, take, mod;
+	char inflictor[24];
+} shinobiTestDamage_t;
+typedef struct {
+	int guardHits, guardCost, guardBreaks, parries, botGuards;
+	int kawarimiHides, launches, airHits, slams, stuns;
+	int kaitenBlocks, kaitenDeflects;
+	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];
+	shinobiTestDamage_t dmg[SHINOBI_TEST_DMGLOG];
+	int dmgNext;
+} shinobiTest_t;
+extern shinobiTest_t shinobiTest;
+qboolean  Shinobi_AutotestControls( gentity_t *ent ); // a test drives this bot (its AI is off)
+void      Shinobi_AutotestDrive( gentity_t *ent, usercmd_t *ucmd );
+void      Shinobi_AutotestFrame( void );
 qboolean  Shinobi_CastKaiten( gentity_t *ent );
 void      Shinobi_KaitenStop( gentity_t *ent );
 qboolean  Shinobi_KaitenSpinning( gentity_t *ent );            // the dome is up: nothing gets through

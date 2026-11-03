@@ -325,7 +325,7 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 						continue;
 				}
 			}
-			flags = SHINOBI_SEEN_HEALTH | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
+			flags = SHINOBI_SEEN_HEALTH | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 ); // (it sees through clones)
 		}
 		else {
 			if ( dist > SHINOBI_BYAKUGAN_RANGE )
@@ -333,7 +333,7 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 			flags = SHINOBI_SEEN_CHAKRA | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
 		}
 
-		// a clone is a perfect copy to the Sharingan: it shows its owner's health
+		// (a clone's numbers are its owner's; the eyes just mark it "clone")
 		who = clone ? Shinobi_CloneOwner( e ) : e;
 		if ( !who || !who->client )
 			who = e;
@@ -486,8 +486,24 @@ void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ) {
 	c->ps.fd.forcePower += whole;
 	if ( c->ps.fd.forcePower > c->ps.fd.forcePowerMax )
 		c->ps.fd.forcePower = c->ps.fd.forcePowerMax;
+	c->shinobi.chakraShow += whole; // shown to him, a few gains summed (Shinobi_ChakraTextThink)
+	shinobiTest.chakraGained[ent->s.number] += whole;
 	if ( show )
-		Shinobi_HitText( ent, STX_CHAKRA, whole );
+		c->shinobi.chakraShowNext = 0; // a bonus: at once
+	Shinobi_ChakraTextThink( ent );
+}
+
+// "+N chakra" over the one who earned it - only to him, at most twice a second
+void Shinobi_ChakraTextThink( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	if ( !c || c->shinobi.chakraShow <= 0 || level.time < c->shinobi.chakraShowNext || !shinobi_hitnumbers.integer )
+		return;
+	if ( !( ent->r.svFlags & SVF_BOT ) )
+		trap->SendServerCommand( ent - g_entities, va( "stx %i %i %i", ent->s.number, STX_CHAKRA, c->shinobi.chakraShow ) );
+	if ( ent->s.number < MAX_CLIENTS )
+		shinobiTest.chakraTexts[ent->s.number]++;
+	c->shinobi.chakraShow = 0;
+	c->shinobi.chakraShowNext = level.time + 500;
 }
 
 // floating combat text over a target, for everyone who can see it (shinobi_hitnumbers)
@@ -500,6 +516,17 @@ void Shinobi_HitText( gentity_t *targ, int kind, int value ) {
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	gclient_t *c;
 	int        kind;
+
+	if ( take > 0 && targ ) { // (the autotest reads who hurt whom with what)
+		shinobiTestDamage_t *d = &shinobiTest.dmg[shinobiTest.dmgNext];
+		shinobiTest.dmgNext = ( shinobiTest.dmgNext + 1 ) % SHINOBI_TEST_DMGLOG;
+		d->time = level.time;
+		d->targ = targ->s.number;
+		d->attacker = attacker ? attacker->s.number : ENTITYNUM_WORLD;
+		d->take = take;
+		d->mod = mod;
+		Q_strncpyz( d->inflictor, shinobiTestInflictor && shinobiTestInflictor->classname ? shinobiTestInflictor->classname : "", sizeof( d->inflictor ) );
+	}
 
 	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker ) {
 		Shinobi_HitText( targ, STX_DAMAGE, take ); // the damage number over him

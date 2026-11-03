@@ -56,6 +56,8 @@ XCVAR_DEF( d_saberBoxTraceSize,			"0",			NULL,						CVAR_CHEAT,										qtrue )
 XCVAR_DEF( d_saberCombat,				"0",			NULL,						CVAR_CHEAT,										qfalse )
 XCVAR_DEF( d_saberGhoul2Collision,		"1",			NULL,						CVAR_CHEAT,										qtrue )
 XCVAR_DEF( d_saberInterpolate,			"0",			NULL,						CVAR_CHEAT,										qtrue )
+XCVAR_DEF( shinobi_kaitenAnim1,		"BOTH_FORCE_RAGE",	NULL,				CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Kaiten wind-up pose (an animation name)
+XCVAR_DEF( shinobi_kaitenAnim2,		"BOTH_FORCE_RAGE",	NULL,				CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Kaiten spinning pose
 XCVAR_DEF( shinobi_botguard,			"55",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % chance a bot raises its guard against a blow
 XCVAR_DEF( shinobi_hitnumbers,			"1",			NULL,						CVAR_ARCHIVE,									qfalse )
 XCVAR_DEF( d_saberKickTweak,			"1",			NULL,						CVAR_NONE,										qtrue )

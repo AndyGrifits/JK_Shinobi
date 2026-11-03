@@ -254,6 +254,22 @@ whoever comes close is thrown away and knocked down. Rooted, no attacks.
 ---------------------------------------------------------------------------
 */
 extern void G_Knockdown( gentity_t *victim );
+extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
+
+// the poses come from cvars (shinobi_kaitenAnim1 / 2: animation names) - to try others without a rebuild
+static int Shinobi_KaitenAnim( int which ) {
+	static int  anim[2] = { -1, -1 }, mod[2] = { -1, -1 };
+	vmCvar_t   *cv = which ? &shinobi_kaitenAnim2 : &shinobi_kaitenAnim1;
+	if ( mod[which] != cv->modificationCount ) {
+		mod[which] = cv->modificationCount;
+		anim[which] = GetIDForString( animTable, cv->string );
+		if ( anim[which] < 0 || anim[which] >= MAX_ANIMATIONS ) {
+			Com_Printf( "^3%s: no animation \"%s\" - using BOTH_FORCE_RAGE\n", which ? "shinobi_kaitenAnim2" : "shinobi_kaitenAnim1", cv->string );
+			anim[which] = BOTH_FORCE_RAGE;
+		}
+	}
+	return anim[which];
+}
 
 qboolean Shinobi_KaitenSpinning( gentity_t *ent ) {
 	return ( ent && ent->client && ent->s.number < MAX_CLIENTS && ent->client->shinobi.kaitenStart
@@ -278,6 +294,7 @@ qboolean Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod ) {
 		G_PlayEffectID( shinobiMedia.fxGates, targ->client->ps.origin, up );
 	}
 	Shinobi_HitText( targ, STX_BLOCK, 0 );
+	shinobiTest.kaitenBlocks++;
 	return qtrue;
 }
 
@@ -309,8 +326,7 @@ void Shinobi_KaitenStop( gentity_t *ent ) {
 	client->ps.eFlags &= ~SHINOBI_EF_KAITEN;
 	if ( client->shinobi.chargeJutsu == SJ_KAITEN )
 		client->shinobi.chargeJutsu = SJ_NONE;
-	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT
-		&& ( client->ps.forceDodgeAnim == BOTH_FORCE_PROTECT_FAST || client->ps.forceDodgeAnim == BOTH_FORCE_ABSORB ) )
+	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT )
 		client->ps.forceHandExtend = HANDEXTEND_NONE;
 }
 
@@ -376,6 +392,7 @@ static void Shinobi_KaitenDeflect( gentity_t *ent ) {
 		if ( !strcmp( p->classname, "shinobi_kunai" ) )
 			Shinobi_KunaiReflect( p, ent );
 		trap->LinkEntity( (sharedEntity_t *)p );
+		shinobiTest.kaitenDeflects++;
 		Shinobi_EffectDir( shinobiMedia.fxWindGust[0], closest, n );
 		G_SoundAtLoc( closest, CHAN_AUTO, shinobiMedia.sndWind );
 	}
@@ -445,7 +462,7 @@ static void Shinobi_KaitenThink( gentity_t *ent, usercmd_t *ucmd ) {
 	client->ps.forceHandExtendTime = level.time + 150;
 
 	if ( !Shinobi_KaitenSpinning( ent ) ) { // winding up
-		client->ps.forceDodgeAnim = BOTH_FORCE_PROTECT_FAST;
+		client->ps.forceDodgeAnim = Shinobi_KaitenAnim( 0 );
 		return;
 	}
 	if ( !( client->ps.eFlags & SHINOBI_EF_KAITEN ) ) { // the dome goes up
@@ -453,7 +470,7 @@ static void Shinobi_KaitenThink( gentity_t *ent, usercmd_t *ucmd ) {
 		G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
 	}
-	client->ps.forceDodgeAnim = BOTH_FORCE_ABSORB;
+	client->ps.forceDodgeAnim = Shinobi_KaitenAnim( 1 );
 	Shinobi_KaitenDeflect( ent );
 	while ( client->shinobi.kaitenTick <= level.time ) {
 		client->shinobi.kaitenTick += SHINOBI_KAITEN_TICK_MS;

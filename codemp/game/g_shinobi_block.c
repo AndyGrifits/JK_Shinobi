@@ -57,6 +57,7 @@ static void Shinobi_GuardBreak( gentity_t *ent ) {
 
 	client->ps.stats[STAT_ARMOR] = 0;
 	client->shinobi.blocking = qfalse;
+	shinobiTest.guardBreaks++;
 	client->shinobi.guardRegen = level.time + SHINOBI_GUARD_BREAK_MS + SHINOBI_GUARD_REGEN_DELAY;
 	Shinobi_Stagger( ent, SHINOBI_GUARD_BREAK_MS );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGuardBreak );
@@ -214,10 +215,33 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		Shinobi_HitText( targ, STX_PARRY, 0 );
 		Shinobi_ShieldShell( targ, src, dmg );
 		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
+		shinobiTest.parries++;
 		return qtrue;
 	}
 	guard = client->ps.stats[STAT_ARMOR];
 	client->shinobi.guardRegen = level.time + SHINOBI_GUARD_REGEN_DELAY;
+	if ( attacker && attacker->client ) { // one swing, one price - by its style
+		if ( client->shinobi.guardSwingBy == attacker->s.number + 1 && level.time < client->shinobi.guardSwingUntil ) {
+			client->shinobi.guardSwingUntil = level.time + SHINOBI_GUARD_SWING_MS;
+			return qtrue; // the same swing still touching
+		}
+		client->shinobi.guardSwingBy = attacker->s.number + 1;
+		client->shinobi.guardSwingUntil = level.time + SHINOBI_GUARD_SWING_MS;
+		switch ( attacker->client->ps.fd.saberAnimLevel ) {
+		case SS_FAST:   dmg = SHINOBI_GUARD_SWING_FAST; break;
+		case SS_MEDIUM: dmg = SHINOBI_GUARD_SWING_MEDIUM; break;
+		case SS_STRONG: dmg = SHINOBI_GUARD_SWING_STRONG; break;
+		default:        dmg = SHINOBI_GUARD_SWING_OTHER; break;
+		}
+		if ( attacker->s.number < MAX_CLIENTS ) { // taijutsu stat, Gates
+			float f = 1.0f + 0.1f * attacker->client->pers.shinobiBuild.stats[SST_TAIJUTSU];
+			if ( attacker->client->shinobi.gatesEnd > level.time )
+				f *= SHINOBI_GATES_TAIJUTSU;
+			dmg = (int)( dmg * f + 0.5f );
+		}
+	}
+	shinobiTest.guardHits++;
+	shinobiTest.guardCost += dmg < guard ? dmg : guard;
 	if ( dmg >= guard ) { // the guard gives
 		Shinobi_GuardBreak( targ );
 		Shinobi_ShieldShell( targ, src, guard );

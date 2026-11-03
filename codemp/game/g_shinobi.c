@@ -98,6 +98,7 @@ void Shinobi_Paralyse( gentity_t *v, int ms ) {
 		return;
 	v->client->ps.electrifyTime = level.time + ms;
 	Shinobi_HitText( v, STX_STUN, 0 );
+	shinobiTest.stuns++;
 	if ( v->client->ps.weaponTime < ms )
 		v->client->ps.weaponTime = ms;
 	if ( v->s.number < MAX_CLIENTS ) {
@@ -679,6 +680,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 	qboolean   attackPressed;
 
+	Shinobi_AutotestDrive( ent, ucmd ); // a test bot: the test's keys, not its AI's
 	Shinobi_StripGuns( ent ); // no blasters for anyone
 	if ( client->shinobi.kaitenStart ) // Kaiten: no blows, no guard while spinning
 		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
@@ -690,6 +692,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	else
 		Shinobi_StatusThink( ent, ucmd ); // fire, water, mud, Water Prison (may freeze ucmd)
 	Shinobi_PerkThink( ent ); // eyes, gates and seal also run while bound or knocked down
+	Shinobi_ChakraTextThink( ent ); // "+N chakra" for what the fight gave
 	Shinobi_BlockThink( ent, ucmd );
 	Shinobi_ChargesToStats( client ); // Kawarimi / Shunshin charges for the HUD
 	Shinobi_EarthThink( ent, ucmd ); // burrow, stone skin
@@ -922,6 +925,8 @@ qboolean Shinobi_CastKawarimi( gentity_t *ent ) {
 	}
 
 	client->shinobi.kawarimiDecoy = decoy->s.number + 1;
+	// whatever was held at the moment (a combo's attack, the guard) doesn't count as "an action" - only a new press
+	client->shinobi.kawarimiHeld = client->pers.cmd.buttons | ( client->pers.cmd.upmove > 0 ? ( 1 << 30 ) : 0 );
 	client->shinobi.kawarimiPending = qtrue;
 	client->shinobi.kawarimiPhase = qtrue;
 	Shinobi_ChargeTake( client->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES, SHINOBI_KAWARIMI_RECHARGE );
@@ -934,6 +939,7 @@ void Shinobi_Hide( gentity_t *ent ) {
 
 	client->shinobi.kawarimiPending = qfalse;
 	client->shinobi.kawarimiEnd = level.time + SHINOBI_KAWARIMI_MAX_MS;
+	shinobiTest.kawarimiHides++;
 	SHINOBI_SET_HIDDEN( &client->ps, 1 );
 	{ // already unseen, a hop back from where the double stands
 		vec3_t  yaw, fwd, start, end;
@@ -1048,6 +1054,13 @@ static void Shinobi_KawarimiThink( gentity_t *ent, usercmd_t *ucmd ) {
 		return;
 	}
 
+	{ // keys still held from before the substitution: ignored (and kept from the body) until let go
+		const int now = ucmd->buttons | ( ucmd->upmove > 0 ? ( 1 << 30 ) : 0 );
+		client->shinobi.kawarimiHeld &= now;
+		ucmd->buttons &= ~( client->shinobi.kawarimiHeld & actions );
+		if ( client->shinobi.kawarimiHeld & ( 1 << 30 ) )
+			ucmd->upmove = 0;
+	}
 	if ( ( ucmd->buttons & actions ) || ucmd->upmove > 0
 		|| ( client->shinobi.kawarimiEnd && level.time >= client->shinobi.kawarimiEnd ) ) {
 		Shinobi_Reveal( ent );

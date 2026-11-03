@@ -1,0 +1,1130 @@
+/*
+===========================================================================
+JK_Shinobi - automatic tests in a running game ("shinobi_autotest", cheats).
+
+Two bots join (TestA, TestB). Their AI is switched off while a test runs:
+the test writes their usercmds every frame (moves, buttons, weapon, where
+they look) and calls the real game code (jutsu, kunai, tools), so the
+mechanics run exactly as in a fight. Each test then reads the state it
+expects (counters in shinobiTest, the damage log, client fields) and prints
+
+  [autotest] PASS <name>: <what it measured>
+  [autotest] FAIL <name>: <what went wrong>
+
+to the console and to shinobi_autotest.txt in the mod folder, with a summary
+at the end. "shinobi_autotest" runs them all, "shinobi_autotest <name> ..."
+only those, "shinobi_autotest list" lists them, "shinobi_autotest stop" ends.
+The human player is best a spectator meanwhile (assets/shinobi_autotest.cfg).
+===========================================================================
+*/
+#include "g_shinobi_local.h"
+
+shinobiTest_t shinobiTest;
+gentity_t    *shinobiTestInflictor;
+
+extern void G_Knockdown( gentity_t *victim );
+extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
+void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b );
+
+#define AT_MAX_TESTS   48
+#define AT_BOT_A       "TestA"
+#define AT_BOT_B       "TestB"
+
+typedef struct {
+	qboolean on;
+	int      forward, right, up, buttons, weapon;
+	vec3_t   angles;
+	qboolean aimAt;      // look at the other bot every frame
+	qboolean free;       // the real AI drives (and defends) this one
+} atDrive_t;
+
+typedef enum { ATR_RUN, ATR_PASS, ATR_FAIL } atResult_t;
+
+typedef struct {
+	const char *name;
+	const char *what;
+	void       ( *setup )( void );
+	atResult_t ( *step )( int t ); // t = ms since the test began
+	int         timeout;
+} atTest_t;
+
+static struct {
+	int      phase;              // 0 off, 1 waiting for the bots, 2 running, 3 done
+	int      queue[AT_MAX_TESTS], queueLen, cur;
+	int      start, phaseStart, stage, stageTime;
+	int      a, b;               // client numbers
+	atDrive_t drive[2];
+	vec3_t   base, fwd, right;
+	float    baseYaw;
+	qboolean haveBase;
+	int      pass, fail;
+	char     msg[512];
+	int      v[16];              // scratch for the tests
+	float    f[8];
+	fileHandle_t file;
+} at;
+
+#define A ( &g_entities[at.a] )
+#define B ( &g_entities[at.b] )
+
+static void AT_Print( const char *fmt, ... ) {
+	va_list argptr;
+	char    text[1024];
+
+	va_start( argptr, fmt );
+	Q_vsnprintf( text, sizeof( text ), fmt, argptr );
+	va_end( argptr );
+	Com_Printf( "%s", text );
+	G_LogPrintf( "%s", text );
+	if ( at.file )
+		trap->FS_Write( text, strlen( text ), at.file );
+}
+
+static void AT_Msg( const char *fmt, ... ) {
+	va_list argptr;
+	va_start( argptr, fmt );
+	Q_vsnprintf( at.msg, sizeof( at.msg ), fmt, argptr );
+	va_end( argptr );
+}
+
+// ---------------------------------------------------------------------------
+// control of the two bots
+// ---------------------------------------------------------------------------
+qboolean Shinobi_AutotestControls( gentity_t *ent ) {
+	if ( at.phase != 2 || !ent || ent->s.number >= MAX_CLIENTS )
+		return qfalse;
+	if ( ent->s.number == at.a )
+		return at.drive[0].on && !at.drive[0].free;
+	if ( ent->s.number == at.b )
+		return at.drive[1].on && !at.drive[1].free;
+	return qfalse;
+}
+
+// from Shinobi_ClientThink, first thing: the test's usercmd instead of the AI's
+void Shinobi_AutotestDrive( gentity_t *ent, usercmd_t *ucmd ) {
+	atDrive_t *d;
+	vec3_t     ang;
+	int        i;
+
+	if ( !Shinobi_AutotestControls( ent ) )
+		return;
+	d = &at.drive[ent->s.number == at.a ? 0 : 1];
+	VectorCopy( d->angles, ang );
+	if ( d->aimAt ) {
+		gentity_t *o = ent->s.number == at.a ? B : A;
+		vec3_t     dir, eye, mid;
+		VectorCopy( ent->client->ps.origin, eye );
+		eye[2] += ent->client->ps.viewheight;
+		VectorCopy( o->client->ps.origin, mid );
+		mid[2] += 10;
+		VectorSubtract( mid, eye, dir );
+		vectoangles( dir, ang );
+	}
+	ucmd->forwardmove = d->forward;
+	ucmd->rightmove = d->right;
+	ucmd->upmove = d->up;
+	ucmd->buttons = d->buttons;
+	ucmd->weapon = d->weapon;
+	ucmd->generic_cmd = 0;
+	ucmd->forcesel = ucmd->invensel = 0;
+	for ( i = 0; i < 3; i++ )
+		ucmd->angles[i] = ANGLE2SHORT( ang[i] ) - ent->client->ps.delta_angles[i];
+}
+
+static void AT_Drive( int who, int forward, int right, int up, int buttons ) {
+	at.drive[who].forward = forward;
+	at.drive[who].right = right;
+	at.drive[who].up = up;
+	at.drive[who].buttons = buttons;
+}
+
+// put a bot somewhere, facing yaw, standing still
+static void AT_Place( gentity_t *e, const vec3_t org, float yaw ) {
+	vec3_t ang = { 0, 0, 0 };
+	ang[YAW] = yaw;
+	Shinobi_TeleportClient( e, (float *)org );
+	VectorClear( e->client->ps.velocity );
+	SetClientViewAngle( e, ang );
+}
+
+// a point along the test line: 'ahead' units forward from the base, 'side' to the right
+static void AT_Spot( float ahead, float side, vec3_t out ) {
+	VectorMA( at.base, ahead, at.fwd, out );
+	VectorMA( out, side, at.right, out );
+}
+
+static void AT_Weapon( int who, int weapon ) {
+	gentity_t *e = who ? B : A;
+	e->client->ps.stats[STAT_WEAPONS] |= 1 << weapon;
+	at.drive[who].weapon = weapon;
+	e->client->ps.weapon = weapon;
+	if ( weapon == WP_SABER )
+		e->client->ps.saberHolstered = 0;
+}
+
+static void AT_SaberStyle( gentity_t *e, int style ) {
+	e->client->ps.fd.saberAnimLevel = e->client->ps.fd.saberAnimLevelBase = e->client->ps.fd.saberDrawAnimLevel = style;
+}
+
+static void AT_FreeTheirStuff( void ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( !e->inuse || !e->classname )
+			continue;
+		if ( ( e->r.ownerNum == at.a || e->r.ownerNum == at.b )
+			&& ( !strcmp( e->classname, "shinobi_kunai" ) || !strcmp( e->classname, "shinobi_rainet" )
+				|| !strcmp( e->classname, "shinobi_shuriken" ) || !strcmp( e->classname, "shinobi_windwall" ) ) )
+			G_FreeEntity( e );
+	}
+}
+
+// a clean start for one bot: full health, chakra and guard, no statuses, charges back
+static void AT_Reset( gentity_t *e ) {
+	gclient_t *c = e->client;
+	int        i;
+
+	Shinobi_StatusClear( e );
+	Shinobi_Reveal( e );
+	Shinobi_KaitenStop( e );
+	c->shinobi.chargeJutsu = SJ_NONE;
+	c->shinobi.flinchEnd = c->shinobi.staggerEnd = c->shinobi.stunEnd = c->shinobi.ccImmuneEnd = 0;
+	c->shinobi.juggleStart = c->shinobi.juggleEnd = c->shinobi.juggleBy = c->shinobi.slamNoFall = 0;
+	c->shinobi.kunaiNext = c->shinobi.toolNext = 0;
+	c->shinobi.guardSwingBy = c->shinobi.guardSwingUntil = 0;
+	c->shinobi.blockPress = c->shinobi.blockPrevPress = 0;
+	c->shinobi.raiNetNext = 0;
+	c->shinobi.healing = 0;
+	for ( i = 0; i < SHINOBI_KAWARIMI_CHARGES; i++ )
+		c->shinobi.kawarimiReady[i] = 0;
+	for ( i = 0; i < SHINOBI_SHUNSHIN_CHARGES; i++ )
+		c->shinobi.shunshinReady[i] = 0;
+	c->ps.forceHandExtend = HANDEXTEND_NONE;
+	c->ps.forceHandExtendTime = 0;
+	c->ps.weaponTime = 0;
+	c->ps.electrifyTime = 0;
+	c->ps.stats[STAT_SHINOBI2] &= ~( SHINOBI_STAT2_FLINCH | SHINOBI_STAT2_KAITEN | SHINOBI_STAT2_ROOTED );
+	c->ps.stats[STAT_SHINOBI_COMBO] = c->ps.stats[STAT_SHINOBI_COMBOT] = 0;
+	c->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX;
+	e->health = c->ps.stats[STAT_HEALTH] = c->ps.stats[STAT_MAX_HEALTH];
+	c->ps.fd.forcePower = c->ps.fd.forcePowerMax;
+	c->pers.shinobiFistStyle = SFS_FAST;
+	c->pers.shinobiBuild.perk = SP_NONE; // no eyes, seal or gates in the way
+	c->shinobi.eyes = 0;
+	c->shinobi.curseAwake = qfalse;
+	c->shinobi.gatesEnd = c->shinobi.gatesTiredEnd = 0;
+	VectorClear( c->ps.velocity );
+}
+
+// ---------------------------------------------------------------------------
+// helpers the tests read
+// ---------------------------------------------------------------------------
+static int AT_DamageTo( gentity_t *targ, int since, const char *inflictorClass, int mod, int *hits, int *last ) {
+	int i, total = 0, n = 0;
+	for ( i = 0; i < SHINOBI_TEST_DMGLOG; i++ ) {
+		const shinobiTestDamage_t *d = &shinobiTest.dmg[i];
+		if ( !d->time || d->time < since || d->targ != targ->s.number )
+			continue;
+		if ( mod >= 0 && d->mod != mod )
+			continue;
+		if ( inflictorClass && Q_stricmp( d->inflictor, inflictorClass ) )
+			continue;
+		total += d->take;
+		n++;
+		if ( last )
+			*last = d->take;
+	}
+	if ( hits )
+		*hits = n;
+	return total;
+}
+
+static int AT_CountClass( const char *classname, int owner ) {
+	int i, n = 0;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->classname && !strcmp( e->classname, classname ) && ( owner < 0 || e->r.ownerNum == owner ) )
+			n++;
+	}
+	return n;
+}
+
+static gentity_t *AT_FindClass( const char *classname, int owner ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->classname && !strcmp( e->classname, classname ) && ( owner < 0 || e->r.ownerNum == owner ) )
+			return e;
+	}
+	return NULL;
+}
+
+static const char *AT_AnimName( int anim ) {
+	int i;
+	for ( i = 0; animTable[i].name; i++ )
+		if ( animTable[i].id == anim )
+			return animTable[i].name;
+	return "?";
+}
+
+#define STAGE( n )     ( at.stage == (n) )
+#define NEXT()         ( at.stage++, at.stageTime = level.time )
+#define SINCE()        ( level.time - at.stageTime )
+
+// ---------------------------------------------------------------------------
+// the tests
+// ---------------------------------------------------------------------------
+
+// Block: real blade swings (strong style) on a blade guard: each blocked swing must cost the
+// guard its style's price, and enough of them break it
+static void T_GuardSwing_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_SABER );
+	AT_Weapon( 1, WP_SABER );
+	AT_SaberStyle( A, SS_STRONG );
+	AT_SaberStyle( B, SS_MEDIUM );
+	AT_Spot( 56, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = at.drive[1].aimAt = qtrue;
+	AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
+}
+static atResult_t T_GuardSwing( int t ) {
+	if ( STAGE( 0 ) && t >= 400 ) {
+		at.v[0] = shinobiTest.guardHits; at.v[1] = shinobiTest.guardCost; at.v[2] = shinobiTest.guardBreaks;
+		at.v[3] = B->health;
+		NEXT();
+	}
+	if ( STAGE( 1 ) ) {
+		AT_Drive( 0, 0, 0, 0, ( ( t / 600 ) % 2 ) ? 0 : BUTTON_ATTACK ); // swing, let go, swing...
+		if ( shinobiTest.guardBreaks > at.v[2] || t >= 6000 ) {
+			const int hits = shinobiTest.guardHits - at.v[0], cost = shinobiTest.guardCost - at.v[1];
+			const int broke = shinobiTest.guardBreaks - at.v[2];
+			if ( hits <= 0 ) {
+				AT_Msg( "no blocked swing in 6 s (B lost %i health: the guard never caught the blade)", at.v[3] - B->health );
+				return ATR_FAIL;
+			}
+			AT_Msg( "%i blocked swings cost %i guard (avg %.1f, strong style should be %i+), guard break: %s, B lost %i health",
+				hits, cost, cost / (float)hits, SHINOBI_GUARD_SWING_STRONG, broke ? "yes" : "no", at.v[3] - B->health );
+			return ( cost / (float)hits >= SHINOBI_GUARD_SWING_STRONG * 0.9f && broke ) ? ATR_PASS : ATR_FAIL;
+		}
+	}
+	return ATR_RUN;
+}
+
+// Block: the swing that empties the guard breaks it - a 1 s stagger
+static void T_GuardBreak_Setup( void ) {
+	AT_Weapon( 0, WP_SABER );
+	AT_Weapon( 1, WP_SABER );
+	AT_SaberStyle( A, SS_STRONG );
+}
+static atResult_t T_GuardBreak( int t ) {
+	if ( t < 200 )
+		return ATR_RUN;
+	{
+		const int before = shinobiTest.guardBreaks;
+		qboolean  held;
+		B->client->ps.stats[STAT_ARMOR] = 20;
+		held = Shinobi_SaberGuard( B, A, 30, B->r.currentOrigin );
+		if ( held || shinobiTest.guardBreaks == before ) {
+			AT_Msg( "a strong swing on a guard of 20 was held (guard now %i)", B->client->ps.stats[STAT_ARMOR] );
+			return ATR_FAIL;
+		}
+		AT_Msg( "guard broke, B reels %i ms (want ~%i)", B->client->shinobi.staggerEnd - level.time, SHINOBI_GUARD_BREAK_MS );
+		return ( B->client->shinobi.staggerEnd - level.time >= SHINOBI_GUARD_BREAK_MS - 100 ) ? ATR_PASS : ATR_FAIL;
+	}
+}
+
+// Block: a perfect parry costs nothing and staggers the attacker long enough to answer
+static void T_Parry_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_SABER );
+	AT_Weapon( 1, WP_SABER );
+	AT_Spot( 60, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+}
+static atResult_t T_Parry( int t ) {
+	if ( t < 200 )
+		return ATR_RUN;
+	{
+		const int guard = B->client->ps.stats[STAT_ARMOR], before = shinobiTest.parries;
+		B->client->shinobi.blockPrevPress = level.time - 3000;
+		B->client->shinobi.blockPress = level.time - 50;
+		Shinobi_SaberGuard( B, A, 30, B->r.currentOrigin );
+		AT_Msg( "parries %i, guard %i -> %i, attacker reels %i ms (want %i)", shinobiTest.parries - before, guard,
+			B->client->ps.stats[STAT_ARMOR], A->client->shinobi.staggerEnd - level.time, SHINOBI_PARRY_STAGGER_MS );
+		return ( shinobiTest.parries > before && B->client->ps.stats[STAT_ARMOR] == guard
+			&& A->client->shinobi.staggerEnd - level.time >= SHINOBI_PARRY_STAGGER_MS - 100 ) ? ATR_PASS : ATR_FAIL;
+	}
+}
+
+// Fuma Shuriken thrown with attack: out and back, the same damage both times, leaves the hand
+static void T_Fuma_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 300, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	A->client->ps.ammo[SHINOBI_AMMO_SHURIKEN] = SHINOBI_SHURIKEN_MAX;
+	AT_Weapon( 0, SHINOBI_WP_SHURIKEN );
+	AT_Weapon( 1, WP_MELEE );
+	at.drive[0].aimAt = qtrue;
+}
+static atResult_t T_Fuma( int t ) {
+	if ( STAGE( 0 ) && t >= 600 ) {
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 150 ) {
+		gentity_t *s = AT_FindClass( "shinobi_shuriken", at.a );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		if ( !s ) {
+			AT_Msg( "attack with the shuriken in hand threw nothing" );
+			return ATR_FAIL;
+		}
+		at.f[0] = VectorLength( s->s.pos.trDelta );
+		at.v[0] = ( A->client->ps.stats[STAT_WEAPONS] & ( 1 << SHINOBI_WP_SHURIKEN ) ) != 0;
+		NEXT();
+	}
+	if ( STAGE( 2 ) && ( SINCE() >= 4500 || ( !AT_FindClass( "shinobi_shuriken", at.a ) && SINCE() > 300 ) ) ) {
+		int hits, last = 0;
+		const int total = AT_DamageTo( B, at.start, "shinobi_shuriken", -1, &hits, &last );
+		const qboolean caught = A->client->ps.ammo[SHINOBI_AMMO_SHURIKEN] == SHINOBI_SHURIKEN_MAX;
+		AT_Msg( "speed %.0f (want %i), weapon left the hand: %s, %i hits on B, %i damage (%s), caught back: %s",
+			at.f[0], SHINOBI_SHURIKEN_SPEED, at.v[0] ? "NO" : "yes", hits, total,
+			hits == 2 && total == 2 * last ? "equal" : "differ", caught ? "yes" : "no" );
+		return ( !at.v[0] && hits == 2 && total == 2 * last && caught && fabs( at.f[0] - SHINOBI_SHURIKEN_SPEED ) < 5 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Kawarimi in the middle of our own combo (attack still held): it must hide us, not just eat a charge
+static void T_KawaCombo_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 48, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+}
+static atResult_t T_KawaCombo( int t ) {
+	if ( STAGE( 0 ) && t >= 500 ) {
+		at.v[0] = shinobiTest.kawarimiHides;
+		Shinobi_Cast( A, SJ_KAWARIMI, 1 );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 700 ) { // attack still held all along
+		at.v[1] = SHINOBI_HIDDEN( &A->client->ps );
+		at.v[2] = shinobiTest.kawarimiHides - at.v[0];
+		AT_Drive( 0, 0, 0, 0, 0 );
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 200 ) {
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK ); // a new press: out
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 200 ) {
+		const qboolean out = !SHINOBI_HIDDEN( &A->client->ps );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "hidden 0.7 s after casting with attack held: %s (hides %i); a new attack press reveals: %s",
+			at.v[1] ? "yes" : "NO", at.v[2], out ? "yes" : "NO" );
+		return ( at.v[1] && at.v[2] == 1 && out ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Kawarimi from the floor, and out of a combo / juggle
+static void T_KawaFloor_Setup( void ) {
+	AT_Weapon( 0, WP_MELEE );
+}
+static atResult_t T_KawaFloor( int t ) {
+	if ( STAGE( 0 ) && t >= 100 ) {
+		G_Knockdown( A );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 150 ) {
+		at.v[0] = A->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN;
+		Shinobi_Cast( A, SJ_KAWARIMI, 1 );
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 500 ) {
+		at.v[1] = SHINOBI_HIDDEN( &A->client->ps ) && A->client->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN;
+		Shinobi_Reveal( A );
+		A->client->shinobi.ccImmuneEnd = 0;
+		Shinobi_Flinch( A, 1500 );
+		A->client->shinobi.juggleStart = level.time;
+		A->client->shinobi.juggleEnd = level.time + 1500;
+		A->client->shinobi.juggleBy = at.b + 1;
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 100 ) {
+		Shinobi_Cast( A, SJ_KAWARIMI, 1 );
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 400 ) {
+		const qboolean freed = A->client->shinobi.flinchEnd <= level.time && !A->client->shinobi.juggleEnd && SHINOBI_HIDDEN( &A->client->ps );
+		AT_Msg( "was lying: %s, hidden from the floor: %s; out of flinch + juggle: %s",
+			at.v[0] ? "yes" : "no", at.v[1] ? "yes" : "NO", freed ? "yes" : "NO" );
+		return ( at.v[0] && at.v[1] && freed ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// any direct hit breaks a jutsu being charged; falling, lava (= burning) do not
+static void T_Interrupt_Setup( void ) {
+	AT_Weapon( 0, WP_MELEE );
+}
+static atResult_t T_Interrupt( int t ) {
+	if ( t < 200 )
+		return ATR_RUN;
+	{
+		qboolean hit, fall, lava;
+		A->client->shinobi.chargeJutsu = SJ_KATON;
+		A->client->shinobi.chargeStart = level.time;
+		G_Damage( A, B, B, NULL, A->r.currentOrigin, 5, 0, MOD_MELEE );
+		hit = A->client->shinobi.chargeJutsu == SJ_NONE;
+		A->client->shinobi.chargeJutsu = SJ_KATON;
+		G_Damage( A, NULL, NULL, NULL, NULL, 5, 0, MOD_FALLING );
+		fall = A->client->shinobi.chargeJutsu == SJ_KATON;
+		G_Damage( A, B, B, NULL, NULL, 5, DAMAGE_NO_ARMOR, MOD_LAVA );
+		lava = A->client->shinobi.chargeJutsu == SJ_KATON;
+		A->client->shinobi.chargeJutsu = SJ_NONE;
+		AT_Msg( "a blow breaks the charge: %s; falling keeps it: %s; burning keeps it: %s",
+			hit ? "yes" : "NO", fall ? "yes" : "NO", lava ? "yes" : "NO" );
+		return ( hit && fall && lava ) ? ATR_PASS : ATR_FAIL;
+	}
+}
+
+// knocked down: up on his own after ~0.7 s; with a direction held - the roll that way
+static void T_Getup_Setup( void ) {
+	AT_Weapon( 1, WP_MELEE );
+}
+static atResult_t T_Getup( int t ) {
+	gclient_t *c = B->client;
+	if ( STAGE( 0 ) && t >= 100 ) {
+		G_Knockdown( B );
+		at.v[0] = level.time;
+		NEXT();
+	}
+	if ( STAGE( 1 ) && c->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN ) {
+		at.v[1] = level.time - at.v[0];
+		at.v[2] = c->ps.legsAnim;
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 1500 ) { // the roll: right held from the start
+		c->shinobi.ccImmuneEnd = 0;
+		G_Knockdown( B );
+		at.v[3] = level.time;
+		AT_Drive( 1, 0, 127, 0, 0 );
+		NEXT();
+	}
+	if ( STAGE( 3 ) && ( c->ps.forceHandExtend != HANDEXTEND_KNOCKDOWN || SINCE() >= 3000 ) ) {
+		at.v[4] = level.time - at.v[3];
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 100 ) {
+		const char *roll = AT_AnimName( c->ps.legsAnim );
+		AT_Drive( 1, 0, 0, 0, 0 );
+		AT_Msg( "lay %i ms with no keys (want ~%i..%i), then %s; with right held up after %i ms as %s",
+			at.v[1], SHINOBI_KNOCKDOWN_MS, SHINOBI_KNOCKDOWN_MS + SHINOBI_GETUP_AUTO_MS + 300, AT_AnimName( at.v[2] ), at.v[4], roll );
+		return ( at.v[1] >= SHINOBI_KNOCKDOWN_MS - 100 && at.v[1] <= SHINOBI_KNOCKDOWN_MS + SHINOBI_GETUP_AUTO_MS + 400
+			&& at.v[4] < 2500 && strstr( roll, "ROLL" ) ) ? ATR_PASS : ATR_FAIL;
+	}
+	if ( t > 9000 ) {
+		AT_Msg( "never got up (stage %i)", at.stage );
+		return ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// the fight feeds chakra, and "+N chakra" shows
+static void T_Chakra_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 48, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax / 2;
+}
+static atResult_t T_Chakra( int t ) {
+	if ( STAGE( 0 ) ) {
+		at.v[0] = shinobiTest.chakraGained[at.a];
+		at.v[1] = shinobiTest.chakraTexts[at.a];
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 2500 ) {
+		const int gained = shinobiTest.chakraGained[at.a] - at.v[0], texts = shinobiTest.chakraTexts[at.a] - at.v[1];
+		const int dealt = AT_DamageTo( B, at.start, NULL, -1, NULL, NULL );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "dealt %i with fists, earned %i chakra (~%i%%), %i \"+N chakra\" texts", dealt, gained,
+			dealt ? gained * 100 / dealt : 0, texts );
+		return ( dealt > 0 && gained > 0 && texts > 0 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// natural regen: normal up to 30%, slower above
+static void T_Regen_Setup( void ) {
+	A->client->ps.fd.forcePower = 5;
+}
+static atResult_t T_Regen( int t ) {
+	gclient_t *c = A->client;
+	if ( STAGE( 0 ) && t >= 500 ) {
+		at.v[0] = c->ps.fd.forcePower;
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 1500 ) {
+		at.v[1] = c->ps.fd.forcePower - at.v[0];
+		c->ps.fd.forcePower = c->ps.fd.forcePowerMax * 60 / 100;
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 500 ) {
+		at.v[2] = c->ps.fd.forcePower;
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 3000 ) {
+		const float low = at.v[1] / 1.5f, high = ( c->ps.fd.forcePower - at.v[2] ) / 3.0f;
+		AT_Msg( "regen below 30%%: %.1f/s, above: %.1f/s (ratio %.1f, want ~%i)", low, high, high > 0 ? low / high : 99.0f,
+			(int)( 1.0f / SHINOBI_REGEN_SLOW_ABOVE + 0.5f ) );
+		return ( low > 0 && high > 0 && low / high > 2.5f && low / high < 6.0f ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// a combo keeps its target in place, flinching, until the finisher
+static void T_Flinch_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 48, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+	VectorCopy( p, at.f + 0 ); // (f[0..2]: where B stood)
+}
+static atResult_t T_Flinch( int t ) {
+	int hits;
+	AT_DamageTo( B, at.start, NULL, MOD_MELEE, &hits, NULL );
+	if ( STAGE( 0 ) && hits >= 1 ) {
+		at.v[0] = at.v[1] = 0;
+		NEXT();
+	}
+	if ( STAGE( 1 ) ) { // between the first and the third blow: flinching? standing?
+		at.v[0]++;
+		if ( B->client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
+			at.v[1]++;
+		if ( hits >= 3 ) {
+			vec3_t d;
+			VectorSubtract( B->client->ps.origin, at.f, d );
+			d[2] = 0;
+			at.f[4] = VectorLength( d );
+			NEXT();
+		}
+	}
+	if ( STAGE( 2 ) || t > 4000 ) {
+		AT_Drive( 0, 0, 0, 0, 0 );
+		if ( !STAGE( 2 ) ) {
+			AT_Msg( "only %i blows landed in 4 s", hits );
+			return ATR_FAIL;
+		}
+		AT_Msg( "flinching %i of %i frames between blows 1 and 3, B moved %.0f u", at.v[1], at.v[0], at.f[4] );
+		return ( at.v[0] && at.v[1] * 10 >= at.v[0] * 8 && at.f[4] < 40 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// the air combo: launcher (forward on the finisher) -> jump after him -> two blows -> the slam
+static void T_AirCombo_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 46, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = shinobiTest.launches;
+	at.v[1] = shinobiTest.airHits;
+	at.v[2] = shinobiTest.slams;
+	AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+}
+static atResult_t T_AirCombo( int t ) {
+	const int launches = shinobiTest.launches - at.v[0], air = shinobiTest.airHits - at.v[1], slams = shinobiTest.slams - at.v[2];
+	if ( STAGE( 0 ) ) { // the chain, forward held for the finisher
+		AT_Drive( 0, SHINOBI_COMBO_HIT( &A->client->ps ) >= shinobiFistChain[SFS_FAST] - 1 ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		if ( launches ) {
+			AT_Drive( 0, 0, 0, 0, 0 );
+			at.v[3] = t;
+			NEXT();
+		}
+		else if ( t > 4000 ) {
+			AT_Msg( "no launcher in 4 s (combo hit %i)", SHINOBI_COMBO_HIT( &A->client->ps ) );
+			return ATR_FAIL;
+		}
+	}
+	if ( STAGE( 1 ) && SINCE() >= 80 ) { // jump after him
+		AT_Drive( 0, 0, 0, 127, 0 );
+		NEXT();
+	}
+	if ( STAGE( 2 ) ) {
+		if ( SINCE() >= 200 )
+			AT_Drive( 0, 0, 0, 0, ( ( SINCE() / 120 ) % 2 ) ? 0 : BUTTON_ATTACK ); // tap, tap...
+		if ( !at.v[4] && A->client->ps.groundEntityNum == ENTITYNUM_NONE )
+			at.v[4] = 1; // he did leave the ground
+		if ( slams || SINCE() >= 2500 ) {
+			at.v[5] = B->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN;
+			NEXT();
+		}
+	}
+	if ( STAGE( 3 ) && SINCE() >= 1200 ) {
+		int fallHits;
+		AT_DamageTo( B, at.start, NULL, MOD_FALLING, &fallHits, NULL );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "launched: %i, A in the air: %s, air blows: %i (want 2), slam: %i, B down after it: %s, falling damage on B: %i",
+			launches, at.v[4] ? "yes" : "NO", air, slams, at.v[5] ? "yes" : "no", fallHits );
+		return ( launches && at.v[4] && air >= 2 && slams && !fallHits ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// build rules: specials cost points, the body goes to 7 without one, old builds are trimmed, bots stay legal
+static atResult_t T_Build( int t ) {
+	shinobiBuild_t b;
+	char           why[128], str[256];
+	int            i, bad = 0, ok = 0, n = 0;
+
+	Shinobi_BuildParse( "suiton,futon/2,2,2,2,2/sharingan", &b );
+	Shinobi_BuildFix( &b );
+	n = Shinobi_BuildPoints( &b );
+	ok += ( n == SHINOBI_STAT_POINTS - shinobiPerkCost[SP_SHARINGAN] );
+	memset( &b, 0, sizeof( b ) );
+	b.perk = SP_NONE; b.stats[SST_HEALTH] = 7; b.stats[SST_TAIJUTSU] = 3;
+	ok += Shinobi_BuildValid( &b, why, sizeof( why ) ) ? 1 : 0;
+	b.perk = SP_SHARINGAN;
+	ok += !Shinobi_BuildValid( &b, why, sizeof( why ) );
+	memset( &b, 0, sizeof( b ) );
+	b.perk = SP_NONE; b.stats[SST_CAST] = 6;
+	ok += !Shinobi_BuildValid( &b, why, sizeof( why ) );
+	for ( i = SP_NONE; i < SP_COUNT; i++ ) {
+		b.perk = i;
+		ok += Shinobi_StatBudget( &b ) == SHINOBI_STAT_POINTS - shinobiPerkCost[i];
+	}
+	for ( i = 0; i < 300; i++ ) {
+		Shinobi_BotRandomBuildPublic( &b );
+		if ( !Shinobi_BuildValid( &b, why, sizeof( why ) ) ) {
+			bad++;
+			Shinobi_BuildString( &b, str, sizeof( str ) );
+		}
+	}
+	AT_Msg( "rules %i/%i (old Sharingan build trimmed to %i points), random bot builds: %i of 300 illegal%s%s",
+		ok, 4 + SP_COUNT, n, bad, bad ? " e.g. " : "", bad ? str : "" );
+	return ( ok == 4 + SP_COUNT && !bad ) ? ATR_PASS : ATR_FAIL;
+}
+
+// Kaiten: a hit in the wind-up breaks it; spinning - no damage, missiles glance off, the close one is thrown
+static void T_Kaiten_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 220, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[1].aimAt = qtrue;
+}
+static void AT_KaitenCast( void ) {
+	if ( Shinobi_Cast( A, SJ_KAITEN, 1 ) )
+		A->client->shinobi.chargeJutsu = SJ_KAITEN;
+}
+static atResult_t T_Kaiten( int t ) {
+	if ( STAGE( 0 ) && t >= 200 ) {
+		AT_KaitenCast();
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 200 ) { // winding up: a blow breaks it
+		G_Damage( A, B, B, NULL, A->r.currentOrigin, 5, 0, MOD_MELEE );
+		at.v[0] = !A->client->shinobi.kaitenStart;
+		A->client->shinobi.ccImmuneEnd = 0;
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 300 ) {
+		AT_KaitenCast();
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= SHINOBI_KAITEN_WINDUP_MS + 200 ) { // spinning
+		const int h = A->health;
+		at.v[1] = Shinobi_KaitenSpinning( A );
+		G_Damage( A, B, B, NULL, A->r.currentOrigin, 30, 0, MOD_SABER );
+		at.v[2] = A->health == h;
+		at.v[3] = shinobiTest.kaitenDeflects;
+		at.v[6] = A->health;
+		B->client->pers.cmd.buttons &= ~BUTTON_WALKING;
+		Cmd_Kunai_f( B ); // a kunai at him
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 700 ) {
+		vec3_t p, d;
+		at.v[4] = shinobiTest.kaitenDeflects - at.v[3];
+		at.v[7] = at.v[6] - A->health;
+		AT_Spot( 50, 0, p );
+		AT_Place( B, p, at.baseYaw + 180 ); // too close
+		NEXT();
+		VectorSubtract( B->client->ps.origin, A->client->ps.origin, d );
+		at.f[0] = VectorLength( d );
+	}
+	if ( STAGE( 5 ) && SINCE() >= 600 ) {
+		vec3_t d;
+		VectorSubtract( B->client->ps.origin, A->client->ps.origin, d );
+		d[2] = 0;
+		at.f[1] = VectorLength( d );
+		at.v[5] = B->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN;
+		Cmd_JutsuRelease_f( A );
+		NEXT();
+	}
+	if ( STAGE( 6 ) && SINCE() >= 200 ) {
+		const qboolean off = !A->client->shinobi.kaitenStart && !( A->client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_KAITEN )
+			&& !( A->client->ps.eFlags & SHINOBI_EF_KAITEN );
+		AT_Msg( "wind-up broken by a blow: %s; spinning: %s; blade blow blocked: %s; kunai glanced off: %i (A lost %i); "
+			"B at 50 u thrown to %.0f u, knocked down: %s; let go - all off: %s",
+			at.v[0] ? "yes" : "NO", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[4], at.v[7], at.f[1],
+			at.v[5] ? "yes" : "no", off ? "yes" : "NO" );
+		return ( at.v[0] && at.v[1] && at.v[2] && at.v[4] >= 1 && !at.v[7] && at.f[1] > SHINOBI_KAITEN_RADIUS && off ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// marks: three at most, a fourth replaces the oldest
+static void AT_ThrowMark( gentity_t *e, float pitch, float yaw ) {
+	vec3_t ang;
+	VectorSet( ang, pitch, yaw, 0 );
+	SetClientViewAngle( e, ang );
+	at.drive[e->s.number == at.a ? 0 : 1].aimAt = qfalse;
+	VectorCopy( ang, at.drive[e->s.number == at.a ? 0 : 1].angles );
+	e->client->shinobi.kunaiNext = 0;
+	e->client->pers.cmd.buttons |= BUTTON_WALKING;
+	e->client->ps.fd.forcePower = e->client->ps.fd.forcePowerMax;
+	Cmd_Kunai_f( e );
+	e->client->pers.cmd.buttons &= ~BUTTON_WALKING;
+}
+static void T_Marks_Setup( void ) {
+	AT_Weapon( 0, WP_MELEE );
+}
+static atResult_t T_Marks( int t ) {
+	if ( t >= 200 && at.stage < 4 && SINCE() >= 250 ) {
+		AT_ThrowMark( A, 70, at.baseYaw + at.stage * 40 );
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 600 ) {
+		const int n = AT_CountClass( "shinobi_kunai", at.a );
+		AT_Msg( "4 marked kunai thrown, %i stay (want %i)", n, SHINOBI_MARK_MAX );
+		return n == SHINOBI_MARK_MAX ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Lightning Trap: one mark fizzles; two make a line that stuns whoever crosses it - its maker too
+static void T_RaiNet_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 400, 120, p );
+	AT_Place( B, p, at.baseYaw + 180 ); // out of the way for now
+}
+static atResult_t T_RaiNet( int t ) {
+	if ( STAGE( 0 ) && t >= 200 ) {
+		AT_ThrowMark( A, 60, at.baseYaw - 30 );
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 400 ) { // one mark: nothing
+		Shinobi_Cast( A, SJ_RAITRAP, 1 );
+		at.v[0] = AT_CountClass( "shinobi_rainet", at.a );
+		AT_ThrowMark( A, 60, at.baseYaw + 30 );
+		NEXT();
+	}
+	if ( STAGE( 2 ) && SINCE() >= 400 ) {
+		vec3_t p;
+		AT_Spot( -160, 0, p );
+		AT_Place( A, p, at.baseYaw ); // step back from the line
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 150 ) {
+		Shinobi_Cast( A, SJ_RAITRAP, 1 );
+		NEXT();
+	}
+	if ( STAGE( 4 ) && SINCE() >= 250 ) {
+		gentity_t *net = AT_FindClass( "shinobi_rainet", at.a );
+		vec3_t     mid;
+		at.v[1] = net != NULL;
+		at.v[2] = net ? ( net->s.frame >> 2 ) & 1 : 0; // the side lit
+		if ( !net ) {
+			AT_Msg( "one mark made a net: %s; two marks made no net", at.v[0] ? "YES" : "no" );
+			return ATR_FAIL;
+		}
+		VectorAdd( net->r.currentOrigin, net->s.origin2, mid );
+		VectorScale( mid, 0.5f, mid );
+		VectorCopy( mid, at.f );
+		mid[2] += 30;
+		at.v[3] = B->health;
+		AT_Place( B, mid, at.baseYaw + 90 ); // right on the line
+		NEXT();
+	}
+	if ( STAGE( 5 ) && SINCE() >= 400 ) {
+		vec3_t p, mid;
+		at.v[4] = B->client->shinobi.stunEnd > level.time;
+		at.v[5] = at.v[3] - B->health;
+		AT_Spot( 400, 120, p );
+		AT_Place( B, p, at.baseYaw + 180 );
+		VectorCopy( at.f, mid );
+		mid[2] += 30;
+		at.v[6] = A->health;
+		AT_Place( A, mid, at.baseYaw ); // and its maker
+		NEXT();
+	}
+	if ( STAGE( 6 ) && SINCE() >= 400 ) {
+		const qboolean selfStun = A->client->shinobi.stunEnd > level.time, selfHurt = A->health < at.v[6];
+		AT_Msg( "one mark: net %s; two marks: net %s, side lit %s; B on the line: stunned %s, lost %i; "
+			"its maker on it: stunned %s, hurt %s",
+			at.v[0] ? "YES (wrong)" : "none", at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", at.v[4] ? "yes" : "NO", at.v[5],
+			selfStun ? "yes" : "NO", selfHurt ? "yes" : "NO" );
+		return ( !at.v[0] && at.v[1] && at.v[2] && at.v[4] && at.v[5] > 0 && selfStun && selfHurt ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// bots with their own defence on: Kawarimi out of a combo, guard / parry
+static void T_BotDefend_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( 48, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	at.drive[1].aimAt = qtrue;
+	at.v[0] = shinobiTest.kawarimiHides;
+	at.v[1] = shinobiTest.botGuards;
+	at.v[2] = shinobiTest.parries;
+	AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+}
+static atResult_t T_BotDefend( int t ) {
+	if ( t >= 6000 ) {
+		const int kawa = shinobiTest.kawarimiHides - at.v[0], guards = shinobiTest.botGuards - at.v[1], parries = shinobiTest.parries - at.v[2];
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "6 s of combos on a defending bot: Kawarimi %i, guard raised %i, parries %i (shinobi_botguard %i)",
+			kawa, guards, parries, shinobi_botguard.integer );
+		return ( kawa > 0 || guards > 0 ) ? ATR_PASS : ATR_FAIL;
+	}
+	if ( ( t / 1500 ) % 2 == 1 ) // pauses: let it recover and try again
+		AT_Drive( 0, 0, 0, 0, 0 );
+	else
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+	return ATR_RUN;
+}
+
+static atTest_t atTests[] = {
+	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
+	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
+	{ "parry",        "perfect parry: free, attacker staggered long",              T_Parry_Setup, T_Parry, 1000 },
+	{ "fuma",         "fuma shuriken: speed, two equal hits, leaves the hand, caught", T_Fuma_Setup, T_Fuma, 7000 },
+	{ "kawa_combo",   "Kawarimi with attack held mid-combo hides",                 T_KawaCombo_Setup, T_KawaCombo, 3000 },
+	{ "kawa_floor",   "Kawarimi from the floor and out of flinch / juggle",       T_KawaFloor_Setup, T_KawaFloor, 3000 },
+	{ "interrupt",    "a blow breaks a charge, falling / burning don't",          T_Interrupt_Setup, T_Interrupt, 1000 },
+	{ "getup",        "knockdown: auto getup time, the roll with a direction",    T_Getup_Setup, T_Getup, 10000 },
+	{ "chakra_fight", "fists earn chakra and show +N chakra",                     T_Chakra_Setup, T_Chakra, 4000 },
+	{ "regen",        "regen: normal below 30%, slower above",                    T_Regen_Setup, T_Regen, 7000 },
+	{ "flinch",       "a combo holds its target flinching in place",              T_Flinch_Setup, T_Flinch, 5000 },
+	{ "air_combo",    "launcher, jump after, two air blows, slam",                T_AirCombo_Setup, T_AirCombo, 9000 },
+	{ "build",        "special costs, caps 7, old builds trimmed, bot builds legal", NULL, T_Build, 500 },
+	{ "kaiten",       "Kaiten: wind-up breaks, spin blocks, kunai glance, throw, release", T_Kaiten_Setup, T_Kaiten, 5000 },
+	{ "marks",        "three marked kunai at most",                               T_Marks_Setup, T_Marks, 3000 },
+	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
+	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
+};
+#define AT_COUNT ( (int)ARRAY_LEN( atTests ) )
+
+// ---------------------------------------------------------------------------
+// the run
+// ---------------------------------------------------------------------------
+static gentity_t *AT_FindBot( const char *name ) {
+	int i;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->client && e->client->pers.connected == CON_CONNECTED && ( e->r.svFlags & SVF_BOT )
+			&& !Q_stricmp( e->client->pers.netname, name ) )
+			return e;
+	}
+	return NULL;
+}
+
+// an open spot for the tests: from A's spawn, the direction with the most room
+static void AT_ChooseBase( void ) {
+	float   bestLen = -1, yaw;
+	vec3_t  org, end, f, mins = { -16, -16, -8 }, maxs = { 16, 16, 40 };
+	trace_t tr;
+
+	VectorCopy( A->client->ps.origin, org );
+	for ( yaw = 0; yaw < 360; yaw += 30 ) {
+		vec3_t ang = { 0, 0, 0 };
+		ang[YAW] = yaw;
+		AngleVectors( ang, f, NULL, NULL );
+		VectorMA( org, 600, f, end );
+		trap->Trace( &tr, org, mins, maxs, end, at.a, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		if ( tr.fraction * 600 > bestLen ) {
+			bestLen = tr.fraction * 600;
+			at.baseYaw = yaw;
+		}
+	}
+	{ // start a little back so there is room behind A too
+		vec3_t ang = { 0, 0, 0 };
+		ang[YAW] = at.baseYaw;
+		AngleVectors( ang, at.fwd, at.right, NULL );
+		VectorCopy( org, at.base );
+		AT_Print( "[autotest] test spot %.0f %.0f %.0f facing %.0f, %.0f u of room ahead\n", org[0], org[1], org[2], at.baseYaw, bestLen );
+	}
+	at.haveBase = qtrue;
+}
+
+static void AT_BeginTest( void ) {
+	atTest_t *t = &atTests[at.queue[at.cur]];
+
+	memset( at.drive, 0, sizeof( at.drive ) );
+	at.drive[0].on = at.drive[1].on = qtrue;
+	memset( at.v, 0, sizeof( at.v ) );
+	memset( at.f, 0, sizeof( at.f ) );
+	at.msg[0] = 0;
+	at.stage = 0;
+	AT_FreeTheirStuff();
+	AT_Reset( A );
+	AT_Reset( B );
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	{
+		vec3_t p;
+		AT_Place( A, at.base, at.baseYaw );
+		AT_Spot( 300, 0, p );
+		AT_Place( B, p, at.baseYaw + 180 );
+	}
+	if ( !strcmp( t->name, "bot_defend" ) )
+		at.drive[1].free = qtrue; // its own defence decides (Shinobi_BotDefend runs for it)
+	if ( t->setup )
+		t->setup();
+	at.start = at.stageTime = level.time;
+}
+
+static void AT_Finish( void ) {
+	AT_Print( "[autotest] done: %i passed, %i failed\n", at.pass, at.fail );
+	if ( at.file ) {
+		trap->FS_Close( at.file );
+		at.file = 0;
+	}
+	AT_FreeTheirStuff();
+	at.phase = 3;
+	trap->SendServerCommand( -1, va( "cp \"^3Autotest done: ^2%i passed^3, ^1%i failed\"", at.pass, at.fail ) );
+}
+
+// G_RunFrame (Shinobi_RunFrame)
+void Shinobi_AutotestFrame( void ) {
+	if ( at.phase == 1 ) {
+		gentity_t *a = AT_FindBot( AT_BOT_A ), *b = AT_FindBot( AT_BOT_B );
+		if ( a && b && a->health > 0 && b->health > 0 && a->client->sess.sessionTeam != TEAM_SPECTATOR
+			&& b->client->sess.sessionTeam != TEAM_SPECTATOR && level.time - at.phaseStart > 2000 ) {
+			at.a = a->s.number;
+			at.b = b->s.number;
+			if ( !at.haveBase )
+				AT_ChooseBase();
+			at.phase = 2;
+			at.cur = 0;
+			AT_BeginTest();
+			AT_Print( "[autotest] %s: %s\n", atTests[at.queue[0]].name, atTests[at.queue[0]].what );
+		}
+		else if ( level.time - at.phaseStart > 20000 ) {
+			AT_Print( "[autotest] FAIL setup: the bots %s / %s never joined (bot_enable? a map with bot routes?)\n", AT_BOT_A, AT_BOT_B );
+			at.fail++;
+			AT_Finish();
+		}
+		return;
+	}
+	if ( at.phase != 2 )
+		return;
+	if ( !A->inuse || !B->inuse || !A->client || !B->client ) {
+		AT_Print( "[autotest] FAIL: a test bot left\n" );
+		at.fail++;
+		AT_Finish();
+		return;
+	}
+	if ( A->health <= 0 || B->health <= 0 ) { // (a test that kills would be a bug: say so, go on after respawn)
+		AT_Msg( "a bot died" );
+	}
+	{
+		atTest_t  *t = &atTests[at.queue[at.cur]];
+		atResult_t r = ( A->health > 0 && B->health > 0 ) ? t->step( level.time - at.start ) : ATR_FAIL;
+		if ( r == ATR_RUN && level.time - at.start > t->timeout ) {
+			if ( !at.msg[0] )
+				AT_Msg( "timed out at stage %i", at.stage );
+			else
+				Q_strcat( at.msg, sizeof( at.msg ), va( " (timed out at stage %i)", at.stage ) );
+			r = ATR_FAIL;
+		}
+		if ( r == ATR_RUN )
+			return;
+		if ( r == ATR_PASS )
+			at.pass++;
+		else
+			at.fail++;
+		AT_Print( "[autotest] %s %s: %s\n", r == ATR_PASS ? "PASS" : "FAIL", t->name, at.msg );
+		if ( ++at.cur >= at.queueLen ) {
+			AT_Finish();
+			return;
+		}
+		AT_BeginTest();
+		AT_Print( "[autotest] %s: %s\n", atTests[at.queue[at.cur]].name, atTests[at.queue[at.cur]].what );
+	}
+}
+
+// "shinobi_autotest [list | stop | name ...]"
+void Cmd_ShinobiAutotest_f( gentity_t *ent ) {
+	char arg[64];
+	int  i, j, argc = trap->Argc();
+
+	if ( !sv_cheats.integer ) {
+		trap->SendServerCommand( ent - g_entities, "print \"shinobi_autotest needs cheats (devmap)\n\"" );
+		return;
+	}
+	trap->Argv( 1, arg, sizeof( arg ) );
+	if ( !Q_stricmp( arg, "list" ) ) {
+		for ( i = 0; i < AT_COUNT; i++ )
+			trap->SendServerCommand( ent - g_entities, va( "print \"%-13s %s\n\"", atTests[i].name, atTests[i].what ) );
+		return;
+	}
+	if ( !Q_stricmp( arg, "stop" ) ) {
+		if ( at.phase == 1 || at.phase == 2 )
+			AT_Finish();
+		return;
+	}
+	if ( at.phase == 1 || at.phase == 2 ) {
+		trap->SendServerCommand( ent - g_entities, "print \"autotest already running (shinobi_autotest stop)\n\"" );
+		return;
+	}
+	at.queueLen = 0;
+	if ( argc < 2 || !Q_stricmp( arg, "all" ) ) {
+		for ( i = 0; i < AT_COUNT; i++ )
+			at.queue[at.queueLen++] = i;
+	}
+	else {
+		for ( j = 1; j < argc; j++ ) {
+			trap->Argv( j, arg, sizeof( arg ) );
+			for ( i = 0; i < AT_COUNT; i++ )
+				if ( !Q_stricmp( arg, atTests[i].name ) && at.queueLen < AT_MAX_TESTS )
+					at.queue[at.queueLen++] = i;
+		}
+	}
+	if ( !at.queueLen ) {
+		trap->SendServerCommand( ent - g_entities, "print \"no such test (shinobi_autotest list)\n\"" );
+		return;
+	}
+	at.pass = at.fail = 0;
+	at.haveBase = qfalse;
+	trap->FS_Open( "shinobi_autotest.txt", &at.file, FS_WRITE );
+	AT_Print( "[autotest] %i tests, map %s\n", at.queueLen, level.mapname );
+	if ( !AT_FindBot( AT_BOT_A ) )
+		trap->SendConsoleCommand( EXEC_APPEND, "addbot jan 1 free 0 " AT_BOT_A "\n" );
+	if ( !AT_FindBot( AT_BOT_B ) )
+		trap->SendConsoleCommand( EXEC_APPEND, "addbot alora 1 free 0 " AT_BOT_B "\n" );
+	at.phase = 1;
+	at.phaseStart = level.time;
+}

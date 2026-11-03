@@ -3448,6 +3448,7 @@ command_t commands[] = {
 	{ "say_team",			Cmd_SayTeam_f,				0 },
 	{ "score",				Cmd_Score_f,				0 },
 	{ "setviewpos",			Cmd_SetViewpos_f,			CMD_CHEAT|CMD_NOINTERMISSION },
+	{ "shinobi_autotest",	Cmd_ShinobiAutotest_f,		CMD_CHEAT },
 	{ "shunshin",			Cmd_Shunshin_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "suiro",				Cmd_Suiro_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "suiton",				Cmd_Suiton_f,				CMD_ALIVE|CMD_NOINTERMISSION },

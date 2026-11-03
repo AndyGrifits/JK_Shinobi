@@ -787,6 +787,8 @@ void Shinobi_RunFrame( void ) {
 	int clonesPerOwner[MAX_CLIENTS];
 	int i;
 
+	Shinobi_AutotestFrame(); // "shinobi_autotest"
+
 	memset( clonesPerOwner, 0, sizeof( clonesPerOwner ) );
 
 	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {

@@ -428,7 +428,7 @@ static void Shinobi_ShurikenThink( gentity_t *s ) {
 					*mask |= 1 << other->s.number;
 				else
 					SHUR_LASTHIT( s ) = other->s.number + 1;
-				G_Damage( other, s, owner, dir, tr.endpos, SHINOBI_SHURIKEN_DAMAGE, 0, MOD_SABER );
+				G_Damage( other, s, owner, dir, tr.endpos, SHINOBI_SHURIKEN_DAMAGE, DAMAGE_NO_HIT_LOC, MOD_SABER ); // (the same wherever it cuts)
 				G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[0] );
 				if ( !s->inuse )
 					return;
@@ -523,6 +523,11 @@ qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon ) {
 	}
 	else
 		Shinobi_SpawnShuriken( ent );
+	if ( ent->client->ps.ammo[weaponData[weapon].ammoIndex] <= 0 ) { // the last one left the hand: back to the fists / blade
+		ent->client->ps.ammo[weaponData[weapon].ammoIndex] = 0;
+		ent->client->ps.stats[STAT_WEAPONS] &= ~( 1 << weapon );
+		G_AddEvent( ent, EV_NOAMMO, weapon );
+	}
 	return qtrue;
 }
 

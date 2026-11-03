@@ -59,6 +59,7 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	case SCK_HIT: { // a chain punch: held until the next one can land (the finisher has none)
 		int ms = client->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
 		if ( ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) && v->client->shinobi.juggleEnd > level.time ) {
+			shinobiTest.airHits++;
 			// up in the air: the punch keeps him up there
 			if ( v->client->ps.velocity[2] < SHINOBI_AIR_LIFT )
 				v->client->ps.velocity[2] = SHINOBI_AIR_LIFT;
@@ -72,6 +73,7 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 		break;
 	}
 	case SCK_LAUNCH: // up into the air - jump after him (the air combo) or dive
+		shinobiTest.launches++;
 		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
 		v->client->shinobi.juggleStart = level.time;
 		v->client->shinobi.juggleEnd = level.time + 2500;
@@ -238,6 +240,7 @@ static void Shinobi_AirSlam( gentity_t *ent ) {
 		v->client->shinobi.juggleEnd = 0;
 		v->client->shinobi.juggleBy = 0;
 		v->client->shinobi.slamNoFall = level.time + 2000; // the slam hurts, not the floor
+		shinobiTest.slams++;
 		G_Damage( v, ent, ent, dir, v->r.currentOrigin, (int)( SHINOBI_SLAM_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f ),
 			DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 		if ( !v->inuse || v->health <= 0 )

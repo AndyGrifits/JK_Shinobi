@@ -1772,6 +1772,16 @@ void CG_OutOfAmmoChange( int oldWeapon )
 
 	cg.weaponSelectTime = cg.time;
 
+	if ( SHINOBI_IS_TOOL_WEAPON( oldWeapon ) )
+	{ // JK_Shinobi: the last tool left the hand - back to the blade (or the fists), not the next tool
+		if ( CG_WeaponSelectable( WP_SABER ) )
+			cg.weaponSelect = WP_SABER;
+		else
+			cg.weaponSelect = WP_MELEE;
+		trap->S_MuteSound(cg.snap->ps.clientNum, CHAN_WEAPON);
+		return;
+	}
+
 	for ( i = LAST_USEABLE_WEAPON ; i > 0 ; i-- )	//We don't want the emplaced or turret
 	{
 		if ( CG_WeaponSelectable( i ) )

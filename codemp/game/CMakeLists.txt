@@ -43,6 +43,7 @@ set(MPGameGameFiles
 	"${MPDir}/game/g_shinobi_earth.c"
 	"${MPDir}/game/g_shinobi_bot.c"
 	"${MPDir}/game/g_shinobi_yinyang.c"
+	"${MPDir}/game/g_shinobi_autotest.c"
 	"${MPDir}/game/g_shinobi_tools.c"
 	"${MPDir}/game/bg_panimate.c"
 	"${MPDir}/game/bg_pmove.c"
