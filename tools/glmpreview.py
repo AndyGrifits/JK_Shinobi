@@ -97,6 +97,9 @@ def main(argv=None):
     ap.add_argument("--size", type=int, default=360)
     ap.add_argument("--tags", action="store_true", help="draw the tag triangles in red")
     ap.add_argument("--views", default="front,side")
+    ap.add_argument("--scale", type=float, default=0.0,
+                    help="model scale in %% (the model's scale.cfg by default), about the feet "
+                         "the way the game draws it")
     ap.add_argument("--twist", type=float, default=0.0,
                     help="also turn the torso by this many degrees, half at upper_lumbar and "
                          "half at thoracic, the way the game turns it to follow the aim")
@@ -141,6 +144,13 @@ def main(argv=None):
         images[shader] = mat
         return mat
 
+    scale = a.scale / 100.0 if a.scale else 1.0
+    scale_cfg = os.path.join(os.path.dirname(a.glm), "scale.cfg")
+    if not a.scale and os.path.exists(scale_cfg):
+        for line in open(scale_cfg):
+            q = line.split()
+            if len(q) == 2 and q[0] == "scale":
+                scale = int(q[1]) / 100.0
     columns = [x for x in a.anims.split(",") if x]
     views = a.views.split(",")
     spacing = 60.0
@@ -162,6 +172,8 @@ def main(argv=None):
             R = np.array([[np.cos(rot), -np.sin(rot), 0], [np.sin(rot), np.cos(rot), 0], [0, 0, 1]])
             offset = np.array([(ci * len(views) + vi) * spacing, 0, 0])
             for s, p in skin(surfs, mats):
+                if scale != 1.0 and spec != "base":
+                    p = (p - np.array([0, 0, -24.0])) * scale + np.array([0, 0, -24.0])
                 if shaders.get(s.name) == "*off":
                     continue
                 me = bpy.data.meshes.new(s.name)

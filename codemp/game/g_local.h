@@ -1514,6 +1514,9 @@ void Shinobi_InterruptCharge( gentity_t *ent );
 qboolean Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );
 qboolean Shinobi_KaitenSpinning( gentity_t *ent );
 // g_shinobi_build.c
+int   Shinobi_ModelSize( const char *model );            // g_shinobi.c: models/players/<model>/scale.cfg, in %
+void  Shinobi_SetSize( gentity_t *ent, int pct );
+void  Shinobi_ApplySize( gentity_t *ent, const char *model );
 void  Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo );
 void  Shinobi_ApplyBuild( gentity_t *ent );
 int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod );

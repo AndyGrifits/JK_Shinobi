@@ -1080,3 +1080,108 @@ void Shinobi_TeleportClient( gentity_t *ent, vec3_t origin ) {
 	VectorCopy( client->ps.origin, ent->r.currentOrigin );
 	trap->LinkEntity( (sharedEntity_t *)ent );
 }
+
+/*
+==============
+Player size
+
+models/players/<model>/scale.cfg ("scale 85") makes a character smaller (or bigger):
+the model is drawn scaled (ps.iModelScale, which the cgame already honours, feet kept on
+the floor), and the hitbox, the eyes, the ghoul2 traces and the bolts follow. Read once
+per model name.
+==============
+*/
+#define SHINOBI_SIZE_CACHE 64
+static struct { char model[MAX_QPATH]; int pct; } shinobiSizes[SHINOBI_SIZE_CACHE];
+static int shinobiNumSizes;
+
+int Shinobi_ModelSize( const char *model )
+{
+	char dir[MAX_QPATH], path[MAX_QPATH], buf[512];
+	char *slash;
+	const char *p, *tok;
+	fileHandle_t f;
+	int i, len, pct = 100;
+
+	if ( !model || !model[0] )
+		return 100;
+	Q_strncpyz( dir, model, sizeof( dir ) );
+	if ( ( slash = strchr( dir, '/' ) ) != NULL )
+		*slash = 0;
+	for ( i = 0; i < shinobiNumSizes; i++ )
+		if ( !Q_stricmp( shinobiSizes[i].model, dir ) )
+			return shinobiSizes[i].pct;
+
+	Com_sprintf( path, sizeof( path ), "models/players/%s/scale.cfg", dir );
+	len = trap->FS_Open( path, &f, FS_READ );
+	if ( f ) {
+		if ( len > 0 ) {
+			if ( len > (int)sizeof( buf ) - 1 )
+				len = sizeof( buf ) - 1;
+			trap->FS_Read( buf, len, f );
+			buf[len] = 0;
+			p = buf;
+			COM_BeginParseSession( "Shinobi_ModelSize" );
+			while ( ( tok = COM_ParseExt( &p, qtrue ) ) != NULL && tok[0] ) {
+				if ( !Q_stricmp( tok, "scale" ) ) {
+					tok = COM_ParseExt( &p, qfalse );
+					if ( tok && tok[0] )
+						pct = atoi( tok );
+					break;
+				}
+			}
+		}
+		trap->FS_Close( f );
+	}
+	if ( pct < SHINOBI_SIZE_MIN || pct > SHINOBI_SIZE_MAX )
+		pct = 100;
+	if ( shinobiNumSizes < SHINOBI_SIZE_CACHE ) {
+		Q_strncpyz( shinobiSizes[shinobiNumSizes].model, dir, sizeof( shinobiSizes[0].model ) );
+		shinobiSizes[shinobiNumSizes].pct = pct;
+		shinobiNumSizes++;
+	}
+	if ( pct != 100 )
+		Com_Printf( "[shinobi] model %s: size %d%%\n", dir, pct );
+	return pct;
+}
+
+// set an entity (player or clone) to a size in % of the stock one
+void Shinobi_SetSize( gentity_t *ent, int pct )
+{
+	gclient_t *cl = ent->client;
+	float f, w;
+
+	if ( !cl )
+		return;
+	if ( pct < SHINOBI_SIZE_MIN || pct > SHINOBI_SIZE_MAX )
+		pct = 100;
+	cl->ps.iModelScale = ent->s.iModelScale = ( pct == 100 ) ? 0 : pct;
+	f = pct / 100.0f;
+	if ( pct == 100 )
+		VectorClear( ent->modelScale );
+	else
+		VectorSet( ent->modelScale, f, f, f );
+	cl->ps.standheight = BG_ShinobiSized( &cl->ps, DEFAULT_MAXS_2 );
+	cl->ps.crouchheight = BG_ShinobiSized( &cl->ps, CROUCH_MAXS_2 );
+	if ( ent->s.number < MAX_CLIENTS ) {
+		w = 15.0f * f;
+		VectorSet( ent->r.mins, -w, -w, DEFAULT_MINS_2 );
+		ent->r.maxs[0] = ent->r.maxs[1] = w;
+	}
+	ent->r.maxs[2] = ( cl->ps.pm_flags & PMF_DUCKED ) ? cl->ps.crouchheight : cl->ps.standheight;
+	cl->ps.viewheight = BG_ShinobiSized( &cl->ps, ( cl->ps.pm_flags & PMF_DUCKED ) ? CROUCH_VIEWHEIGHT : DEFAULT_VIEWHEIGHT );
+}
+
+// a player's size from the model in his userinfo (model NULL: read the userinfo)
+void Shinobi_ApplySize( gentity_t *ent, const char *model )
+{
+	char userinfo[MAX_INFO_STRING];
+
+	if ( !ent->client )
+		return;
+	if ( !model ) {
+		trap->GetUserinfo( ent->s.number, userinfo, sizeof( userinfo ) );
+		model = Info_ValueForKey( userinfo, "model" );
+	}
+	Shinobi_SetSize( ent, Shinobi_ModelSize( model ) );
+}

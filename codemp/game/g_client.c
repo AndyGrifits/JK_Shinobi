@@ -2174,6 +2174,8 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 		modelChanged = qtrue;
 	}
 
+	Shinobi_ApplySize( ent, model ); // JK_Shinobi: the model's size (scale.cfg), hitbox included
+
 	client->ps.customRGBA[0] = (value=Info_ValueForKey( userinfo, "char_color_red" ))	? Com_Clampi( 0, 255, atoi( value ) ) : 255;
 	client->ps.customRGBA[1] = (value=Info_ValueForKey( userinfo, "char_color_green" ))	? Com_Clampi( 0, 255, atoi( value ) ) : 255;
 	client->ps.customRGBA[2] = (value=Info_ValueForKey( userinfo, "char_color_blue" ))	? Com_Clampi( 0, 255, atoi( value ) ) : 255;
@@ -3384,6 +3386,7 @@ void ClientSpawn(gentity_t *ent) {
 	VectorCopy (playerMaxs, ent->r.maxs);
 	client->ps.crouchheight = CROUCH_MAXS_2;
 	client->ps.standheight = DEFAULT_MAXS_2;
+	Shinobi_ApplySize( ent, NULL ); // JK_Shinobi: the model's size (scale.cfg), hitbox included
 
 	client->ps.clientNum = index;
 	//give default weapons

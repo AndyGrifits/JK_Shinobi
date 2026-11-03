@@ -34,6 +34,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import g2file  # noqa: E402
 
 UNIT = 10.0
+HEAD_OVER_FEET = 51.4  # head joint over the ankles, game units (as Kakashi's rip at SMD_SCALE)
+ADULT_CM = 181       # Kakashi: drawn at the stock JA size; shorter ones scaled down
 SMD_SCALE = 33.56     # these rips are ~1.8 high; same size as the .blend ones x 10
 
 # ---------------------------------------------------------------- rig mapping
@@ -194,7 +196,40 @@ def smd_texture(material, tex_dir):
     return head if head.endswith(".png") else head + ".png"
 
 
-def load_smd(path, tex_dir=None, scale=SMD_SCALE):
+def smooth_normals(m, max_angle=60.0):
+    """Rips that come with one normal per face (flat shaded, and three game vertices
+    per triangle): average each corner's normal with the other corners of the same
+    vertex within max_angle, so smooth surfaces share vertices and hard edges stay."""
+    by = {}
+    for tri in m["tris"]:
+        for vi, li in tri:
+            by.setdefault(vi, []).append(li)
+    n = np.array(m["loop_n"], dtype=float)
+    out = n.copy()
+    cos = math.cos(math.radians(max_angle))
+    for ls in by.values():
+        if len(ls) < 2:
+            continue
+        g = n[ls]
+        close = (g @ g.T) >= cos
+        avg = close.astype(float) @ g
+        avg /= np.linalg.norm(avg, axis=1)[:, None] + 1e-12
+        out[ls] = np.round(avg, 3)          # equal normals -> one game vertex
+    m["loop_n"] = out
+
+
+def faceted(m):
+    by = {}
+    for tri in m["tris"]:
+        for vi, li in tri:
+            by.setdefault(vi, []).append(li)
+    n = np.asarray(m["loop_n"])
+    spread = [1 - float(np.min(n[ls] @ n[ls].mean(0)) / (np.linalg.norm(n[ls].mean(0)) + 1e-12))
+              for ls in by.values() if len(ls) > 1]
+    return bool(spread) and float(np.median(spread)) > 0.05
+
+
+def load_smd(path, tex_dir=None, scale=SMD_SCALE, flip_v=False):
     """A Source .smd (version 1): skeleton (frame 0 = bind pose) and triangles with
     their weights; one mesh per material. Same output as load_blend."""
     lines = open(path, encoding="latin-1").read().splitlines()
@@ -240,7 +275,7 @@ def load_smd(path, tex_dir=None, scale=SMD_SCALE):
                 m["co"].append(pos)
                 m["weights"].append(ws)
             m["loop_n"].append(tuple(float(x) for x in v[4:7]))
-            m["loop_uv"].append((float(v[7]), float(v[8])))
+            m["loop_uv"].append((float(v[7]), 1.0 - float(v[8]) if flip_v else float(v[8])))
             tri.append((m["keys"][key], len(m["loop_n"]) - 1))
         m["tris"].append(tri)
         i += 4
@@ -250,8 +285,37 @@ def load_smd(path, tex_dir=None, scale=SMD_SCALE):
         m["co"] = np.array(m["co"])
         n = np.array(m["loop_n"])
         m["loop_n"] = n / (np.linalg.norm(n, axis=1)[:, None] + 1e-12)
+        if faceted(m):
+            smooth_normals(m)
+            print("%s: one normal per face in the rip, smoothed (hard edges over 60 deg kept)" % m["name"])
         out.append(m)
     return joints, parents, out
+
+
+def upright(J, meshes):
+    """Turn a rip into the game's frame (z up, the character's left +x, facing -y):
+    rips of the same game come out in different axes (Kakashi z-up, Sasuke -y-up)."""
+    mid = lambda a, b: (np.asarray(a) + np.asarray(b)) / 2
+    up = np.asarray(J["head"]) - mid(J["L_foot"], J["R_foot"])
+    k = HEAD_OVER_FEET / np.linalg.norm(up)     # rips also come in different units
+    up /= np.linalg.norm(up)
+    left = np.asarray(J["L_harm"]) - np.asarray(J["R_harm"])
+    left -= up * np.dot(left, up)
+    left /= np.linalg.norm(left)
+    back = np.cross(up, left)
+    R = np.array([left, back, up])
+    if np.allclose(R, np.eye(3), atol=1e-3) and abs(k - 1) < 0.05:
+        return J, meshes
+    R = R * k
+    toe = R @ (np.asarray(J["L_toe"]) - np.asarray(J["L_foot"]))
+    if toe[1] > 0:
+        print("warning: the toes point backwards after turning upright: a mirrored rip?")
+    print("turned upright (the rip's up was %s), scaled x%.3f" % (np.round(up, 2), k))
+    J = {k: R @ np.asarray(v) for k, v in J.items()}
+    for m in meshes:
+        m["co"] = np.asarray(m["co"]) @ R.T
+        m["loop_n"] = np.asarray(m["loop_n"]) @ (R / k).T
+    return J, meshes
 
 
 def split_parts(meshes):
@@ -651,6 +715,10 @@ def main(argv=None):
     ap.add_argument("--armature", help="source armature (default: the one the meshes use)")
     ap.add_argument("--drop", default="", help="comma-separated mesh objects to leave out")
     ap.add_argument("--parts", action="store_true", help="list the connected parts and stop")
+    ap.add_argument("--flip-v", action="store_true", help=".smd whose texture v runs the other way "
+                    "(the face comes out dark / textures scrambled; Sasuke's rip)")
+    ap.add_argument("--height", type=float, help="the character's height in cm (Naruto databooks); "
+                    "the game draws him at height / %d of the stock size, hitbox included" % ADULT_CM)
     ap.add_argument("--drop-parts", default="", help="comma-separated part ids (see --parts) to leave out")
     ap.add_argument("--prop-parts", default="", help="part ids that are held props: rigid on their "
                     "hand, off in model_default.skin, on in model_props.skin")
@@ -659,9 +727,10 @@ def main(argv=None):
     name = (a.name or os.path.splitext(os.path.basename(a.blend))[0]).lower()
     gla = g2file.Gla(a.gla)
     if a.blend.lower().endswith(".smd"):
-        J, parents, meshes = load_smd(a.blend, a.textures)
+        J, parents, meshes = load_smd(a.blend, a.textures, flip_v=a.flip_v)
     else:
         J, parents, meshes = load_blend(a.blend, a.armature)
+    J, meshes = upright(J, meshes)
     drop = {d for d in a.drop.split(",") if d}
     meshes = [m for m in meshes if m["name"] not in drop]
     if a.parts or a.drop_parts or a.prop_parts:
@@ -748,6 +817,16 @@ def main(argv=None):
     # the character screen lists every player model with this file: its title, then "female" for a woman
     with open(os.path.join(outdir, "shinobi.char"), "w", newline="\n") as f:
         f.write("%s\n%s" % (a.title or name.capitalize(), "female\n" if a.female else ""))
+    scale_file = os.path.join(outdir, "scale.cfg")
+    if a.height:
+        pct = int(round(100 * a.height / ADULT_CM))
+        pct = min(max(pct, 50), 150)
+        with open(scale_file, "w", newline="\n") as f:
+            f.write("// JK_Shinobi: model and hitbox size in %% of the stock size (%g cm / %d cm)\n"
+                    "scale %d\n" % (a.height, ADULT_CM, pct))
+        print("scale %d%% (%g cm)" % (pct, a.height))
+    elif os.path.exists(scale_file):
+        os.remove(scale_file)
     nv = sum(len(s.verts) for s in mesh_surfs)
     nt = sum(len(s.tris) for s in mesh_surfs)
     print("wrote %s: %d mesh surfaces, %d verts, %d tris, %d tags"

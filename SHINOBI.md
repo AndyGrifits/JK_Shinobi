@@ -171,6 +171,17 @@ to one finger is a held prop: rigid on the hand, off in `model_default.skin`, on
 that file is on the character screen, its `model_*.skin` files are its looks. Pack the
 folder into a pk3 in shinobi/ and it shows up - nothing else to register.
 
+## Player size
+
+`models/players/<model>/scale.cfg` with `scale 85` draws a character at 85 % of the stock
+size, and the hitbox (height and width), the eyes, the ghoul2 traces, the bolts and his
+clones shrink with him; the feet stay on the floor (50-150 %, read once per model name).
+`blend2glm.py --height 153` writes it from the databook height in cm, against Kakashi's
+181 cm = the stock size (Sasuke Part I: 153 -> 85 %). Rips come in different axes and
+units (Sasuke's .smd is -y up, ~30x smaller, v flipped: `--flip-v`); the converter turns
+them upright and to one size from the rig itself, and smooths rips that have one normal
+per face.
+
 ## Item models
 
 The kunai, explosive kunai, explosive tag, fuma shuriken and the healing / chakra pills

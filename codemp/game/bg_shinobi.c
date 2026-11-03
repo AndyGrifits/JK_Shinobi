@@ -498,3 +498,26 @@ void Shinobi_AccPlace( const float bolt[3][4], const float B[3][4], const shinob
 		origin[r] = bolt[r][0] * C[0][3] + bolt[r][1] * C[1][3] + bolt[r][2] * C[2][3] + bolt[r][3];
 	}
 }
+
+/*
+==============
+BG_ShinobiSize
+
+The player's size from ps->iModelScale (0 = stock); heights are measured from the
+feet (DEFAULT_MINS_2 below the origin), which stay where they are.
+==============
+*/
+float BG_ShinobiSize( const playerState_t *ps )
+{
+	if ( !ps || ps->iModelScale <= 0 || ps->iModelScale == 100 )
+		return 1.0f;
+	return ps->iModelScale / 100.0f;
+}
+
+int BG_ShinobiSized( const playerState_t *ps, int height )
+{
+	const float f = BG_ShinobiSize( ps );
+	if ( f == 1.0f )
+		return height;
+	return DEFAULT_MINS_2 + (int)floorf( ( height - DEFAULT_MINS_2 ) * f + 0.5f );
+}

@@ -573,6 +573,13 @@ The shield no longer soaks damage on its own.
 void     BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd );
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove.c
 
+// Player size (models/players/<model>/scale.cfg, "scale 85" = 85 %): the model, the hitbox
+// and the eyes shrink together, the feet stay on the floor (bbox bottom DEFAULT_MINS_2).
+#define SHINOBI_SIZE_MIN 50
+#define SHINOBI_SIZE_MAX 150
+float BG_ShinobiSize( const playerState_t *ps );                 // 1 = stock size
+int   BG_ShinobiSized( const playerState_t *ps, int height );    // a height over the feet, scaled
+
 /*
 ---------------------------------------------------------------------------
 Ninja tools on the maps: the stock pickups are turned into these at load

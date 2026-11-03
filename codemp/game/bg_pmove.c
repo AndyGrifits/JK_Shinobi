@@ -3494,7 +3494,7 @@ static void PM_NoclipMove( void ) {
 	float		wishspeed;
 	float		scale;
 
-	pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+	pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 
 	// friction
 
@@ -4439,7 +4439,7 @@ static void PM_CheckDuck (void)
 			pm->maxs[0] = 16;
 			pm->maxs[1] = 16;
 			pm->maxs[2] = pm->ps->standheight;//DEFAULT_MAXS_2;
-			pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+			pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 
 			pm->trace (&solidTr, pm->ps->origin, pm->mins, pm->maxs, pm->ps->origin, pm->ps->m_iVehicleNum, pm->tracemask);
 			if (solidTr.startsolid || solidTr.allsolid || solidTr.fraction != 1.0f)
@@ -4462,11 +4462,13 @@ static void PM_CheckDuck (void)
 	{
 		if (pm->ps->clientNum < MAX_CLIENTS)
 		{
-			pm->mins[0] = -15;
-			pm->mins[1] = -15;
+			const float w = 15.0f * BG_ShinobiSize( pm->ps ); // JK_Shinobi: a smaller ninja is thinner too
 
-			pm->maxs[0] = 15;
-			pm->maxs[1] = 15;
+			pm->mins[0] = -w;
+			pm->mins[1] = -w;
+
+			pm->maxs[0] = w;
+			pm->maxs[1] = w;
 		}
 
 		if ( PM_CheckDualForwardJumpDuck() )
@@ -4492,7 +4494,7 @@ static void PM_CheckDuck (void)
 		if (BG_InRoll(pm->ps, pm->ps->legsAnim) && !BG_KickingAnim(pm->ps->legsAnim))
 		{
 			pm->maxs[2] = pm->ps->crouchheight; //CROUCH_MAXS_2;
-			pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+			pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 			pm->ps->pm_flags &= ~PMF_DUCKED;
 			pm->ps->pm_flags |= PMF_ROLLING;
 			return;
@@ -4526,17 +4528,17 @@ static void PM_CheckDuck (void)
 	if (pm->ps->pm_flags & PMF_DUCKED)
 	{
 		pm->maxs[2] = pm->ps->crouchheight;//CROUCH_MAXS_2;
-		pm->ps->viewheight = CROUCH_VIEWHEIGHT;
+		pm->ps->viewheight = BG_ShinobiSized( pm->ps, CROUCH_VIEWHEIGHT );
 	}
 	else if (pm->ps->pm_flags & PMF_ROLLING)
 	{
 		pm->maxs[2] = pm->ps->crouchheight;//CROUCH_MAXS_2;
-		pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+		pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 	}
 	else
 	{
 		pm->maxs[2] = pm->ps->standheight;//DEFAULT_MAXS_2;
-		pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+		pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 	}
 }
 
@@ -5355,7 +5357,7 @@ static void PM_Footsteps( void ) {
 			PM_SetAnim(SETANIM_BOTH,rolled,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);
 			PM_AddEventWithParm( EV_ROLL, 0 );
 			pm->maxs[2] = pm->ps->crouchheight;//CROUCH_MAXS_2;
-			pm->ps->viewheight = DEFAULT_VIEWHEIGHT;
+			pm->ps->viewheight = BG_ShinobiSized( pm->ps, DEFAULT_VIEWHEIGHT );
 			pm->ps->pm_flags &= ~PMF_DUCKED;
 			pm->ps->pm_flags |= PMF_ROLLING;
 		}

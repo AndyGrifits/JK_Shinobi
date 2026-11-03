@@ -253,6 +253,7 @@ static gentity_t *Shinobi_SpawnClone( gentity_t *owner, vec3_t origin ) {
 		return NULL;
 
 	clone->shinobiCloneOwner = owner->s.number + 1;
+	Shinobi_SetSize( clone, owner->client->ps.iModelScale ? owner->client->ps.iModelScale : 100 ); // as big as its maker
 	clone->s.owner = owner->s.number; // (the cgame draws its maker's accessories on it)
 	clone->shinobiCloneExpire = level.time + SHINOBI_CLONE_LIFETIME;
 	clone->shinobiCloneThink = 0;
