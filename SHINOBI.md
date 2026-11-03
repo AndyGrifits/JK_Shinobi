@@ -245,9 +245,41 @@ pools as wide as itself. The game lists the stock water shaders once
 into `shinobi_water_shaders.txt` (in the shinobi folder); `shinobi_puddleShader <name>`
 puts one of them on the puddles instead (takes effect on the next map load).
 
+## Weapons (Weapon on the build screen)
+
+No lightsabers: the blades are sabers the game draws without a light blade, glow or
+clash flare, with a plain swing trail, the stock sword / tusken staff sounds and a cut
+mark instead of the burn; they can't be switched off. The stock saber combat stays
+(stances, blocks, kata, parries). The Weapon screen picks how you fight - **Fists only**
+(the weapon key does nothing), **One blade**, **Two blades** (a weapon per hand) or a
+**Staff** - and the weapon(s), with reach, speed, damage and knockback against the
+average blade; the preview holds them in the stance that goes with them. Stored in the
+`shinobi_weapon` userinfo (none / one / two / staff) and the stock `saber1` / `saber2`;
+the server takes only `shinobi_*` weapons, fixes what doesn't fit the style and applies
+it on the next spawn. Bots get one style each by slot (katana, two knives, staff,
+nodachi, fists); shadow clones carry what their maker carries.
+
+| weapon | from | reach | speed | damage | knockback |
+|---|---|---|---|---|---|
+| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | 28 | 1.0 | 1.0 | 1.0 |
+| Nodachi (`shinobi_nodachi`) | the katana, blade x1.55 | 42 | 0.85 | 1.3 | 1.3 |
+| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives | 9 | 1.2 | 0.75 | 0.7 |
+| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends | 35 + 35 | 1.0 | 0.9 | 1.4 |
+
+New weapons: an entry in `tools/weapons.json` (source mesh .obj / .dae, axis map so the
+blade runs along +Z, the grip point, scale, blade tags and stats), then
+`python3 tools/weapon2glm.py tools/weapons.json --src <models> --out assets`. It writes
+`models/weapons2/shinobi_<name>/model.glm` (on the engine's one-bone "*default"
+skeleton, like the stock hilts: grip at the origin, blade along +Z, `*blade<n>` tags
+shaped like saber_1's) and `ext_data/sabers/shinobi_<name>.sab`; it shows up on the
+Weapon screen by itself. Check the fit with
+`glmpreview.py <player glm> ... --weapons <right glm>[,<left glm>] --tags` (red = the
+damage line). Keep a weapon well under 1000 vertices: it shares the 256 KB Ghoul2
+transform space with the player model.
+
 ## No guns
 
-Players only ever hold fists, the saber and the three tool weapons (explosive kunai,
+Players only ever hold fists, their weapon (the saber slot) and the three tool weapons (explosive kunai,
 tags, fuma shuriken): spawn loadouts, `give` and anything else are stripped every frame.
 Maps spawn only the items that turn into ninja tools (plus CTF flags / cubes and the
 Jedi Master saber); armor shards, DEMP2, shield/ammo dispensers, power converters and
@@ -400,7 +432,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
-| **2** | fists / saber |
+| **2** | fists / your weapon (nothing with Fists only) |
 | **B** | ninja build screen |
 | W + A/D toward a wall + Space | wall run, also from mid-jump; keep holding W to keep running (6 chakra per stride) |
 
