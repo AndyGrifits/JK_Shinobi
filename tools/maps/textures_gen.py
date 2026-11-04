@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-ALPHA = {"dust"}          # kinds with an alpha channel (saved as PNG, packed as TGA)
+ALPHA = {"dust", "leafwind"}          # kinds with an alpha channel (saved as PNG, packed as TGA)
 
 
 def pnoise(n, k, rng, aspect=(1, 1)):
@@ -46,7 +46,7 @@ def make(kind, path, n=None):
     rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
                                  "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83,
                                  "grass": 89, "dirt": 97, "mud": 101, "stone": 103, "redwood": 107, "cloth": 109, "tatami": 113,
-                                 "roof": 127, "plaster": 131, "noren": 137, "grain": 139}[kind])
+                                 "roof": 127, "plaster": 131, "noren": 137, "grain": 139, "leafwind": 149}[kind])
     alpha = None
     if kind == "concrete":
         n = n or 1024
@@ -203,6 +203,22 @@ def make(kind, path, n=None):
         n = n or 256
         g = 128 + (fbm(n, 16, rng, 3) - 0.5) * 46 + (fbm(n, 64, rng, 2) - 0.5) * 30
         img = np.repeat(g[..., None], 3, 2)
+    elif kind == "leafwind":                                          # windy mist with blown leaves: RGBA, dense at
+        n = n or 512                                                  # the foot (image bottom), fading out upwards
+        gust = 0.6 * fbm(n, 2, rng, 4, aspect=(1, 6)) + 0.4 * fbm(n, 3, rng, 5)
+        v = np.linspace(1, 0, n)[:, None]                             # 1 at the top row
+        prof = np.clip(1 - v, 0, 1) ** 1.3
+        alpha = np.clip(prof * (0.45 + 0.6 * gust), 0, 1) * 200
+        img = col(214, 226, 200) + (gust - 0.5)[..., None] * col(30, 30, 26)
+        yy, xx = np.mgrid[0:n, 0:n]
+        for k in range(int(n * n / 2600)):                            # leaves: small rotated ellipses, streaked
+            cx, cy = rng.random() * n, (0.25 + 0.75 * rng.random() ** 0.7) * n
+            a = rng.random() * np.pi; ca, sa = np.cos(a), np.sin(a); L, W_ = 7 + rng.random() * 6, 2.5 + rng.random() * 2
+            dx = (xx - cx + n / 2) % n - n / 2; dy = yy - cy
+            u = (dx * ca + dy * sa) / L; w = (-dx * sa + dy * ca) / W_
+            m = (u * u + w * w) < 1
+            tone = [col(96, 150, 52), col(132, 170, 60), col(186, 160, 64), col(160, 110, 50)][k % 4]
+            img[m] = tone; alpha[m] = 235
     elif kind == "noren":                                             # indigo shop curtain
         n = n or 128
         img = col(40, 52, 110) + (fbm(n, 4, rng, 3) - 0.5)[..., None] * 18

@@ -241,7 +241,8 @@ L = cfg.get("lights", {"grid_x": [], "grid_y": []})
 for x in L.get("grid_x", []):
     for y in L.get("grid_y", []):
         out.append(ent({"classname": "light", "origin": f"{x} {y} {L['z']}", "light": str(L["light"])}))
-for e in L.get("extra", []):
+room_lights = os.path.join(build, "room_lights.json")      # prep_model "rooms": a light per indoor room
+for e in L.get("extra", []) + (json.load(open(room_lights)) if cfg.get("rooms") and os.path.exists(room_lights) else []):
     out.append(ent({"classname": "light", "origin": " ".join(map(str, e["origin"])), "light": str(e["light"]),
                     **({"_color": " ".join(map(str, e["color"]))} if "color" in e else {})}))
 for cls, pts in cfg["spawns"].items():

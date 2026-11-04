@@ -195,6 +195,20 @@ for ut in mdl.get("uv_terrain", []):
     terrain_maps[tgt] = cp
     print(f"UV_TERRAIN {nmoved} faces -> {ut['target']} ({n} px colour map over {R})")
 
+# deepen a channel (map.json "model": {"sink": [{"superellipse": [cx, cy, a, b, n], "below": z, "dz": u,
+# "shaders": [...]}]}): vertices under "below" inside the area go down by dz (bed and the foot of its walls)
+for sk in mdl.get("sink", []):
+    shs = {f"textures/{shader_dir}/{x}" for x in sk["shaders"]}; cx_, cy_, A_, B_, N_ = sk["superellipse"]; moved = 0
+    for o in meshes:
+        idx = {i for i, sl in enumerate(o.material_slots) if sl.material and sl.material.name in shs}
+        vs = {v for p_ in o.data.polygons if p_.material_index in idx for v in p_.vertices}
+        for vi in vs:
+            co = o.data.vertices[vi].co
+            if co.z < sk["below"] and abs((co.x - cx_) / A_) ** N_ + abs((co.y - cy_) / B_) ** N_ <= 1:
+                co.z -= sk["dz"]; moved += 1
+        o.data.update()
+    print(f"SINK {moved} vertices by {sk['dz']} below {sk['below']}")
+
 # open up a storey (map.json "model": {"delete_faces": [{"center": [x, y], "r0": u, "r1": u, "z0": u, "z1": u,
 # "max_nz": 0.5, "shaders": [...]}]}): wall faces in that ring and height band go (a "gallery" prop adds
 # floor, ceiling and posts)
@@ -354,6 +368,92 @@ for pz in cfg.get("plaza", []):
             me.normals_split_custom_set(loop_n)
         print(f"PLAZA {pz['rect']} z {Z}: {len(fs)} terrain faces levelled, {len(cut)} cut for the hole")
 
+def find_rooms(rc, bvh):
+    """indoor spaces of the model (map.json "rooms": {"superellipse": [...], "cell": u, "min_cells": n,
+    "skip": [[x, y, r], ...]}): grid columns where a floor has a ceiling 100..700 above it and walls all
+    around at waist height; cells of one floor height join into rooms; each room gets a light and a few
+    schematic furnishings (futon by a wall, low table with cushions, a cabinet) where they fit"""
+    import random
+    cx_, cy_, A_, B_, N_ = rc["superellipse"]; C_ = rc.get("cell", 48); rnd = random.Random(5)
+    down = mathutils.Vector((0, 0, -1)); cells = {}
+    def hits(x, y):
+        out_ = []; o_ = mathutils.Vector((x, y, 6000))
+        for _ in range(12):
+            h = bvh.ray_cast(o_, down, 12000)
+            if h[0] is None: break
+            out_.append((h[0].z, h[1].z)); o_ = h[0] + down * 0.5
+        return out_
+    xs_ = [cx_ - A_ + C_ * k for k in range(int(2 * A_ / C_) + 1)]; ys_ = [cy_ - B_ + C_ * k for k in range(int(2 * B_ / C_) + 1)]
+    for x in xs_:
+        for y in ys_:
+            if abs((x - cx_) / A_) ** N_ + abs((y - cy_) / B_) ** N_ > 1: continue
+            if any(math.hypot(x - a, y - b) < r for a, b, r in rc.get("skip", [])): continue
+            hs = hits(x, y)
+            for k in range(1, len(hs)):
+                zc, nc = hs[k - 1]; zf, nf = hs[k]
+                if nf > 0.7 and 100 <= zc - zf <= 700:          # a floor with something overhead
+                    zm = zf + 48; walls = 0
+                    for a in range(0, 360, 45):
+                        d_ = mathutils.Vector((math.cos(math.radians(a)), math.sin(math.radians(a)), 0))
+                        h = bvh.ray_cast(mathutils.Vector((x, y, zm)), d_, 900)
+                        walls += h[0] is not None
+                    if walls >= 7:
+                        cells[(round((x - xs_[0]) / C_), round((y - ys_[0]) / C_), round(zf / 16))] = (x, y, zf, zc)
+    seen = set(); rooms = []
+    for key in cells:
+        if key in seen: continue
+        st = [key]; seen.add(key); cur = []
+        while st:
+            k_ = st.pop(); cur.append(k_)
+            for d_ in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                for dz in (-1, 0, 1):
+                    q = (k_[0] + d_[0], k_[1] + d_[1], k_[2] + dz)
+                    if q in cells and q not in seen: seen.add(q); st.append(q)
+        if len(cur) >= rc.get("min_cells", 10): rooms.append(cur)
+    props_ = []; lights_ = []
+    for room in rooms:
+        pts = [cells[k_] for k_ in room]; ij = {(k_[0], k_[1]) for k_ in room}
+        zf = sorted(p_[2] for p_ in pts)[len(pts) // 2]; zc = min(p_[3] for p_ in pts)
+        mx = sum(p_[0] for p_ in pts) / len(pts); my = sum(p_[1] for p_ in pts) / len(pts)
+        ctr = min(pts, key=lambda p_: (p_[0] - mx) ** 2 + (p_[1] - my) ** 2)
+        area = len(pts) * C_ * C_
+        lights_.append({"origin": [round(ctr[0]), round(ctr[1]), round(zf + min(0.75 * (zc - zf), 120))],
+                        "light": int(min(420, 150 + area / 700)), "color": [1, 0.86, 0.66]})
+        def fits(x, y, hw, hd, yaw):          # footprint inside the room's cells (with a margin)
+            ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+            for a_ in (-1, 0, 1):
+                for b_ in (-1, 0, 1):
+                    px_ = x + (a_ * (hw + 16)) * ca - (b_ * (hd + 16)) * sa; py_ = y + (a_ * (hw + 16)) * sa + (b_ * (hd + 16)) * ca
+                    if (round((px_ - xs_[0]) / C_), round((py_ - ys_[0]) / C_)) not in ij: return False
+            return True
+        if zf < rc.get("furnish_above", -40):    # under bridges / along the canal: light only
+            continue
+        used = []
+        def free(x, y, r): return all(math.hypot(x - u, y - v) > r + rr for u, v, rr in used)
+        # wall cells: a 4-neighbour missing; the wall's inward normal from the missing side
+        edge = []
+        for (i_, j_) in ij:
+            for (di, dj) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                if (i_ + di, j_ + dj) not in ij:
+                    edge.append((xs_[0] + i_ * C_, ys_[0] + j_ * C_, math.degrees(math.atan2(-dj, -di))))
+        rnd.shuffle(edge)
+        plan = [("futon", 70, 110, "p_noren"), ("shelf", 75, 20, None)]
+        if area > 90000: plan.append(("futon", 70, 110, "p_cloth"))
+        for kind, hw, hd, cloth in plan:
+            for (x, y, nyaw) in edge:
+                yaw = nyaw + 90 if kind == "futon" else nyaw - 90          # futon along the wall, shelf facing in
+                ox, oy = math.cos(math.radians(nyaw)) * (hd + 20), math.sin(math.radians(nyaw)) * (hd + 20)
+                px_, py_ = x + ox, y + oy
+                if fits(px_, py_, hw, hd, yaw) and free(px_, py_, max(hw, hd)):
+                    sz = [2 * hw, 2 * hd, 22] if kind == "futon" else [2 * hw, 2 * hd + 4, min(140, zc - zf - 30)]
+                    props_.append({"type": "furniture", "kind": kind, "at": [round(px_), round(py_)], "z": round(zf), "size": sz,
+                                   "yaw": round(yaw), "ground": False, **({"cloth": cloth} if cloth else {})})
+                    used.append((px_, py_, max(hw, hd))); break
+        if area > 50000 and fits(ctr[0], ctr[1], 90, 90, 0) and free(ctr[0], ctr[1], 90):
+            props_.append({"type": "furniture", "kind": "lowtable", "at": [round(ctr[0]), round(ctr[1])], "z": round(zf), "size": [110, 110, 34], "ground": False})
+    return {"props": props_, "lights": lights_, "n": len(rooms)}
+
+
 # generated cover / elevation props (map.json "props"), see props.py
 gen_tex = {}   # shader short name -> textures_gen kind
 if cfg.get("props"):
@@ -381,6 +481,8 @@ if cfg.get("props"):
             mo = bpy.data.meshes.new("o"); other.to_mesh(mo); bs.from_mesh(mo)
             tmp.free(); other.free()
         terrain = BVHTree.FromBMesh(bt); struct = BVHTree.FromBMesh(bs)
+        ball = bt.copy(); mtmp = bpy.data.meshes.new("all"); bs.to_mesh(mtmp); ball.from_mesh(mtmp)
+        solid_all = BVHTree.FromBMesh(ball)          # ground + structures: what ledges and rooms work against
         down = mathutils.Vector((0, 0, -1))
         def ground_z(x, y):
             h = terrain.ray_cast(mathutils.Vector((x, y, 30000)), down, 60000)
@@ -392,7 +494,12 @@ if cfg.get("props"):
                 if h[0] is not None and h[0].z > g + 40:
                     return True
             return False
-        props_mod.GROUND = ground_z; props_mod.STRUCT = struct   # crates on slopes, ledges hugging a wall
+        props_mod.GROUND = ground_z; props_mod.STRUCT = solid_all   # crates on slopes, ledges hugging a wall
+        if cfg.get("rooms"):
+            rooms_found = find_rooms(cfg["rooms"], solid_all)
+            cfg["props"] = list(cfg.get("props", [])) + rooms_found["props"]
+            json.dump(rooms_found["lights"], open(os.path.join(out, "room_lights.json"), "w"), indent=0)
+            print(f"ROOMS {rooms_found['n']} rooms: {len(rooms_found['props'])} furniture pieces, {len(rooms_found['lights'])} lights")
         if cfg.get("ring"):
             ring = props_mod.plan_ring(cfg["ring"], occupied)
             cfg["props"] = list(cfg.get("props", [])) + ring

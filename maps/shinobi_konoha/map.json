@@ -113,7 +113,25 @@
     ]
    }
   ],
-  "drop_beyond": 22000
+  "drop_beyond": 22000,
+  "sink": [
+   {
+    "_": "the canal is 450 deep with only 150 of water: dig the bed 250 deeper (its walls follow)",
+    "superellipse": [
+     150,
+     250,
+     4050,
+     3850,
+     3
+    ],
+    "below": -430,
+    "dz": 250,
+    "shaders": [
+     "kn_atlas",
+     "kn_ground"
+    ]
+   }
+  ]
  },
  "far": {
   "superellipse": [
@@ -124,7 +142,9 @@
    3
   ],
   "margin": 700,
-  "exclude": []
+  "exclude": [
+   "p_wind"
+  ]
  },
  "shaders": {
   "kn_atlas": {
@@ -267,10 +287,28 @@
    "solid": true,
    "mat": "solidwood",
    "what": "training posts"
+  },
+  "p_wind": {
+   "what": "wind with blown leaves at the edge (generated, alpha fades upwards)",
+   "raw": [
+    "surfaceparm nonsolid",
+    "surfaceparm nolightmap",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm noimpact",
+    "cull twosided",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen identity",
+    "\ttcMod scroll 0.06 0",
+    "}"
+   ]
   }
  },
  "gen_textures": {
-  "kn_grain": "grain"
+  "kn_grain": "grain",
+  "p_wind": "leafwind"
  },
  "texture_copy": {
   "kn_leaf": "kn_atlas"
@@ -588,7 +626,7 @@
    "at": [
     -530,
     -833,
-    -240
+    -200
    ],
    "_": "Chakra Pill on a stepping stone"
   }
@@ -614,8 +652,8 @@
     ]
    ],
    "width": 220,
-   "floor": -190,
-   "water": -80,
+   "floor": -330,
+   "water": -60,
    "top": 6,
    "pond": {
     "r": 360,
@@ -625,7 +663,8 @@
    },
    "cut_shaders": [
     "kn_ground"
-   ]
+   ],
+   "coping": 110
   },
   {
    "type": "pavilion",
@@ -651,7 +690,7 @@
    ],
    "width": 120,
    "rise": 50,
-   "segments": 8
+   "segments": 10
   },
   {
    "_": "canal: red arched footbridge (east) and stepping stones (west)"
@@ -670,7 +709,7 @@
    ],
    "width": 150,
    "rise": 160,
-   "segments": 14
+   "segments": 18
   },
   {
    "type": "stones",
@@ -704,8 +743,8 @@
      -1137
     ]
    ],
-   "top": -276,
-   "bottom": -470,
+   "top": -240,
+   "bottom": -720,
    "r": 46
   },
   {
@@ -733,53 +772,54 @@
     450,
     402
    ],
-   "depth": 180,
+   "depth": 150,
    "thick": 24,
    "levels": [
     [
-     120,
-     200,
+     110,
+     206,
      232
     ],
     [
-     240,
-     238,
-     270
+     220,
+     258,
+     284
     ],
     [
-     360,
-     276,
-     308
+     330,
+     226,
+     252
     ],
     [
-     480,
-     314,
-     346
+     330,
+     318,
+     344
     ],
     [
-     600,
-     352,
-     384
+     450,
+     8,
+     34
     ],
     [
-     725,
-     30,
-     62
+     580,
+     330,
+     356,
+     40,
+     240
     ],
     [
-     850,
-     68,
-     100
+     900,
+     58,
+     84,
+     40,
+     160
     ],
     [
-     975,
-     106,
-     138
-    ],
-    [
-     1100,
-     144,
-     176
+     1010,
+     124,
+     150,
+     40,
+     170
     ]
    ],
    "shader": "p_wood"
@@ -1895,6 +1935,33 @@
    ],
    "z": -470,
    "h": 330
+  },
+  {
+   "type": "dust_ring",
+   "at": [
+    150,
+    250
+   ],
+   "superellipse": [
+    3150,
+    2950,
+    3
+   ],
+   "layers": [
+    [
+     -30,
+     -760,
+     700
+    ],
+    [
+     230,
+     -760,
+     1000
+    ]
+   ],
+   "segments": 128,
+   "tile": 1800,
+   "shader": "p_wind"
   }
  ],
  "import_textures": {
@@ -1972,8 +2039,8 @@
   "clip_stairs": "concrete"
  },
  "water_fill": {
-  "z": -300,
-  "floor": -470,
+  "z": -260,
+  "floor": -720,
   "area": [
    -4200,
    -3600,
@@ -1981,7 +2048,10 @@
    3400
   ],
   "cell": 64,
-  "min_depth": 30
+  "min_depth": 30,
+  "mode": "segments",
+  "bins": 9,
+  "pad": 140
  },
  "stairs": {
   "shaders": [
@@ -2106,5 +2176,59 @@
    500
   ],
   "lens": 16
+ },
+ "extra_shaders": {
+  "water": {
+   "_": "translucent green-blue water over the game's own water_1 ripples, murky underwater fog",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.5",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm fog",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water",
+    "fogparms ( 0.11 0.22 0.22 ) 640",
+    "cull twosided",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen const ( 0.34 0.52 0.56 )",
+    "\talphaGen const 0.62",
+    "\ttcMod scale 0.5 0.5",
+    "\ttcMod turb 0.01 0.03 5 0.1",
+    "\ttcMod scroll 0.01 0.005",
+    "}",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_ONE GL_ONE",
+    "\trgbGen const ( 0.16 0.19 0.19 )",
+    "\ttcMod scale 0.3 0.3",
+    "\ttcMod turb 0.02 -0.06 0 0.1",
+    "\ttcMod scroll -0.012 0.01",
+    "}"
+   ]
+  }
+ },
+ "rooms": {
+  "superellipse": [
+   150,
+   250,
+   3050,
+   2850,
+   3
+  ],
+  "cell": 48,
+  "min_cells": 10,
+  "skip": [
+   [
+    450,
+    402,
+    470
+   ]
+  ]
  }
 }

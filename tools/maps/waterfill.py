@@ -40,5 +40,52 @@ while y < y1:
             boxes.append({"box": [run, y, F, x, y + C, Z]}); run = None
         x += C
     y += C
+if wf.get("mode") == "segments":
+    # few convex prisms along the channel instead of many strips (each can be a fog volume): wet cells ->
+    # largest connected component -> centre line by bins along its main axis -> mitred quads of its width
+    import numpy as np, math
+    cells = set()
+    for b in boxes:
+        x0_, y0_, _, x1_, _, _ = b["box"]
+        for x in np.arange(x0_, x1_, C):
+            cells.add((int(round((x - x0) / C)), int(round((b["box"][1] - y0) / C))))
+    comp = []; seen = set()
+    for c in cells:
+        if c in seen: continue
+        st = [c]; seen.add(c); cur = []
+        while st:
+            a = st.pop(); cur.append(a)
+            for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                q = (a[0] + d[0], a[1] + d[1])
+                if q in cells and q not in seen: seen.add(q); st.append(q)
+        comp.append(cur)
+    big = max(comp, key=len)
+    P = np.array([[x0 + (i + 0.5) * C, y0 + (j + 0.5) * C] for i, j in big])
+    m = P.mean(0); U, S_, Vt = np.linalg.svd(P - m, full_matrices=False); ax = Vt[0]; pr = np.array([-ax[1], ax[0]])
+    t = (P - m) @ ax; s_ = (P - m) @ pr; nb = wf.get("bins", 8)
+    edges = np.linspace(t.min(), t.max(), nb + 1); cen = []; half = []
+    for k in range(nb):
+        sel = (t >= edges[k]) & (t <= edges[k + 1])
+        if sel.sum() < 3: continue
+        cen.append(P[sel].mean(0)); half.append(np.abs((P[sel] - P[sel].mean(0)) @ pr).max() + C)
+    cen[0] = cen[0] - ax * (t.min() - ((cen[0] - m) @ ax)) * 0 - ax * C    # reach the very ends
+    cen[-1] = cen[-1] + ax * C
+    W = wf.get("half_width") or max(half) + wf.get("pad", 120)
+    def norm(v): return v / np.linalg.norm(v)
+    dirs = [norm(cen[k + 1] - cen[k]) for k in range(len(cen) - 1)]
+    def side(k):                                   # mitred offset direction at centre point k
+        if k == 0: d = dirs[0]
+        elif k == len(cen) - 1: d = dirs[-1]
+        else: d = norm(dirs[k - 1] + dirs[k])
+        n_ = np.array([-d[1], d[0]]); dd = dirs[min(k, len(dirs) - 1)]
+        return n_ / max(0.5, abs(n_ @ np.array([-dd[1], dd[0]])))
+    segs = []
+    for k in range(len(cen) - 1):
+        a, b = cen[k], cen[k + 1]; na, nb_ = side(k) * W, side(k + 1) * W
+        quad = [a - na, b - nb_, b + nb_, a + na]
+        area = sum(quad[i][0] * quad[(i + 1) % 4][1] - quad[(i + 1) % 4][0] * quad[i][1] for i in range(4))
+        if area < 0: quad = quad[::-1]
+        segs.append({"poly": [[round(float(q[0]), 1), round(float(q[1]), 1)] for q in quad], "z0": F, "z1": Z})
+    boxes = segs
 json.dump(boxes, open(out, "w"), indent=0)
-print(f"WATERFILL {len(boxes)} strips at z {Z}")
+print(f"WATERFILL {len(boxes)} {'segments' if wf.get('mode') == 'segments' else 'strips'} at z {Z}")
