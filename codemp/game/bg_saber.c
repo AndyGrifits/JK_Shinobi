@@ -3715,6 +3715,15 @@ weapChecks:
 				newmove = LS_READY;
 			}
 
+			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
+				&& Shinobi_BladeFinisherReady( pm->ps ) && pm->ps->groundEntityNum != ENTITYNUM_NONE )
+			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher
+				newmove = Shinobi_FinisherMove( Shinobi_FinisherKindFor( &pm->cmd ),
+					pm->ps->fd.saberAnimLevel == SS_DUAL ? qtrue : qfalse );
+				anim = saberMoveData[newmove].animToUse;
+				both = qtrue;
+			}
+
 			PM_SetSaberMove( newmove );
 
 			if ( both && pm->ps->torsoAnim == anim )

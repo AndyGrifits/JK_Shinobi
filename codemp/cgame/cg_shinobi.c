@@ -1874,23 +1874,43 @@ static void CG_ShinobiDrawCharges( void ) {
 	}
 }
 
-// the blade combo: a pip for each blow landed, the finisher's one gold when it is next
+/*
+The blade combo under the crosshair: a white pip for each blow landed, then the finisher's
+gold one - hollow until the combo stands one short, then lit and pulsing: NOW the next
+swing is the finisher (what you hold picks which; a hint says what does what).
+*/
 static void CG_ShinobiDrawBladeCombo( void ) {
-	const int v = cg.predictedPlayerState.stats[STAT_SHINOBI_BLADECOMBO];
+	const playerState_t *ps = &cg.predictedPlayerState;
+	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO];
 	const int have = v & 7, need = ( v >> 3 ) & 7;
 	const vec4_t on = { 0.9f, 0.95f, 1.0f, 0.95f }, off = { 0.2f, 0.22f, 0.26f, 0.7f };
-	const vec4_t gold = { 1.0f, 0.8f, 0.25f, 0.95f };
+	vec4_t gold = { 1.0f, 0.78f, 0.2f, 0.95f };
+	const qboolean ready = Shinobi_BladeFinisherReady( ps );
 	float x;
 	int   k;
 
 	if ( !have || need < 2 || cg.snap->ps.pm_type == PM_SPECTATOR )
 		return;
 	x = SCREEN_WIDTH * 0.5f - ( need * 12 - 4 ) * 0.5f;
-	for ( k = 0; k < need; k++ ) {
-		const qboolean last = ( k == need - 1 );
-		CG_FillRect( x + k * 12, 262, 8, 8,
-			(float *)( k < have ? on : ( last && have == need - 1 ? gold : off ) ) );
+	for ( k = 0; k < need - 1; k++ )
+		CG_FillRect( x + k * 12, 262, 8, 8, (float *)( k < have ? on : off ) );
+	x += ( need - 1 ) * 12;
+	if ( ready ) { // now
+		const float p = 0.5f + 0.5f * sinf( cg.time * 0.02f );
+		gold[3] = 0.6f + 0.4f * p;
+		CG_FillRect( x - 1, 261, 10, 10, gold );
+		{
+			static const char * const own[SBF_COUNT] = { "lunge", "drain", "bleed", "chakra blade", "iai", "flurry" };
+			const clientInfo_t *ci = &cgs.clientinfo[ps->clientNum];
+			const int f = ci->saber[0].shinobiFinisher >= 0 && ci->saber[0].shinobiFinisher < SBF_COUNT ? ci->saber[0].shinobiFinisher : 0;
+			const char *t = va( "FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] );
+			const vec4_t c = { 1.0f, 0.85f, 0.35f, 0.9f };
+			CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.36f, FONT_SMALL ) * 0.5f, 274, 0.36f, (float *)c, t, 0, 0,
+				ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
+		}
 	}
+	else
+		CG_DrawRect( x, 262, 8, 8, 1, gold );
 }
 
 // lock-on (T): red brackets round the target, turning slowly

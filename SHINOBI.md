@@ -338,11 +338,16 @@ a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `saber_dps`, `blade_c
 measures every blade on a still target and tries every finisher.
 
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
-1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo; the 4th
-(fast, dual), 3rd (medium) or 2nd (strong) is the finisher, x1.5. What you hold as it lands
-picks it (pips under the crosshair count the blows, the finisher's one turns gold when it is next; "Finisher!" over him) - **back**: a sweep that knocks him down; **left / right**: a spin that cuts
-everyone around you too (100 u); **jump**: a rising cut that throws him up; **nothing or
-forward**: the weapon's own (`shinobiFinisher` in its .sab), each with its own look:
+1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo. One swing is
+one blow (never two for one cut). Under the crosshair a white pip lights for each blow and a
+gold one waits at the end; when the combo stands one short (3 blows fast and dual, 2 medium,
+1 strong) the gold pip lights up and pulses and a hint shows: **now the next swing is the
+finisher** - a move of its own, picked by what you hold as you swing, its blow x1.5:
+**back** - a low turning cut that knocks him down (`LS_A_BACK_CR`); **left / right** - a full
+spin (Alora's spin slash, the dual spin with two blades) cutting everyone round you;
+**jump** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`); **nothing or
+forward** - a lunge (`LS_A_LUNGE`) with the weapon's own finisher (`shinobiFinisher` in its
+.sab), each with its own look ("Finisher!" over him):
 
 | weapon | its finisher |
 |---|---|

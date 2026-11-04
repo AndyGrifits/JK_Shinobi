@@ -753,6 +753,46 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_FLURRY_SCALE 0.6f
 #define SHINOBI_SWORD_SPIN_RADIUS  100
 #define SHINOBI_SWORD_LAUNCH_UP    480
+/*
+The finisher is a swing of its own: once the combo stands one blow short (the HUD's gold pip
+lights), the next attack plays a finisher move picked by what you hold as you swing
+(Pmove: bg_saber.c) - and its blow is the finisher.
+*/
+#define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD and Pmove: blows landed (bits 0-2), the finisher's number (bits 3-5)
+enum { SFK_NONE, SFK_OWN, SFK_SWEEP, SFK_SPIN, SFK_RISE };
+static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
+	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
+	return have > 0 && have == need - 1;
+}
+static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
+	if ( cmd->upmove > 0 )
+		return SFK_RISE;
+	if ( cmd->forwardmove < 0 )
+		return SFK_SWEEP;
+	if ( cmd->rightmove )
+		return SFK_SPIN;
+	return SFK_OWN;
+}
+// the stock moves the finishers play
+static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {
+	switch ( kind ) {
+	case SFK_SWEEP: return LS_A_BACK_CR;                                      // low, turning: at the legs
+	case SFK_SPIN:  return dual ? LS_SPINATTACK_DUAL : LS_SPINATTACK_ALORA;  // a full turn
+	case SFK_RISE:  return LS_PULL_ATTACK_SWING;                              // a heave upward
+	default:        return LS_A_LUNGE;                                        // the weapon's own: a lunge
+	}
+}
+static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
+	switch ( move ) {
+	case LS_A_BACK_CR: return SFK_SWEEP;
+	case LS_SPINATTACK_DUAL: case LS_SPINATTACK_ALORA: return SFK_SPIN;
+	case LS_PULL_ATTACK_SWING: return SFK_RISE;
+	case LS_A_LUNGE: return SFK_OWN;
+	default: return SFK_NONE;
+	}
+}
+#define SHINOBI_BLADE_REHIT_MS     250   // the same swing never hits the same one twice, nor two swings within this
+
 // what the cgame draws for a finisher (SHINOBI_ENT_FINISHER s.frame)
 enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH };
 #define SHINOBI_FINISHER_FX_MS     700
@@ -871,7 +911,6 @@ while your own sight is spoiled: blinded by a Flash, inside a Hidden Mist or an 
 (the Byakugan sees through mist and ash).
 */
 #define STAT_SHINOBI_LOCK          11    // the target's entity number + 1 (0 = free)
-#define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD: blows landed (bits 0-2), the finisher's number (bits 3-5)
 #define SHINOBI_LOCK_RANGE         250   // locks on within this (halved after a play test)
 #define SHINOBI_LOCK_KEEP          350   // lets go past this
 #define SHINOBI_LOCK_LOST_MS       1000  // ... or out of sight this long
