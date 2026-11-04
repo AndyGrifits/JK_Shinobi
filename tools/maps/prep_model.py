@@ -82,6 +82,55 @@ if mdl.get("drop_beyond"):
         bm.to_mesh(o.data); bm.free(); o.data.update()
     print(f"DROP {gone} faces beyond {R_}")
 
+# lower a mountain without squashing what is carved into it (map.json "model": {"squash": [{"area": [x0, y0, x1, y1],
+# "cell": u, "above": z, "grow": u, "soft": u, "zb": z, "zh": z, "k": f, "keep": [[x, y, r]], "rigid": [[x, y, r]]}]}):
+# where the top surface is higher than "above" (grown by "grow", blurred over "soft"), heights between zb and zh
+# shrink by k and everything above zh comes down by the same amount (faces / heads above zh keep their shape);
+# "keep" circles stay untouched (a tall building near the cliff), "rigid" circles move as one piece (cliff houses)
+for sq in mdl.get("squash", []):
+    import bmesh, numpy as np
+    from mathutils.bvhtree import BVHTree
+    bmA = bmesh.new()
+    for o in meshes:
+        bmA.from_mesh(o.data)
+    bvhA = BVHTree.FromBMesh(bmA); bmA.free()
+    ax0, ay0, ax1, ay1 = sq["area"]; Cq = sq.get("cell", 100)
+    gx = np.arange(ax0, ax1 + Cq, Cq); gy = np.arange(ay0, ay1 + Cq, Cq)
+    Hq = np.full((len(gy), len(gx)), -1e9)
+    for j_, y_ in enumerate(gy):
+        for i_, x_ in enumerate(gx):
+            h_ = bvhA.ray_cast(mathutils.Vector((x_, y_, 1e5)), mathutils.Vector((0, 0, -1)), 2e5)
+            if h_[0] is not None: Hq[j_, i_] = h_[0].z
+    M = (Hq > sq["above"]).astype(float)
+    for _ in range(int(sq.get("grow", 0) / Cq)):            # dilate
+        M = np.maximum.reduce([M, np.roll(M, 1, 0), np.roll(M, -1, 0), np.roll(M, 1, 1), np.roll(M, -1, 1)])
+    for _ in range(int(sq.get("soft", 0) / Cq)):            # blur -> soft edge
+        M = (M + np.roll(M, 1, 0) + np.roll(M, -1, 0) + np.roll(M, 1, 1) + np.roll(M, -1, 1)) / 5
+    zb, zh, kq = sq["zb"], sq["zh"], sq["k"]
+    def fz(z):
+        return z if z <= zb else (zb + (z - zb) * kq if z <= zh else z - (zh - zb) * (1 - kq))
+    def wq(x, y):
+        if any(math.hypot(x - a, y - b) < r for a, b, r in sq.get("keep", [])): return 0.0
+        i_ = int(round((x - ax0) / Cq)); j_ = int(round((y - ay0) / Cq))
+        return float(M[j_, i_]) if 0 <= i_ < len(gx) and 0 <= j_ < len(gy) else 0.0
+    rig = []
+    for rg_ in sq.get("rigid", []):                     # [x, y, r] or [x, y, r, z0, z1]
+        a, b, r = rg_[:3]; zr0, zr1 = (rg_[3], rg_[4]) if len(rg_) > 3 else (zb, 1e9)
+        zs_ = [v.co.z for o in meshes for v in o.data.vertices if math.hypot(v.co.x - a, v.co.y - b) < r and zr0 <= v.co.z <= zr1]
+        if zs_:
+            z_ = min(zs_); rig.append((a, b, r, z_, zr1, wq(a, b) * (fz(z_) - z_)))
+    moved = 0
+    for o in meshes:
+        for v in o.data.vertices:
+            x, y, z = v.co
+            if z <= zb: continue
+            rz = next(((d_) for a, b, r, z_, z1_, d_ in rig if math.hypot(x - a, y - b) < r and z_ - 1 <= z <= z1_ + 1), None)
+            dz_ = rz if rz is not None else wq(x, y) * (fz(z) - z)
+            if dz_:
+                v.co.z = z + dz_; moved += 1
+        o.data.update()
+    print(f"SQUASH {moved} vertices: {zb}..{zh} x{kq}, above {zh} down {round((zh - zb) * (1 - kq))}; {len(rig)} rigid parts")
+
 # one shader per texture image
 def tex_of(mat):
     for n in mat.node_tree.nodes:

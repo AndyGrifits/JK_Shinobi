@@ -1,0 +1,2312 @@
+{
+ "name": "shinobi_hokage",
+ "longname": "Hokage Residence",
+ "shader_dir": "shinobi_hokage",
+ "source": {
+  "fbx": "C:/Games/Blender My Models/naruto-hiddenly-village/source/untitled.fbx",
+  "textures": "C:/Games/Blender My Models/naruto-hiddenly-village/textures",
+  "extra": "C:/Games/Blender My Models/konoha-hidden-leaf-village (town.obj textures: sky clouds, distant hills, shop signs)"
+ },
+ "model": {
+  "_comment": "same FBX as shinobi_konoha (scale 6000); origin = the Hokage residence on its plaza (konoha game (4800, 6400, 370))",
+  "scale": 6000,
+  "origin": [
+   2.1,
+   3.816667,
+   -0.059533
+  ],
+  "shader_names": "basename",
+  "shader_rename": {
+   "picsart_26_05_30_22_38_46_674": "kn_atlas"
+  },
+  "uv_alpha_split": [
+   {
+    "shader": "kn_atlas",
+    "alpha_shader": "kn_leaf"
+   }
+  ],
+  "uv_terrain": [
+   {
+    "shader": "kn_atlas",
+    "uv_box": [
+     0.44,
+     0.8,
+     0.55,
+     0.91
+    ],
+    "region": [
+     -7000,
+     -7000,
+     6000,
+     6000
+    ],
+    "target": "kn_ground",
+    "size": 2048,
+    "classes": {
+     "grass": [
+      [
+       85,
+       90,
+       47
+      ],
+      [
+       47,
+       48,
+       25
+      ],
+      [
+       120,
+       117,
+       74
+      ]
+     ],
+     "dirt": [
+      [
+       167,
+       145,
+       103
+      ],
+      [
+       137,
+       125,
+       78
+      ]
+     ],
+     "mud": [
+      [
+       75,
+       125,
+       138
+      ]
+     ]
+    },
+    "tile": {
+     "grass": 384,
+     "dirt": 320,
+     "mud": 256
+    },
+    "softness": 700
+   }
+  ],
+  "split_details": {
+   "shaders": [
+    "kn_atlas"
+   ],
+   "max_dim": 24,
+   "thin": 6,
+   "ribbon": 64
+  },
+  "drop_beyond": 30000,
+  "squash": [
+   {
+    "_": "the Hokage rock: the cliff below the faces shrinks (x0.3), the faces and the mountain top come down as they are",
+    "area": [
+     -7000,
+     -11000,
+     13000,
+     12000
+    ],
+    "cell": 100,
+    "above": 1830,
+    "grow": 700,
+    "soft": 300,
+    "zb": 250,
+    "zh": 2630,
+    "k": 0.3,
+    "keep": [
+     [
+      0,
+      0,
+      1150
+     ],
+     [
+      1200,
+      -400,
+      750
+     ],
+     [
+      -300,
+      1900,
+      750
+     ]
+    ],
+    "rigid": [
+     [
+      55,
+      3097,
+      240,
+      889,
+      1540
+     ],
+     [
+      222,
+      2857,
+      240,
+      889,
+      1540
+     ],
+     [
+      -520,
+      4000,
+      260,
+      1590,
+      2400
+     ],
+     [
+      4168,
+      -300,
+      240,
+      1091,
+      1745
+     ],
+     [
+      4480,
+      -870,
+      260,
+      933,
+      1590
+     ]
+    ],
+    "_rigid": "the small houses on the cliff (x, y, r, z0, z1): moved as one piece by the squash at z0"
+   }
+  ]
+ },
+ "shaders": {
+  "kn_atlas": {
+   "solid": true,
+   "mat": "concrete",
+   "twosided": true,
+   "what": "the village (atlas)"
+  },
+  "kn_atlas_d": {
+   "solid": false,
+   "mat": "concrete",
+   "what": "small details of the atlas: lamps, signs, rails"
+  },
+  "kn_leaf": {
+   "solid": false,
+   "mat": "greenleaves",
+   "what": "cut-out foliage cards of the atlas"
+  },
+  "kn_ground": {
+   "what": "lawns, paths and canal bed: a colour map painted from the village's overview texture, with a tiled grain",
+   "raw": [
+    "q3map_clipModel",
+    "q3map_material shortgrass",
+    "q3map_nonplanar",
+    "q3map_shadeAngle 70",
+    "q3map_lightmapSampleSize 32",
+    "{",
+    "\tmap $lightmap",
+    "\trgbGen identity",
+    "}",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_DST_COLOR GL_ZERO",
+    "\trgbGen identity",
+    "}",
+    "{",
+    "\tmap textures/shinobi_hokage/kn_grain",
+    "\tblendFunc GL_DST_COLOR GL_SRC_COLOR",
+    "\ttcMod scale 42 42",
+    "}"
+   ]
+  },
+  "kn_grain": {
+   "solid": false,
+   "what": "grain detail for kn_ground (not on the model)"
+  },
+  "kn_sign_ramen": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_yakitori": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_sake": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_izakaya": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_niku": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_clouds": {
+   "solid": false,
+   "what": "cloud layer of the sky shader (town.obj sora00)"
+  },
+  "p_stone": {
+   "solid": true,
+   "mat": "concrete",
+   "what": "stream / pond walls, stepping stones"
+  },
+  "p_mud": {
+   "solid": true,
+   "mat": "mud",
+   "what": "stream bed"
+  },
+  "p_dark": {
+   "solid": false,
+   "what": "culvert mouth, pigeon-holes"
+  },
+  "p_redwood": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "red bridge rails, posts"
+  },
+  "p_wood": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "floors, counters, furniture"
+  },
+  "p_deck": {
+   "solid": false,
+   "mat": "solidwood",
+   "what": "bridge deck (walk-through: smooth clip slabs carry you)"
+  },
+  "p_roof": {
+   "solid": true,
+   "mat": "concrete",
+   "what": "tiled roofs"
+  },
+  "p_plaster": {
+   "solid": true,
+   "mat": "plaster",
+   "what": "dojo walls"
+  },
+  "p_tatami": {
+   "solid": true,
+   "mat": "fabric",
+   "what": "dojo floor"
+  },
+  "p_cloth": {
+   "solid": true,
+   "mat": "canvas",
+   "what": "stall awnings"
+  },
+  "p_noren": {
+   "solid": false,
+   "twosided": true,
+   "what": "shop curtains"
+  },
+  "p_paper": {
+   "solid": false,
+   "what": "scrolls"
+  },
+  "p_crate": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "crates"
+  },
+  "p_rock": {
+   "solid": true,
+   "mat": "rock",
+   "what": "memorial stone, rocks"
+  },
+  "p_post": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "training posts"
+  },
+  "p_futon": {
+   "solid": true,
+   "mat": "fabric",
+   "what": "futons, cushions"
+  },
+  "p_dust": {
+   "what": "wind haze at the edge: the sand village's dust curtain in green-blue (generated, alpha fades upwards)",
+   "raw": [
+    "surfaceparm nonsolid",
+    "surfaceparm nolightmap",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm noimpact",
+    "cull twosided",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen identity",
+    "\ttcMod scroll 0.035 0",
+    "}"
+   ]
+  }
+ },
+ "gen_textures": {
+  "kn_grain": "grain"
+ },
+ "texture_copy": {
+  "kn_leaf": "kn_atlas"
+ },
+ "texture_opaque": [
+  "kn_atlas"
+ ],
+ "texture_size": {
+  "kn_atlas": 4096,
+  "kn_leaf": 2048
+ },
+ "ground_shaders": [
+  "kn_ground",
+  "kn_atlas"
+ ],
+ "ignore_shaders": [
+  "kn_leaf",
+  "kn_atlas_d"
+ ],
+ "ground_default_z": 0,
+ "prop_clip": {
+  "cell": 16,
+  "groups": []
+ },
+ "worldspawn": {
+  "_lightmapscale": "1",
+  "_minlight": "36",
+  "_blocksize": "0",
+  "distanceCull": "34000"
+ },
+ "arena_type": "ffa duel powerduel team holocron jedi",
+ "sky": {
+  "env": "env/shinobi_hokage",
+  "sun": [
+   1.0,
+   0.96,
+   0.88,
+   200,
+   220,
+   55
+  ],
+  "skylight": [
+   500,
+   4
+  ],
+  "zenith": [
+   70,
+   130,
+   205
+  ],
+  "horizon": [
+   200,
+   225,
+   240
+  ],
+  "ground": [
+   120,
+   140,
+   110
+  ],
+  "clouds": {
+   "texture": "kn_clouds",
+   "scale": 2,
+   "scroll": [
+    0.003,
+    0.001
+   ]
+  },
+  "hills": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/enkei.png",
+   "crop": [
+    0,
+    0,
+    256,
+    128
+   ],
+   "key_sky": [
+    50,
+    170
+   ],
+   "top_deg": 12,
+   "bottom_deg": -1.5
+  }
+ },
+ "import_textures": {
+  "kn_clouds": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/sora00.png"
+  },
+  "kn_sign_ramen": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    96,
+    160,
+    256,
+    192
+   ],
+   "resize": [
+    256,
+    64
+   ]
+  },
+  "kn_sign_yakitori": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    0,
+    0,
+    64,
+    32
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_sake": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    64,
+    96,
+    128,
+    128
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_izakaya": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    192,
+    96,
+    256,
+    128
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_niku": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    64,
+    64,
+    128,
+    96
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  }
+ },
+ "clip_shaders": {
+  "clip_wood": "solidwood",
+  "clip_stairs": "concrete"
+ },
+ "extra_shaders": {
+  "water": {
+   "_": "translucent green-blue water over the game's own water_1 ripples, murky underwater fog",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.5",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water",
+    "cull twosided",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen const ( 0.34 0.52 0.56 )",
+    "\talphaGen const 0.62",
+    "\ttcMod scale 0.5 0.5",
+    "\ttcMod turb 0.01 0.03 5 0.1",
+    "\ttcMod scroll 0.01 0.005",
+    "}",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_ONE GL_ONE",
+    "\trgbGen const ( 0.16 0.19 0.19 )",
+    "\ttcMod scale 0.3 0.3",
+    "\ttcMod turb 0.02 -0.06 0 0.1",
+    "\ttcMod scroll -0.012 0.01",
+    "}"
+   ]
+  },
+  "water_side": {
+   "_": "sides / bottoms of water volumes: water, but not drawn (only the surface shows)",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.3",
+    "surfaceparm nodraw",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water"
+   ]
+  }
+ },
+ "water_side_shader": "water_side",
+ "prop_textures": {
+  "p_dust": "windhaze"
+ },
+ "hull_margin": 512,
+ "spawns": {
+  "_comment": "[x, y, z, yaw]; plaza and streets: open floor reachable on foot, farthest-point sampled; + the plateau above the faces and the gallery",
+  "info_player_deathmatch": [
+   [
+    28,
+    28,
+    37,
+    330
+   ],
+   [
+    -3364,
+    -3940,
+    -175,
+    270
+   ],
+   [
+    -4644,
+    1820,
+    -180,
+    330
+   ],
+   [
+    3868,
+    -2532,
+    34,
+    60
+   ],
+   [
+    796,
+    -4772,
+    -180,
+    330
+   ],
+   [
+    -1316,
+    3932,
+    -164,
+    150
+   ],
+   [
+    -3428,
+    -932,
+    21,
+    330
+   ],
+   [
+    -932,
+    -2596,
+    -180,
+    330
+   ],
+   [
+    2652,
+    -228,
+    25,
+    300
+   ],
+   [
+    1244,
+    -2404,
+    25,
+    30
+   ],
+   [
+    -1828,
+    1820,
+    34,
+    270
+   ],
+   [
+    476,
+    2524,
+    25,
+    330
+   ],
+   [
+    -1380,
+    -4708,
+    -175,
+    300
+   ],
+   [
+    -4324,
+    -2212,
+    -173,
+    60
+   ],
+   [
+    3311.4,
+    3157.9,
+    3370,
+    225
+   ],
+   [
+    615,
+    2509,
+    730,
+    225
+   ],
+   [
+    3811,
+    -267,
+    730,
+    135
+   ]
+  ],
+  "info_player_duel": [
+   [
+    28,
+    28,
+    37,
+    330
+   ],
+   [
+    -3364,
+    -3940,
+    -175,
+    270
+   ]
+  ],
+  "info_player_duel1": [
+   [
+    -4644,
+    1820,
+    -180,
+    330
+   ],
+   [
+    3868,
+    -2532,
+    34,
+    60
+   ]
+  ],
+  "info_player_duel2": [
+   [
+    796,
+    -4772,
+    -180,
+    330
+   ],
+   [
+    -1316,
+    3932,
+    -164,
+    150
+   ]
+  ],
+  "info_player_start": [
+   [
+    28,
+    28,
+    37,
+    330
+   ]
+  ]
+ },
+ "items": [
+  {
+   "_": "stock classnames -> ninja items (bg_shinobi.c): weapon_thermal = Explosive Kunai, weapon_trip_mine = Explosive Tag, weapon_rocket_launcher = Fuma Shuriken, item_medpac = Healing Pill, ammo_force = Chakra Pill"
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    -2404,
+    348,
+    -153
+   ]
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    -4708,
+    -100,
+    -168
+   ]
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    -1572,
+    -1188,
+    42
+   ]
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    -2596,
+    -2276,
+    -135
+   ]
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    1436,
+    1052,
+    33
+   ]
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    1244,
+    -100,
+    294
+   ]
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    2844,
+    -3300,
+    -156
+   ]
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    -100,
+    -1636,
+    45
+   ]
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    2588,
+    -1764,
+    33
+   ]
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    476,
+    -3172,
+    -156
+   ]
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    3750,
+    1600,
+    3858
+   ],
+   "_": "Fuma Shuriken on the crown of the 3rd (tallest) face"
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    3444,
+    -146,
+    1619
+   ],
+   "_": "Healing Pill on E2's top landing"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    2524,
+    1399,
+    740
+   ],
+   "_": "Chakra Pill on the gallery under the faces"
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    3311,
+    3158,
+    3380
+   ],
+   "_": "Explosive Tag where the top bridge meets the plateau"
+  }
+ ],
+ "props": [
+  {
+   "type": "dust_ring",
+   "at": [
+    0,
+    0
+   ],
+   "superellipse": [
+    5000,
+    5000,
+    2.6
+   ],
+   "layers": [
+    [
+     -120,
+     -800,
+     2600
+    ],
+    [
+     220,
+     -800,
+     4600
+    ]
+   ],
+   "segments": 160,
+   "tile": 2400,
+   "shader": "p_dust",
+   "_": "green-blue wind haze at the edge, tall enough for the rock top"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    -192.0,
+    3598.3,
+    700.0
+   ],
+   "b": [
+    -117.7,
+    3262.2,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    -117.7,
+    3262.2,
+    700.0
+   ],
+   "b": [
+    82.4,
+    3038.7,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    82.4,
+    3038.7,
+    700.0
+   ],
+   "b": [
+    282.6,
+    2815.2,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    282.6,
+    2815.2,
+    700.0
+   ],
+   "b": [
+    495.7,
+    2603.3,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    495.7,
+    2603.3,
+    700.0
+   ],
+   "b": [
+    734.9,
+    2414.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    734.9,
+    2414.9,
+    700.0
+   ],
+   "b": [
+    974.2,
+    2226.4,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    974.2,
+    2226.4,
+    700.0
+   ],
+   "b": [
+    1328.4,
+    2140.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 4,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1328.4,
+    2140.9,
+    700.0
+   ],
+   "b": [
+    1677.6,
+    2050.8,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 4,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1677.6,
+    2050.8,
+    700.0
+   ],
+   "b": [
+    1885.9,
+    1834.7,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1885.9,
+    1834.7,
+    700.0
+   ],
+   "b": [
+    2094.2,
+    1618.5,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2094.2,
+    1618.5,
+    700.0
+   ],
+   "b": [
+    2413.7,
+    1501.8,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2413.7,
+    1501.8,
+    700.0
+   ],
+   "b": [
+    2633.4,
+    1295.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2633.4,
+    1295.9,
+    700.0
+   ],
+   "b": [
+    2901.1,
+    1132.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2901.1,
+    1132.9,
+    700.0
+   ],
+   "b": [
+    3101.2,
+    909.4,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3101.2,
+    909.4,
+    700.0
+   ],
+   "b": [
+    3304.0,
+    688.3,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3304.0,
+    688.3,
+    700.0
+   ],
+   "b": [
+    3521.7,
+    480.5,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3521.7,
+    480.5,
+    700.0
+   ],
+   "b": [
+    3734.0,
+    267.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3734.0,
+    267.9,
+    700.0
+   ],
+   "b": [
+    3711.3,
+    -155.1,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 4,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3711.3,
+    -155.1,
+    700.0
+   ],
+   "b": [
+    3911.1,
+    -378.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3911.1,
+    -378.9,
+    700.0
+   ],
+   "b": [
+    4038.5,
+    -667.4,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4038.5,
+    -667.4,
+    700.0
+   ],
+   "b": [
+    4229.7,
+    -898.9,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4229.7,
+    -898.9,
+    700.0
+   ],
+   "b": [
+    4410.2,
+    -1140.0,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4410.2,
+    -1140.0,
+    700.0
+   ],
+   "b": [
+    4610.3,
+    -1363.5,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 3,
+   "rails": [
+    true,
+    false
+   ],
+   "stilts": 2,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "gallery"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    -298.2,
+    3583.8,
+    700.0
+   ],
+   "b": [
+    -551.5,
+    3357.0,
+    700.0
+   ],
+   "width": 200,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "west ramp landing"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    498.2,
+    2304.5,
+    37.9
+   ],
+   "b": [
+    -451.9,
+    3365.7,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 15,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 3,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "west ramp"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4776.6,
+    -1429.4,
+    700.0
+   ],
+   "b": [
+    4523.3,
+    -1656.2,
+    700.0
+   ],
+   "width": 200,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "east ramp landing"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3647.0,
+    -557.5,
+    75.7
+   ],
+   "b": [
+    4542.9,
+    -1558.1,
+    700.0
+   ],
+   "width": 160,
+   "rise": 0,
+   "segments": 14,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 3,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "east ramp"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1824.4,
+    1712.5,
+    700.0
+   ],
+   "b": [
+    2424.7,
+    1041.9,
+    1140.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 1"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2646.8,
+    1126.7,
+    1140.0
+   ],
+   "b": [
+    2429.3,
+    931.9,
+    1140.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 1"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2538.0,
+    1143.3,
+    1140.0
+   ],
+   "b": [
+    1937.6,
+    1813.9,
+    1580.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 2"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1933.1,
+    1923.9,
+    1580.0
+   ],
+   "b": [
+    1715.5,
+    1729.1,
+    1580.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 2"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1824.4,
+    1712.5,
+    1580.0
+   ],
+   "b": [
+    2424.7,
+    1041.9,
+    2020.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 3"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2646.8,
+    1126.7,
+    2020.0
+   ],
+   "b": [
+    2429.3,
+    931.9,
+    2020.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 3"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2538.0,
+    1143.3,
+    2020.0
+   ],
+   "b": [
+    1937.6,
+    1813.9,
+    2460.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 4"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1933.1,
+    1923.9,
+    2460.0
+   ],
+   "b": [
+    1715.5,
+    1729.1,
+    2460.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 4"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1824.4,
+    1712.5,
+    2460.0
+   ],
+   "b": [
+    2424.7,
+    1041.9,
+    2900.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 5"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2646.8,
+    1126.7,
+    2900.0
+   ],
+   "b": [
+    2429.3,
+    931.9,
+    2900.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 5"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2538.0,
+    1143.3,
+    2900.0
+   ],
+   "b": [
+    1937.6,
+    1813.9,
+    3340.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 flight 6"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1933.1,
+    1923.9,
+    3340.0
+   ],
+   "b": [
+    1715.5,
+    1729.1,
+    3340.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 landing 6"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1933.1,
+    1923.9,
+    700.0
+   ],
+   "b": [
+    1715.5,
+    1729.1,
+    700.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E1 foot"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4043.9,
+    -931.1,
+    700.0
+   ],
+   "b": [
+    3443.6,
+    -260.5,
+    993.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 10,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 flight 1"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3552.3,
+    -49.1,
+    993.0
+   ],
+   "b": [
+    3334.7,
+    -243.9,
+    993.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 landing 1"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3556.8,
+    -159.2,
+    993.0
+   ],
+   "b": [
+    4157.1,
+    -829.7,
+    1286.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 9,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 flight 2"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4266.0,
+    -846.3,
+    1286.0
+   ],
+   "b": [
+    4048.4,
+    -1041.1,
+    1286.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 landing 2"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4043.9,
+    -931.1,
+    1286.0
+   ],
+   "b": [
+    3443.6,
+    -260.5,
+    1579.0
+   ],
+   "width": 140,
+   "rise": 0,
+   "segments": 10,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 flight 3"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    3552.3,
+    -49.1,
+    1579.0
+   ],
+   "b": [
+    3334.7,
+    -243.9,
+    1579.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 landing 3"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    4279.3,
+    -834.4,
+    700.0
+   ],
+   "b": [
+    4048.4,
+    -1041.1,
+    700.0
+   ],
+   "width": 170,
+   "rise": 0,
+   "segments": 2,
+   "rails": [
+    false,
+    false
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "E2 foot"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1824.4,
+    1712.5,
+    1580.0
+   ],
+   "b": [
+    3330.2,
+    -133.9,
+    1579.0
+   ],
+   "width": 120,
+   "rise": -70,
+   "segments": 26,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "rope bridge E1-E2"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1933.1,
+    1923.9,
+    3340.0
+   ],
+   "b": [
+    3311.4,
+    3157.9,
+    3340.0
+   ],
+   "width": 150,
+   "rise": 0,
+   "segments": 20,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "top bridge to the plateau"
+  },
+  {
+   "_": "3rd head crown at [3750.0, 1600.0] z 3816"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1723.0,
+    1735.8,
+    3340.0
+   ],
+   "b": [
+    3750.0,
+    1600.0,
+    3818.0
+   ],
+   "width": 110,
+   "rise": -60,
+   "segments": 22,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "rope bridge to the 3rd head"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    577.2,
+    34.6,
+    1521.9
+   ],
+   "b": [
+    2451.6,
+    951.9,
+    1140.0
+   ],
+   "width": 120,
+   "rise": -80,
+   "segments": 23,
+   "rails": [
+    true,
+    true
+   ],
+   "stilts": 0,
+   "shaders": [
+    "p_deck",
+    "p_wood",
+    "p_wood"
+   ],
+   "_route": "rope bridge from the residence roof"
+  }
+ ],
+ "lights": {
+  "grid_x": [],
+  "grid_y": [],
+  "extra": []
+ },
+ "levelshot": {
+  "from": [
+   -2600,
+   -3400,
+   1300
+  ],
+  "to": [
+   1600,
+   1800,
+   1700
+  ],
+  "lens": 16
+ },
+ "far": {
+  "superellipse": [
+   0,
+   0,
+   5000,
+   5000,
+   2.6
+  ],
+  "margin": 700,
+  "exclude": [
+   "p_dust"
+  ]
+ },
+ "boundary": {
+  "center": [
+   0,
+   0
+  ],
+  "superellipse": [
+   5000,
+   5000,
+   2.6
+  ],
+  "segments": 96,
+  "thickness": 40,
+  "z0": -800,
+  "z1": 5200
+ },
+ "rooms": {
+  "superellipse": [
+   0,
+   0,
+   4900,
+   4900,
+   2.6
+  ],
+  "cell": 48,
+  "min_cells": 10
+ },
+ "stairs": {
+  "shaders": [
+   "kn_atlas"
+  ],
+  "area": [
+   -5000,
+   -5000,
+   5000,
+   5000
+  ],
+  "cell": 8,
+  "min_cells": 16,
+  "clip": "clip_stairs"
+ }
+}

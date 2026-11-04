@@ -16,7 +16,7 @@ Q3MAP2="${Q3MAP2:-q3map2}"
 PY="python3 -I"
 
 mkdir -p "$BUILD" "$DIST"
-$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|DROP|PROPS|FACE_UP|RING|SPLIT|STRETCH|PLAZA|UV_|FAR|CUT|DELETE|SINK|ROOMS|OPENING|rror"
+$PY "$ROOT/tools/maps/prep_model.py" "$CFG" "$FBX" "$TEX" "$BUILD" | grep -E "PREP|RESCALE|DROP|PROPS|FACE_UP|RING|SPLIT|STRETCH|PLAZA|UV_|FAR|CUT|DELETE|SINK|ROOMS|OPENING|SQUASH|rror"
 $PY "$ROOT/tools/maps/propclip.py" "$CFG" "$BUILD" | grep -E "PROPCLIP|rror"
 $PY "$ROOT/tools/maps/stairs.py" "$CFG" "$BUILD" | grep -E "STAIRS|ramp|rror"
 $PY "$ROOT/tools/maps/waterfill.py" "$CFG" "$BUILD" | grep -E "WATERFILL|rror"

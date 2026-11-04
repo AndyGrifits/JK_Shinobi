@@ -65,6 +65,10 @@ if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footst
   `tunnel` (closed corridor along a polyline `[x, y, floor z, height]`, open at both ends, model shaders).
 - `model.openings`: boxes that cut doorways into the model's walls (faces split on the box planes, the
   inside goes) - where a new `tunnel` meets an existing corridor.
+- `model.squash`: lower a mountain without squashing its carvings - where the top surface is above a height,
+  heights between `zb` and `zh` shrink by `k` and everything above `zh` comes down as it is (`keep` circles stay,
+  `rigid` [x, y, r, z0, z1] parts move as one piece). `arch_bridge` options: `rise` < 0 sags (rope bridge),
+  `shaders`, `rails` [left, right], `stilts` (posts down to the ground).
 - `clip_ring`: an irregular playerclip fence (radius per point, bottom per segment) around a crater whose
   rim is torn open; bottoms sit just under the rim so tunnels and roofs below stay free.
 
@@ -165,4 +169,19 @@ the plateau and east into the end of the top corridor (doorways cut with `model.
 open arena: a crown of 40 boulders (crater rock texture) covers the torn rim and a `clip_ring` keeps players
 inside it. Torch-coloured lights every ~420 u over the covered floor, the crater sunlit; 12 FFA spawns (duel /
 power duel), 12 items, all on floor reachable from the crater.
+
+## shinobi_hokage - Hokage Residence
+
+Same FBX as shinobi_konoha, a different district: origin on the plaza of the Hokage residence (konoha game
+coords (4800, 6400, 370)), play area superellipse 5000 x 5000 (n 2.6): the walled oval plaza with the round
+residence and its two side towers, the streets and houses to the south-west, and the Hokage rock. The rock was
+~5000 u tall with the faces in its upper half: `model.squash` shrinks the cliff below the faces (x0.3) and brings
+the faces and the rock top down unchanged (chins ~1000-1800, top ~3300-3600); the five small cliff houses
+move as rigid pieces. `maps/shinobi_hokage/plan_routes.py` (run on a prepared build, writes the `_route`
+props) lays wooden routes just in front of the rock and the faces: a gallery under the chins (z 700, stilts)
+with ramps from the plaza at both ends, a six-flight fire escape between the 2nd and 3rd face up to the top
+(z 3340) with a bridge onto the plateau and a rope bridge up to the crown of the 3rd face, a three-flight
+escape between the 4th and 5th face, a rope bridge between the two escapes across the faces at 1580, and a
+rope bridge from the residence roof to the first escape. Rooms (residence, houses) are lit by `rooms`.
+17 FFA spawns (3 on the rock), 14 items (4 on the rock routes), the green-blue wind haze at the edge.
 

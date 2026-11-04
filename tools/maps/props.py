@@ -742,8 +742,11 @@ def _sweep(bm, pts, side, off, w, h, mat):
 def arch_bridge(p, mat_for, i):
     """red wooden arched footbridge from "a" [x, y, z] to "b" (deck ends at those heights), "width", "rise":
     one continuous deck, curved stringers under its edges, posts, a curved top rail and a mid rail; the deck
-    is walk-through (p_deck) on smooth clip slabs per segment (SLABS), rails and posts are solid"""
+    is walk-through (p_deck) on smooth clip slabs per segment (SLABS), rails and posts are solid.
+    Options: "rise" < 0 sags (rope bridge), "shaders" [deck, beams, rails], "rails": [left, right] (false = no
+    rail on that side, e.g. against a cliff), "stilts": n (a post down to the ground under every n-th point)"""
     (ax, ay, az), (bx, by, bz) = p["a"], p["b"]; W = p.get("width", 150); rise = p.get("rise", 140); n = p.get("segments", 16)
+    rails = p.get("rails", [True, True])
     L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L; px, py = -uy, ux
     pt = lambda f: (ax + (bx - ax) * f, ay + (by - ay) * f, az + (bz - az) * f + rise * math.sin(math.pi * f))
     pts = [pt(k / n) for k in range(n + 1)]
@@ -752,6 +755,14 @@ def arch_bridge(p, mat_for, i):
     for s_ in (-1, 1):
         low = [(x, y, z - 4) for x, y, z in pts]
         _sweep(bm, low, (px, py), s_ * (W / 2 - 9), 14, 36, 2)                # stringer, tucked under the deck
+        if p.get("stilts"):
+            for k in range(0, n + 1, p["stilts"]):
+                x, y, z = pts[k]; qx, qy = x + px * s_ * (W / 2 - 9), y + py * s_ * (W / 2 - 9)
+                h = STRUCT.ray_cast(Vector((qx, qy, z - 44)), Vector((0, 0, -1)), 6000) if STRUCT else (None,)
+                if h[0] is not None and z - h[0].z > 60:
+                    _obox(bm, qx, qy, ux, uy, 16, 16, h[0].z - 24, z - 8, 1)
+        if not rails[0 if s_ < 0 else 1]:
+            continue
         top = [(x, y, z + 46) for x, y, z in pts]; mid = [(x, y, z + 24) for x, y, z in pts]
         _sweep(bm, top, (px, py), s_ * (W / 2 - 4), 10, 8, 2)                 # top rail
         _sweep(bm, mid, (px, py), s_ * (W / 2 - 4), 6, 5, 2)                  # mid rail
@@ -766,8 +777,8 @@ def arch_bridge(p, mat_for, i):
         SLABS.append({"from": [round(A[0], 1), round(A[1], 1), round(A[2], 1)], "to": [round(B[0], 1), round(B[1], 1), round(B[2], 1)],
                       "width": W, "thick": 20, "shader": "clip_wood"})
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return _finish_multi(bm, f"prop_bridge_{i}", ["p_deck", "p_wood", "p_redwood"], mat_for, (0, 0), 0,
-                         [TILE["p_deck"], TILE["p_wood"], TILE["p_redwood"]])
+    shs = p.get("shaders", ["p_deck", "p_wood", "p_redwood"])
+    return _finish_multi(bm, f"prop_bridge_{i}", shs, mat_for, (0, 0), 0, [TILE.get(x_, 128.0) for x_ in shs])
 
 
 def stones(p, mat_for, i):
