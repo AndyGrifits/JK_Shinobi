@@ -32,6 +32,9 @@ for k, m in enumerate(lms):
     img.pixels = rgba.ravel(); img.pack(); lm_imgs.append(img)
 
 def find_tex(name):
+    for suf in ("_far", "_d"):                  # derived shaders share their parent's texture
+        if name.endswith(suf) and not any(os.path.exists(os.path.join(base, name + e)) for e in (".jpg", ".tga")):
+            name = name[:-len(suf)]
     for ext in (".jpg", ".tga", ".png"):
         p = os.path.join(base, name + ext)
         if os.path.exists(p):

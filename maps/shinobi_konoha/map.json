@@ -514,8 +514,8 @@
   {
    "class": "weapon_trip_mine",
    "at": [
-    900,
-    -2200,
+    1027,
+    -2279,
     80
    ],
    "_": "Explosive Tag inside the dojo"

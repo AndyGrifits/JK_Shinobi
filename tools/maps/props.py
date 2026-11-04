@@ -799,7 +799,7 @@ def hall(p, mat_for, i):
     for k in range(1, int(L / 220)):                                                  # inner posts down the middle
         x = -L / 2 + k * L / int(L / 220)
         _box(bm, x - 14, -14, z + 10, x + 14, 14, z + H, 2)
-    _box(bm, -L / 2 - 8, -D / 2 - 8, z + H - 4, L / 2 + 8, D / 2 + 8, z + H + 8, 2)  # top beam / ceiling
+    _box(bm, -L / 2 - 8, -D / 2 - 8, z + H - 4, L / 2 + 8, D / 2 + 8, z + H + 8, 0)  # ceiling
     _roof_hip(bm, 0, 0, 1, 0, L, D, z + H + 8, p.get("rise", 150), 70, 3)
     return _finish_multi(bm, f"prop_hall_{i}", ["p_plaster", "p_tatami", "p_redwood", "p_roof"], mat_for, p["at"], p.get("yaw", 0),
                          [TILE["p_plaster"], TILE["p_tatami"], TILE["p_redwood"], TILE["p_roof"]])
