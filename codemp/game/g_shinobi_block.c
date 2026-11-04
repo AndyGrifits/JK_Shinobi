@@ -239,8 +239,9 @@ static qboolean Shinobi_BladeChainLive( gclient_t *c ) {
 	gentity_t *v;
 	if ( !c->shinobi.bladeChain || !c->shinobi.bladeChainVictim )
 		return qfalse;
-	if ( level.time - c->shinobi.bladeChainTime > shinobiSwordWindow[Shinobi_BladeStyle( c )] )
-		return qfalse;
+	if ( level.time - c->shinobi.bladeChainTime > ( c->shinobi.bladeChain >= shinobiSwordChain[Shinobi_BladeStyle( c )] - 1
+		? SHINOBI_SWORD_READY_MS : shinobiSwordWindow[Shinobi_BladeStyle( c )] ) )
+		return qfalse; // (the finisher once ready waits a good while)
 	v = &g_entities[c->shinobi.bladeChainVictim - 1];
 	return v->inuse && v->client && v->health > 0;
 }

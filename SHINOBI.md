@@ -360,7 +360,7 @@ measures every blade on a still target and tries every finisher.
 one blow (never two for one cut: two blows on the same one come at least half a stance's swing
 time apart). Under the crosshair a white pip lights for each blow and a gold one waits at the
 end; when the combo stands one short (4 blows fast and dual, 3 medium, 2 strong) the gold pip
-lights up and pulses: **now the next swing is the finisher** (held attack: the one after at
+lights up and pulses: **now the next swing is the finisher** (it waits for it 15 s, `SHINOBI_SWORD_READY_MS`, as long as he lives) (held attack: the one after at
 once; clicks: your next click) - a move of its own, picked by what you hold as you swing (as
 with fists), its blow x1.5; every finisher move plays x1.45 faster than stock (`SHINOBI_FINISHER_ANIM_SPEED`,
 the stock windups were too long to land; that alone, never times a pair's own speed-up: a saber move's timer is

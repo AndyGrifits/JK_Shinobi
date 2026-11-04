@@ -776,6 +776,7 @@ forward - the weapon's own (shinobiFinisher in its .sab):
 static const int shinobiSwordChain[8] =  {   0,  5,   4,     3,     3,     5,     5,   5 };
 static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1300, 1700 };
 #define SHINOBI_SWORD_FINISH       1.5f
+#define SHINOBI_SWORD_READY_MS     15000 // a ready finisher (the gold pip lit) waits this long for its swing
 enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_BURN, SBF_BLAST, SBF_STUN, SBF_COUNT };
 static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry", "burn", "blast", "stun" };
 // (reach: the trench knives - a wide flat arc thrown far ahead, cutting all in it; burn: sets him alight;
