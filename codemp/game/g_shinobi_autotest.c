@@ -216,6 +216,8 @@ static void AT_Reset( gentity_t *e ) {
 	c->shinobi.eyes = 0;
 	c->shinobi.copyJutsu = 0;
 	c->shinobi.infuseUntil = 0; // no Wind / Lightning Edge left over
+	c->ps.eFlags &= ~EF_INVULNERABLE; // no spawn shield: the first blow must count
+	c->invulnerableTimer = 0;
 	c->shinobi.mistEnd = 0;
 	c->shinobi.curseAwake = qfalse;
 	c->shinobi.gatesEnd = c->shinobi.gatesTiredEnd = 0;
@@ -637,6 +639,7 @@ A measurement for balancing (it always passes if every case hit at all).
 */
 #define SDPS_MS     4000
 #define SDPS_GAP    600
+#define SDPS_FIRST  1500  // before the first case: the bots settle after spawning
 typedef struct { const char *s1, *s2; int style; } sdpsCase_t;
 static const sdpsCase_t sdpsCases[] = {
 	{ "shinobi_katana", "none", SS_FAST }, { "shinobi_katana", "none", SS_MEDIUM }, { "shinobi_katana", "none", SS_STRONG },
@@ -685,6 +688,8 @@ static atResult_t T_SaberDps( int t ) {
 	if ( Distance( B->client->ps.origin, sdps.spot ) > 6 )
 		AT_Place( B, sdps.spot, at.baseYaw + 180 );
 	VectorClear( bc->ps.velocity );
+	bc->ps.eFlags &= ~EF_INVULNERABLE; // (a respawn would bring the spawn shield back)
+	bc->invulnerableTimer = 0;
 	if ( B->health < 200 )
 		B->health = bc->ps.stats[STAT_HEALTH] = 500;
 	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
@@ -695,11 +700,11 @@ static atResult_t T_SaberDps( int t ) {
 	bc->shinobi.flinchEnd = bc->shinobi.staggerEnd = 0;
 	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax; // (specials and kata cost force)
 
-	if ( since < SDPS_GAP ) { // between cases: hands off
+	if ( since < ( sdps.idx ? SDPS_GAP : SDPS_FIRST ) ) { // between cases: hands off
 		AT_Drive( 0, 0, 0, 0, 0 );
 		return ATR_RUN;
 	}
-	if ( since < SDPS_GAP + SDPS_MS ) {
+	if ( since < ( sdps.idx ? SDPS_GAP : SDPS_FIRST ) + SDPS_MS ) {
 		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
 		if ( BG_SaberInAttack( ac->ps.saberMove ) && ac->ps.saberMove != sdps.lastMove )
 			sdps.swings++;
@@ -708,7 +713,7 @@ static atResult_t T_SaberDps( int t ) {
 	}
 	{ // the case is over: what it did
 		const sdpsCase_t *c = &sdpsCases[sdps.idx];
-		const int from = sdps.phaseStart + SDPS_GAP;
+		const int from = sdps.phaseStart + ( sdps.idx ? SDPS_GAP : SDPS_FIRST );
 		int k, hits = 0, dealt = 0, mn = 99999, mx = 0;
 		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
 			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
@@ -1233,7 +1238,7 @@ static atTest_t atTests[] = {
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
-	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 18 + 3000 },
+	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 18 + SDPS_FIRST + 3000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
