@@ -25,6 +25,9 @@ gentity_t    *shinobiTestInflictor;
 extern void G_Knockdown( gentity_t *victim );
 extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
 void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b );
+qboolean G_SetSaber( gentity_t *ent, int saberNum, char *saberName, qboolean siegeOverride );
+qboolean G_SaberModelSetup( gentity_t *ent );
+extern qboolean BG_SaberInAttack( int move );
 
 #define AT_MAX_TESTS   48
 #define AT_BOT_A       "TestA"
@@ -627,6 +630,115 @@ static atResult_t T_WindEdge( int t ) {
 	return ATR_RUN;
 }
 
+/*
+saber_dps: every blade and stance swings at a still target (fists in hand, no guard) for
+SDPS_MS holding attack: damage, hits, swings, the spread of one hit, damage a second.
+A measurement for balancing (it always passes if every case hit at all).
+*/
+#define SDPS_MS     4000
+#define SDPS_GAP    600
+typedef struct { const char *s1, *s2; int style; } sdpsCase_t;
+static const sdpsCase_t sdpsCases[] = {
+	{ "shinobi_katana", "none", SS_FAST }, { "shinobi_katana", "none", SS_MEDIUM }, { "shinobi_katana", "none", SS_STRONG },
+	{ "shinobi_knife", "none", SS_FAST }, { "shinobi_knife", "none", SS_MEDIUM }, { "shinobi_knife", "none", SS_STRONG },
+	{ "shinobi_kurosawa", "none", SS_FAST }, { "shinobi_kurosawa", "none", SS_MEDIUM }, { "shinobi_kurosawa", "none", SS_STRONG },
+	{ "shinobi_kubikiribocho", "none", SS_FAST }, { "shinobi_kubikiribocho", "none", SS_MEDIUM }, { "shinobi_kubikiribocho", "none", SS_STRONG },
+	{ "shinobi_samehada", "none", SS_FAST }, { "shinobi_samehada", "none", SS_MEDIUM }, { "shinobi_samehada", "none", SS_STRONG },
+	{ "shinobi_knife", "shinobi_knife_l", SS_DUAL }, { "shinobi_katana", "shinobi_katana", SS_DUAL },
+	{ "shinobi_staff", "none", SS_STAFF },
+};
+#define SDPS_COUNT ( (int)( sizeof( sdpsCases ) / sizeof( sdpsCases[0] ) ) )
+static const char *sdpsStyleNames[] = { "-", "fast", "medium", "strong", "desann", "tavion", "dual", "staff" };
+static struct {
+	int  idx, phaseStart, swings, lastMove, hitsBefore, minHit, maxHit, knocked;
+	int  dealt[SDPS_COUNT], hits[SDPS_COUNT];
+	vec3_t spot;
+} sdps;
+
+static void SDPS_Arm( void ) {
+	const sdpsCase_t *c = &sdpsCases[sdps.idx];
+	gentity_t        *e = A;
+	G_SetSaber( e, 0, (char *)c->s1, qfalse );
+	G_SetSaber( e, 1, (char *)c->s2, qfalse );
+	G_SaberModelSetup( e );
+	AT_Weapon( 0, WP_SABER );
+	e->client->ps.saberHolstered = 0;
+	AT_SaberStyle( e, c->style );
+}
+static void T_SaberDps_Setup( void ) {
+	memset( &sdps, 0, sizeof( sdps ) );
+	AT_Spot( 44, 0, sdps.spot );
+	AT_Place( B, sdps.spot, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	SDPS_Arm();
+	sdps.phaseStart = level.time;
+	sdps.minHit = 99999;
+	AT_Print( "[autotest]   %-22s %-16s %-7s %6s %5s %6s %7s %9s %5s\n", "blade", "left", "stance",
+		"dealt", "hits", "swings", "hit", "dmg/s", "down" );
+}
+static atResult_t T_SaberDps( int t ) {
+	gclient_t *ac = A->client, *bc = B->client;
+	const int  since = level.time - sdps.phaseStart;
+	int        i;
+
+	// the target stays put, alive, standing and fresh
+	if ( Distance( B->client->ps.origin, sdps.spot ) > 6 )
+		AT_Place( B, sdps.spot, at.baseYaw + 180 );
+	VectorClear( bc->ps.velocity );
+	if ( B->health < 200 )
+		B->health = bc->ps.stats[STAT_HEALTH] = 500;
+	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
+		sdps.knocked++;
+		bc->ps.forceHandExtend = HANDEXTEND_NONE;
+		bc->ps.forceHandExtendTime = 0;
+	}
+	bc->shinobi.flinchEnd = bc->shinobi.staggerEnd = 0;
+	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax; // (specials and kata cost force)
+
+	if ( since < SDPS_GAP ) { // between cases: hands off
+		AT_Drive( 0, 0, 0, 0, 0 );
+		return ATR_RUN;
+	}
+	if ( since < SDPS_GAP + SDPS_MS ) {
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		if ( BG_SaberInAttack( ac->ps.saberMove ) && ac->ps.saberMove != sdps.lastMove )
+			sdps.swings++;
+		sdps.lastMove = ac->ps.saberMove;
+		return ATR_RUN;
+	}
+	{ // the case is over: what it did
+		const sdpsCase_t *c = &sdpsCases[sdps.idx];
+		const int from = sdps.phaseStart + SDPS_GAP;
+		int k, hits = 0, dealt = 0, mn = 99999, mx = 0;
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
+			if ( !d->time || d->time < from || d->targ != at.b || d->attacker != at.a || d->mod != MOD_SABER )
+				continue;
+			hits++;
+			dealt += d->take;
+			if ( d->take < mn ) mn = d->take;
+			if ( d->take > mx ) mx = d->take;
+		}
+		sdps.dealt[sdps.idx] = dealt;
+		sdps.hits[sdps.idx] = hits;
+		AT_Print( "[autotest]   %-22s %-16s %-7s %6i %5i %6i %3i-%-3i %9.1f %5i\n", c->s1, c->s2, sdpsStyleNames[c->style],
+			dealt, hits, sdps.swings, hits ? mn : 0, hits ? mx : 0, dealt * 1000.0f / SDPS_MS, sdps.knocked );
+	}
+	AT_Drive( 0, 0, 0, 0, 0 );
+	if ( ++sdps.idx >= SDPS_COUNT ) {
+		int bad = 0;
+		for ( i = 0; i < SDPS_COUNT; i++ )
+			bad += !sdps.hits[i];
+		AT_Msg( "%i blade / stance cases measured, %i never hit", SDPS_COUNT, bad );
+		return bad ? ATR_FAIL : ATR_PASS;
+	}
+	sdps.swings = sdps.knocked = 0;
+	sdps.lastMove = 0;
+	sdps.phaseStart = level.time;
+	SDPS_Arm();
+	return ATR_RUN;
+}
+
 // natural regen: normal up to 30%, slower above
 static void T_Regen_Setup( void ) {
 	A->client->ps.fd.forcePower = 5;
@@ -1121,6 +1233,7 @@ static atTest_t atTests[] = {
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
+	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 18 + 3000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },

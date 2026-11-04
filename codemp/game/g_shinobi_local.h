@@ -121,7 +121,7 @@ void      Shinobi_HealStop( gentity_t *ent );
 void      Shinobi_ChakraTextThink( gentity_t *ent );
 
 // g_shinobi_autotest.c: what happened, counted for the automatic tests
-#define SHINOBI_TEST_DMGLOG 128
+#define SHINOBI_TEST_DMGLOG 512
 typedef struct {
 	int  time, targ, attacker, take, mod;
 	char inflictor[24];
