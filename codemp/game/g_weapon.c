@@ -4604,6 +4604,10 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			break;
 
 		case WP_BRYAR_OLD:
+			if ( Shinobi_FireToolWeapon( ent, ent->s.weapon ) )
+			{ // JK_Shinobi: the small shuriken
+				break;
+			}
 			WP_FireBryarPistol( ent, altFire );
 			break;
 

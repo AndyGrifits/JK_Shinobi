@@ -1575,37 +1575,24 @@ void CG_Weapon_f( void ) {
 	}
 
 	if (num >= WP_THERMAL && num <= WP_DET_PACK)
-	{
-		int weap, i = 0;
+	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken and the small shuriken (on the old Bryar)
+		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD };
+		int at = -1, i;
 
-		if (cg.snap->ps.weapon >= WP_THERMAL &&
-			cg.snap->ps.weapon <= WP_DET_PACK)
+		for ( i = 0; i < (int)ARRAY_LEN( cycle ); i++ )
 		{
-			// already in cycle range so start with next cycle item
-			weap = cg.snap->ps.weapon + 1;
+			if ( cg.snap->ps.weapon == cycle[i] )
+				at = i;
 		}
-		else
+		// in the cycle: start with the next one, else with the first
+		for ( i = 1; i <= (int)ARRAY_LEN( cycle ); i++ )
 		{
-			// not in cycle range, so start with thermal detonator
-			weap = WP_THERMAL;
-		}
-
-		// prevent an endless loop
-		while ( i <= 4 )
-		{
-			if (weap > WP_DET_PACK)
-			{
-				weap = WP_THERMAL;
-			}
-
+			const int weap = cycle[( at + i ) % (int)ARRAY_LEN( cycle )];
 			if (CG_WeaponSelectable(weap))
 			{
 				num = weap;
 				break;
 			}
-
-			weap++;
-			i++;
 		}
 	}
 
@@ -1691,37 +1678,24 @@ void CG_WeaponClean_f( void ) {
 	}
 
 	if (num >= WP_THERMAL && num <= WP_DET_PACK)
-	{
-		int weap, i = 0;
+	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken and the small shuriken (on the old Bryar)
+		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD };
+		int at = -1, i;
 
-		if (cg.snap->ps.weapon >= WP_THERMAL &&
-			cg.snap->ps.weapon <= WP_DET_PACK)
+		for ( i = 0; i < (int)ARRAY_LEN( cycle ); i++ )
 		{
-			// already in cycle range so start with next cycle item
-			weap = cg.snap->ps.weapon + 1;
+			if ( cg.snap->ps.weapon == cycle[i] )
+				at = i;
 		}
-		else
+		// in the cycle: start with the next one, else with the first
+		for ( i = 1; i <= (int)ARRAY_LEN( cycle ); i++ )
 		{
-			// not in cycle range, so start with thermal detonator
-			weap = WP_THERMAL;
-		}
-
-		// prevent an endless loop
-		while ( i <= 4 )
-		{
-			if (weap > WP_DET_PACK)
-			{
-				weap = WP_THERMAL;
-			}
-
+			const int weap = cycle[( at + i ) % (int)ARRAY_LEN( cycle )];
 			if (CG_WeaponSelectable(weap))
 			{
 				num = weap;
 				break;
 			}
-
-			weap++;
-			i++;
 		}
 	}
 
@@ -1858,6 +1832,10 @@ void CG_FireWeapon( centity_t *cent, qboolean altFire ) {
 		return;
 	}
 	weap = &cg_weapons[ ent->weapon ];
+	if ( ent->weapon == SHINOBI_WP_STAR )
+	{ // JK_Shinobi: the small shuriken ride on the old Bryar - no pistol shot, no flash (the game plays the throw)
+		return;
+	}
 
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model

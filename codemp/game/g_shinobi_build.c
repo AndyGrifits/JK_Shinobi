@@ -67,7 +67,7 @@ void Shinobi_ApplyBuild( gentity_t *ent ) {
 		client->ps.fd.forcePowerMax = 100 + 20 * b->stats[SST_CHAKRA];
 		client->ps.fd.forcePower = client->ps.fd.forcePowerMax;
 		client->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX; // the guard (block)
-		client->ps.ammo[SHINOBI_AMMO_EXKUNAI] = client->ps.ammo[SHINOBI_AMMO_TAG] = client->ps.ammo[SHINOBI_AMMO_SHURIKEN] = 0;
+		client->ps.ammo[SHINOBI_AMMO_EXKUNAI] = client->ps.ammo[SHINOBI_AMMO_TAG] = client->ps.ammo[SHINOBI_AMMO_SHURIKEN] = client->ps.ammo[SHINOBI_AMMO_STAR] = 0;
 		client->shinobi.staggerEnd = 0;
 	}
 

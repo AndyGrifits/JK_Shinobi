@@ -283,7 +283,8 @@ per face.
 
 ## Item models
 
-The kunai, explosive kunai, explosive tag, fuma shuriken and the healing / chakra pills
+The kunai, explosive kunai, explosive tag, fuma shuriken, the small shuriken (`star`, from
+Shinobi Striker's .dae: written to an .obj on the way, fit 10, x2 thicker) and the healing / chakra pills
 are the artist's models (OBJ from Blender, converted with
 `tools/glm2acc.py <model.obj> - <name> --out assets/models/shinobi --game-dir models/shinobi`
 plus `--fit` / `--center` / `--turn` / `--zscale`; each .obj material keeps its own
@@ -392,8 +393,8 @@ transform space with the player model.
 
 ## No guns
 
-Players only ever hold fists, their weapon (the saber slot) and the three tool weapons (explosive kunai,
-tags, fuma shuriken): spawn loadouts, `give` and anything else are stripped every frame.
+Players only ever hold fists, their weapon (the saber slot) and the four tool weapons (explosive kunai,
+tags, fuma shuriken, shuriken): spawn loadouts, `give` and anything else are stripped every frame.
 Maps spawn only the items that turn into ninja tools (plus CTF flags / cubes and the
 Jedi Master saber); armor shards, DEMP2, shield/ammo dispensers, power converters and
 emplaced guns are not spawned.
@@ -446,21 +447,23 @@ icons and names; no guns are handed out any more):
 |---|---|---|
 | Healing Pill | medkits, bacta, health dispenser | +30 health at once (big bacta +50); not picked up at full health |
 | Chakra Pill | force items, all ammo packs, jetpack, cloak, binoculars, ysalamiri | +30..60 chakra at once; not picked up at full chakra |
-| Explosive Kunai x2 (`exkunai`) | thermals, pistols, blaster, stun baton | thrown like a kunai; sticks where it lands (or in whom it hits) and goes off 1 s later: 45 fire damage in 140 u |
+| Explosive Kunai x2 (`exkunai`) | thermals, the blaster pistol, stun baton | thrown like a kunai; sticks where it lands (or in whom it hits) and goes off 1 s later: 45 fire damage in 140 u |
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
-| Fuma Shuriken (`fuma`) | rocket launcher, repeater, flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
+| Fuma Shuriken (`fuma`) | rocket launcher, flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
+| Shuriken x5 (`stars`) | the old Bryar pistol, blaster, repeater | the small ones (Shinobi Striker's model): each throw sends a fan of three (5 deg apart) straight at 1600 u/s, 8 damage each to the first one it cuts; a wall keeps them 8 s. A throw every 0.35 s, 10 throws carried |
 
 The throwables are the stock explosive weapons underneath (thermal detonator = explosive
-kunai, trip mine = tag, det pack = shuriken): they show in the stock weapon bar with their
+kunai, trip mine = tag, det pack = fuma shuriken; the small shuriken ride on the old Bryar
+pistol, which `3` takes after the det pack): they show in the stock weapon bar with their
 own icons and names, are picked with the weapon keys (`3` cycles them) or the mouse wheel,
 and used with attack - or with `Z`, which throws a plain kunai when fists or the blade are
 in hand. `Shift + Z` is always the marked kunai. They are held in an empty hand.
 
-Up to 6 of each throwable (one Fuma Shuriken); respawn 20 s (pills) / 30 s (tools). Wind Wall throws
+Up to 6 of each throwable (one Fuma Shuriken, 10 throws of shuriken); respawn 20 s (pills) / 30 s (tools). Wind Wall throws
 explosive kunai and shuriken back too. Shields (armor) still refill the block guard.
 
 Each spot hands out a random item when it comes back after a pickup (healing pill 25%,
-chakra pill 25%, explosive kunai 20%, tag 15%, Fuma 15%); the first one is the map's own.
+chakra pill 25%, explosive kunai 15%, shuriken 10%, tag 13%, Fuma 12%); the first one is the map's own.
 `shinobi_randomItems 0` keeps the map's item every time. Dropped items are not touched.
 
 ## Clones

@@ -6084,10 +6084,9 @@ static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh
 
 		case WP_BRYAR_OLD:
 
-			// alt-fire charges the weapon
+			// alt-fire charges the weapon (JK_Shinobi: not the small shuriken riding on it)
 			if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 			{
-				charging = qtrue;
 				altFire = qtrue;
 			}
 			break;

@@ -2345,7 +2345,8 @@ void RespawnItem( gentity_t *ent ) {
 		&& Shinobi_ToolForItem( ent->item->classname, NULL ) != STOOL_NONE )
 	{ // JK_Shinobi: what comes back is a random one of our pickups, not always the same
 		static const struct { const char *classname; int weight; } pool[] = {
-			{ "item_medpac", 25 }, { "ammo_force", 25 }, { "weapon_thermal", 20 }, { "weapon_trip_mine", 15 }, { "weapon_det_pack", 15 }
+			{ "item_medpac", 25 }, { "ammo_force", 25 }, { "weapon_thermal", 15 }, { "weapon_bryar_pistol", 10 },
+			{ "weapon_trip_mine", 13 }, { "weapon_det_pack", 12 }
 		};
 		int r = Q_irand( 0, 99 ), k;
 		for ( k = 0; k < (int)ARRAY_LEN( pool ) - 1 && r >= pool[k].weight; k++ )

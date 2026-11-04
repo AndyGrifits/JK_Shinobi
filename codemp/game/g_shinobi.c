@@ -44,6 +44,7 @@ void Shinobi_Init( void ) {
 	m->exKunaiModel  = G_ModelIndex( "models/shinobi/exkunai.md3" );
 	m->tagModel      = G_ModelIndex( "models/shinobi/tag.md3" );
 	m->shurikenModel = G_ModelIndex( "models/shinobi/shuriken.md3" );
+	m->starModel     = G_ModelIndex( "models/shinobi/star.md3" );
 
 	for ( lvl = 1; lvl <= SHINOBI_MAX_LEVEL; lvl++ ) {
 		m->fxRasenganHit[lvl - 1] = Shinobi_LevelEffect( SHINOBI_FX_RASENGAN_HIT, lvl );

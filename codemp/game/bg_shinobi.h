@@ -590,8 +590,10 @@ Ninja tools on the maps: the stock pickups are turned into these at load
   Explosive Kunai 2 to throw              (thermals, pistols, blaster)
   Explosive Tag   2 to stick as traps     (trip mines, droids, turrets)
   Fuma Shuriken   2 big ones to throw     (det packs, heavy guns)
+  Shuriken        a handful of small stars (the old Bryar, the blaster, the repeater)
 The throwables are the stock explosive weapons underneath (thermal = kunai,
-trip mine = tag, det pack = shuriken): picked and used like any weapon
+trip mine = tag, det pack = fuma shuriken; the small shuriken ride on the old Bryar
+pistol, the one after the det pack in the stock weapon order): picked and used like any weapon
 (weapon keys / wheel, attack), counts in ps.ammo[], the stock HUD. Z with
 one of them in hand uses it too; with fists or the blade Z throws a kunai.
 ---------------------------------------------------------------------------
@@ -603,6 +605,7 @@ typedef enum {
 	STOOL_EXKUNAI,
 	STOOL_TAG,
 	STOOL_SHURIKEN,
+	STOOL_STAR,       // the small shuriken
 	STOOL_COUNT
 } shinobiTool_t;
 
@@ -612,7 +615,9 @@ typedef enum {
 #define SHINOBI_WP_EXKUNAI         WP_THERMAL
 #define SHINOBI_WP_TAG             WP_TRIP_MINE
 #define SHINOBI_WP_SHURIKEN        WP_DET_PACK
-#define SHINOBI_IS_TOOL_WEAPON(w)  ( (w) == WP_THERMAL || (w) == WP_TRIP_MINE || (w) == WP_DET_PACK )
+#define SHINOBI_AMMO_STAR          AMMO_BLASTER
+#define SHINOBI_WP_STAR            WP_BRYAR_OLD
+#define SHINOBI_IS_TOOL_WEAPON(w)  ( (w) == WP_THERMAL || (w) == WP_TRIP_MINE || (w) == WP_DET_PACK || (w) == WP_BRYAR_OLD )
 #define SHINOBI_TOOL_MAX           6     // carried of each throwable
 #define SHINOBI_TOOL_PICKUP        2     // given by one pickup
 
@@ -623,7 +628,7 @@ const char *Shinobi_ToolName( int tool );   // "2 Explosive Kunai" (pickup line)
 const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
 const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in flight, in the hand)
 #define SHINOBI_TOOL_FOR_WEAPON(w) ( (w) == SHINOBI_WP_EXKUNAI ? STOOL_EXKUNAI : (w) == SHINOBI_WP_TAG ? STOOL_TAG \
-	: (w) == SHINOBI_WP_SHURIKEN ? STOOL_SHURIKEN : STOOL_NONE )
+	: (w) == SHINOBI_WP_SHURIKEN ? STOOL_SHURIKEN : (w) == SHINOBI_WP_STAR ? STOOL_STAR : STOOL_NONE )
 
 // Explosive Kunai: sticks where it lands (or in whom it hits), then goes off
 #define SHINOBI_EXKUNAI_FUSE       1000
@@ -658,6 +663,17 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)
 #define SHINOBI_ENT_TAG            235   // explosive tag; s.time = armed at, s.time2 = blast time (0 = waiting)
 #define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
+// Shuriken (the small ones): each throw sends a fan of three, straight and fast; they stick
+// where they land and are gone after a while
+#define SHINOBI_STAR_PICKUP        5     // throws given by one pickup
+#define SHINOBI_STAR_MAX           10    // throws carried
+#define SHINOBI_STAR_FAN           3     // stars per throw
+#define SHINOBI_STAR_SPREAD        5.0f  // degrees between them
+#define SHINOBI_STAR_SPEED         1600
+#define SHINOBI_STAR_DAMAGE        8     // each
+#define SHINOBI_STAR_LIFE          1500  // in the air at most
+#define SHINOBI_STAR_STUCK_LIFE    8000
+#define SHINOBI_STAR_FIRE_MS       350   // between throws (the old Bryar's fire time)
 #define SHINOBI_ENT_FINISHER       239   // a blade finisher's look; origin = the one hit, s.origin2 = the attacker,
                                          // s.frame = SFX_*, s.time = when
 #define SHINOBI_ENT_WINDSLASH      238   // a Wind Edge air slash; origin = start, s.origin2 = where it stopped, s.time = thrown,

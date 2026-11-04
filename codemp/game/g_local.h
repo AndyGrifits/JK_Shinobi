@@ -1558,6 +1558,7 @@ qboolean Shinobi_SpawnAllowed( const char *classname, const gitem_t *item );
 void     Cmd_ExKunai_f( gentity_t *ent );
 void     Cmd_ExTag_f( gentity_t *ent );
 void     Cmd_Fuma_f( gentity_t *ent );
+void     Cmd_Stars_f( gentity_t *ent );
 qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon );
 qboolean Shinobi_ZUsesTool( gentity_t *ent );
 qboolean Shinobi_JutsuCommand( gentity_t *ent, const char *cmd );

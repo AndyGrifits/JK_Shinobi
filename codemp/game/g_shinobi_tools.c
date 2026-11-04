@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 JK_Shinobi - ninja tools picked up on the maps: pills (at once), Explosive
-Kunai (G), Explosive Tags (H), Fuma Shuriken (J). See bg_shinobi.h.
+Kunai (G), Explosive Tags (H), Fuma Shuriken (J), Shuriken. See bg_shinobi.h.
 ===========================================================================
 */
 #include "g_shinobi_local.h"
@@ -36,6 +36,12 @@ int Shinobi_PickupItem( gentity_t *ent, gentity_t *other ) {
 		client->ps.stats[STAT_WEAPONS] |= 1 << ( tool == STOOL_EXKUNAI ? SHINOBI_WP_EXKUNAI : ( tool == STOOL_TAG ? SHINOBI_WP_TAG : SHINOBI_WP_SHURIKEN ) );
 		return 30;
 	}
+	case STOOL_STAR:
+		client->ps.ammo[SHINOBI_AMMO_STAR] += amount;
+		if ( client->ps.ammo[SHINOBI_AMMO_STAR] > SHINOBI_STAR_MAX )
+			client->ps.ammo[SHINOBI_AMMO_STAR] = SHINOBI_STAR_MAX;
+		client->ps.stats[STAT_WEAPONS] |= 1 << SHINOBI_WP_STAR;
+		return 30;
 	}
 	return -1;
 }
@@ -504,6 +510,96 @@ static void Shinobi_SpawnShuriken( gentity_t *ent ) {
 
 /*
 ---------------------------------------------------------------------------
+Shuriken (the small ones): a fan of SHINOBI_STAR_FAN, straight and fast. Each
+cuts the first one it meets (once) and is gone; a wall keeps it for a while.
+---------------------------------------------------------------------------
+*/
+static void Shinobi_StarThink( gentity_t *s ) {
+	gentity_t *owner = &g_entities[s->r.ownerNum];
+	vec3_t     newPos, dir, mins = { -3, -3, -2 }, maxs = { 3, 3, 2 };
+	trace_t    tr;
+
+	if ( level.time >= s->genericValue1 ) {
+		G_FreeEntity( s );
+		return;
+	}
+	if ( s->s.pos.trType == TR_STATIONARY ) { // stuck
+		s->nextthink = level.time + FRAMETIME;
+		return;
+	}
+	BG_EvaluateTrajectory( &s->s.pos, level.time, newPos );
+	trap->Trace( &tr, s->r.currentOrigin, mins, maxs, newPos, s->r.ownerNum, MASK_SHOT, qfalse, 0, 0 );
+	if ( tr.startsolid || tr.fraction < 1.0f ) {
+		gentity_t *other = tr.entityNum < ENTITYNUM_WORLD ? &g_entities[tr.entityNum] : NULL;
+		if ( other && other->takedamage ) {
+			VectorCopy( s->s.pos.trDelta, dir );
+			VectorNormalize( dir );
+			G_Damage( other, s, owner->inuse ? owner : s, dir, tr.endpos, SHINOBI_STAR_DAMAGE, DAMAGE_NO_HIT_LOC, MOD_SABER );
+			G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[0] );
+			if ( s->inuse )
+				G_FreeEntity( s );
+			return;
+		}
+		// into the wall: it stays there, still
+		G_SetOrigin( s, tr.endpos );
+		s->s.apos.trType = TR_STATIONARY;
+		BG_EvaluateTrajectory( &s->s.apos, level.time, s->s.apos.trBase );
+		s->genericValue1 = level.time + SHINOBI_STAR_STUCK_LIFE;
+		G_SoundAtLoc( tr.endpos, CHAN_AUTO, shinobiMedia.sndBlockSaber[1] );
+		trap->LinkEntity( (sharedEntity_t *)s );
+		s->nextthink = level.time + FRAMETIME;
+		return;
+	}
+	VectorCopy( newPos, s->r.currentOrigin );
+	trap->LinkEntity( (sharedEntity_t *)s );
+	s->nextthink = level.time + FRAMETIME;
+}
+
+static void Shinobi_SpawnStars( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     fwd, right, eye, start, ang;
+	trace_t    tr;
+	int        i;
+
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight - 6;
+	for ( i = 0; i < SHINOBI_STAR_FAN; i++ ) {
+		gentity_t *s;
+		VectorCopy( client->ps.viewangles, ang );
+		ang[YAW] += ( i - ( SHINOBI_STAR_FAN - 1 ) * 0.5f ) * SHINOBI_STAR_SPREAD;
+		AngleVectors( ang, fwd, right, NULL );
+		VectorMA( eye, 20, fwd, start );
+		trap->Trace( &tr, eye, NULL, NULL, start, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+		VectorCopy( tr.endpos, start );
+		s = G_Spawn();
+		if ( !s )
+			return;
+		s->classname = "shinobi_star";
+		s->s.eType = ET_GENERAL;
+		s->s.modelindex = shinobiMedia.starModel;
+		s->r.ownerNum = ent->s.number;
+		s->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
+		s->parent = ent;
+		s->r.contents = 0;
+		s->genericValue1 = level.time + SHINOBI_STAR_LIFE;
+		s->s.pos.trType = TR_LINEAR;
+		s->s.pos.trTime = level.time;
+		VectorCopy( start, s->s.pos.trBase );
+		VectorScale( fwd, SHINOBI_STAR_SPEED, s->s.pos.trDelta );
+		VectorCopy( start, s->r.currentOrigin );
+		s->s.apos.trType = TR_LINEAR; // spinning flat
+		s->s.apos.trTime = level.time;
+		VectorSet( s->s.apos.trBase, 0, ang[YAW], 0 );
+		VectorSet( s->s.apos.trDelta, 0, 2160, 0 );
+		s->think = Shinobi_StarThink;
+		s->nextthink = level.time + FRAMETIME;
+		trap->LinkEntity( (sharedEntity_t *)s );
+	}
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+}
+
+/*
+---------------------------------------------------------------------------
 Using a tool: the stock weapon fire (attack with it in hand: pmove already
 took the ammo and plays the throw), or Z / the console commands (we take the
 ammo, and put the weapon away when the last one is gone).
@@ -521,6 +617,8 @@ qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon ) {
 		if ( !Shinobi_PlaceTag( ent ) )
 			ent->client->ps.ammo[SHINOBI_AMMO_TAG]++; // nowhere to stick it: keep it
 	}
+	else if ( weapon == SHINOBI_WP_STAR )
+		Shinobi_SpawnStars( ent );
 	else
 		Shinobi_SpawnShuriken( ent );
 	if ( ent->client->ps.ammo[weaponData[weapon].ammoIndex] <= 0 ) { // the last one left the hand: back to the fists / blade
@@ -546,6 +644,10 @@ static void Shinobi_UseTool( gentity_t *ent, int weapon ) {
 	else if ( weapon == SHINOBI_WP_TAG ) {
 		used = Shinobi_PlaceTag( ent );
 		client->shinobi.toolNext = level.time + SHINOBI_TAG_COOLDOWN;
+	}
+	else if ( weapon == SHINOBI_WP_STAR ) {
+		Shinobi_SpawnStars( ent );
+		client->shinobi.toolNext = level.time + SHINOBI_STAR_FIRE_MS;
 	}
 	else {
 		Shinobi_SpawnShuriken( ent );
@@ -574,16 +676,17 @@ qboolean Shinobi_ZUsesTool( gentity_t *ent ) {
 void Cmd_ExKunai_f( gentity_t *ent ) { Shinobi_UseTool( ent, SHINOBI_WP_EXKUNAI ); }
 void Cmd_ExTag_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_TAG ); }
 void Cmd_Fuma_f( gentity_t *ent )    { Shinobi_UseTool( ent, SHINOBI_WP_SHURIKEN ); }
+void Cmd_Stars_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_STAR ); }
 
 /*
 ===========================================================================
-No guns: a player only ever holds fists, the saber and the three tool
+No guns: a player only ever holds fists, the saber and the four tool
 weapons. Whatever else sneaks in (spawn loadouts, give, siege classes) is
 taken away every frame.
 ===========================================================================
 */
 #define SHINOBI_ALLOWED_WEAPONS ( ( 1 << WP_NONE ) | ( 1 << WP_MELEE ) | ( 1 << WP_SABER ) \
-	| ( 1 << WP_THERMAL ) | ( 1 << WP_TRIP_MINE ) | ( 1 << WP_DET_PACK ) )
+	| ( 1 << WP_THERMAL ) | ( 1 << WP_TRIP_MINE ) | ( 1 << WP_DET_PACK ) | ( 1 << WP_BRYAR_OLD ) )
 
 void Shinobi_StripGuns( gentity_t *ent ) {
 	playerState_t *ps = &ent->client->ps;

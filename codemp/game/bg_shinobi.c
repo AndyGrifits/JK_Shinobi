@@ -210,8 +210,8 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 	{ "weapon_thermal",             STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
 	{ "ammo_thermal",               STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
 	{ "weapon_blaster_pistol",      STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
-	{ "weapon_bryar_pistol",        STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
-	{ "weapon_blaster",             STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
+	{ "weapon_bryar_pistol",        STOOL_STAR,     SHINOBI_STAR_PICKUP }, // (the old Bryar: the small shuriken ride on it)
+	{ "weapon_blaster",             STOOL_STAR,     SHINOBI_STAR_PICKUP },
 	{ "weapon_stun_baton",          STOOL_EXKUNAI,  SHINOBI_TOOL_PICKUP },
 	{ "weapon_trip_mine",           STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "ammo_tripmine",              STOOL_TAG,      SHINOBI_TOOL_PICKUP },
@@ -222,7 +222,7 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 	{ "item_shield",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_eweb_holdable",         STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "weapon_rocket_launcher",     STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
-	{ "weapon_repeater",            STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_repeater",            STOOL_STAR,     SHINOBI_STAR_PICKUP },
 	{ "weapon_flechette",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
 	{ "weapon_concussion_rifle",    STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
 	{ "weapon_disruptor",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
@@ -230,15 +230,15 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 };
 
 static const char * const shinobiToolNames[STOOL_COUNT] = {
-	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "Fuma Shuriken"
+	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "Fuma Shuriken", "5 Shuriken"
 };
 static const char * const shinobiToolModels[STOOL_COUNT] = {
 	"", "models/shinobi/pill_heal.md3", "models/shinobi/pill_chakra.md3", "models/shinobi/exkunai.md3",
-	"models/shinobi/tag.md3", "models/shinobi/shuriken.md3"
+	"models/shinobi/tag.md3", "models/shinobi/shuriken.md3", "models/shinobi/star.md3"
 };
 static const char * const shinobiToolIcons[STOOL_COUNT] = {
 	"", "gfx/shinobi/icon_heal", "gfx/shinobi/icon_chakra", "gfx/shinobi/icon_exkunai",
-	"gfx/shinobi/icon_tag", "gfx/shinobi/icon_shuriken"
+	"gfx/shinobi/icon_tag", "gfx/shinobi/icon_shuriken", "gfx/shinobi/icon_star"
 };
 
 int Shinobi_ToolForItem( const char *classname, int *amount ) {
@@ -264,7 +264,7 @@ const char *Shinobi_ToolModel( int tool ) {
 }
 
 const char *Shinobi_ToolTitle( int tool ) {
-	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken" };
+	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken", "Shuriken" };
 	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? titles[tool] : "";
 }
 
@@ -279,6 +279,12 @@ void Shinobi_PatchItems( void ) {
 	ammoData[SHINOBI_AMMO_EXKUNAI].max = SHINOBI_TOOL_MAX;
 	ammoData[SHINOBI_AMMO_TAG].max = SHINOBI_TOOL_MAX;
 	ammoData[SHINOBI_AMMO_SHURIKEN].max = SHINOBI_SHURIKEN_MAX;
+	ammoData[SHINOBI_AMMO_STAR].max = SHINOBI_STAR_MAX;
+	// the old Bryar fires our small shuriken: one throw a shot, at their pace (the stock pistol
+	// costs nothing and charges on alt-fire - alt throws too)
+	weaponData[SHINOBI_WP_STAR].energyPerShot = weaponData[SHINOBI_WP_STAR].altEnergyPerShot = 1;
+	weaponData[SHINOBI_WP_STAR].fireTime = weaponData[SHINOBI_WP_STAR].altFireTime = SHINOBI_STAR_FIRE_MS;
+	weaponData[SHINOBI_WP_STAR].ammoLow = 0;
 	for ( i = 1; i < bg_numItems; i++ ) {
 		gitem_t  *item = &bg_itemlist[i];
 		const int tool = Shinobi_ToolForItem( item->classname, NULL );
@@ -307,6 +313,7 @@ int Shinobi_CanGrabTool( const char *classname, const playerState_t *ps ) {
 	case STOOL_EXKUNAI:  return ps->ammo[SHINOBI_AMMO_EXKUNAI] < SHINOBI_TOOL_MAX;
 	case STOOL_TAG:      return ps->ammo[SHINOBI_AMMO_TAG] < SHINOBI_TOOL_MAX;
 	case STOOL_SHURIKEN: return ps->ammo[SHINOBI_AMMO_SHURIKEN] < SHINOBI_SHURIKEN_MAX;
+	case STOOL_STAR:     return ps->ammo[SHINOBI_AMMO_STAR] < SHINOBI_STAR_MAX;
 	default:             return -1;
 	}
 }
