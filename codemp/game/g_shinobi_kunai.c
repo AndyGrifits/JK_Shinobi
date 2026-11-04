@@ -876,6 +876,74 @@ gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean
 	return other;
 }
 
+/*
+The trench knives' finisher: a wide flat arc of chakra thrown far ahead (the Wind Edge's crescent,
+big and level); it cuts everyone it sweeps over - in reach, in the arc, nothing solid between.
+*/
+void Shinobi_BladeArc( gentity_t *ent, int damage ) {
+	gclient_t *client = ent->client;
+	vec3_t     fwd, yaw, eye, start, end;
+	trace_t    tr;
+	gentity_t *slash;
+	int        i, hits = 0;
+	const float cosHalf = cosf( DEG2RAD( SHINOBI_SWORD_ARC_HALF ) );
+
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight - 14;
+	VectorMA( eye, 16, fwd, start );
+	VectorMA( eye, SHINOBI_SWORD_ARC_REACH, fwd, end );
+	trap->Trace( &tr, start, NULL, NULL, end, ent->s.number, MASK_SOLID, qfalse, 0, 0 ); // (where a wall stops it)
+
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d, at;
+		trace_t    los;
+		float      dist;
+		if ( !v->inuse || v == ent || !v->takedamage || !( v->client || v->s.eType == ET_NPC ) || v->health <= 0 )
+			continue;
+		if ( v->client && v->s.number < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )
+			continue;
+		if ( level.gametype >= GT_TEAM && OnSameTeam( ent, v ) )
+			continue;
+		VectorCopy( v->r.currentOrigin, at );
+		VectorSubtract( at, eye, d );
+		if ( fabs( d[2] ) > 72 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_SWORD_ARC_REACH * tr.fraction + 24 || ( dist > 24 && DotProduct( d, fwd ) < cosHalf ) )
+			continue;
+		trap->Trace( &los, eye, NULL, NULL, at, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( los.fraction < 1.0f && los.entityNum != v->s.number )
+			continue;
+		G_Damage( v, ent, ent, d, at, damage, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, MOD_SABER );
+		if ( v->client )
+			Shinobi_HitText( v, STX_FINISHER, 0 );
+		hits++;
+	}
+
+	slash = G_Spawn();
+	if ( slash ) {
+		slash->classname = "shinobi_windslash";
+		slash->s.eType = ET_GENERAL;
+		slash->s.generic1 = SHINOBI_ENT_WINDSLASH;
+		slash->r.ownerNum = ent->s.number;
+		slash->s.owner = ent->s.number;
+		slash->r.contents = 0;
+		G_SetOrigin( slash, start );
+		VectorCopy( tr.endpos, slash->s.origin2 );
+		slash->s.time = level.time;
+		slash->s.frame = ( hits ? 1 : 0 ) | 2 | 4 | 8; // (8: the wide level arc)
+		slash->s.angles2[2] = 0;
+		slash->think = Shinobi_WindSlashFree;
+		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS + 150;
+		trap->LinkEntity( (sharedEntity_t *)slash );
+	}
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+}
+
 void Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 	const qboolean on = client->shinobi.infuseUntil > level.time && client->shinobi.infuseType;

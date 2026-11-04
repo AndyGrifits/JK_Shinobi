@@ -193,7 +193,8 @@ static qboolean Shinobi_ZonesOverlap( gentity_t *z, vec3_t origin, float radius 
 static qboolean Shinobi_InZone( gentity_t *z, vec3_t feet ) {
 	vec3_t d;
 	VectorSubtract( feet, z->r.currentOrigin, d );
-	if ( d[2] < ( ( z->spawnflags & ZONE_ON_MAPWATER ) ? -160 : -16 ) || d[2] > SHINOBI_ZONE_HEIGHT )
+	if ( d[2] < ( ( z->spawnflags & ZONE_ON_MAPWATER ) ? -160 : -16 )
+		|| d[2] > ( ZONE_TYPE( z ) == SZ_POISON ? SHINOBI_POISON_HEIGHT : SHINOBI_ZONE_HEIGHT ) )
 		return qfalse;
 	d[2] = 0;
 	return VectorLength( d ) <= ZONE_RADIUS( z ) ? qtrue : qfalse;
@@ -302,7 +303,7 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
 	client->shinobi.burnEnd = client->shinobi.wetEnd = client->shinobi.mudEnd = 0;
-	client->shinobi.bleedEnd = 0;
+	client->shinobi.bleedEnd = client->shinobi.poisonEnd = 0;
 	if ( client->shinobi.burrowEnd )
 		Shinobi_BurrowEnd( ent, qfalse );
 	if ( client->shinobi.shadowHideEnd )
@@ -357,6 +358,16 @@ void Shinobi_StatusThink( gentity_t *ent, usercmd_t *ucmd ) {
 			attacker = ent;
 		shinobiHitElement = SE_NONE; // plain damage: must not re-ignite
 		G_Damage( ent, attacker, attacker, NULL, NULL, SHINOBI_BURN_DAMAGE, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_LAVA );
+	}
+
+	if ( client->shinobi.poisonEnd > level.time && client->shinobi.poisonTick <= level.time && ent->health > 0 ) {
+		gentity_t *attacker = client->shinobi.poisonBy ? &g_entities[client->shinobi.poisonBy - 1] : ent;
+		client->shinobi.poisonTick = level.time + SHINOBI_POISON_TICK_MS;
+		if ( !attacker->inuse || !attacker->client )
+			attacker = ent;
+		shinobiHitElement = SE_NONE;
+		shinobiTest.poisonTicks++;
+		G_Damage( ent, attacker, attacker, NULL, NULL, SHINOBI_POISON_DAMAGE, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK, MOD_TRIGGER_HURT );
 	}
 
 	if ( client->shinobi.prisonTarget )
@@ -453,6 +464,14 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 			break;
 		case SZ_ICE:
 			p->client->shinobi.iceEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
+			break;
+		case SZ_POISON: // a breath of it: poisoned for a long while (the thrower holds his breath)
+			if ( p->s.number + 1 != ZONE_OWNER( z ) ) {
+				if ( p->client->shinobi.poisonEnd <= level.time )
+					p->client->shinobi.poisonTick = level.time + SHINOBI_POISON_TICK_MS;
+				p->client->shinobi.poisonEnd = level.time + SHINOBI_POISON_MS;
+				p->client->shinobi.poisonBy = ZONE_OWNER( z );
+			}
 			break;
 		case SZ_MIST:
 			p->client->shinobi.mistEnd = level.time + SHINOBI_ZONE_TICK_MS + 150; // (the Copy Sharingan can't read through it)
@@ -1364,7 +1383,7 @@ qboolean Shinobi_CastFuton( gentity_t *ent, int lvl ) {
 				ZONE_OWNER( e ) = ent->s.number + 1;
 				trap->LinkEntity( (sharedEntity_t *)e );
 			}
-			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH || ZONE_TYPE( e ) == SZ_MIST ) { // blown away
+			else if ( ZONE_TYPE( e ) == SZ_STEAM || ZONE_TYPE( e ) == SZ_ASH || ZONE_TYPE( e ) == SZ_MIST || ZONE_TYPE( e ) == SZ_POISON ) { // blown away
 				Shinobi_ZoneKill( e );
 			}
 			else if ( ZONE_TYPE( e ) == SZ_WATER || ZONE_TYPE( e ) == SZ_ELECTRIC ) { // the wind freezes puddles

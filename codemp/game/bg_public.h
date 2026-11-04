@@ -1667,6 +1667,7 @@ typedef struct saberInfo_s {
 	float			shinobiTrail, shinobiTrail2;			// JK_Shinobi: the swing trail only this long (the visible blade; 0 = the whole damage line)
 	int				shinobiUse;								// JK_Shinobi: how it is held - 2 = a pair, one in each hand ("shinobiUse two"); else one blade
 	int				shinobiFinisher;						// JK_Shinobi: its own combo finisher (SBF_*, "shinobiFinisher bleed")
+	int				shinobiThrust;							// JK_Shinobi: its plain cuts are thrusts ("shinobiThrust 1": a rapier-like blade)
 	int				g2MarksShader, g2MarksShader2;			// none - if set, the game will use this shader for marks on enemies instead of the default "gfx/damage/saberglowmark"
 	int				g2WeaponMarkShader, g2WeaponMarkShader2;// none - if set, the game will ry to project this shader onto the weapon when it damages a person (good for a blood splatter on the weapon)
 	qhandle_t		hitSound[3], hit2Sound[3];				// none - if set, plays one of these 3 sounds when saber hits a person - NOTE: must provide all 3!!!

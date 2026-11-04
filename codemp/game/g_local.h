@@ -865,6 +865,7 @@ struct gclient_s {
 		int		dpsStart, dpsLast, dpsTotal, dpsHits, dpsKind; // "shinobi_dps": damage dealt in the current window
 		// elements (g_shinobi_nature.c)
 		int		burnEnd, burnTick, burnAttacker; // on fire until; attacker num + 1
+		int		poisonEnd, poisonTick, poisonBy; // poisoned (the smoke bomb's cloud) until; next tick; by num + 1
 		int		wetEnd;
 		int		mudEnd;
 		int		waterNext;		// Suiton cooldown end
@@ -1562,6 +1563,7 @@ void     Cmd_ExKunai_f( gentity_t *ent );
 void     Cmd_ExTag_f( gentity_t *ent );
 void     Cmd_Fuma_f( gentity_t *ent );
 void     Cmd_Stars_f( gentity_t *ent );
+void     Cmd_SmokeBomb_f( gentity_t *ent );
 qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon );
 qboolean Shinobi_ZUsesTool( gentity_t *ent );
 qboolean Shinobi_JutsuCommand( gentity_t *ent, const char *cmd );

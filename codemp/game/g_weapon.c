@@ -4636,6 +4636,10 @@ void FireWeapon( gentity_t *ent, qboolean altFire ) {
 			break;
 
 		case WP_ROCKET_LAUNCHER:
+			if ( Shinobi_FireToolWeapon( ent, ent->s.weapon ) )
+			{ // JK_Shinobi: the poison smoke bomb
+				break;
+			}
 			WP_FireRocket( ent, altFire );
 			break;
 

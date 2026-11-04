@@ -48,7 +48,7 @@ static struct {
 
 // loose-particle effects for elements (one-shots come from the server)
 static struct {
-	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash, mist, quakeDust;
+	fxHandle_t fireGround, fireBody, steam, waterTrail, drip, bubbles, zoneSpark, waveCrest, flame, ash, mist, quakeDust, poison;
 } shinobiFx;
 
 // the jutsu key being held on this client (for the charge bars)
@@ -197,6 +197,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.waveCrest  = CG_ShinobiRegisterFx( SHINOBI_FX_WAVE_CREST );
 	shinobiFx.flame      = CG_ShinobiRegisterFx( SHINOBI_FX_FLAME );
 	shinobiFx.ash        = CG_ShinobiRegisterFx( SHINOBI_FX_ASH );
+	shinobiFx.poison     = CG_ShinobiRegisterFx( SHINOBI_FX_POISON );
 	shinobiFx.mist       = CG_ShinobiRegisterFx( SHINOBI_FX_MIST );
 	shinobiFx.quakeDust  = CG_ShinobiRegisterFx( SHINOBI_FX_QUAKE_DUST );
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
@@ -1032,11 +1033,13 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 	const entityState_t *s = &cent->currentState;
 	const qboolean hit = ( s->frame & 1 ) != 0, blade = ( s->frame & 2 ) != 0;
 	const float    age = (float)( cg.time - s->time );
-	const float    fly = Com_Clamp( 0, 1, age / SHINOBI_WINDSLASH_FLY_MS );
-	const float    fade = age <= SHINOBI_WINDSLASH_FLY_MS ? 1.0f
-		: Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
+	const float    flyMs = ( s->frame & 8 ) ? SHINOBI_WINDSLASH_FLY_MS * 2.2f : SHINOBI_WINDSLASH_FLY_MS; // (the wide arc flies far)
+	const float    fly = Com_Clamp( 0, 1, age / flyMs );
+	const float    fade = age <= flyMs ? 1.0f
+		: Com_Clamp( 0, 1, 1.0f - ( age - flyMs ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
 	const qboolean finisher = ( s->frame & 4 ) != 0; // the trench knives' chakra blade: bigger
-	const float    R = ( blade ? 34.0f : 26.0f ) * ( finisher ? 1.6f : 1.0f );
+	const qboolean wide = ( s->frame & 8 ) != 0; // the trench knives' finisher: a wide level arc
+	const float    R = wide ? 70.0f : ( blade ? 34.0f : 26.0f ) * ( finisher ? 1.6f : 1.0f );
 	vec3_t         start, stop, dir, ang, axis[3], pos, prev, p, core = { 0.92f, 1.0f, 1.0f }, haze = { 0.45f, 0.85f, 1.0f };
 	float          len;
 	int            k;
@@ -1106,7 +1109,7 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 		(void)prev; (void)p;
 	}
 
-	if ( hit && fly >= 1.0f ) { // it cut someone: a white cross where it struck
+	if ( hit && fly >= 1.0f && !( s->frame & 8 ) ) { // it cut someone: a white cross where it struck
 		const float f = Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / 220.0f );
 		vec3_t      a0, a1, b0, b1, c, white = { 1, 1, 1 };
 		if ( f > 0 ) {
@@ -1248,6 +1251,49 @@ static void CG_ShinobiFinisher( centity_t *cent ) {
 		VectorCopy( vic, p ); p[2] += DEFAULT_MINS_2;
 		VectorMA( p, 70 * ( f < 0.3f ? f / 0.3f : 1.0f ), up, q );
 		CG_ShinobiFxLine( p, q, 3.0f, a, c );
+		break;
+	}
+	case SFX_BURN: { // a red cut that bursts into flame on him
+		const vec3_t red = { 1.0f, 0.35f, 0.1f };
+		VectorCopy( vic, p ); p[2] += 16;
+		VectorMA( p, 30, side, q ); q[2] += 18;
+		VectorMA( p, -30, side, p ); p[2] -= 18;
+		CG_ShinobiFxLine( p, q, 3.0f, a, red );
+		for ( k = 0; k < 8; k++ ) {
+			const float ang = DEG2RAD( k * 45.0f + s->number * 7 ), r = 10 + 22 * f;
+			VectorSet( p, vic[0] + cosf( ang ) * r, vic[1] + sinf( ang ) * r, vic[2] + 4 + 40 * f );
+			CG_ShinobiSpriteA( p, 6.0f * a + 2.0f, 0, shinobiShaders.glow, 1.0f, 0.45f + 0.3f * ( k & 1 ), 0.1f, 0.9f * a );
+		}
+		trap->R_AddLightToScene( vic, 160 * a, 1.0f, 0.5f, 0.15f );
+		break;
+	}
+	case SFX_BLAST: { // the blast (the game plays the explosion): a flash and a ring of heat
+		const vec3_t c = { 1.0f, 0.7f, 0.3f };
+		vec3_t prev;
+		const float r = 20 + 70 * ( f < 0.5f ? f / 0.5f : 1.0f );
+		for ( k = 0; k <= 16; k++ ) {
+			const float ang = DEG2RAD( 360.0f * k / 16 );
+			VectorSet( p, vic[0] + cosf( ang ) * r, vic[1] + sinf( ang ) * r, vic[2] + DEFAULT_MINS_2 + 4 );
+			if ( k )
+				CG_ShinobiFxLine( prev, p, 3.0f, a, c );
+			VectorCopy( p, prev );
+		}
+		trap->R_AddLightToScene( vic, 260 * a, 1.0f, 0.6f, 0.2f );
+		break;
+	}
+	case SFX_STUN: { // a fine needle through him, then little stars circling his head
+		const vec3_t white = { 1, 1, 1 };
+		if ( f < 0.25f ) {
+			VectorCopy( vic, p ); p[2] += 18;
+			VectorMA( p, -40 + 80 * ( f / 0.25f ), dir, q );
+			VectorMA( p, -40, dir, p );
+			CG_ShinobiFxLine( p, q, 1.5f, 1.0f, white );
+		}
+		for ( k = 0; k < 3; k++ ) {
+			const float ang = cg.time * 0.008f + k * 2.094f;
+			VectorSet( p, vic[0] + cosf( ang ) * 14, vic[1] + sinf( ang ) * 14, vic[2] + DEFAULT_MAXS_2 + 8 );
+			CG_ShinobiSpriteA( p, 3.0f, 0, shinobiShaders.glow, 1.0f, 0.95f, 0.5f, a );
+		}
 		break;
 	}
 	default:
@@ -1531,6 +1577,11 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		fx = shinobiFx.ash;
 		interval = (int)( 45 / ( area < 0.4f ? 0.4f : area ) );
 		break;
+	case SZ_POISON: // a tall, thick green cloud (no fog on the screen: it hurts, it doesn't hide)
+		CG_ShinobiGroundDecal( org, R * 0.85f, rot, shinobiShaders.mud, 0.35f, 0.6f, 0.2f, 0.45f * a );
+		fx = shinobiFx.poison;
+		interval = (int)( 28 / ( area < 0.4f ? 0.4f : area ) );
+		break;
 	default:
 		break;
 	}
@@ -1569,6 +1620,8 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	if ( fx && fadeOut > 0.3f
 		&& ( cent->shinobiHandFxTime <= cg.time || cent->shinobiHandFxTime > cg.time + 1000 ) ) {
 		CG_ShinobiZonePoint( org, R, p );
+		if ( type == SZ_POISON )
+			p[2] += flrand( 0, SHINOBI_POISON_HEIGHT * 0.8f ); // all the way up
 		trap->FX_PlayEffectID( fx, p, up, -1, -1, qfalse );
 		cent->shinobiHandFxTime = cg.time + ( interval < 15 ? 15 : interval );
 	}

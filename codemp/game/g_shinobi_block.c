@@ -204,10 +204,15 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 static void Shinobi_FinisherReach( gentity_t *ent );
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 
+// the stance whose numbers a blade fights by (shinobiSword*): its own, but a pair (the two-blade
+// moves) by its pace - played faster (the knives) a fast one, else a medium one
 static int Shinobi_BladeStyle( gclient_t *c ) {
 	const int style = c->ps.fd.saberAnimLevel;
+	if ( style == SS_DUAL )
+		return c->saber[0].animSpeedScale >= SHINOBI_PAIR_FAST_SCALE ? SS_FAST : SS_MEDIUM;
 	return ( style < 0 || style > 7 ) ? 2 : style;
 }
+int Shinobi_BladeStylePublic( gentity_t *ent ) { return Shinobi_BladeStyle( ent->client ); }
 
 // the look of a finisher (cgame: CG_ShinobiFinisher)
 static void Shinobi_FinisherFx( gentity_t *attacker, gentity_t *victim, int kind ) {
@@ -298,13 +303,11 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 				c->shinobi.finisherStart = level.time;
 				c->shinobi.finisherDur = ps->torsoTimer > 0 ? ps->torsoTimer : 400;
 				c->shinobi.finisherHit = 0;
-				if ( kind == SFK_OWN && c->saber[0].shinobiFinisher == SBF_REACH ) { // the knives: a chakra blade out ahead
-					gentity_t *v;
+				if ( kind == SFK_OWN && c->saber[0].shinobiFinisher == SBF_REACH ) { // the knives: a wide arc thrown far ahead
 					c->shinobi.bladeReachSwing = c->shinobi.bladeSwing;
-					v = Shinobi_BladeSlash( ent, (int)( shinobiSwordDamage[style] * SHINOBI_SWORD_FINISH ), SHINOBI_SWORD_REACH, qtrue );
+					c->shinobi.finisherHit = 1; // (its blow is the arc's)
+					Shinobi_BladeArc( ent, (int)( shinobiSwordDamage[style] * SHINOBI_SWORD_FINISH + 0.5f ) );
 					shinobiTest.bladeFinishers[SBF_REACH]++;
-					if ( v && v->client )
-						Shinobi_HitText( v, STX_FINISHER, 0 );
 				}
 			}
 		}
@@ -339,7 +342,7 @@ static qboolean Shinobi_BladeNewBlow( gentity_t *attacker, gentity_t *victim, qb
 		if ( vc->shinobi.bladeHitSwing[slot] == ac->shinobi.bladeSwing
 			&& ( !special || finisher || since < SHINOBI_BLADE_SPECIAL_MS ) )
 			return qfalse; // this swing cut him already (a kata again after a while)
-		if ( since < shinobiSwordRehitMs[style] && !finisher )
+		if ( since < shinobiSwordRehitMs[ac->ps.fd.saberAnimLevel == SS_DUAL ? SS_DUAL : style] && !finisher )
 			return qfalse; // (a cut seen as two swings: still one blow)
 	}
 	if ( slot < 0 )
@@ -424,7 +427,7 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	gclient_t *ac = attacker->client;
 	const int  move = ac->ps.saberMove;
 	const qboolean special = BG_SaberInSpecial( move ) || BG_SaberInKata( move );
-	int        style = ac->ps.fd.saberAnimLevel;
+	const int  style = Shinobi_BladeStyle( ac );
 	qboolean   finisher;
 	float      dmg;
 
@@ -438,8 +441,6 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	if ( !Shinobi_BladeNewBlow( attacker, victim, special, finisher ) )
 		return 0;
 
-	if ( style < 0 || style > 7 )
-		style = 2;
 	dmg = (float)shinobiSwordDamage[style];
 	if ( ac->saber[0].damageScale > 0 )
 		dmg *= ac->saber[0].damageScale;
@@ -552,7 +553,40 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		ac->shinobi.flurryDmg = (int)( *dmg * SHINOBI_SWORD_FLURRY_SCALE + 0.5f );
 		Shinobi_FinisherFx( attacker, victim, SFX_FLURRY );
 		break;
-	default: // (the knives' finisher is the thrown blade: Shinobi_ReachFinisher)
+	case SBF_BURN: // the Uchiha blade: he catches fire
+		Shinobi_Ignite( victim, attacker->s.number + 1 );
+		Shinobi_FinisherFx( attacker, victim, SFX_BURN );
+		break;
+	case SBF_BLAST: { // Shibuki: the tags on it go off - thrown back and down
+		vec3_t up = { 0, 0, 1 };
+		G_PlayEffectID( shinobiMedia.fxFireballBoom[0], victim->r.currentOrigin, up );
+		G_PlayEffectID( shinobiMedia.fxStockExplode, victim->r.currentOrigin, up );
+		G_SoundAtLoc( victim->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndFireballBoom );
+		G_ScreenShake( victim->r.currentOrigin, NULL, 2.0f, 300, qfalse );
+		if ( !Shinobi_CCImmune( victim ) ) {
+			VectorScale( dir, SHINOBI_SWORD_BLAST_PUSH, vc->ps.velocity );
+			vc->ps.velocity[2] = 220;
+			vc->ps.groundEntityNum = ENTITYNUM_NONE;
+			G_Knockdown( victim );
+		}
+		Shinobi_CCGrant( victim, level.time + 1500 );
+		Shinobi_FinisherFx( attacker, victim, SFX_BLAST );
+		break;
+	}
+	case SBF_STUN: // Nuibari: a thrust to a nerve - he stands there, helpless
+		if ( !Shinobi_CCImmune( victim ) ) {
+			if ( vc->shinobi.stunEnd < level.time + SHINOBI_SWORD_STUN_MS )
+				vc->shinobi.stunEnd = level.time + SHINOBI_SWORD_STUN_MS;
+			VectorClear( vc->ps.velocity );
+			if ( vc->ps.weaponTime < SHINOBI_SWORD_STUN_MS )
+				vc->ps.weaponTime = SHINOBI_SWORD_STUN_MS;
+			Shinobi_HitText( victim, STX_STUN, 0 );
+			shinobiTest.stuns++;
+		}
+		Shinobi_CCGrant( victim, level.time + SHINOBI_SWORD_STUN_MS );
+		Shinobi_FinisherFx( attacker, victim, SFX_STUN );
+		break;
+	default: // (the knives' finisher is the arc: Shinobi_BladeArc)
 		break;
 	}
 }
@@ -596,7 +630,7 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 	VectorSet( ang, 0, vectoyaw( d ), 0 );
 	SetClientViewAngle( ent, ang );
 	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );
-	shinobiTest.bladeFinishers[7]++;
+	shinobiTest.bladeFinishers[SHINOBI_BLADE_SHUNSHIN_STAT]++;
 }
 
 // every client frame: the combo for the HUD; Kurosawa's extra cuts (his), a bleeding wound (on him)

@@ -221,7 +221,7 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 	{ "item_sentry_gun",            STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_shield",                STOOL_TAG,      SHINOBI_TOOL_PICKUP },
 	{ "item_eweb_holdable",         STOOL_TAG,      SHINOBI_TOOL_PICKUP },
-	{ "weapon_rocket_launcher",     STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
+	{ "weapon_rocket_launcher",     STOOL_SMOKE,    SHINOBI_SMOKE_PICKUP }, // (the poison smoke bomb rides on it)
 	{ "weapon_repeater",            STOOL_STAR,     SHINOBI_STAR_PICKUP },
 	{ "weapon_flechette",           STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
 	{ "weapon_concussion_rifle",    STOOL_SHURIKEN, SHINOBI_SHURIKEN_MAX },
@@ -230,15 +230,15 @@ static const shinobiItemMap_t shinobiItemMap[] = {
 };
 
 static const char * const shinobiToolNames[STOOL_COUNT] = {
-	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "Fuma Shuriken", "5 Shuriken"
+	"", "Healing Pill", "Chakra Pill", "2 Explosive Kunai", "2 Explosive Tags", "Fuma Shuriken", "3 Shuriken throws", "Poison Smoke Bomb"
 };
 static const char * const shinobiToolModels[STOOL_COUNT] = {
 	"", "models/shinobi/pill_heal.md3", "models/shinobi/pill_chakra.md3", "models/shinobi/exkunai.md3",
-	"models/shinobi/tag.md3", "models/shinobi/shuriken.md3", "models/shinobi/star.md3"
+	"models/shinobi/tag.md3", "models/shinobi/shuriken.md3", "models/shinobi/star.md3", "models/shinobi/smoke_bomb.md3"
 };
 static const char * const shinobiToolIcons[STOOL_COUNT] = {
 	"", "gfx/shinobi/icon_heal", "gfx/shinobi/icon_chakra", "gfx/shinobi/icon_exkunai",
-	"gfx/shinobi/icon_tag", "gfx/shinobi/icon_shuriken", "gfx/shinobi/icon_star"
+	"gfx/shinobi/icon_tag", "gfx/shinobi/icon_shuriken", "gfx/shinobi/icon_star", "gfx/shinobi/icon_smoke"
 };
 
 int Shinobi_ToolForItem( const char *classname, int *amount ) {
@@ -264,7 +264,7 @@ const char *Shinobi_ToolModel( int tool ) {
 }
 
 const char *Shinobi_ToolTitle( int tool ) {
-	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken", "Shuriken" };
+	static const char * const titles[STOOL_COUNT] = { "", "Healing Pill", "Chakra Pill", "Explosive Kunai", "Explosive Tag", "Fuma Shuriken", "Shuriken", "Poison Smoke Bomb" };
 	return ( tool > STOOL_NONE && tool < STOOL_COUNT ) ? titles[tool] : "";
 }
 
@@ -280,6 +280,11 @@ void Shinobi_PatchItems( void ) {
 	ammoData[SHINOBI_AMMO_TAG].max = SHINOBI_TOOL_MAX;
 	ammoData[SHINOBI_AMMO_SHURIKEN].max = SHINOBI_SHURIKEN_MAX;
 	ammoData[SHINOBI_AMMO_STAR].max = SHINOBI_STAR_MAX;
+	ammoData[SHINOBI_AMMO_SMOKE].max = SHINOBI_SMOKE_MAX;
+	// the rocket launcher lobs our smoke bomb: one a shot, no lock-on (alt throws too)
+	weaponData[SHINOBI_WP_SMOKE].energyPerShot = weaponData[SHINOBI_WP_SMOKE].altEnergyPerShot = 1;
+	weaponData[SHINOBI_WP_SMOKE].fireTime = weaponData[SHINOBI_WP_SMOKE].altFireTime = SHINOBI_SMOKE_FIRE_MS;
+	weaponData[SHINOBI_WP_SMOKE].ammoLow = 0;
 	// the old Bryar fires our small shuriken: one throw a shot, at their pace (the stock pistol
 	// costs nothing and charges on alt-fire - alt throws too)
 	weaponData[SHINOBI_WP_STAR].energyPerShot = weaponData[SHINOBI_WP_STAR].altEnergyPerShot = 1;
@@ -314,6 +319,7 @@ int Shinobi_CanGrabTool( const char *classname, const playerState_t *ps ) {
 	case STOOL_TAG:      return ps->ammo[SHINOBI_AMMO_TAG] < SHINOBI_TOOL_MAX;
 	case STOOL_SHURIKEN: return ps->ammo[SHINOBI_AMMO_SHURIKEN] < SHINOBI_SHURIKEN_MAX;
 	case STOOL_STAR:     return ps->ammo[SHINOBI_AMMO_STAR] < SHINOBI_STAR_MAX;
+	case STOOL_SMOKE:    return ps->ammo[SHINOBI_AMMO_SMOKE] < SHINOBI_SMOKE_MAX;
 	default:             return -1;
 	}
 }

@@ -2756,6 +2756,16 @@ void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int 
 		}
 	}
 
+	// JK_Shinobi: a thrusting blade's stab (shinobiThrust) takes about SHINOBI_THRUST_MS
+	if ( weapon == WP_SABER && anim == BOTH_PULL_IMPALE_STAB && *animSpeed > 0.0f )
+	{
+		const saberInfo_t *saber = BG_MySaber( clientNum, 0 );
+		const animation_t *a = &bgHumanoidAnimations[anim];
+		const float        len = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp );
+		if ( saber && saber->shinobiThrust && len > 0.0f )
+			*animSpeed = Com_Clamp( 1.0f, 1.6f, len / SHINOBI_THRUST_MS );
+	}
+
 	// JK_Shinobi: a pair's cuts (the two-blade attack moves) never quicker than SHINOBI_PAIR_MIN_CUT:
 	// held forward they chain straight into each other (no returns) - not a machine gun
 	if ( weapon == WP_SABER && saberAnimLevel == SS_DUAL && anim >= BOTH_A6_T__B_ && anim <= BOTH_A6_TR_BL && *animSpeed > 0.0f )

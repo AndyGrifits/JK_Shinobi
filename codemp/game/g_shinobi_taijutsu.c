@@ -111,8 +111,7 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallBreak );
 	dmg = SHINOBI_DIVE_DAMAGE;
 	if ( sword ) { // the blade's plunge: the stance's blow, a little more
-		const int style = ent->client->ps.fd.saberAnimLevel;
-		dmg = (int)( shinobiSwordDamage[( style < 0 || style > 7 ) ? 2 : style] * SHINOBI_SWORD_DIVE_SCALE + 0.5f );
+		dmg = (int)( shinobiSwordDamage[Shinobi_BladeStylePublic( ent )] * SHINOBI_SWORD_DIVE_SCALE + 0.5f );
 		shinobiTest.swordDives++;
 	}
 	for ( i = 0; i < level.num_entities; i++ ) {
@@ -235,8 +234,7 @@ static void Shinobi_AirSlam( gentity_t *ent ) {
 	int i, dmg;
 
 	if ( ent->client->ps.weapon == WP_SABER ) { // the blade's plunge onto whoever we launched
-		const int style = ent->client->ps.fd.saberAnimLevel;
-		dmg = (int)( shinobiSwordDamage[( style < 0 || style > 7 ) ? 2 : style] * SHINOBI_SWORD_FINISH + 0.5f );
+		dmg = (int)( shinobiSwordDamage[Shinobi_BladeStylePublic( ent )] * SHINOBI_SWORD_FINISH + 0.5f );
 	} else
 		dmg = (int)( SHINOBI_SLAM_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f );
 

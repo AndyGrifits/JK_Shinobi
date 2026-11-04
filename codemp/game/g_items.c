@@ -2320,6 +2320,14 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other )
 RespawnItem
 ===============
 */
+// JK_Shinobi: what a pickup comes back as (shinobi_randomItems); weights add up to 100. All of them
+// are registered at the start (ClearRegisteredItems): one the map never had would have no model
+// in the cgame - an axis drawn in its place.
+static const struct { const char *classname; int weight; } shinobiItemPool[] = {
+	{ "item_medpac", 22 }, { "ammo_force", 22 }, { "weapon_thermal", 14 }, { "weapon_bryar_pistol", 10 },
+	{ "weapon_trip_mine", 12 }, { "weapon_det_pack", 12 }, { "weapon_rocket_launcher", 8 }
+};
+
 void RespawnItem( gentity_t *ent ) {
 	// randomly select from teamed entities
 	if (ent->team) {
@@ -2344,15 +2352,11 @@ void RespawnItem( gentity_t *ent ) {
 	if ( shinobi_randomItems.integer && !( ent->flags & FL_DROPPED_ITEM ) && ent->item
 		&& Shinobi_ToolForItem( ent->item->classname, NULL ) != STOOL_NONE )
 	{ // JK_Shinobi: what comes back is a random one of our pickups, not always the same
-		static const struct { const char *classname; int weight; } pool[] = {
-			{ "item_medpac", 25 }, { "ammo_force", 25 }, { "weapon_thermal", 15 }, { "weapon_bryar_pistol", 10 },
-			{ "weapon_trip_mine", 13 }, { "weapon_det_pack", 12 }
-		};
 		int r = Q_irand( 0, 99 ), k;
-		for ( k = 0; k < (int)ARRAY_LEN( pool ) - 1 && r >= pool[k].weight; k++ )
-			r -= pool[k].weight;
+		for ( k = 0; k < (int)ARRAY_LEN( shinobiItemPool ) - 1 && r >= shinobiItemPool[k].weight; k++ )
+			r -= shinobiItemPool[k].weight;
 		{
-			gitem_t *it = BG_FindItem( pool[k].classname );
+			gitem_t *it = BG_FindItem( shinobiItemPool[k].classname );
 			if ( it )
 			{
 				ent->item = it;
@@ -3062,6 +3066,15 @@ void ClearRegisteredItems( void ) {
 	RegisterItem( BG_FindItemForWeapon( WP_STUN_BATON ) );
 	RegisterItem( BG_FindItemForWeapon( WP_MELEE ) );
 	RegisterItem( BG_FindItemForWeapon( WP_SABER ) );
+	{ // JK_Shinobi: everything a pickup may come back as (RespawnItem)
+		int k;
+		for ( k = 0; k < (int)ARRAY_LEN( shinobiItemPool ); k++ )
+		{
+			gitem_t *it = BG_FindItem( shinobiItemPool[k].classname );
+			if ( it )
+				RegisterItem( it );
+		}
+	}
 
 	if (level.gametype == GT_SIEGE)
 	{ //kind of cheesy, maybe check if siege class with disp's is gonna be on this map too

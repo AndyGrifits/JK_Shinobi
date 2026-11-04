@@ -26,6 +26,16 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "cg_local.h"
 
+// JK_Shinobi: the stance the HUD shows - a pair (two-blade moves) by its pace: played faster a fast one, else medium
+static int CG_ShinobiDrawStyle( void ) {
+	const int style = cg.predictedPlayerState.fd.saberDrawAnimLevel;
+	if ( style == SS_DUAL ) {
+		const clientInfo_t *ci = &cgs.clientinfo[cg.predictedPlayerState.clientNum];
+		return ci->saber[0].animSpeedScale >= SHINOBI_PAIR_FAST_SCALE ? SS_FAST : SS_MEDIUM;
+	}
+	return style;
+}
+
 #include "game/bg_saga.h"
 
 #include "ui/ui_shared.h"
@@ -807,11 +817,10 @@ static void CG_DrawSaberStyle( centity_t *cent, menuDef_t *menuHUD)
 
 
 	// draw the current saber style in this window
-	switch ( cg.predictedPlayerState.fd.saberDrawAnimLevel )
+	switch ( CG_ShinobiDrawStyle() ) // JK_Shinobi: a pair by its pace (fast / medium)
 	{
 	case 1://FORCE_LEVEL_1:
 	case 5://FORCE_LEVEL_5://Tavion
-	case 6://SS_DUAL - JK_Shinobi: our pairs fight fast (x1.35)
 
 		focusItem = Menu_FindItemByName(menuHUD, "saberstyle_fast");
 
@@ -1169,7 +1178,7 @@ static void CG_DrawSimpleSaberStyle( const centity_t *cent )
 		return;
 	}
 
-	switch ( cg.predictedPlayerState.fd.saberDrawAnimLevel )
+	switch ( CG_ShinobiDrawStyle() ) // JK_Shinobi: a pair by its pace (fast / medium)
 	{
 	default:
 	case SS_FAST:
@@ -1194,7 +1203,7 @@ static void CG_DrawSimpleSaberStyle( const centity_t *cent )
 		calcColor = CT_ICON_BLUE;
 		break;
 	case SS_DUAL:
-		Com_sprintf( num, sizeof( num ), "FAST" ); // JK_Shinobi: our pairs fight fast
+		Com_sprintf( num, sizeof( num ), "AKIMBO" );
 		calcColor = CT_HUD_ORANGE;
 		break;
 	case SS_STAFF:

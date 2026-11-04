@@ -480,6 +480,68 @@ static atResult_t T_Fuma( int t ) {
 	return ATR_RUN;
 }
 
+// Poison Smoke Bomb: thrown at B's feet, it bursts into the cloud; B is poisoned (not A, who threw it),
+// and stays poisoned after he has left it; the pickups: a shuriken pickup gives 3 throws; every
+// item a pickup may come back as is registered (else the cgame draws an axis for it)
+static void T_Smoke_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 420, 0, p ); // (lobbed level it comes down about 480 out: on him or just past him)
+	AT_Place( B, p, at.baseYaw + 180 );
+	A->client->ps.ammo[SHINOBI_AMMO_SMOKE] = 1;
+	AT_Weapon( 0, SHINOBI_WP_SMOKE );
+	AT_Weapon( 1, WP_MELEE );
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = shinobiTest.smokeBursts;
+	at.v[1] = shinobiTest.poisonTicks;
+}
+static atResult_t T_Smoke( int t ) {
+	if ( STAGE( 0 ) && t >= 600 ) {
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		NEXT();
+	}
+	if ( STAGE( 1 ) ) {
+		AT_Drive( 0, 0, 0, 0, 0 );
+		if ( shinobiTest.smokeBursts > at.v[0] ) {
+			at.v[2] = AT_CountClass( "shinobi_smokebomb", at.a );
+			NEXT();
+		}
+		else if ( SINCE() > 3500 ) {
+			AT_Msg( "the bomb never burst (thrown: %s)", AT_FindClass( "shinobi_smokebomb", at.a ) ? "yes" : "NO" );
+			return ATR_FAIL;
+		}
+	}
+	if ( STAGE( 2 ) && SINCE() >= 2000 ) { // in it a while: poisoned; then out of it
+		vec3_t p;
+		at.v[3] = B->client->shinobi.poisonEnd > level.time;
+		at.v[4] = A->client->shinobi.poisonEnd > level.time;
+		at.v[5] = shinobiTest.poisonTicks - at.v[1];
+		AT_Spot( -200, 0, p ); // (behind A, far from the cloud)
+		AT_Place( B, p, at.baseYaw + 180 );
+		NEXT();
+	}
+	if ( STAGE( 3 ) && SINCE() >= 3000 ) {
+		int amt = 0, i, unreg = 0;
+		char cs[MAX_STRING_CHARS];
+		const int after = shinobiTest.poisonTicks - at.v[1] - at.v[5];
+		const qboolean still = B->client->shinobi.poisonEnd > level.time;
+		static const char *pool[] = { "item_medpac", "ammo_force", "weapon_thermal", "weapon_bryar_pistol",
+			"weapon_trip_mine", "weapon_det_pack", "weapon_rocket_launcher" };
+		Shinobi_ToolForItem( "weapon_bryar_pistol", &amt );
+		trap->GetConfigstring( CS_ITEMS, cs, sizeof( cs ) );
+		for ( i = 0; i < (int)ARRAY_LEN( pool ); i++ ) {
+			gitem_t *it = BG_FindItem( pool[i] );
+			const int n = it ? (int)( it - bg_itemlist ) : -1;
+			if ( n < 0 || n >= (int)strlen( cs ) || cs[n] != '1' )
+				unreg++;
+		}
+		AT_Msg( "burst: yes; B poisoned in it: %s (ticks %i), A (the thrower): %s; 3 s after leaving it B still poisoned: %s (ticks %i); "
+			"a shuriken pickup gives %i throws; pool items unregistered: %i",
+			at.v[3] ? "yes" : "NO", at.v[5], at.v[4] ? "YES" : "no", still ? "yes" : "NO", after, amt, unreg );
+		return ( at.v[3] && !at.v[4] && at.v[5] >= 2 && still && after >= 3 && amt == SHINOBI_STAR_PICKUP && !unreg ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 // Kawarimi in the middle of our own combo (attack still held): it must hide us, not just eat a charge
 static void T_KawaCombo_Setup( void ) {
 	vec3_t p;
@@ -833,7 +895,12 @@ static const bcCase_t bcCases[] = {
 	{ "shinobi_kurosawa", "none", 127, 0, 0, SFX_FLURRY, "kurosawa: flurry (2 more cuts)" },
 	{ "shinobi_kubikiribocho", "none", 127, 0, 0, SFX_BLEED, "kubikiribocho: bleed" },
 	{ "shinobi_samehada", "none", 127, 0, 0, SFX_DRAIN, "samehada: drain chakra" },
-	{ "shinobi_knife", "shinobi_knife_l", 127, 0, 0, SFX_BLEED, "knives: bleed" },
+	{ "shinobi_knife", "shinobi_knife_l", 127, 0, 0, -1, "knives: wide arc far ahead" },
+	{ "shinobi_uchiha_blade", "shinobi_uchiha_blade", 127, 0, 0, SFX_BURN, "uchiha blades: set alight" },
+	{ "shinobi_cloud_tanto", "shinobi_cloud_tanto", 127, 0, 0, SFX_BLEED, "cloud short swords: bleed" },
+	{ "shinobi_shibuki", "none", 127, 0, 0, SFX_BLAST, "shibuki: blast, thrown down" },
+	{ "shinobi_nuibari", "none", 127, 0, 0, SFX_STUN, "nuibari: stun 1.5 s" },
+	{ "shinobi_uchiha_blade", "shinobi_uchiha_blade", 0, 0, 0, SFX_LAUNCH, "uchiha blades: rising cut (pair)" },
 	{ "shinobi_katana", "none", -127, 0, 0, SFX_SWEEP, "back: sweep (knockdown)" },
 	{ "shinobi_katana", "none", 0, 127, 0, SFX_SPIN, "side: spin" },
 	{ "shinobi_katana", "none", 0, 0, 0, SFX_LAUNCH, "nothing held: rising cut (launch)" },
@@ -884,7 +951,7 @@ static gentity_t *BC_FinisherFx( int kind ) {
 static atResult_t T_BladeCombo( int t ) {
 	const bcCase_t *c = &bcCases[bc.idx];
 	gclient_t *ac = A->client, *bcl = B->client;
-	const int need = shinobiSwordChain[ac->ps.fd.saberAnimLevel & 7];
+	const int need = shinobiSwordChain[Shinobi_BladeStylePublic( A )];
 
 	// both stay put; the target never runs dry or dies
 	if ( Distance( ac->ps.origin, bc.spotA ) > 6 && !bc.found )
@@ -899,7 +966,7 @@ static atResult_t T_BladeCombo( int t ) {
 		if ( Distance( bcl->ps.origin, bc.spotB ) > 6 )
 			AT_Place( B, bc.spotB, at.baseYaw + 180 );
 		VectorClear( bcl->ps.velocity );
-		if ( bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && c->kind != SFX_SWEEP ) {
+		if ( bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && c->kind != SFX_SWEEP && c->kind != SFX_BLAST ) {
 			bcl->ps.forceHandExtend = HANDEXTEND_NONE;
 			bcl->ps.forceHandExtendTime = 0;
 		}
@@ -917,6 +984,9 @@ static atResult_t T_BladeCombo( int t ) {
 			case SFX_SWEEP:  bc.ok = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim ); break;
 			case SFX_LAUNCH: bc.ok = bcl->shinobi.juggleEnd > level.time; break;
 			case SFX_SPIN:   bc.ok = 1; break;
+			case SFX_BURN:   bc.ok = bcl->shinobi.burnEnd > level.time; break;
+			case SFX_BLAST:  bc.ok = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim ); break;
+			case SFX_STUN:   bc.ok = bcl->shinobi.stunEnd > level.time + 1000; break;
 			case -1:         bc.ok = 1; break;
 			default:         bc.ok = 0; break;
 			}
@@ -1104,7 +1174,7 @@ static void T_SwordAir_Setup( void ) {
 }
 static atResult_t T_SwordAir( int t ) {
 	gclient_t *ac = A->client, *bcl = B->client;
-	const int  need = shinobiSwordChain[ac->ps.fd.saberAnimLevel & 7];
+	const int  need = shinobiSwordChain[Shinobi_BladeStylePublic( A )];
 	const int  slams = shinobiTest.slams - at.v[0], dives = shinobiTest.swordDives - at.v[1];
 
 	if ( B->health < 200 )
@@ -1581,6 +1651,7 @@ static atTest_t atTests[] = {
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
+	{ "smoke_bomb",   "poison smoke bomb: bursts, poisons (not the thrower), lingers; shuriken pickup 3; pool items registered", T_Smoke_Setup, T_Smoke, 9000 },
 	{ "sword_air",    "blade: rising cut, jump (Shunshin up), attack = the plunge that slams him", T_SwordAir_Setup, T_SwordAir, 12000 },
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },

@@ -3438,6 +3438,7 @@ command_t commands[] = {
 	{ "extag",				Cmd_ExTag_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "fuma",				Cmd_Fuma_f,					CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "stars",				Cmd_Stars_f,				CMD_ALIVE|CMD_NOINTERMISSION },
+	{ "smokebomb",			Cmd_SmokeBomb_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "chakra",				Cmd_Chakra_f,				CMD_CHEAT|CMD_ALIVE },
 	{ "kirigakure",			Cmd_Kirigakure_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "kunai",				Cmd_Kunai_f,				CMD_ALIVE|CMD_NOINTERMISSION },

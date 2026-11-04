@@ -8,8 +8,10 @@ shinobi_nuibari
 	saberLength		68
 	saberColor		blue
 	shinobiTrail		54.1
-	saberStyle		fast
+	saberStyle		medium
 	shinobiUse		one
+	shinobiFinisher	stun
+	shinobiThrust	1
 	noBlade			1
 	noBlade2		1
 	noDlight		1

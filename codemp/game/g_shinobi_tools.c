@@ -42,6 +42,12 @@ int Shinobi_PickupItem( gentity_t *ent, gentity_t *other ) {
 			client->ps.ammo[SHINOBI_AMMO_STAR] = SHINOBI_STAR_MAX;
 		client->ps.stats[STAT_WEAPONS] |= 1 << SHINOBI_WP_STAR;
 		return 30;
+	case STOOL_SMOKE:
+		client->ps.ammo[SHINOBI_AMMO_SMOKE] += amount;
+		if ( client->ps.ammo[SHINOBI_AMMO_SMOKE] > SHINOBI_SMOKE_MAX )
+			client->ps.ammo[SHINOBI_AMMO_SMOKE] = SHINOBI_SMOKE_MAX;
+		client->ps.stats[STAT_WEAPONS] |= 1 << SHINOBI_WP_SMOKE;
+		return 40;
 	}
 	return -1;
 }
@@ -600,6 +606,85 @@ static void Shinobi_SpawnStars( gentity_t *ent ) {
 
 /*
 ---------------------------------------------------------------------------
+Poison Smoke Bomb: lobbed along the look; where it lands (or whom it hits) it
+bursts into a tall cloud of poison (an SZ_POISON zone).
+---------------------------------------------------------------------------
+*/
+static void Shinobi_SmokeBurst( gentity_t *b, const vec3_t at ) {
+	vec3_t floor, pos, up = { 0, 0, 1 };
+
+	VectorCopy( at, pos );
+	pos[2] += 4;
+	if ( !Shinobi_FloorBelow( pos, 260, floor ) )
+		VectorCopy( at, floor );
+	Shinobi_SpawnZone( SZ_POISON, floor, SHINOBI_POISON_RADIUS, SHINOBI_POISON_LIFE, b->r.ownerNum < MAX_CLIENTS ? b->r.ownerNum + 1 : 0 );
+	G_PlayEffectID( shinobiMedia.fxCloneSmoke, floor, up );
+	G_SoundAtLoc( floor, CHAN_AUTO, shinobiMedia.sndPoof );
+	G_SoundAtLoc( floor, CHAN_AUTO, shinobiMedia.sndHiss );
+	shinobiTest.smokeBursts++;
+	G_FreeEntity( b );
+}
+
+static void Shinobi_SmokeBombThink( gentity_t *b ) {
+	vec3_t  newPos, mins = { -4, -4, -4 }, maxs = { 4, 4, 4 };
+	trace_t tr;
+
+	if ( level.time >= b->genericValue1 ) {
+		Shinobi_SmokeBurst( b, b->r.currentOrigin );
+		return;
+	}
+	BG_EvaluateTrajectory( &b->s.pos, level.time, newPos );
+	trap->Trace( &tr, b->r.currentOrigin, mins, maxs, newPos, b->r.ownerNum, MASK_SHOT, qfalse, 0, 0 );
+	if ( tr.startsolid || tr.fraction < 1.0f ) {
+		Shinobi_SmokeBurst( b, tr.endpos );
+		return;
+	}
+	VectorCopy( newPos, b->r.currentOrigin );
+	trap->LinkEntity( (sharedEntity_t *)b );
+	b->nextthink = level.time + FRAMETIME;
+}
+
+static void Shinobi_ThrowSmokeBomb( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	gentity_t *b;
+	vec3_t     fwd, eye, start;
+	trace_t    tr;
+
+	AngleVectors( client->ps.viewangles, fwd, NULL, NULL );
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight - 6;
+	VectorMA( eye, 20, fwd, start );
+	trap->Trace( &tr, eye, NULL, NULL, start, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+	VectorCopy( tr.endpos, start );
+	b = G_Spawn();
+	if ( !b )
+		return;
+	b->classname = "shinobi_smokebomb";
+	b->s.eType = ET_GENERAL;
+	b->s.modelindex = shinobiMedia.smokeBombModel;
+	b->r.ownerNum = ent->s.number;
+	b->s.owner = ent->s.number; // (the Sharingan draws the paths of enemy missiles)
+	b->parent = ent;
+	b->r.contents = 0;
+	b->genericValue1 = level.time + SHINOBI_SMOKE_FUSE;
+	b->s.pos.trType = TR_GRAVITY;
+	b->s.pos.trTime = level.time;
+	VectorCopy( start, b->s.pos.trBase );
+	VectorScale( fwd, SHINOBI_SMOKE_SPEED, b->s.pos.trDelta );
+	b->s.pos.trDelta[2] += SHINOBI_SMOKE_UP;
+	VectorCopy( start, b->r.currentOrigin );
+	b->s.apos.trType = TR_LINEAR; // tumbling
+	b->s.apos.trTime = level.time;
+	VectorSet( b->s.apos.trBase, 0, client->ps.viewangles[YAW], 0 );
+	VectorSet( b->s.apos.trDelta, 360, 120, 0 );
+	b->think = Shinobi_SmokeBombThink;
+	b->nextthink = level.time + FRAMETIME;
+	trap->LinkEntity( (sharedEntity_t *)b );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+}
+
+/*
+---------------------------------------------------------------------------
 Using a tool: the stock weapon fire (attack with it in hand: pmove already
 took the ammo and plays the throw), or Z / the console commands (we take the
 ammo, and put the weapon away when the last one is gone).
@@ -619,6 +704,8 @@ qboolean Shinobi_FireToolWeapon( gentity_t *ent, int weapon ) {
 	}
 	else if ( weapon == SHINOBI_WP_STAR )
 		Shinobi_SpawnStars( ent );
+	else if ( weapon == SHINOBI_WP_SMOKE )
+		Shinobi_ThrowSmokeBomb( ent );
 	else
 		Shinobi_SpawnShuriken( ent );
 	if ( ent->client->ps.ammo[weaponData[weapon].ammoIndex] <= 0 ) { // the last one left the hand: back to the fists / blade
@@ -649,6 +736,10 @@ static void Shinobi_UseTool( gentity_t *ent, int weapon ) {
 		Shinobi_SpawnStars( ent );
 		client->shinobi.toolNext = level.time + SHINOBI_STAR_FIRE_MS;
 	}
+	else if ( weapon == SHINOBI_WP_SMOKE ) {
+		Shinobi_ThrowSmokeBomb( ent );
+		client->shinobi.toolNext = level.time + SHINOBI_SMOKE_FIRE_MS;
+	}
 	else {
 		Shinobi_SpawnShuriken( ent );
 		client->shinobi.toolNext = level.time + SHINOBI_SHURIKEN_COOLDOWN;
@@ -677,6 +768,7 @@ void Cmd_ExKunai_f( gentity_t *ent ) { Shinobi_UseTool( ent, SHINOBI_WP_EXKUNAI 
 void Cmd_ExTag_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_TAG ); }
 void Cmd_Fuma_f( gentity_t *ent )    { Shinobi_UseTool( ent, SHINOBI_WP_SHURIKEN ); }
 void Cmd_Stars_f( gentity_t *ent )   { Shinobi_UseTool( ent, SHINOBI_WP_STAR ); }
+void Cmd_SmokeBomb_f( gentity_t *ent ) { Shinobi_UseTool( ent, SHINOBI_WP_SMOKE ); }
 
 /*
 ===========================================================================
@@ -686,7 +778,7 @@ taken away every frame.
 ===========================================================================
 */
 #define SHINOBI_ALLOWED_WEAPONS ( ( 1 << WP_NONE ) | ( 1 << WP_MELEE ) | ( 1 << WP_SABER ) \
-	| ( 1 << WP_THERMAL ) | ( 1 << WP_TRIP_MINE ) | ( 1 << WP_DET_PACK ) | ( 1 << WP_BRYAR_OLD ) )
+	| ( 1 << WP_THERMAL ) | ( 1 << WP_TRIP_MINE ) | ( 1 << WP_DET_PACK ) | ( 1 << WP_BRYAR_OLD ) | ( 1 << WP_ROCKET_LAUNCHER ) )
 
 void Shinobi_StripGuns( gentity_t *ent ) {
 	playerState_t *ps = &ent->client->ps;

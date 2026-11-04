@@ -6102,12 +6102,9 @@ static qboolean PM_DoChargedWeapons( qboolean vehicleRocketLock, bgEntity_t *veh
 			break;
 
 		//------------------
-		case WP_ROCKET_LAUNCHER:
-			if ( (pm->cmd.buttons & BUTTON_ALT_ATTACK)
-				&& pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] >= weaponData[pm->ps->weapon].altEnergyPerShot )
+		case WP_ROCKET_LAUNCHER: // JK_Shinobi: the poison smoke bomb - no lock-on, alt just throws
+			if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 			{
-				PM_RocketLock(2048,qfalse);
-				charging = qtrue;
 				altFire = qtrue;
 			}
 			break;

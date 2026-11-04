@@ -425,6 +425,7 @@ void WP_SaberSetDefaults( saberInfo_t *saber ) {
 	saber->shinobiTrail = saber->shinobiTrail2 = 0;
 	saber->shinobiUse = 1;
 	saber->shinobiFinisher = 0;
+	saber->shinobiThrust = 0;
 	saber->stylesLearned		= 0;
 	saber->stylesForbidden		= 0;			// allow all styles
 	saber->maxChain				= 0;			// 0 = use default behavior
@@ -1619,6 +1620,14 @@ static void Saber_ParseShinobiFinisher( saberInfo_t *saber, const char **p ) {
 		if ( !Q_stricmp( value, shinobiSwordFinisherNames[i] ) )
 			saber->shinobiFinisher = i;
 }
+static void Saber_ParseShinobiThrust( saberInfo_t *saber, const char **p ) {
+	int n;
+	if ( COM_ParseInt( p, &n ) ) {
+		SkipRestOfLine( p );
+		return;
+	}
+	saber->shinobiThrust = n;
+}
 static void Saber_ParseTrailStyle2( saberInfo_t *saber, const char **p ) {
 	int n;
 	if ( COM_ParseInt( p, &n ) ) {
@@ -1991,6 +2000,7 @@ static keywordHash_t saberParseKeywords[] = {
 	{ "shinobiTrail2",			Saber_ParseShinobiTrail2,		NULL	},
 	{ "shinobiUse",				Saber_ParseShinobiUse,			NULL	},
 	{ "shinobiFinisher",		Saber_ParseShinobiFinisher,		NULL	},
+	{ "shinobiThrust",			Saber_ParseShinobiThrust,		NULL	},
 	{ "g2MarksShader",			Saber_ParseG2MarksShader,		NULL	},
 	{ "g2MarksShader2",			Saber_ParseG2MarksShader2,		NULL	},
 	{ "g2WeaponMarkShader",		Saber_ParseG2WeaponMarkShader,	NULL	},

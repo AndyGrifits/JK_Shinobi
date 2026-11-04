@@ -1575,8 +1575,8 @@ void CG_Weapon_f( void ) {
 	}
 
 	if (num >= WP_THERMAL && num <= WP_DET_PACK)
-	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken and the small shuriken (on the old Bryar)
-		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD };
+	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken, the small shuriken (on the old Bryar), the smoke bomb (rocket launcher)
+		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD, WP_ROCKET_LAUNCHER };
 		int at = -1, i;
 
 		for ( i = 0; i < (int)ARRAY_LEN( cycle ); i++ )
@@ -1678,8 +1678,8 @@ void CG_WeaponClean_f( void ) {
 	}
 
 	if (num >= WP_THERMAL && num <= WP_DET_PACK)
-	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken and the small shuriken (on the old Bryar)
-		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD };
+	{ // JK_Shinobi: the tools key - explosive kunai, tag, fuma shuriken, the small shuriken (on the old Bryar), the smoke bomb (rocket launcher)
+		static const int cycle[] = { WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_BRYAR_OLD, WP_ROCKET_LAUNCHER };
 		int at = -1, i;
 
 		for ( i = 0; i < (int)ARRAY_LEN( cycle ); i++ )
@@ -1832,7 +1832,7 @@ void CG_FireWeapon( centity_t *cent, qboolean altFire ) {
 		return;
 	}
 	weap = &cg_weapons[ ent->weapon ];
-	if ( ent->weapon == SHINOBI_WP_STAR )
+	if ( ent->weapon == SHINOBI_WP_STAR || ent->weapon == SHINOBI_WP_SMOKE )
 	{ // JK_Shinobi: the small shuriken ride on the old Bryar - no pistol shot, no flash (the game plays the throw)
 		return;
 	}

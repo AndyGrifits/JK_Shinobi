@@ -283,6 +283,8 @@ def write_sab(entry, name, gamedir, sabdir, trails=None):
         lines += ["\tshinobiUse\t\t%s" % entry["use"]]      # one blade / a pair
     if entry.get("finisher"):
         lines += ["\tshinobiFinisher\t%s" % entry["finisher"]]  # its own combo finisher
+    if entry.get("thrust"):
+        lines += ["\tshinobiThrust\t1"]  # its plain cuts are thrusts
     lines += [
         "\tnoBlade\t\t\t1", "\tnoBlade2\t\t1",
         "\tnoDlight\t\t1", "\tnoDlight2\t\t1",

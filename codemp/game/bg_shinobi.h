@@ -439,6 +439,7 @@ typedef enum {
 	SZ_MIST,      // hidden mist: thick fog, puts out fire, only shapes show
 	SZ_DUST,      // loose earth and sand left by Doton; water on it (or it on water) makes mud
 	SZ_ICE,       // a puddle frozen by the wind: slippery; fire melts it back to water
+	SZ_POISON,    // the poison smoke bomb's tall cloud: poisons (long), no fog
 	SZ_COUNT
 } shinobiZone_t;
 
@@ -606,6 +607,7 @@ typedef enum {
 	STOOL_TAG,
 	STOOL_SHURIKEN,
 	STOOL_STAR,       // the small shuriken
+	STOOL_SMOKE,      // the poison smoke bomb
 	STOOL_COUNT
 } shinobiTool_t;
 
@@ -617,7 +619,10 @@ typedef enum {
 #define SHINOBI_WP_SHURIKEN        WP_DET_PACK
 #define SHINOBI_AMMO_STAR          AMMO_BLASTER
 #define SHINOBI_WP_STAR            WP_BRYAR_OLD
-#define SHINOBI_IS_TOOL_WEAPON(w)  ( (w) == WP_THERMAL || (w) == WP_TRIP_MINE || (w) == WP_DET_PACK || (w) == WP_BRYAR_OLD )
+#define SHINOBI_AMMO_SMOKE         AMMO_ROCKETS
+#define SHINOBI_WP_SMOKE           WP_ROCKET_LAUNCHER
+#define SHINOBI_IS_TOOL_WEAPON(w)  ( (w) == WP_THERMAL || (w) == WP_TRIP_MINE || (w) == WP_DET_PACK || (w) == WP_BRYAR_OLD \
+	|| (w) == WP_ROCKET_LAUNCHER )
 #define SHINOBI_TOOL_MAX           6     // carried of each throwable
 #define SHINOBI_TOOL_PICKUP        2     // given by one pickup
 
@@ -628,7 +633,7 @@ const char *Shinobi_ToolName( int tool );   // "2 Explosive Kunai" (pickup line)
 const char *Shinobi_ToolTitle( int tool );  // "Explosive Kunai"
 const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in flight, in the hand)
 #define SHINOBI_TOOL_FOR_WEAPON(w) ( (w) == SHINOBI_WP_EXKUNAI ? STOOL_EXKUNAI : (w) == SHINOBI_WP_TAG ? STOOL_TAG \
-	: (w) == SHINOBI_WP_SHURIKEN ? STOOL_SHURIKEN : (w) == SHINOBI_WP_STAR ? STOOL_STAR : STOOL_NONE )
+	: (w) == SHINOBI_WP_SHURIKEN ? STOOL_SHURIKEN : (w) == SHINOBI_WP_STAR ? STOOL_STAR : (w) == SHINOBI_WP_SMOKE ? STOOL_SMOKE : STOOL_NONE )
 
 // Explosive Kunai: sticks where it lands (or in whom it hits), then goes off
 #define SHINOBI_EXKUNAI_FUSE       1000
@@ -665,8 +670,8 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
 // Shuriken (the small ones): each throw sends a fan of three, straight and fast; they stick
 // where they land and are gone after a while
-#define SHINOBI_STAR_PICKUP        5     // throws given by one pickup
-#define SHINOBI_STAR_MAX           10    // throws carried
+#define SHINOBI_STAR_PICKUP        3     // throws given by one pickup
+#define SHINOBI_STAR_MAX           6     // throws carried
 #define SHINOBI_STAR_FAN           3     // stars per throw
 #define SHINOBI_STAR_SPREAD        5.0f  // degrees between them
 #define SHINOBI_STAR_SPEED         1600
@@ -674,6 +679,21 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_STAR_LIFE          1500  // in the air at most
 #define SHINOBI_STAR_STUCK_LIFE    8000
 #define SHINOBI_STAR_FIRE_MS       350   // between throws (the old Bryar's fire time)
+// Poison Smoke Bomb (on the stock rocket launcher): lobbed, it bursts where it lands into a
+// tall, thick cloud of poison - no harder to see through, but whoever walks into it is
+// poisoned, and stays poisoned long after leaving (like burning, only much longer)
+#define SHINOBI_SMOKE_PICKUP       1
+#define SHINOBI_SMOKE_MAX          2
+#define SHINOBI_SMOKE_SPEED        700
+#define SHINOBI_SMOKE_UP           220   // the lob
+#define SHINOBI_SMOKE_FIRE_MS      900
+#define SHINOBI_SMOKE_FUSE         2500  // bursts by then even if it never landed
+#define SHINOBI_POISON_RADIUS      150
+#define SHINOBI_POISON_HEIGHT      200   // the cloud stands this tall
+#define SHINOBI_POISON_LIFE        12000
+#define SHINOBI_POISON_MS          10000 // still poisoned this long after the last breath of it
+#define SHINOBI_POISON_TICK_MS     600
+#define SHINOBI_POISON_DAMAGE      2
 #define SHINOBI_ENT_FINISHER       239   // a blade finisher's look; origin = the one hit, s.origin2 = the attacker,
                                          // s.frame = SFX_*, s.time = when
 #define SHINOBI_ENT_WINDSLASH      238   // a Wind Edge air slash; origin = start, s.origin2 = where it stopped, s.time = thrown,
@@ -756,8 +776,15 @@ forward - the weapon's own (shinobiFinisher in its .sab):
 static const int shinobiSwordChain[8] =  {   0,  5,   4,     3,     3,     5,     5,   5 };
 static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1300, 1700 };
 #define SHINOBI_SWORD_FINISH       1.5f
-enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_COUNT };
-static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry" };
+enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_BURN, SBF_BLAST, SBF_STUN, SBF_COUNT };
+static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry", "burn", "blast", "stun" };
+// (reach: the trench knives - a wide flat arc thrown far ahead, cutting all in it; burn: sets him alight;
+// blast: an explosion that throws him down; stun: he stands helpless a while)
+#define SHINOBI_SWORD_ARC_REACH    320
+#define SHINOBI_SWORD_ARC_HALF     40.0f // degrees each side of the look
+#define SHINOBI_SWORD_BLAST_PUSH   460
+#define SHINOBI_SWORD_STUN_MS      1500
+#define SHINOBI_BLADE_SHUNSHIN_STAT 15   // shinobiTest.bladeFinishers[]: the Shunshins up after the rising cut
 #define SHINOBI_SWORD_DRAIN        25
 #define SHINOBI_SWORD_BLEED_DMG    2
 #define SHINOBI_SWORD_BLEED_TICK   500
@@ -767,6 +794,8 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_FINISH_REACH 80    // ... and lands on whoever stands that close in front (centre to centre; the spin: all round) by mid-swing, the blade or not
 #define SHINOBI_SWORD_FINISH_AT    0.45f // (mid-swing: this much of the move)
 #define SHINOBI_PAIR_MIN_CUT       450   // a pair's cut (an attack move of the two-blade set) never plays quicker than this (ms)
+#define SHINOBI_PAIR_FAST_SCALE    1.2f  // a pair played this much faster (animSpeedScale) fights as a fast stance, else as a medium one
+#define SHINOBI_THRUST_MS          650   // a thrusting blade's thrust (shinobiThrust): about this long
 #define SHINOBI_SWORD_IAI_MS       800
 #define SHINOBI_SWORD_FLURRY       2
 #define SHINOBI_SWORD_FLURRY_MS    120
@@ -832,7 +861,7 @@ static QINLINE float Shinobi_FinisherAnimSpeed( int anim ) {
 static const int shinobiSwordRehitMs[8] = {   0,  400, 650,   1300,  1300,  400,   300, 550 }; // (dual: its cuts never come quicker than SHINOBI_PAIR_MIN_CUT)
 
 // what the cgame draws for a finisher (SHINOBI_ENT_FINISHER s.frame)
-enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH };
+enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH, SFX_BURN, SFX_BLAST, SFX_STUN };
 #define SHINOBI_FINISHER_FX_MS     700
 
 #define SHINOBI_BLADE_SPECIAL      1.6f
@@ -1152,6 +1181,7 @@ static const int shinobiWindDamage[3] = {   4,    8,   12 };
 #define SHINOBI_FX_CURSE           "shinobi/curse_aura"
 #define SHINOBI_FX_FLAME           "shinobi/fire_breath"
 #define SHINOBI_FX_ASH             "shinobi/ash"
+#define SHINOBI_FX_POISON          "shinobi/poison"
 #define SHINOBI_FX_MIST            "shinobi/mist"
 #define SHINOBI_FX_QUAKE_DUST      "shinobi/quake_dust"
 #define SHINOBI_FX_WIND_EDGE       "shinobi/wind_edge"

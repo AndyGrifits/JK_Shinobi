@@ -35,7 +35,7 @@ typedef struct {
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
-	int logModel, exKunaiModel, tagModel, shurikenModel, starModel;
+	int logModel, exKunaiModel, tagModel, shurikenModel, starModel, smokeBombModel;
 	int rockBlockModel[3], rockLedgeModel;
 } shinobiMedia_t;
 
@@ -84,6 +84,8 @@ qboolean  Shinobi_InMapWater( vec3_t pos );
 qboolean  Shinobi_WaterSurface( const vec3_t pos, float up, float down, vec3_t surface ); // map water near pos
 void      Shinobi_CopyWitness( gentity_t *caster, int jutsu ); // Copy Sharingan eyes that see it take it
 gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean finisher ); // an air / chakra blade along the look
+void      Shinobi_BladeArc( gentity_t *ent, int damage ); // the knives' finisher: a wide arc thrown far ahead
+int       Shinobi_BladeStylePublic( gentity_t *ent ); // the stance a blade fights by (a pair: by its pace)
 void      Shinobi_WaterWalkThink( gentity_t *ent );
 void      Shinobi_WaterShock( vec3_t point, int ownerNum );
 void      Shinobi_WaterFreeze( vec3_t point );
@@ -129,10 +131,10 @@ typedef struct {
 } shinobiTestDamage_t;
 typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
-	int kawarimiHides, launches, airHits, slams, stuns, swordDives;
+	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks;
 	int kaitenBlocks, kaitenDeflects;
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
-	int bladeFinishers[8];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
+	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
 	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];
 	shinobiTestDamage_t dmg[SHINOBI_TEST_DMGLOG];
 	int dmgNext;

@@ -1,0 +1,59 @@
+repeatDelay				0
+
+// Poison Smoke Bomb: a thick, slowly rising puff of sickly green smoke
+// (the cgame keeps spawning them all through the tall cloud).
+
+Particle
+{
+	name				poison
+	flags				useAlpha
+	count				1
+	life				1800 2600
+	rotation			0 360
+	rotationDelta		-4 4
+	spawnFlags			orgOnSphere
+	radius				0 18
+	vel					-8 -8 4 8 8 16
+	size
+	{
+		start			44 60
+		end				84 104
+	}
+	rgb
+	{
+		start			0.32 0.55 0.18
+		end				0.42 0.48 0.22
+	}
+	alpha
+	{
+		start			0.55
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}
+
+Particle
+{
+	name				specks
+	count				0 1
+	life				900 1500
+	spawnFlags			orgOnSphere
+	radius				6 36
+	vel					-10 -10 4 10 10 20
+	size
+	{
+		start			1.2 2
+		end				0.4
+	}
+	rgb
+	{
+		start			0.6 1 0.35
+	}
+	shaders
+	[
+		gfx/shinobi/spark
+	]
+}

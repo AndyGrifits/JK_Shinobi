@@ -326,14 +326,21 @@ kubikiribocho, samehada, fists); shadow clones carry what their maker carries.
 | Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | one | strong | 52 |
 | Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | one | strong | 49 |
 | Shibuki (`shinobi_shibuki`) | Blastsword (Shinobi Striker), blade 0.45 as wide and thick so it stays out of the body | one | strong | 48 |
-| Nuibari (`shinobi_nuibari`) | Sewing Needle (Shinobi Striker), 70 long | one | fast | 68 |
-| Uchiha Ninja Blade (`shinobi_uchiha_blade`) | Ninja Blade - Uchiha (Shinobi Striker) | pair | dual, fast | 40 (as far as the fists) |
-| Hidden Cloud Short Sword (`shinobi_cloud_tanto`) | Hidden Cloud Short Sword (Shinobi Striker) | pair | dual, fast | 42 (as far as the fists) |
+| Nuibari (`shinobi_nuibari`) | Sewing Needle (Shinobi Striker), 70 long | one | medium, thrusts (`shinobiThrust`) | 68 |
+| Uchiha Ninja Blade (`shinobi_uchiha_blade`) | Ninja Blade - Uchiha (Shinobi Striker) | pair | dual, medium | 40 (as far as the fists) |
+| Hidden Cloud Short Sword (`shinobi_cloud_tanto`) | Hidden Cloud Short Sword (Shinobi Striker) | pair | dual, medium | 42 (as far as the fists) |
 
-**Pairs fight fast.** The two-blade (dual) stance is the stock medium pace; our pairs play it
-x1.35 (`animSpeedScale`, once for the pair: stock times it once per hand) and the HUD shows
-them as fast. Held forward the dual cuts chain into each other with no returns: each cut
-plays no quicker than 0.45 s (`SHINOBI_PAIR_MIN_CUT`), so it is no machine gun.
+**Pairs.** Every pair fights with the two-blade (dual) moves, at the stock medium pace - the
+trench knives x1.35 (`animSpeedScale`, once for the pair: stock times it once per hand). A pair
+played 1.2x or faster fights by the fast stance's numbers (damage, chain, window) and the HUD
+shows it as fast; the others by the medium one's, shown medium. Held forward the dual cuts
+chain into each other with no returns: each cut plays no quicker than 0.45 s
+(`SHINOBI_PAIR_MIN_CUT`), so it is no machine gun. Everything else (finisher reach, the moves,
+the plunge) is the same for every blade.
+
+**Thrusts.** Nuibari (`shinobiThrust 1`) thrusts instead of cutting: the overhead (forward or
+nothing held) is the lunge (`BOTH_LUNGE2_B__T_`), the rest a straight stab
+(`BOTH_PULL_IMPALE_STAB`, played to take about 0.65 s) - the stock anims closest to fencing.
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
@@ -371,7 +378,11 @@ little out of the hand (`cg_shinobiTrail`):
 |---|---|
 | Samehada | **drain**: eats up to 25 of his chakra and gives it to you (blue motes flow to you), and throws him back |
 | Kubikiribocho | **bleed**: a wound, 2 damage every 0.5 s for 4 s (blood on each tick) |
-| Trench Knives | **bleed** (as the Kubikiribocho) |
+| Trench Knives | **reach**: a wide, flat arc of chakra thrown far ahead (320, 40 deg each side of the look): it cuts everyone it sweeps over, nothing solid between |
+| Uchiha Ninja Blade | **burn**: sets him alight (as fire does) |
+| Hidden Cloud Short Sword | **bleed** (as the Kubikiribocho) |
+| Shibuki | **blast**: an explosion on him - thrown back (460) and knocked down |
+| Nuibari | **stun**: he stands helpless 1.5 s |
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
 
@@ -458,21 +469,24 @@ icons and names; no guns are handed out any more):
 | Chakra Pill | force items, all ammo packs, jetpack, cloak, binoculars, ysalamiri | +30..60 chakra at once; not picked up at full chakra |
 | Explosive Kunai x2 (`exkunai`) | thermals, the blaster pistol, stun baton | thrown like a kunai; sticks where it lands (or in whom it hits) and goes off 1 s later: 45 fire damage in 140 u |
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
-| Fuma Shuriken (`fuma`) | rocket launcher, flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
-| Shuriken x5 (`stars`) | the old Bryar pistol, blaster, repeater | the small ones (Shinobi Striker's model): each throw sends a fan of three (5 deg apart) straight at 1600 u/s, 8 damage each to the first one it cuts; a wall keeps them 8 s. A throw every 0.35 s, 10 throws carried |
+| Fuma Shuriken (`fuma`) | flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
+| Shuriken x3 (`stars`) | the old Bryar pistol, blaster, repeater | the small ones (Shinobi Striker's model): 3 throws a pickup, each throw a fan of three (5 deg apart) straight at 1600 u/s, 8 damage each to the first one it cuts; a wall keeps them 8 s. A throw every 0.35 s, 6 throws carried |
+| Poison Smoke Bomb (`smokebomb`) | rocket launcher | lobbed (700 u/s, a little up); where it lands - or on whom - it bursts into a tall (200), thick green cloud, 150 round, 12 s. It hides nothing (no fog on the screen), but a breath of it poisons: 2 damage every 0.6 s for 10 s after the last breath (the thrower holds his breath). Wind blows it away. One a pickup, 2 carried |
 
 The throwables are the stock explosive weapons underneath (thermal detonator = explosive
 kunai, trip mine = tag, det pack = fuma shuriken; the small shuriken ride on the old Bryar
-pistol, which `3` takes after the det pack): they show in the stock weapon bar with their
+pistol, the smoke bomb on the rocket launcher (held and thrown like a thermal) - `3` takes them after the det pack): they show in the stock weapon bar with their
 own icons and names, are picked with the weapon keys (`3` cycles them) or the mouse wheel,
 and used with attack - or with `Z`, which throws a plain kunai when fists or the blade are
 in hand. `Shift + Z` is always the marked kunai. They are held in an empty hand.
 
-Up to 6 of each throwable (one Fuma Shuriken, 10 throws of shuriken); respawn 20 s (pills) / 30 s (tools). Wind Wall throws
+Up to 6 of each throwable (one Fuma Shuriken, 6 throws of shuriken, 2 smoke bombs); respawn 20 s (pills) / 30 s (tools, 40 s the smoke bomb). Wind Wall throws
 explosive kunai and shuriken back too. Shields (armor) still refill the block guard.
 
-Each spot hands out a random item when it comes back after a pickup (healing pill 25%,
-chakra pill 25%, explosive kunai 15%, shuriken 10%, tag 13%, Fuma 12%); the first one is the map's own.
+Each spot hands out a random item when it comes back after a pickup (healing pill 22%,
+chakra pill 22%, explosive kunai 14%, shuriken 10%, tag 12%, Fuma 12%, poison smoke bomb 8%); the first one is the map's own.
+Every one of them is registered when the map starts (`ClearRegisteredItems`): one the map never had
+would have no model in the cgame, an axis drawn in its place.
 `shinobi_randomItems 0` keeps the map's item every time. Dropped items are not touched.
 
 ## Clones

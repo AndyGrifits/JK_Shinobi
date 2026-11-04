@@ -84,7 +84,7 @@
     },
     "stance": "dual",
     "use": "two",
-    "finisher": "bleed",
+    "finisher": "reach",
     "speed": 1.35
   },
   "knife_l": {
@@ -153,7 +153,7 @@
     ],
     "stance": "dual",
     "use": "two",
-    "finisher": "bleed",
+    "finisher": "reach",
     "speed": 1.35
   },
   "kurosawa": {
@@ -326,7 +326,8 @@
       "bounce": [
         "sound/effects/metal_bounce2.mp3"
       ]
-    }
+    },
+    "finisher": "blast"
   },
   "nuibari": {
     "title": "Nuibari",
@@ -345,7 +346,7 @@
         68
       ]
     ],
-    "stance": "fast",
+    "stance": "medium",
     "use": "one",
     "sounds": {
       "on": "sound/weapons/sword/draw1.mp3",
@@ -368,7 +369,9 @@
       "bounce": [
         "sound/effects/metal_bounce2.mp3"
       ]
-    }
+    },
+    "finisher": "stun",
+    "thrust": 1
   },
   "uchiha_blade": {
     "title": "Uchiha Ninja Blade",
@@ -411,7 +414,7 @@
         "sound/effects/metal_bounce2.mp3"
       ]
     },
-    "speed": 1.35
+    "finisher": "burn"
   },
   "cloud_tanto": {
     "title": "Hidden Cloud Short Sword",
@@ -454,6 +457,6 @@
         "sound/effects/metal_bounce2.mp3"
       ]
     },
-    "speed": 1.35
+    "finisher": "bleed"
   }
 }

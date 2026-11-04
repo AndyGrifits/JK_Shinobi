@@ -3859,6 +3859,18 @@ void PM_SetSaberMove(short newMove)
 		anim += (pm->ps->fd.saberAnimLevel-FORCE_LEVEL_1) * SABER_ANIM_GROUP_SIZE;
 	}
 
+	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) thrusts instead of cutting - the
+	// overhead (forward / nothing held) a lunge, the rest a straight stab
+	if ( newMove >= LS_A_TL2BR && newMove <= LS_A_T2B && pm->ps->clientNum < MAX_CLIENTS )
+	{
+		const saberInfo_t *s0 = BG_MySaber( pm->ps->clientNum, 0 );
+		if ( s0 && s0->shinobiThrust )
+		{
+			anim = newMove == LS_A_T2B ? BOTH_LUNGE2_B__T_ : BOTH_PULL_IMPALE_STAB;
+			setflags |= SETANIM_FLAG_RESTART;
+		}
+	}
+
 	// If the move does the same animation as the last one, we need to force a restart...
 	if ( saberMoveData[pm->ps->saberMove].animToUse == anim && newMove > LS_PUTAWAY)
 	{
