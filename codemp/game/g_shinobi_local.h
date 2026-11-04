@@ -28,7 +28,7 @@ typedef struct {
 	int fxCurse, fxGates;
 	int sndEyes, sndGates;
 	int sndBlockSaber[3], sndBlockFist[3], sndParry, sndGuardBreak, fxBlock;
-	int fxWindEdge, fxRaiEdge, fxQuakeDust, fxFlash;
+	int fxWindEdge, fxRaiEdge, fxQuakeDust, fxFlash, fxBlood;
 	int sndFlash, sndHeal;
 	// stock effects of the base game (effects/*.efx in its assets)
 	int fxStockExplode, fxStockExplodeSmall, fxWaterImpact, fxRockMed, fxRockLg, fxEmp, fxSparkBurst;
@@ -83,6 +83,7 @@ void      Shinobi_SteamAt( vec3_t pos, float radius );
 qboolean  Shinobi_InMapWater( vec3_t pos );
 qboolean  Shinobi_WaterSurface( const vec3_t pos, float up, float down, vec3_t surface ); // map water near pos
 void      Shinobi_CopyWitness( gentity_t *caster, int jutsu ); // Copy Sharingan eyes that see it take it
+gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean finisher ); // an air / chakra blade along the look
 void      Shinobi_WaterWalkThink( gentity_t *ent );
 void      Shinobi_WaterShock( vec3_t point, int ownerNum );
 void      Shinobi_WaterFreeze( vec3_t point );
@@ -130,6 +131,7 @@ typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
 	int kawarimiHides, launches, airHits, slams, stuns;
 	int kaitenBlocks, kaitenDeflects;
+	int bladeFinishers[8];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
 	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];
 	shinobiTestDamage_t dmg[SHINOBI_TEST_DMGLOG];
 	int dmgNext;

@@ -32,6 +32,7 @@ Entry keys:
   blades       [[start Z, direction +1/-1, length], ...] in game units
   stance       fast / medium / strong (dual for a pair): the only stance it fights in
   use          one / two: held as one blade, or as a pair (this + its "<name>_l" copy)
+  finisher     its own combo finisher: drain / bleed / reach / iai / flurry (bg_shinobi.h)
   title, staff (two-handed, saberType SABER_STAFF), sounds {on, off, swing, hit, block,
   bounce}; left out = the stock saber's: damage, speed (animSpeedScale), knockback,
   move (moveSpeedScale), radius (saberRadius)
@@ -280,6 +281,8 @@ def write_sab(entry, name, gamedir, sabdir, trails=None):
         lines += ["\tsaberStyle\t\t%s" % entry["stance"]]   # its one stance (no switching)
     if entry.get("use"):
         lines += ["\tshinobiUse\t\t%s" % entry["use"]]      # one blade / a pair
+    if entry.get("finisher"):
+        lines += ["\tshinobiFinisher\t%s" % entry["finisher"]]  # its own combo finisher
     lines += [
         "\tnoBlade\t\t\t1", "\tnoBlade2\t\t1",
         "\tnoDlight\t\t1", "\tnoDlight2\t\t1",

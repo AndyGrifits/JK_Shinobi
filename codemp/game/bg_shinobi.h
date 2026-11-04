@@ -658,6 +658,8 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_ENT_EXKUNAI        234   // explosive kunai (model + sizzling tag glow); s.time2 = blast time (0 = flying)
 #define SHINOBI_ENT_TAG            235   // explosive tag; s.time = armed at, s.time2 = blast time (0 = waiting)
 #define SHINOBI_ENT_SHURIKEN       236   // fuma shuriken (spinning model)
+#define SHINOBI_ENT_FINISHER       239   // a blade finisher's look; origin = the one hit, s.origin2 = the attacker,
+                                         // s.frame = SFX_*, s.time = when
 #define SHINOBI_ENT_WINDSLASH      238   // a Wind Edge air slash; origin = start, s.origin2 = where it stopped, s.time = thrown,
                                          // s.frame = 1 hit someone | 2 a blade, s.angles2[2] = tilt of the cut
 #define SHINOBI_ENT_RAINET         237   // lightning net; origin, s.origin2, s.angles2 = nodes; s.frame = count | lit sides << 2
@@ -720,6 +722,40 @@ SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 // dual 0.875 - so fast, medium and dual do ~35 a second; strong ~30, in rare heavy blows)
 //                                           -   fast medium strong desann tavion dual staff
 static const int shinobiSwordDamage[8] = {   0,  28,  45,    80,    80,    30,    40,  40 };
+/*
+Blade combo: swings that land on the same one, each soon after the last (shinobiSwordWindow),
+hold him flinching like the fist combo; the shinobiSwordChain-th is the finisher (x1.5),
+picked by what you hold as it lands: back - a sweep that knocks him down; left / right - a
+spin that also cuts everyone around you; jump - a rising cut that throws him up; nothing or
+forward - the weapon's own (shinobiFinisher in its .sab):
+  drain  (Samehada)      eats up to SHINOBI_SWORD_DRAIN of his chakra and gives it to you
+  bleed  (Kubikiribocho) opens a wound: SHINOBI_SWORD_BLEED_DMG every _TICK for _MS
+  reach  (trench knives) the finishing swing throws a chakra blade out to _REACH: it lands
+                         even when he got out of the knives' reach
+  iai    (katana)        a clean draw-cut: staggers him (_IAI_MS)
+  flurry (Kurosawa)      two more quick cuts right after (_FLURRY_SCALE of the blow each)
+*/
+//                                           -   fast medium strong desann tavion dual staff
+static const int shinobiSwordChain[8] =  {   0,  4,   3,     2,     2,     4,     4,   4 };
+static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1700, 1700 };
+#define SHINOBI_SWORD_FINISH       1.5f
+enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_COUNT };
+static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry" };
+#define SHINOBI_SWORD_DRAIN        25
+#define SHINOBI_SWORD_BLEED_DMG    5
+#define SHINOBI_SWORD_BLEED_TICK   500
+#define SHINOBI_SWORD_BLEED_MS     4000
+#define SHINOBI_SWORD_REACH        220
+#define SHINOBI_SWORD_IAI_MS       800
+#define SHINOBI_SWORD_FLURRY       2
+#define SHINOBI_SWORD_FLURRY_MS    120
+#define SHINOBI_SWORD_FLURRY_SCALE 0.6f
+#define SHINOBI_SWORD_SPIN_RADIUS  100
+#define SHINOBI_SWORD_LAUNCH_UP    480
+// what the cgame draws for a finisher (SHINOBI_ENT_FINISHER s.frame)
+enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH };
+#define SHINOBI_FINISHER_FX_MS     700
+
 #define SHINOBI_BLADE_SPECIAL      1.6f
 #define SHINOBI_BLADE_SPECIAL_MS   350
 

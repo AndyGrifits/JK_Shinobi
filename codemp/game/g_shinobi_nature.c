@@ -66,6 +66,7 @@ void Shinobi_NatureInit( void ) {
 	m->fxRaiEdge      = G_EffectIndex( SHINOBI_FX_CHIDORI_HAND );
 	m->fxQuakeDust    = G_EffectIndex( SHINOBI_FX_QUAKE_DUST );
 	m->fxFlash        = G_EffectIndex( SHINOBI_FX_FLASH );
+	m->fxBlood        = G_EffectIndex( "saber/blood_sparks_mp" ); // (stock)
 	m->sndFlash       = G_SoundIndex( "sound/weapons/force/protect.wav" );
 	m->sndHeal        = G_SoundIndex( "sound/weapons/force/heal.wav" );
 }
@@ -301,6 +302,7 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
 	client->shinobi.burnEnd = client->shinobi.wetEnd = client->shinobi.mudEnd = 0;
+	client->shinobi.bleedEnd = 0;
 	if ( client->shinobi.burrowEnd )
 		Shinobi_BurrowEnd( ent, qfalse );
 	if ( client->shinobi.shadowHideEnd )

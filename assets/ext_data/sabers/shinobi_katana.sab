@@ -10,6 +10,7 @@ shinobi_katana
 	shinobiTrail		26.2
 	saberStyle		medium
 	shinobiUse		one
+	shinobiFinisher	iai
 	noBlade			1
 	noBlade2		1
 	noDlight		1

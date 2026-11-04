@@ -323,8 +323,23 @@ for a set amount by stance (`shinobiSwordDamage`: fast 28, medium 45, strong 80,
 about 35 a second (strong ~30, in rare heavy blows) at their swing rates; no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
-a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotest `saber_dps`) measures every
-blade and stance on a still target. The reach follows the visible blade: the katana keeps
+a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `saber_dps`, `blade_combo`)
+measures every blade on a still target and tries every finisher.
+
+**Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
+1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo; the 4th
+(fast, dual), 3rd (medium) or 2nd (strong) is the finisher, x1.5. What you hold as it lands
+picks it - **back**: a sweep that knocks him down; **left / right**: a spin that cuts
+everyone around you too (100 u); **jump**: a rising cut that throws him up; **nothing or
+forward**: the weapon's own (`shinobiFinisher` in its .sab), each with its own look:
+
+| weapon | its finisher |
+|---|---|
+| Samehada | **drain**: eats up to 25 of his chakra and gives it to you (blue motes flow to you) |
+| Kubikiribocho | **bleed**: a wound, 5 damage every 0.5 s for 4 s (blood on each tick) |
+| Trench Knives | **reach**: the finishing swing throws a chakra blade out to 220 - it lands even when he got out of reach |
+| Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
+| Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) | The reach follows the visible blade: the katana keeps
 the stock saber's 40, a longer or shorter blade reaches as much farther or shorter as its
 tip is from the katana's (about 14 past the tip), but never less than the fists
 (`SHINOBI_PUNCH_RANGE`: 40 from a blade starting at the hand, the knife's); the staff

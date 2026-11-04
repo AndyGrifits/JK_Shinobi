@@ -827,6 +827,13 @@ cgame draws it (SHINOBI_ENT_WINDSLASH): where it flew, and a flash if it hit; th
 number shows like any hit's.
 */
 static void Shinobi_WindSlash( gentity_t *ent ) {
+	const qboolean saber = ent->client->ps.weapon == WP_SABER;
+	Shinobi_BladeSlash( ent, saber ? SHINOBI_WINDSLASH_DAMAGE_SABER : SHINOBI_WINDSLASH_DAMAGE_FIST,
+		SHINOBI_WINDSLASH_REACH, qfalse );
+}
+
+// the slash itself (finisher: bigger, chakra-coloured - s.frame bit 4); the entity drawing it
+gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean finisher ) {
 	gclient_t *client = ent->client;
 	const qboolean saber = client->ps.weapon == WP_SABER;
 	vec3_t     fwd, eye, start, end, mins = { -14, -14, -14 }, maxs = { 14, 14, 14 };
@@ -837,7 +844,7 @@ static void Shinobi_WindSlash( gentity_t *ent ) {
 	VectorCopy( client->ps.origin, eye );
 	eye[2] += client->ps.viewheight - 8;
 	VectorMA( eye, 16, fwd, start ); // from the hand: someone right in front is cut too
-	VectorMA( eye, SHINOBI_WINDSLASH_REACH, fwd, end );
+	VectorMA( eye, reach, fwd, end );
 	trap->Trace( &tr, start, mins, maxs, end, ent->s.number, MASK_SHOT, qfalse, 0, 0 );
 	if ( tr.entityNum < ENTITYNUM_WORLD && g_entities[tr.entityNum].takedamage && &g_entities[tr.entityNum] != ent )
 		other = &g_entities[tr.entityNum];
@@ -854,7 +861,7 @@ static void Shinobi_WindSlash( gentity_t *ent ) {
 		G_SetOrigin( slash, start );
 		VectorCopy( tr.startsolid ? start : tr.endpos, slash->s.origin2 );
 		slash->s.time = level.time;
-		slash->s.frame = ( other ? 1 : 0 ) | ( saber ? 2 : 0 );
+		slash->s.frame = ( other ? 1 : 0 ) | ( saber ? 2 : 0 ) | ( finisher ? 4 : 0 );
 		tilt = ( tilt + 1 ) % 4; // swings come from different sides: the cuts alternate
 		slash->s.angles2[2] = ( tilt & 1 ? 1 : -1 ) * ( tilt & 2 ? 35.0f : 12.0f );
 		slash->think = Shinobi_WindSlashFree;
@@ -863,10 +870,10 @@ static void Shinobi_WindSlash( gentity_t *ent ) {
 	}
 	if ( other ) {
 		G_Damage( other, slash ? slash : ent, ent, fwd, tr.startsolid ? start : tr.endpos,
-			saber ? SHINOBI_WINDSLASH_DAMAGE_SABER : SHINOBI_WINDSLASH_DAMAGE_FIST, DAMAGE_NO_KNOCKBACK,
-			saber ? MOD_SABER : MOD_MELEE );
+			damage, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, saber ? MOD_SABER : MOD_MELEE );
 	}
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
+	return other;
 }
 
 void Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd ) {

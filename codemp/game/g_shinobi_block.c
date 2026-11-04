@@ -199,6 +199,65 @@ extern qboolean BG_SaberInAttack( int move );
 extern qboolean BG_SaberInKata( int saberMove );
 extern qboolean BG_SaberInSpecial( int move );
 
+extern void G_Knockdown( gentity_t *victim );
+void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, float *dmg );
+
+static int Shinobi_BladeStyle( gclient_t *c ) {
+	const int style = c->ps.fd.saberAnimLevel;
+	return ( style < 0 || style > 7 ) ? 2 : style;
+}
+
+// the look of a finisher (cgame: CG_ShinobiFinisher)
+static void Shinobi_FinisherFx( gentity_t *attacker, gentity_t *victim, int kind ) {
+	gentity_t *fx = G_Spawn();
+	if ( !fx )
+		return;
+	fx->classname = "shinobi_finisher";
+	fx->s.eType = ET_GENERAL;
+	fx->s.generic1 = SHINOBI_ENT_FINISHER;
+	fx->r.contents = 0;
+	G_SetOrigin( fx, victim->r.currentOrigin );
+	VectorCopy( attacker->r.currentOrigin, fx->s.origin2 );
+	fx->s.frame = kind;
+	fx->s.time = level.time;
+	fx->s.otherEntityNum = victim->s.number; // (to follow him)
+	fx->s.otherEntityNum2 = attacker->s.number;
+	fx->think = G_FreeEntity;
+	fx->nextthink = level.time + SHINOBI_FINISHER_FX_MS;
+	trap->LinkEntity( (sharedEntity_t *)fx );
+}
+
+// can the combo still go on against him?
+static qboolean Shinobi_BladeChainLive( gclient_t *c ) {
+	gentity_t *v;
+	if ( !c->shinobi.bladeChain || !c->shinobi.bladeChainVictim )
+		return qfalse;
+	if ( level.time - c->shinobi.bladeChainTime > shinobiSwordWindow[Shinobi_BladeStyle( c )] )
+		return qfalse;
+	v = &g_entities[c->shinobi.bladeChainVictim - 1];
+	return v->inuse && v->client && v->health > 0;
+}
+
+qboolean Shinobi_BladeChainLivePublic( gclient_t *c ) { return Shinobi_BladeChainLive( c ); }
+
+// the trench knives' finisher: the swing after the chain throws a chakra blade, whether he is in reach or not
+static void Shinobi_ReachFinisher( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const int  style = Shinobi_BladeStyle( c );
+	gentity_t *v;
+
+	if ( c->saber[0].shinobiFinisher != SBF_REACH || !Shinobi_BladeChainLive( c )
+		|| c->shinobi.bladeChain != shinobiSwordChain[style] - 1 )
+		return;
+	if ( c->pers.cmd.rightmove || c->pers.cmd.forwardmove < 0 || c->pers.cmd.upmove > 0 )
+		return; // a direction held: one of the common finishers instead (on the blow itself)
+	c->shinobi.bladeReachSwing = c->shinobi.bladeSwing;
+	c->shinobi.bladeChain = 0;
+	v = Shinobi_BladeSlash( ent, (int)( shinobiSwordDamage[style] * SHINOBI_SWORD_FINISH ), SHINOBI_SWORD_REACH, qtrue );
+	shinobiTest.bladeFinishers[SBF_REACH]++;
+	(void)v;
+}
+
 // a new swing: a new attack move, another anim, or the same one started over
 void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 	gclient_t *c = ent->client;
@@ -206,8 +265,11 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 
 	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) {
 		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim
-			|| ps->torsoTimer > c->shinobi.bladeTimer + 50 )
+			|| ps->torsoTimer > c->shinobi.bladeTimer + 50 ) {
 			c->shinobi.bladeSwing++;
+			if ( ps->weapon == WP_SABER && ent->s.number < MAX_CLIENTS )
+				Shinobi_ReachFinisher( ent );
+		}
 	}
 	c->shinobi.bladeMove = ps->saberMove;
 	c->shinobi.bladeAnim = ps->torsoAnim;
@@ -225,6 +287,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	Shinobi_BladeSwingUpdate( attacker );
 	if ( !BG_SaberInAttack( move ) && !special )
 		return 0; // a touch with a blade at rest
+	if ( ac->shinobi.bladeReachSwing == ac->shinobi.bladeSwing )
+		return 0; // this swing threw the knives' chakra blade: that was its blow
 	for ( k = 0; k < 4; k++ ) { // has this swing cut him already?
 		if ( vc->shinobi.bladeHitBy[k] == attacker->s.number + 1 ) {
 			slot = k;
@@ -249,7 +313,169 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 		dmg *= SHINOBI_BLADE_SPECIAL;
 	if ( ac->saber[0].damageScale > 0 )
 		dmg *= ac->saber[0].damageScale;
+
+	// the combo: the same one, soon after the last blow
+	if ( special ) {
+		ac->shinobi.bladeChain = 0; // (a special move stands on its own)
+	}
+	else {
+		if ( ac->shinobi.bladeChainVictim == victim->s.number + 1 && Shinobi_BladeChainLive( ac ) )
+			ac->shinobi.bladeChain++;
+		else
+			ac->shinobi.bladeChain = 1;
+		ac->shinobi.bladeChainVictim = victim->s.number + 1;
+		ac->shinobi.bladeChainTime = level.time;
+		if ( ac->shinobi.bladeChain >= shinobiSwordChain[style] ) {
+			ac->shinobi.bladeChain = 0;
+			dmg *= SHINOBI_SWORD_FINISH;
+			Shinobi_BladeFinisher( attacker, victim, &dmg );
+		}
+		else if ( attacker->s.number < MAX_CLIENTS ) { // held until the next blow can land, as with fists
+			int ms = ac->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
+			if ( ms < SHINOBI_COMBO_FLINCH_MIN )
+				ms = SHINOBI_COMBO_FLINCH_MIN;
+			if ( ms > SHINOBI_COMBO_FLINCH_MAX )
+				ms = SHINOBI_COMBO_FLINCH_MAX;
+			Shinobi_Flinch( victim, ms );
+		}
+	}
 	return dmg;
+}
+
+/*
+The finisher (the blow already counts x1.5): by what is held as it lands - back: a sweep;
+left / right: a spin cutting everyone around; jump: a rising cut; nothing / forward: the
+weapon's own.
+*/
+void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, float *dmg ) {
+	gclient_t *ac = attacker->client, *vc = victim->client;
+	const usercmd_t *cmd = &ac->pers.cmd;
+	vec3_t dir;
+	int    i;
+
+	VectorSubtract( victim->r.currentOrigin, attacker->r.currentOrigin, dir );
+	dir[2] = 0;
+	VectorNormalize( dir );
+	vc->ps.otherKiller = attacker->s.number;
+	vc->ps.otherKillerTime = level.time + 5000;
+	vc->ps.otherKillerDebounceTime = level.time + 100;
+	vc->shinobi.flinchEnd = 0; // (the finisher lets go)
+	Shinobi_GainChakra( attacker, SHINOBI_GAIN_COMBO, qtrue );
+
+	if ( cmd->upmove > 0 ) { // up he goes
+		shinobiTest.bladeFinishers[0]++;
+		vc->shinobi.juggleStart = level.time;
+		vc->shinobi.juggleEnd = level.time + 2500;
+		vc->shinobi.juggleBy = attacker->s.number + 1;
+		VectorScale( dir, 60, vc->ps.velocity );
+		vc->ps.velocity[2] = SHINOBI_SWORD_LAUNCH_UP;
+		vc->ps.groundEntityNum = ENTITYNUM_NONE;
+		Shinobi_HitText( victim, STX_LAUNCH, 0 );
+		Shinobi_CCGrant( victim, level.time + 1100 );
+		Shinobi_FinisherFx( attacker, victim, SFX_LAUNCH );
+		return;
+	}
+	if ( cmd->forwardmove < 0 ) { // low, at the legs: down
+		shinobiTest.bladeFinishers[0]++;
+		VectorScale( dir, 200, vc->ps.velocity );
+		vc->ps.velocity[2] = 120;
+		if ( !Shinobi_CCImmune( victim ) )
+			G_Knockdown( victim );
+		Shinobi_CCGrant( victim, level.time + 1500 );
+		Shinobi_FinisherFx( attacker, victim, SFX_SWEEP );
+		return;
+	}
+	if ( cmd->rightmove ) { // a full turn: everyone close takes it too
+		shinobiTest.bladeFinishers[0]++;
+		for ( i = 0; i < level.num_entities; i++ ) {
+			gentity_t *o = &g_entities[i];
+			vec3_t     d;
+			if ( o == victim || o == attacker || !o->inuse || !o->client || o->health <= 0 || !o->takedamage )
+				continue;
+			if ( level.gametype >= GT_TEAM && OnSameTeam( attacker, o ) )
+				continue;
+			if ( o->shinobiCloneOwner && o->shinobiCloneOwner == attacker->s.number + 1 )
+				continue;
+			VectorSubtract( o->r.currentOrigin, attacker->r.currentOrigin, d );
+			if ( fabs( d[2] ) > 48 )
+				continue;
+			d[2] = 0;
+			if ( VectorLength( d ) > SHINOBI_SWORD_SPIN_RADIUS )
+				continue;
+			G_Damage( o, attacker, attacker, d, o->r.currentOrigin, (int)*dmg, DAMAGE_NO_HIT_LOC, MOD_SABER );
+		}
+		Shinobi_FinisherFx( attacker, victim, SFX_SPIN );
+		return;
+	}
+
+	shinobiTest.bladeFinishers[ac->saber[0].shinobiFinisher]++;
+	switch ( ac->saber[0].shinobiFinisher ) {
+	case SBF_DRAIN: { // Samehada eats his chakra
+		const int take = vc->ps.fd.forcePower < SHINOBI_SWORD_DRAIN ? vc->ps.fd.forcePower : SHINOBI_SWORD_DRAIN;
+		vc->ps.fd.forcePower -= take;
+		if ( take > 0 )
+			Shinobi_GainChakra( attacker, (float)take, qtrue );
+		Shinobi_FinisherFx( attacker, victim, SFX_DRAIN );
+		break;
+	}
+	case SBF_BLEED: // the Executioner's Blade opens a wound
+		vc->shinobi.bleedEnd = level.time + SHINOBI_SWORD_BLEED_MS;
+		vc->shinobi.bleedNext = level.time + SHINOBI_SWORD_BLEED_TICK;
+		vc->shinobi.bleedBy = attacker->s.number + 1;
+		Shinobi_FinisherFx( attacker, victim, SFX_BLEED );
+		break;
+	case SBF_IAI: // a clean draw-cut: he reels
+		Shinobi_Stagger( victim, SHINOBI_SWORD_IAI_MS );
+		Shinobi_FinisherFx( attacker, victim, SFX_IAI );
+		break;
+	case SBF_FLURRY: // two more cuts right after
+		ac->shinobi.flurryVictim = victim->s.number + 1;
+		ac->shinobi.flurryLeft = SHINOBI_SWORD_FLURRY;
+		ac->shinobi.flurryNext = level.time + SHINOBI_SWORD_FLURRY_MS;
+		ac->shinobi.flurryDmg = (int)( *dmg * SHINOBI_SWORD_FLURRY_SCALE + 0.5f );
+		Shinobi_FinisherFx( attacker, victim, SFX_FLURRY );
+		break;
+	default: // (the knives' finisher is the thrown blade: Shinobi_ReachFinisher)
+		break;
+	}
+}
+
+// every client frame: Kurosawa's extra cuts (his), a bleeding wound (on him)
+void Shinobi_SwordThink( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+
+	if ( c->shinobi.flurryLeft > 0 && c->shinobi.flurryNext <= level.time ) {
+		gentity_t *v = &g_entities[c->shinobi.flurryVictim - 1];
+		c->shinobi.flurryLeft--;
+		c->shinobi.flurryNext = level.time + SHINOBI_SWORD_FLURRY_MS;
+		if ( ent->health > 0 && c->shinobi.flurryVictim && v->inuse && v->client && v->health > 0
+			&& Distance( v->r.currentOrigin, ent->r.currentOrigin ) < 140 ) {
+			vec3_t d;
+			VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, d );
+			G_Damage( v, ent, ent, d, v->r.currentOrigin, c->shinobi.flurryDmg, DAMAGE_NO_HIT_LOC | DAMAGE_NO_KNOCKBACK, MOD_SABER );
+			G_Sound( v, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/sword/stab%d.mp3", Q_irand( 1, 3 ) ) ) );
+		}
+		else
+			c->shinobi.flurryLeft = 0;
+	}
+
+	if ( c->shinobi.bleedEnd ) {
+		if ( ent->health <= 0 || c->shinobi.bleedEnd <= level.time ) {
+			c->shinobi.bleedEnd = 0;
+		}
+		else if ( c->shinobi.bleedNext <= level.time ) {
+			gentity_t *by = c->shinobi.bleedBy ? &g_entities[c->shinobi.bleedBy - 1] : ent;
+			vec3_t     up = { 0, 0, 1 }, at;
+			c->shinobi.bleedNext = level.time + SHINOBI_SWORD_BLEED_TICK;
+			if ( !by->inuse || !by->client )
+				by = ent;
+			VectorCopy( ent->r.currentOrigin, at );
+			at[2] += 12;
+			G_PlayEffectID( shinobiMedia.fxBlood, at, up );
+			G_Damage( ent, NULL, by, NULL, NULL, SHINOBI_SWORD_BLEED_DMG,
+				DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, MOD_TRIGGER_HURT );
+		}
+	}
 }
 
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at ) {

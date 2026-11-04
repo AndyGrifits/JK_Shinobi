@@ -1034,7 +1034,8 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 	const float    fly = Com_Clamp( 0, 1, age / SHINOBI_WINDSLASH_FLY_MS );
 	const float    fade = age <= SHINOBI_WINDSLASH_FLY_MS ? 1.0f
 		: Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
-	const float    R = blade ? 24.0f : 17.0f;
+	const qboolean finisher = ( s->frame & 4 ) != 0; // the trench knives' chakra blade: bigger
+	const float    R = ( blade ? 24.0f : 17.0f ) * ( finisher ? 1.6f : 1.0f );
 	vec3_t         start, stop, dir, ang, axis[3], pos, prev, p, core = { 0.92f, 1.0f, 1.0f }, haze = { 0.45f, 0.85f, 1.0f };
 	float          len;
 	int            k;
@@ -1085,6 +1086,139 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 			trap->FX_AddLine( b0, b1, 2.0f, 1.0f, 0.0f, f, 0.0f, 0.0f, white, white, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
 			CG_ShinobiSpriteA( c, 10 * f + 4, 0, shinobiShaders.glow, 0.8f, 0.95f, 1.0f, 0.8f * f );
 		}
+	}
+}
+
+/*
+Blade combo finishers (SHINOBI_ENT_FINISHER): what each one looks like, for
+SHINOBI_FINISHER_FX_MS, on the one hit (and the attacker, for the drain).
+*/
+static void CG_ShinobiFxLine( const vec3_t a, const vec3_t b, float w, float alpha, const vec3_t rgb ) {
+	trap->FX_AddLine( (float *)a, (float *)b, w, w * 0.5f, 0.0f, alpha, 0.0f, 0.0f, (float *)rgb, (float *)rgb, 0.0f, 1,
+		shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+}
+
+static void CG_ShinobiFinisher( centity_t *cent ) {
+	const entityState_t *s = &cent->currentState;
+	const float age = (float)( cg.time - s->time ), f = age / SHINOBI_FINISHER_FX_MS, a = 1.0f - f;
+	vec3_t      vic, att, dir, side, up = { 0, 0, 1 }, p, q;
+	int         k;
+
+	if ( age < 0 || f >= 1.0f )
+		return;
+	VectorCopy( s->pos.trBase, vic );
+	VectorCopy( s->origin2, att );
+	if ( s->otherEntityNum < MAX_GENTITIES && cg_entities[s->otherEntityNum].currentValid )
+		VectorCopy( cg_entities[s->otherEntityNum].lerpOrigin, vic );
+	if ( s->otherEntityNum2 < MAX_GENTITIES && cg_entities[s->otherEntityNum2].currentValid )
+		VectorCopy( cg_entities[s->otherEntityNum2].lerpOrigin, att );
+	VectorSubtract( vic, att, dir );
+	dir[2] = 0;
+	if ( VectorNormalize( dir ) < 0.01f )
+		VectorSet( dir, 1, 0, 0 );
+	VectorSet( side, -dir[1], dir[0], 0 );
+
+	switch ( s->frame ) {
+	case SFX_DRAIN: { // chakra pulled out of him into the attacker: blue motes along the line
+		const vec3_t blue = { 0.3f, 0.6f, 1.0f };
+		vec3_t from, to;
+		VectorCopy( vic, from ); from[2] += 20;
+		VectorCopy( att, to ); to[2] += 20;
+		CG_ShinobiFxLine( from, to, 1.5f, 0.35f * a, blue );
+		for ( k = 0; k < 12; k++ ) {
+			const float t = fmodf( f * 1.8f + k / 12.0f, 1.0f );
+			VectorSubtract( to, from, q );
+			VectorMA( from, t, q, p );
+			p[2] += 6 * sinf( ( t * 6 + k ) * 2.1f );
+			VectorMA( p, 5 * cosf( ( t * 5 + k ) * 1.7f ), side, p );
+			CG_ShinobiSpriteA( p, 4.0f + 2.0f * t, 0, shinobiShaders.glow, blue[0], blue[1], blue[2], 0.9f * a );
+		}
+		trap->R_AddLightToScene( to, 120 * a, 0.3f, 0.5f, 1.0f );
+		break;
+	}
+	case SFX_BLEED: { // a spray of blood out of the wound
+		for ( k = 0; k < 10; k++ ) {
+			const float ang = DEG2RAD( k * 36.0f + s->number * 13 );
+			const float r = 34.0f * f;
+			VectorCopy( vic, p );
+			p[0] += cosf( ang ) * r;
+			p[1] += sinf( ang ) * r;
+			p[2] += 14 + 24 * f - 46 * f * f;
+			CG_ShinobiSpriteA( p, 3.0f + ( k & 1 ), 0, shinobiShaders.glow, 0.7f, 0.02f, 0.02f, 0.95f * a );
+		}
+		VectorCopy( vic, p ); p[2] += 14;
+		CG_ShinobiSpriteA( p, 14.0f * a + 4.0f, 0, shinobiShaders.glow, 0.6f, 0.0f, 0.0f, 0.6f * a );
+		break;
+	}
+	case SFX_IAI: { // one clean white cut through him, then a cross
+		const vec3_t white = { 1, 1, 1 };
+		const float  L = 46.0f * ( f < 0.2f ? f / 0.2f : 1.0f );
+		VectorCopy( vic, p ); p[2] += 16;
+		VectorMA( p, L, side, q ); q[2] += L * 0.5f;
+		VectorMA( p, -L, side, p ); p[2] -= L * 0.5f;
+		CG_ShinobiFxLine( p, q, 3.0f, a, white );
+		if ( f > 0.15f ) {
+			VectorCopy( vic, p ); p[2] += 16;
+			VectorMA( p, L, side, q ); q[2] -= L * 0.5f;
+			VectorMA( p, -L, side, p ); p[2] += L * 0.5f;
+			CG_ShinobiFxLine( p, q, 2.0f, a, white );
+		}
+		VectorCopy( vic, p ); p[2] += 16;
+		if ( f < 0.4f )
+			CG_ShinobiSpriteA( p, 22.0f * ( 1.0f - f / 0.4f ), 0, shinobiShaders.glow, 1, 1, 1, 0.9f );
+		break;
+	}
+	case SFX_FLURRY: { // three quick cuts one after another, at odd angles
+		const vec3_t white = { 0.95f, 0.98f, 1.0f };
+		for ( k = 0; k < 3; k++ ) {
+			const float t0 = k * SHINOBI_SWORD_FLURRY_MS, t = ( age - t0 ) / 220.0f;
+			const float ang = DEG2RAD( ( s->number * 61 + k * 70 ) % 180 - 90 );
+			if ( t < 0 || t > 1 )
+				continue;
+			VectorCopy( vic, p ); p[2] += 16;
+			VectorMA( p, 28 * cosf( ang ), side, q ); q[2] += 28 * sinf( ang );
+			VectorMA( p, -28 * cosf( ang ), side, p ); p[2] -= 28 * sinf( ang );
+			CG_ShinobiFxLine( p, q, 2.2f, 1.0f - t, white );
+		}
+		break;
+	}
+	case SFX_SWEEP: { // a low arc at his feet
+		const vec3_t c = { 0.85f, 0.95f, 1.0f };
+		vec3_t prev;
+		for ( k = 0; k <= 8; k++ ) {
+			const float ang = DEG2RAD( -80 + 160.0f * k / 8 );
+			VectorCopy( vic, p );
+			p[2] += DEFAULT_MINS_2 + 6;
+			VectorMA( p, -30 * cosf( ang ), dir, p );
+			VectorMA( p, 30 * sinf( ang ), side, p );
+			if ( k )
+				CG_ShinobiFxLine( prev, p, 2.4f, a, c );
+			VectorCopy( p, prev );
+		}
+		break;
+	}
+	case SFX_SPIN: { // a full circle around the attacker, opening out
+		const vec3_t c = { 0.85f, 0.95f, 1.0f };
+		const float  r = 40 + ( SHINOBI_SWORD_SPIN_RADIUS - 40 ) * ( f < 0.4f ? f / 0.4f : 1.0f );
+		vec3_t prev;
+		for ( k = 0; k <= 16; k++ ) {
+			const float ang = DEG2RAD( 360.0f * k / 16 );
+			VectorSet( p, att[0] + cosf( ang ) * r, att[1] + sinf( ang ) * r, att[2] + 4 );
+			if ( k )
+				CG_ShinobiFxLine( prev, p, 2.0f, 0.9f * a, c );
+			VectorCopy( p, prev );
+		}
+		break;
+	}
+	case SFX_LAUNCH: { // a rising streak under him
+		const vec3_t c = { 0.85f, 0.95f, 1.0f };
+		VectorCopy( vic, p ); p[2] += DEFAULT_MINS_2;
+		VectorMA( p, 70 * ( f < 0.3f ? f / 0.3f : 1.0f ), up, q );
+		CG_ShinobiFxLine( p, q, 3.0f, a, c );
+		break;
+	}
+	default:
+		break;
 	}
 }
 
@@ -1588,6 +1722,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_WINDSLASH ) {
 		CG_ShinobiWindSlash( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_FINISHER ) {
+		CG_ShinobiFinisher( cent );
 		return qtrue;
 	}
 	if ( s->generic1 == SHINOBI_ENT_QUAKE ) {

@@ -705,6 +705,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_TaijutsuThink( ent ); // the diving kick's landing
 	Shinobi_BladeSwingUpdate( ent ); // blades: one blow per swing
 	Shinobi_BladeStance( ent ); // blades: each in its own stance
+	Shinobi_SwordThink( ent ); // blade finishers: Kurosawa's extra cuts, bleeding
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
 		Shinobi_StatusClear( ent );
 	else

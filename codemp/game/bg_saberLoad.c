@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "bg_public.h"
 #include "bg_local.h"
 #include "w_saber.h"
+#include "bg_shinobi.h" // JK_Shinobi: the finisher names (shinobiFinisher)
 
 #ifdef _GAME
 	#include "g_local.h"
@@ -420,6 +421,7 @@ void WP_SaberSetDefaults( saberInfo_t *saber ) {
 	saber->type					= SABER_SINGLE;
 	saber->shinobiTrail = saber->shinobiTrail2 = 0;
 	saber->shinobiUse = 1;
+	saber->shinobiFinisher = 0;
 	saber->stylesLearned		= 0;
 	saber->stylesForbidden		= 0;			// allow all styles
 	saber->maxChain				= 0;			// 0 = use default behavior
@@ -1602,6 +1604,18 @@ static void Saber_ParseShinobiUse( saberInfo_t *saber, const char **p ) {
 	}
 	saber->shinobiUse = !Q_stricmp( value, "two" ) ? 2 : 1;
 }
+static void Saber_ParseShinobiFinisher( saberInfo_t *saber, const char **p ) {
+	const char *value;
+	int i;
+	if ( COM_ParseString( p, &value ) ) {
+		SkipRestOfLine( p );
+		return;
+	}
+	saber->shinobiFinisher = 0;
+	for ( i = 0; i < SBF_COUNT; i++ )
+		if ( !Q_stricmp( value, shinobiSwordFinisherNames[i] ) )
+			saber->shinobiFinisher = i;
+}
 static void Saber_ParseTrailStyle2( saberInfo_t *saber, const char **p ) {
 	int n;
 	if ( COM_ParseInt( p, &n ) ) {
@@ -1973,6 +1987,7 @@ static keywordHash_t saberParseKeywords[] = {
 	{ "shinobiTrail",			Saber_ParseShinobiTrail,		NULL	},
 	{ "shinobiTrail2",			Saber_ParseShinobiTrail2,		NULL	},
 	{ "shinobiUse",				Saber_ParseShinobiUse,			NULL	},
+	{ "shinobiFinisher",		Saber_ParseShinobiFinisher,		NULL	},
 	{ "g2MarksShader",			Saber_ParseG2MarksShader,		NULL	},
 	{ "g2MarksShader2",			Saber_ParseG2MarksShader2,		NULL	},
 	{ "g2WeaponMarkShader",		Saber_ParseG2WeaponMarkShader,	NULL	},

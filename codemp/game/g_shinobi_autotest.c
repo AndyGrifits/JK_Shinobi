@@ -28,6 +28,7 @@ void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b );
 qboolean G_SetSaber( gentity_t *ent, int saberNum, char *saberName, qboolean siegeOverride );
 qboolean G_SaberModelSetup( gentity_t *ent );
 extern qboolean BG_SaberInAttack( int move );
+extern qboolean BG_InKnockDown( int anim );
 
 #define AT_MAX_TESTS   48
 #define AT_BOT_A       "TestA"
@@ -742,6 +743,143 @@ static atResult_t T_SaberDps( int t ) {
 	return ATR_RUN;
 }
 
+/*
+blade_combo: each weapon's own finisher (nothing held) and the three common ones (katana,
+back / right / jump held): the chain lands, the finisher comes, its effect shows.
+*/
+typedef struct { const char *s1, *s2; int fwd, right, up, kind; const char *what; } bcCase_t;
+static const bcCase_t bcCases[] = {
+	{ "shinobi_katana", "none", 0, 0, 0, SFX_IAI, "katana: iai (stagger)" },
+	{ "shinobi_kurosawa", "none", 0, 0, 0, SFX_FLURRY, "kurosawa: flurry (2 more cuts)" },
+	{ "shinobi_kubikiribocho", "none", 0, 0, 0, SFX_BLEED, "kubikiribocho: bleed" },
+	{ "shinobi_samehada", "none", 0, 0, 0, SFX_DRAIN, "samehada: drain chakra" },
+	{ "shinobi_knife", "shinobi_knife_l", 0, 0, 0, -1, "knives: thrown chakra blade" },
+	{ "shinobi_katana", "none", -127, 0, 0, SFX_SWEEP, "back: sweep (knockdown)" },
+	{ "shinobi_katana", "none", 0, 127, 0, SFX_SPIN, "side: spin" },
+	{ "shinobi_katana", "none", 0, 0, 127, SFX_LAUNCH, "jump: rising cut (launch)" },
+};
+#define BC_COUNT  ( (int)( sizeof( bcCases ) / sizeof( bcCases[0] ) ) )
+#define BC_MS     12000
+static struct {
+	int idx, start, found, foundAt, before, chakra0, ok, okCount;
+	vec3_t spotA, spotB;
+} bc;
+
+static void BC_Arm( void ) {
+	const bcCase_t *c = &bcCases[bc.idx];
+	G_SetSaber( A, 0, (char *)c->s1, qfalse );
+	G_SetSaber( A, 1, (char *)c->s2, qfalse );
+	G_SaberModelSetup( A );
+	AT_Weapon( 0, WP_SABER );
+	A->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( A );
+	A->client->shinobi.bladeChain = 0;
+	AT_Reset( B );
+	B->client->ps.fd.forcePower = B->client->ps.fd.forcePowerMax;
+	bc.chakra0 = B->client->ps.fd.forcePower;
+	bc.start = level.time;
+	bc.found = bc.foundAt = bc.ok = 0;
+	bc.before = shinobiTest.bladeFinishers[SBF_REACH];
+}
+static void T_BladeCombo_Setup( void ) {
+	memset( &bc, 0, sizeof( bc ) );
+	VectorCopy( A->client->ps.origin, bc.spotA );
+	AT_Spot( 44, 0, bc.spotB );
+	AT_Place( B, bc.spotB, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	A->client->pers.shinobiBuild.stats[SST_TAIJUTSU] = 0;
+	BC_Arm();
+}
+static gentity_t *BC_FinisherFx( int kind ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->classname && !strcmp( e->classname, "shinobi_finisher" ) && e->s.frame == kind
+			&& e->s.time >= bc.start )
+			return e;
+	}
+	return NULL;
+}
+static atResult_t T_BladeCombo( int t ) {
+	const bcCase_t *c = &bcCases[bc.idx];
+	gclient_t *ac = A->client, *bcl = B->client;
+	const int need = shinobiSwordChain[ac->ps.fd.saberAnimLevel & 7];
+
+	// both stay put; the target never runs dry or dies
+	if ( Distance( ac->ps.origin, bc.spotA ) > 6 && !bc.found )
+		AT_Place( A, bc.spotA, at.baseYaw );
+	if ( B->health < 200 )
+		B->health = bcl->ps.stats[STAT_HEALTH] = 500;
+	bcl->ps.eFlags &= ~EF_INVULNERABLE;
+	bcl->invulnerableTimer = 0;
+	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax / 2; // (room for the drain to show)
+
+	if ( !bc.found ) {
+		if ( Distance( bcl->ps.origin, bc.spotB ) > 6 )
+			AT_Place( B, bc.spotB, at.baseYaw + 180 );
+		VectorClear( bcl->ps.velocity );
+		if ( bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN && c->kind != SFX_SWEEP ) {
+			bcl->ps.forceHandExtend = HANDEXTEND_NONE;
+			bcl->ps.forceHandExtendTime = 0;
+		}
+		// the direction only for the finishing blow (held all along it would move or jump him)
+		if ( ac->shinobi.bladeChain >= need - 1 && Shinobi_BladeChainLivePublic( ac ) )
+			AT_Drive( 0, c->fwd, c->right, c->up, BUTTON_ATTACK );
+		else
+			AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		if ( c->kind >= 0 ? BC_FinisherFx( c->kind ) != NULL : ( AT_CountClass( "shinobi_windslash", at.a ) && shinobiTest.bladeFinishers[SBF_REACH] > bc.before ) ) {
+			bc.found = 1;
+			bc.foundAt = level.time;
+			switch ( c->kind ) { // what can be seen right away
+			case SFX_IAI:    bc.ok = bcl->shinobi.staggerEnd > level.time; break;
+			case SFX_DRAIN:  bc.ok = bcl->ps.fd.forcePower < bc.chakra0 - 10; break;
+			case SFX_SWEEP:  bc.ok = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim ); break;
+			case SFX_LAUNCH: bc.ok = bcl->shinobi.juggleEnd > level.time; break;
+			case SFX_SPIN:   bc.ok = 1; break;
+			case -1:         bc.ok = 1; break;
+			default:         bc.ok = 0; break;
+			}
+		}
+		else if ( level.time - bc.start > BC_MS ) {
+			AT_Print( "[autotest]   %-34s NO FINISHER in %i s (chain %i of %i)\n", c->what, BC_MS / 1000, ac->shinobi.bladeChain, need );
+			goto next;
+		}
+		return ATR_RUN;
+	}
+	AT_Drive( 0, 0, 0, 0, 0 );
+	if ( level.time - bc.foundAt < 700 )
+		return ATR_RUN;
+	{ // what takes a moment: Kurosawa's extra cuts, the bleeding
+		int k, extra = 0, bleed = 0;
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
+			if ( !d->time || d->time <= bc.foundAt || d->targ != at.b || d->attacker != at.a )
+				continue;
+			if ( d->mod == MOD_SABER )
+				extra++;
+			if ( d->mod == MOD_TRIGGER_HURT )
+				bleed++;
+		}
+		if ( c->kind == SFX_FLURRY )
+			bc.ok = extra >= SHINOBI_SWORD_FLURRY;
+		if ( c->kind == SFX_BLEED )
+			bc.ok = bleed >= 1 && bcl->shinobi.bleedEnd > level.time;
+		AT_Print( "[autotest]   %-34s finisher after %.1f s: %s%s\n", c->what, ( bc.foundAt - bc.start ) / 1000.0f,
+			bc.ok ? "works" : "EFFECT MISSING",
+			c->kind == SFX_FLURRY ? va( " (%i extra cuts)", extra ) : c->kind == SFX_BLEED ? va( " (%i bleed ticks so far)", bleed ) : "" );
+		if ( bc.ok )
+			bc.okCount++;
+	}
+next:
+	AT_Drive( 0, 0, 0, 0, 0 );
+	if ( ++bc.idx >= BC_COUNT ) {
+		AT_Msg( "%i of %i finishers work", bc.okCount, BC_COUNT );
+		return bc.okCount == BC_COUNT ? ATR_PASS : ATR_FAIL;
+	}
+	BC_Arm();
+	return ATR_RUN;
+}
+
 // natural regen: normal up to 30%, slower above
 static void T_Regen_Setup( void ) {
 	A->client->ps.fd.forcePower = 5;
@@ -1237,6 +1375,7 @@ static atTest_t atTests[] = {
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
+	{ "blade_combo",  "blade finishers: each weapon's own and sweep / spin / rising cut", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
