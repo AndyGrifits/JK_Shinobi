@@ -2791,6 +2791,11 @@ void Cmd_SaberAttackCycle_f(gentity_t *ent)
 	{
         return;
 	}
+	if ( !Q_stricmpn( ent->client->saber[0].name, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
+	{ // JK_Shinobi: each blade has its one stance (Shinobi_BladeStance) - nothing to switch
+		trap->SendServerCommand( ent-g_entities, "cp \"This blade has one stance\"" );
+		return;
+	}
 	/*
 	if (ent->client->ps.weaponTime > 0)
 	{ //no switching attack level when busy

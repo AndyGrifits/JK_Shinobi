@@ -3584,6 +3584,7 @@ void WP_SaberApplyDamage( gentity_t *self )
 			totalDmg[i] = Shinobi_BladeDamage( self, victim, totalDmg[i] );
 			if ( totalDmg[i] <= 0 )
 				continue;
+			dflags |= DAMAGE_NO_HIT_LOC; // a set amount: not doubled on the head, halved on a foot
 		}
 		G_Damage( victim, self, self, dmgDir[i], dmgSpot[i], totalDmg[i], dflags, MOD_SABER );
 	}

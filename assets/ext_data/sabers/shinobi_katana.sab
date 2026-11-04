@@ -8,6 +8,8 @@ shinobi_katana
 	saberLength		40
 	saberColor		blue
 	shinobiTrail		26.2
+	saberStyle		medium
+	shinobiUse		one
 	noBlade			1
 	noBlade2		1
 	noDlight		1

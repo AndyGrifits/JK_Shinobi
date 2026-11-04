@@ -637,18 +637,13 @@ saber_dps: every blade and stance swings at a still target (fists in hand, no gu
 SDPS_MS holding attack: damage, hits, swings, the spread of one hit, damage a second.
 A measurement for balancing (it always passes if every case hit at all).
 */
-#define SDPS_MS     4000
+#define SDPS_MS     8000
 #define SDPS_GAP    600
 #define SDPS_FIRST  1500  // before the first case: the bots settle after spawning
 typedef struct { const char *s1, *s2; int style; } sdpsCase_t;
-static const sdpsCase_t sdpsCases[] = {
-	{ "shinobi_katana", "none", SS_FAST }, { "shinobi_katana", "none", SS_MEDIUM }, { "shinobi_katana", "none", SS_STRONG },
-	{ "shinobi_knife", "none", SS_FAST }, { "shinobi_knife", "none", SS_MEDIUM }, { "shinobi_knife", "none", SS_STRONG },
-	{ "shinobi_kurosawa", "none", SS_FAST }, { "shinobi_kurosawa", "none", SS_MEDIUM }, { "shinobi_kurosawa", "none", SS_STRONG },
-	{ "shinobi_kubikiribocho", "none", SS_FAST }, { "shinobi_kubikiribocho", "none", SS_MEDIUM }, { "shinobi_kubikiribocho", "none", SS_STRONG },
-	{ "shinobi_samehada", "none", SS_FAST }, { "shinobi_samehada", "none", SS_MEDIUM }, { "shinobi_samehada", "none", SS_STRONG },
-	{ "shinobi_knife", "shinobi_knife_l", SS_DUAL }, { "shinobi_katana", "shinobi_katana", SS_DUAL },
-	{ "shinobi_staff", "none", SS_STAFF },
+static const sdpsCase_t sdpsCases[] = { // (each fights in its own stance: the .sab's saberStyle)
+	{ "shinobi_katana", "none", 0 }, { "shinobi_kurosawa", "none", 0 }, { "shinobi_kubikiribocho", "none", 0 },
+	{ "shinobi_samehada", "none", 0 }, { "shinobi_knife", "shinobi_knife_l", 0 },
 };
 #define SDPS_COUNT ( (int)( sizeof( sdpsCases ) / sizeof( sdpsCases[0] ) ) )
 static const char *sdpsStyleNames[] = { "-", "fast", "medium", "strong", "desann", "tavion", "dual", "staff" };
@@ -666,7 +661,9 @@ static void SDPS_Arm( void ) {
 	G_SaberModelSetup( e );
 	AT_Weapon( 0, WP_SABER );
 	e->client->ps.saberHolstered = 0;
-	AT_SaberStyle( e, c->style );
+	if ( c->style )
+		AT_SaberStyle( e, c->style );
+	Shinobi_BladeStance( e );
 }
 static void T_SaberDps_Setup( void ) {
 	memset( &sdps, 0, sizeof( sdps ) );
@@ -676,6 +673,7 @@ static void T_SaberDps_Setup( void ) {
 	SDPS_Arm();
 	sdps.phaseStart = level.time;
 	sdps.minHit = 99999;
+	A->client->pers.shinobiBuild.stats[SST_TAIJUTSU] = 0; // the blade's own numbers (no taijutsu points on top)
 	AT_Print( "[autotest]   %-22s %-16s %-7s %6s %5s %6s %7s %9s %5s\n", "blade", "left", "stance",
 		"dealt", "hits", "swings", "hit", "dmg/s", "down" );
 }
@@ -726,7 +724,7 @@ static atResult_t T_SaberDps( int t ) {
 		}
 		sdps.dealt[sdps.idx] = dealt;
 		sdps.hits[sdps.idx] = hits;
-		AT_Print( "[autotest]   %-22s %-16s %-7s %6i %5i %6i %3i-%-3i %9.1f %5i\n", c->s1, c->s2, sdpsStyleNames[c->style],
+		AT_Print( "[autotest]   %-22s %-16s %-7s %6i %5i %6i %3i-%-3i %9.1f %5i\n", c->s1, c->s2, sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7],
 			dealt, hits, sdps.swings, hits ? mn : 0, hits ? mx : 0, dealt * 1000.0f / SDPS_MS, sdps.knocked );
 	}
 	AT_Drive( 0, 0, 0, 0, 0 );
@@ -1238,7 +1236,7 @@ static atTest_t atTests[] = {
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
-	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 18 + SDPS_FIRST + 3000 },
+	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },

@@ -609,23 +609,29 @@ a staff, a second blade only with two.
 */
 extern qboolean WP_SaberParseParm( const char *saberName, const char *parmname, char *saberData );
 
-static qboolean Shinobi_IsOurSaber( const char *name, qboolean *staff ) {
-	char type[64];
+// one of ours? *pair: made to be held as a pair ("shinobiUse two")
+static qboolean Shinobi_IsOurSaber( const char *name, qboolean *pair ) {
+	char type[64], use[16];
 
 	if ( !name || Q_stricmpn( name, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
 		return qfalse;
 	type[0] = 0;
 	if ( !WP_SaberParseParm( name, "saberType", type ) )
 		return qfalse; // no such saber
-	if ( staff )
-		*staff = !Q_stricmp( type, "SABER_STAFF" ) ? qtrue : qfalse;
+	if ( !Q_stricmp( type, "SABER_STAFF" ) )
+		return qfalse; // (no staffs any more)
+	use[0] = 0;
+	WP_SaberParseParm( name, "shinobiUse", use );
+	if ( pair )
+		*pair = !Q_stricmp( use, "two" ) ? qtrue : qfalse;
 	return qtrue;
 }
 
-// bots: one of each, by slot - katana, two knives, the staff, the kubikiribocho, fists
+// bots: one of each, by slot - katana, two knives, kurosawa, kubikiribocho, samehada, fists
 int Shinobi_BotWeaponStyle( gentity_t *ent, const char **saber2 ) {
-	static const int styles[] = { SWS_ONE, SWS_TWO, SWS_STAFF, SWS_ONE, SWS_NONE };
-	static const char * const first[] = { "shinobi_katana", "shinobi_knife", "shinobi_staff", "shinobi_kubikiribocho", "shinobi_katana" };
+	static const int styles[] = { SWS_ONE, SWS_TWO, SWS_ONE, SWS_ONE, SWS_ONE, SWS_NONE };
+	static const char * const first[] = { "shinobi_katana", "shinobi_knife", "shinobi_kurosawa", "shinobi_kubikiribocho",
+		"shinobi_samehada", "shinobi_katana" };
 	int k = ent->s.number % (int)ARRAY_LEN( styles );
 	if ( !Q_stricmpn( ent->client->pers.netname, "Test", 4 ) )
 		k = 0; // the self-test bots (TestA / TestB): the plain katana
@@ -636,33 +642,58 @@ int Shinobi_BotWeaponStyle( gentity_t *ent, const char **saber2 ) {
 
 const char *Shinobi_SaberFor( gentity_t *ent, int saberNum, const char *wanted ) {
 	const int style = ent->client->pers.shinobiWeaponNext;
-	qboolean  staff = qfalse;
+	qboolean  pair = qfalse;
+	static char right[64], left[64];
 
 	if ( ( ent->r.svFlags & SVF_BOT ) && !Shinobi_IsOurSaber( wanted, NULL ) )
 		Shinobi_BotWeaponStyle( ent, &wanted ); // a bot's own saber (Kyle...): one of ours
-	if ( saberNum == 1 ) { // the left hand: only with two blades - its own copy ("<name>_l") if there is one
-		static char left[64];
-		if ( style != SWS_TWO )
-			return "none";
-		if ( !Shinobi_IsOurSaber( wanted, &staff ) || staff )
-			wanted = SHINOBI_WEAPON_DEFAULT;
-		Com_sprintf( left, sizeof( left ), "%s_l", wanted );
-		if ( Q_stricmp( wanted + strlen( wanted ) - 2, "_l" ) && Shinobi_IsOurSaber( left, NULL ) )
-			return left;
-		return wanted;
-	}
-	{ // the right hand takes the weapon, not a left-hand copy of it
-		static char right[64];
-		const int   l = wanted ? strlen( wanted ) : 0;
+	{ // the weapon itself, not a left-hand copy of it
+		const int l = wanted ? strlen( wanted ) : 0;
 		if ( l > 2 && !Q_stricmp( wanted + l - 2, "_l" ) ) {
 			Q_strncpyz( right, wanted, sizeof( right ) );
 			right[l - 2] = 0;
 			wanted = right;
 		}
 	}
-	if ( style == SWS_STAFF )
-		return ( Shinobi_IsOurSaber( wanted, &staff ) && staff ) ? wanted : SHINOBI_WEAPON_DEFAULT_STAFF;
-	return ( Shinobi_IsOurSaber( wanted, &staff ) && !staff ) ? wanted : SHINOBI_WEAPON_DEFAULT;
+	// each weapon is held one way: a pair only as two blades, the rest only as one
+	if ( style == SWS_TWO ) {
+		if ( !Shinobi_IsOurSaber( wanted, &pair ) || !pair )
+			wanted = SHINOBI_WEAPON_DEFAULT_TWO;
+	}
+	else if ( !Shinobi_IsOurSaber( wanted, &pair ) || pair )
+		wanted = SHINOBI_WEAPON_DEFAULT;
+	if ( saberNum == 1 ) { // the left hand: only with two blades - the pair's left copy ("<name>_l") if there is one
+		if ( style != SWS_TWO )
+			return "none";
+		Com_sprintf( left, sizeof( left ), "%s_l", wanted );
+		return Shinobi_IsOurSaber( left, NULL ) ? left : wanted;
+	}
+	return wanted;
+}
+
+/*
+Blades fight in their own stance: the .sab's saberStyle (dual for a pair) - the stock stance
+switching does nothing. Every client frame.
+*/
+void Shinobi_BladeStance( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	int        learned, style;
+
+	if ( ent->s.number >= MAX_CLIENTS || c->ps.weapon != WP_SABER || !c->saber[0].model[0]
+		|| Q_stricmpn( c->saber[0].name, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
+		return;
+	learned = c->saber[0].stylesLearned;
+	if ( c->saber[1].model[0] )
+		style = SS_DUAL;
+	else {
+		for ( style = SS_FAST; style < SS_NUM_SABER_STYLES; style++ )
+			if ( learned & ( 1 << style ) )
+				break;
+		if ( style >= SS_NUM_SABER_STYLES || style == SS_DUAL || style == SS_STAFF )
+			return; // (no stance of its own)
+	}
+	c->ps.fd.saberAnimLevel = c->ps.fd.saberAnimLevelBase = c->ps.fd.saberDrawAnimLevel = style;
+	c->saberCycleQueue = 0;
 }
 
 /*

@@ -8,6 +8,8 @@ shinobi_kurosawa
 	saberLength		41
 	saberColor		blue
 	shinobiTrail		27.6
+	saberStyle		fast
+	shinobiUse		one
 	noBlade			1
 	noBlade2		1
 	noDlight		1

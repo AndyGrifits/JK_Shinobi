@@ -30,6 +30,8 @@ Entry keys:
   max_verts    collapse edges down to this many vertices (default 1000)
   hidden       not on the weapon screen (a left-hand copy: picked by itself for the left hand)
   blades       [[start Z, direction +1/-1, length], ...] in game units
+  stance       fast / medium / strong (dual for a pair): the only stance it fights in
+  use          one / two: held as one blade, or as a pair (this + its "<name>_l" copy)
   title, staff (two-handed, saberType SABER_STAFF), sounds {on, off, swing, hit, block,
   bounce}; left out = the stock saber's: damage, speed (animSpeedScale), knockback,
   move (moveSpeedScale), radius (saberRadius)
@@ -274,6 +276,10 @@ def write_sab(entry, name, gamedir, sabdir, trails=None):
             lines += ["\tsaberRadius%s\t\t%g" % (sfx, entry["radius"])]
     if entry.get("staff"):
         lines += ["\ttwoHanded\t\t1", "\tsaberStyle\t\tstaff"]
+    elif entry.get("stance"):
+        lines += ["\tsaberStyle\t\t%s" % entry["stance"]]   # its one stance (no switching)
+    if entry.get("use"):
+        lines += ["\tshinobiUse\t\t%s" % entry["use"]]      # one blade / a pair
     lines += [
         "\tnoBlade\t\t\t1", "\tnoBlade2\t\t1",
         "\tnoDlight\t\t1", "\tnoDlight2\t\t1",

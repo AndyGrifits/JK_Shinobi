@@ -1567,6 +1567,7 @@ void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ); // g_shi
 qboolean Shinobi_SaberGuardUp( gentity_t *ent ); // g_shinobi_block.c
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 void     Shinobi_BladeSwingUpdate( gentity_t *ent );
+void     Shinobi_BladeStance( gentity_t *ent );
 float    Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDamage );
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );

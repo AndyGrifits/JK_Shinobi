@@ -296,30 +296,31 @@ puts one of them on the puddles instead (takes effect on the next map load).
 No lightsabers: the blades are sabers the game draws without a light blade, glow or
 clash flare, with a plain swing trail as long as the visible steel (`shinobiTrail` in the .sab, from the mesh; the damage line stays `saberLength`), the stock sword / tusken staff sounds and a cut
 mark instead of the burn; they can't be switched off. The stock saber combat stays
-(stances, blocks, kata, parries). The Weapon screen picks how you fight - **Fists only**
-(the weapon key does nothing), **One blade**, **Two blades** (a weapon per hand) or a
-**Staff** - and the weapon(s); the preview holds them in the stance that goes with them. Stored in the
-`shinobi_weapon` userinfo (none / one / two / staff) and the stock `saber1` / `saber2`;
+(blocks, kata, parries). The Weapon screen picks how you fight - **Fists only**
+(the weapon key does nothing), **One blade** or **Two blades** (a pair) - and the weapon;
+the preview holds it in its stance. **Each weapon is held one way** (`shinobiUse one` /
+`two` in its .sab: the trench knives only as a pair, the swords only alone) **and fights in
+one stance** (`saberStyle` in its .sab; L does nothing with a blade). No staff any more.
+Stored in the `shinobi_weapon` userinfo (none / one / two) and the stock `saber1` / `saber2`;
 the server takes only `shinobi_*` weapons, fixes what doesn't fit the style and applies
-it on the next spawn. Bots get one style each by slot (katana, two knives, staff,
-kubikiribocho, fists); shadow clones carry what their maker carries.
+it on the next spawn. Bots get one each by slot (katana, the knives, kurosawa,
+kubikiribocho, samehada, fists); shadow clones carry what their maker carries.
 
-| weapon | from | reach (blade length) |
-|---|---|---|
-| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | 40 |
-| Trench Knife (`shinobi_knife`) | Asuma's knuckle knives | 40 (as far as the fists) |
-| Adamantine Staff (`shinobi_staff`) | Hiruzen's staff, both ends (64 long) | 40 each way from the middle |
-| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | 41 (as far as the fists) |
-| Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | 52 |
-| Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | 49 |
+| weapon | from | held | stance | reach (blade length) |
+|---|---|---|---|---|
+| ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | one | medium | 40 |
+| Trench Knives (`shinobi_knife` + `_l`) | Asuma's knuckle knives | pair | dual | 40 (as far as the fists) |
+| Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | one | fast | 41 (as far as the fists) |
+| Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | one | strong | 52 |
+| Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | one | strong | 49 |
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
 style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
-for a set amount by stance (`shinobiSwordDamage`: fast 16, medium 26, strong 40, dual and
-staff 18; special moves and katas x1.6, again every 0.35 s while they last; times the
+for a set amount by stance (`shinobiSwordDamage`: fast 28, medium 45, strong 68, dual 34 -
+about 35 a second each at their swing rates; no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
 a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotest `saber_dps`) measures every

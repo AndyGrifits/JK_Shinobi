@@ -34,8 +34,9 @@ void UI_ClearG2Pointer( void *ghoul2 );
 
 typedef struct {
 	char     name[40], title[40];
-	qboolean staff;
+	qboolean pair;                       // held as a pair, one in each hand ("shinobiUse two")
 	qboolean leftCopy;                   // "<name>_l": the left hand's version of <name>, not listed
+	char     stance[16];                 // its one stance (saberStyle)
 	float    length, damage, speed, knockback;
 } scWeapon_t;
 
@@ -300,7 +301,13 @@ static void SC_ListWeapons( void ) {
 			Q_strncpyz( w->title, w->name + strlen( SHINOBI_WEAPON_PREFIX ), sizeof( w->title ) );
 		buf[0] = 0;
 		WP_SaberParseParm( w->name, "saberType", buf );
-		w->staff = !Q_stricmp( buf, "SABER_STAFF" ) ? qtrue : qfalse;
+		if ( !Q_stricmp( buf, "SABER_STAFF" ) )
+			continue; // (no staffs any more)
+		buf[0] = 0;
+		WP_SaberParseParm( w->name, "shinobiUse", buf );
+		w->pair = !Q_stricmp( buf, "two" ) ? qtrue : qfalse;
+		w->stance[0] = 0;
+		WP_SaberParseParm( w->name, "saberStyle", w->stance );
 		{
 			const int l = strlen( w->name );
 			w->leftCopy = ( l > 2 && !Q_stricmp( w->name + l - 2, "_l" ) ) ? qtrue : qfalse;
@@ -313,7 +320,7 @@ static void SC_ListWeapons( void ) {
 	}
 }
 
-static int SC_WeaponIndex( const char *name, qboolean staff ) {
+static int SC_WeaponIndex( const char *name, qboolean pair ) {
 	char base[64];
 	int  i, l;
 	Q_strncpyz( base, name, sizeof( base ) ); // a left-hand copy stands for its weapon
@@ -321,11 +328,11 @@ static int SC_WeaponIndex( const char *name, qboolean staff ) {
 	if ( l > 2 && !Q_stricmp( base + l - 2, "_l" ) )
 		base[l - 2] = 0;
 	for ( i = 0; i < sc.numWeapons; i++ ) {
-		if ( !Q_stricmp( sc.weapons[i].name, base ) && sc.weapons[i].staff == staff && !sc.weapons[i].leftCopy )
+		if ( !Q_stricmp( sc.weapons[i].name, base ) && sc.weapons[i].pair == pair && !sc.weapons[i].leftCopy )
 			return i;
 	}
 	for ( i = 0; i < sc.numWeapons; i++ ) { // the first that fits
-		if ( sc.weapons[i].staff == staff && !sc.weapons[i].leftCopy )
+		if ( sc.weapons[i].pair == pair && !sc.weapons[i].leftCopy )
 			return i;
 	}
 	return -1;
@@ -345,12 +352,12 @@ static const char *SC_LeftName( int k ) {
 	return sc.weapons[k].name;
 }
 
-// the next weapon of the kind (staff or not) from k, by d
-static int SC_WeaponStep( int k, int d, qboolean staff ) {
+// the next weapon of the kind (a pair or not) from k, by d
+static int SC_WeaponStep( int k, int d, qboolean pair ) {
 	int i, n = sc.numWeapons;
 	for ( i = 1; i <= n; i++ ) {
 		const int j = ( ( k < 0 ? 0 : k ) + d * i + n * 4 ) % n;
-		if ( sc.weapons[j].staff == staff && !sc.weapons[j].leftCopy )
+		if ( sc.weapons[j].pair == pair && !sc.weapons[j].leftCopy )
 			return j;
 	}
 	return k;
@@ -361,16 +368,15 @@ static void SC_ReadWeaponCvars( void ) {
 	trap->Cvar_VariableStringBuffer( "shinobi_weapon", buf, sizeof( buf ) );
 	sc.style = Shinobi_WeaponStyleParse( buf );
 	trap->Cvar_VariableStringBuffer( "saber1", buf, sizeof( buf ) );
-	sc.wpn[0] = SC_WeaponIndex( buf, sc.style == SWS_STAFF );
-	trap->Cvar_VariableStringBuffer( "saber2", buf, sizeof( buf ) );
-	sc.wpn[1] = SC_WeaponIndex( buf, qfalse );
+	sc.wpn[0] = SC_WeaponIndex( buf, sc.style == SWS_TWO );
+	sc.wpn[1] = sc.wpn[0]; // (a pair: the left hand holds its copy)
 }
 
 static void SC_ApplyWeapon( void ) {
 	trap->Cvar_Set( "shinobi_weapon", shinobiWeaponStyleNames[sc.style] );
 	if ( sc.wpn[0] >= 0 )
 		trap->Cvar_Set( "saber1", sc.weapons[sc.wpn[0]].name );
-	trap->Cvar_Set( "saber2", sc.style == SWS_TWO && sc.wpn[1] >= 0 ? SC_LeftName( sc.wpn[1] ) : "none" );
+	trap->Cvar_Set( "saber2", sc.style == SWS_TWO && sc.wpn[0] >= 0 ? SC_LeftName( sc.wpn[0] ) : "none" );
 }
 
 void UI_ShinobiCharOpen( void ) {
@@ -473,9 +479,9 @@ static void SC_PrepareModel( void ) {
 		if ( sc.weaponMode && sc.style != SWS_NONE ) {
 			if ( sc.wpn[0] >= 0 )
 				want[0] = sc.weapons[sc.wpn[0]].name;
-			if ( sc.style == SWS_TWO && sc.wpn[1] >= 0 )
-				want[1] = SC_LeftName( sc.wpn[1] );
-			anim = sc.style == SWS_TWO ? BOTH_SABERDUAL_STANCE : ( sc.style == SWS_STAFF ? BOTH_SABERSTAFF_STANCE : BOTH_STAND2 );
+			if ( sc.style == SWS_TWO && sc.wpn[0] >= 0 )
+				want[1] = SC_LeftName( sc.wpn[0] );
+			anim = sc.style == SWS_TWO ? BOTH_SABERDUAL_STANCE : BOTH_STAND2;
 		}
 		if ( Q_stricmp( want[0], sc.g2Weapons[0] ) || Q_stricmp( want[1], sc.g2Weapons[1] ) ) {
 			for ( h = 2; h >= 1; h-- ) {
@@ -702,17 +708,16 @@ static float SC_WeaponStats( float x, float y, const char *hand, int k ) {
 	w = &sc.weapons[k];
 	d = SC_Spinner( x + 90, y, 225, w->title, qfalse );
 	if ( d ) {
-		const int i = sc.style == SWS_TWO && !Q_stricmp( hand, "Left hand" ) ? 1 : 0;
-		sc.wpn[i] = SC_WeaponStep( k, d, w->staff );
+		sc.wpn[0] = sc.wpn[1] = SC_WeaponStep( k, d, w->pair );
 		SC_ApplyWeapon();
-		w = &sc.weapons[sc.wpn[i]];
+		w = &sc.weapons[sc.wpn[0]];
 	}
 	y += 20;
 	if ( w->speed != 1.0f || w->damage != 1.0f || w->knockback != 1.0f )
-		SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f   speed %s   damage %s   knockback %s", w->length,
-			SC_Rating( w->speed ), SC_Rating( w->damage ), SC_Rating( w->knockback ) ) );
+		SC_Text( x + 90, y, 0.38f, dim, va( "stance %s   reach %.0f   speed %s   damage %s   knockback %s",
+			w->stance[0] ? w->stance : "-", w->length, SC_Rating( w->speed ), SC_Rating( w->damage ), SC_Rating( w->knockback ) ) );
 	else
-		SC_Text( x + 90, y, 0.38f, dim, va( "reach %.0f", w->length ) );
+		SC_Text( x + 90, y, 0.38f, dim, va( "stance %s   reach %.0f", w->stance[0] ? w->stance : "-", w->length ) );
 	return y + 18;
 }
 
@@ -726,10 +731,9 @@ static void SC_DrawWeapons( float x0 ) {
 	for ( i = 0; i < SWS_COUNT; i++ ) {
 		if ( SC_Button( x0 + i * 80, y, 76, 22, shinobiWeaponStyleTitles[i], sc.style == i ) && sc.style != i ) {
 			sc.style = i;
-			if ( i == SWS_STAFF || sc.wpn[0] < 0 || sc.weapons[sc.wpn[0]].staff )
-				sc.wpn[0] = SC_WeaponIndex( "", i == SWS_STAFF );
-			if ( sc.wpn[1] < 0 )
-				sc.wpn[1] = SC_WeaponIndex( "", qfalse );
+			if ( sc.wpn[0] < 0 || sc.weapons[sc.wpn[0]].pair != ( i == SWS_TWO ) )
+				sc.wpn[0] = SC_WeaponIndex( "", i == SWS_TWO );
+			sc.wpn[1] = sc.wpn[0];
 			SC_ApplyWeapon();
 		}
 	}
@@ -741,11 +745,7 @@ static void SC_DrawWeapons( float x0 ) {
 		y = SC_WeaponStats( x0, y, "Weapon", sc.wpn[0] );
 		break;
 	case SWS_TWO:
-		y = SC_WeaponStats( x0, y, "Right hand", sc.wpn[0] );
-		y = SC_WeaponStats( x0, y, "Left hand", sc.wpn[1] );
-		break;
-	case SWS_STAFF:
-		y = SC_WeaponStats( x0, y, "Staff", sc.wpn[0] );
+		y = SC_WeaponStats( x0, y, "Pair", sc.wpn[0] );
 		break;
 	default:
 		break;
@@ -799,7 +799,7 @@ qboolean UI_ShinobiCharDraw( void ) {
 
 	UI_FillRect( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, back );
 	SC_Text( 20, 8, 0.8f, title, sc.weaponMode ? "WEAPON" : "CHARACTER" );
-	SC_Text( 230, 16, 0.4f, dim, sc.weaponMode ? "drag the model to turn it - fists, one blade, two, or a staff"
+	SC_Text( 230, 16, 0.4f, dim, sc.weaponMode ? "drag the model to turn it - fists, one blade or a pair"
 		: "drag the model to turn it - everything shows at once, to everyone" );
 
 	// --- preview ------------------------------------------------------------

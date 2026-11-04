@@ -8,6 +8,8 @@ shinobi_samehada
 	saberLength		49
 	saberColor		blue
 	shinobiTrail		35.5
+	saberStyle		strong
+	shinobiUse		one
 	noBlade			1
 	noBlade2		1
 	noDlight		1

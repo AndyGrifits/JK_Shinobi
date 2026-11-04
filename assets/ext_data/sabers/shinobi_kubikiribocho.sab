@@ -8,6 +8,8 @@ shinobi_kubikiribocho
 	saberLength		52
 	saberColor		blue
 	shinobiTrail		38.3
+	saberStyle		strong
+	shinobiUse		one
 	noBlade			1
 	noBlade2		1
 	noDlight		1

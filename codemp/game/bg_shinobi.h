@@ -717,8 +717,10 @@ of the stock sum of every frame the blade spent inside the body (1 to 120 for on
 Special moves and katas: SHINOBI_BLADE_SPECIAL times as much, again every
 SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 */
+// (the saber_dps autotest: holding attack, fast swings 1.25 a second, medium 0.75, strong 0.5,
+// dual 1 - so each stance does about the same damage a second, ~35, the fast in many small cuts)
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordDamage[8] = {   0,  16,  26,    40,    40,    18,    18,  18 };
+static const int shinobiSwordDamage[8] = {   0,  28,  45,    68,    68,    30,    34,  34 };
 #define SHINOBI_BLADE_SPECIAL      1.6f
 #define SHINOBI_BLADE_SPECIAL_MS   350
 
@@ -1293,14 +1295,17 @@ fit the style. Applied on the next spawn, like the build.
 typedef enum {
 	SWS_NONE,	// fists only (the blade key does nothing)
 	SWS_ONE,	// one blade, right hand
-	SWS_TWO,	// a blade in each hand
-	SWS_STAFF,	// a two-handed staff
+	SWS_TWO,	// a blade in each hand (only the weapons made for it: "shinobiUse two")
 	SWS_COUNT
 } shinobiWeaponStyle_t;
 
 #define SHINOBI_WEAPON_PREFIX        "shinobi_"
 #define SHINOBI_WEAPON_DEFAULT       "shinobi_katana"
-#define SHINOBI_WEAPON_DEFAULT_STAFF "shinobi_staff"
+#define SHINOBI_WEAPON_DEFAULT_TWO   "shinobi_knife"
+/*
+Each weapon is held one way only ("shinobiUse one" / "two" in its .sab: one blade, or a pair)
+and fights in one stance ("saberStyle" in its .sab) - no stance switching with blades.
+*/
 
 extern const char * const shinobiWeaponStyleNames[SWS_COUNT];   // the userinfo words
 extern const char * const shinobiWeaponStyleTitles[SWS_COUNT];
