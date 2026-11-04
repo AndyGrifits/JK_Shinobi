@@ -845,6 +845,7 @@ struct gclient_s {
 		int		lockSeen;		// lock-on: the target was last in sight then
 		int		lockNoAuto;		// ... no lock by itself until (he just hid)
 		int		ashEnd;			// inside an Ash Cloud until (mistEnd: a Hidden Mist)
+		qboolean dummyPlaced;	// the punching bag stood in front of the player this life
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast

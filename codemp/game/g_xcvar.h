@@ -58,6 +58,7 @@ XCVAR_DEF( d_saberGhoul2Collision,		"1",			NULL,						CVAR_CHEAT,										qtrue
 XCVAR_DEF( d_saberInterpolate,			"0",			NULL,						CVAR_CHEAT,										qtrue )
 XCVAR_DEF( shinobi_kaitenAnim1,		"BOTH_FORCE_RAGE",	NULL,				CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Kaiten wind-up pose (an animation name), held while spinning
 XCVAR_DEF( shinobi_kaitenAnim2,		"BOTH_FORCE_RAGE",	NULL,				CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Kaiten: the pose it comes out of the spin with
+XCVAR_DEF( shinobi_dummy,			"0",			NULL,						CVAR_NONE,										qfalse ) // JK_Shinobi: bots named Dummy* are punching bags
 XCVAR_DEF( shinobi_autolock,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: close combat locks on by itself (T: the next one)
 XCVAR_DEF( shinobi_randomItems,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: a picked-up item comes back as a random one of ours
 XCVAR_DEF( shinobi_botfists,			"50",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % of bot lives fought bare-handed with the combo

@@ -63,6 +63,14 @@ On the floor 0.75 s at least (stock 1.1), then a direction key rolls you up that
 flips you up (stock moves); doing nothing you stand up 0.7 s later (stock 4 s). Bots mostly
 roll up to a side. Kawarimi works from the floor.
 
+## Punching bags
+
+`JK_Shinobi_Dummy.bat` (shinobi_dummy.cfg): the small Chunin arena (`shinobi_chunin`) and two
+bots that stand side by side in front of you facing you, bare-handed, doing nothing (no AI,
+no jutsu; `shinobi_dummy 1` makes any bot named `Dummy...` one): **Dummy** (left) takes
+everything, **DummyGuard** (right) holds its guard up all the time. Dead, they come back on
+their feet in front of you at once, without the spawn shield.
+
 ## Small things
 
 - The camera (set by shinobi_binds.cfg): 110 back (stock 80), 10 up (16), and on a wide

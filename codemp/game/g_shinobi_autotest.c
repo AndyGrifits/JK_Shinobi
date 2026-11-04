@@ -94,7 +94,79 @@ static void AT_Msg( const char *fmt, ... ) {
 // ---------------------------------------------------------------------------
 // control of the two bots
 // ---------------------------------------------------------------------------
+/*
+Punching bags (shinobi_dummy 1, JK_Shinobi_Dummy.bat): bots named "Dummy..." do nothing - no
+AI, no jutsu - stand facing you with bare hands and after each death come back on their feet
+right in front of you, side by side: "Dummy" takes everything (no guard), "DummyGuard" holds
+its guard up all the time (it breaks and comes back as anyone's does).
+*/
+static qboolean Shinobi_IsDummy( gentity_t *ent ) {
+	return shinobi_dummy.integer && ent && ent->client && ( ent->r.svFlags & SVF_BOT )
+		&& !Q_stricmpn( ent->client->pers.netname, "Dummy", 5 );
+}
+
+// the first human in the game (the one the bag stands in front of)
+static gentity_t *Shinobi_DummyPlayer( void ) {
+	int i;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->client && !( e->r.svFlags & SVF_BOT ) && e->client->pers.connected == CON_CONNECTED
+			&& e->client->sess.sessionTeam != TEAM_SPECTATOR && e->health > 0 )
+			return e;
+	}
+	return NULL;
+}
+
+static void Shinobi_DummyDrive( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+	const qboolean guard = !Q_stricmpn( c->pers.netname, "DummyGuard", 10 );
+	gentity_t *p = Shinobi_DummyPlayer();
+	vec3_t     ang = { 0, 0, 0 };
+	int        i;
+
+	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+	ucmd->buttons = 0;
+	ucmd->generic_cmd = 0;
+	ucmd->forcesel = ucmd->invensel = 0;
+	ucmd->weapon = WP_MELEE;
+	if ( ent->health <= 0 ) { // back up at once
+		if ( level.time > c->respawnTime )
+			ucmd->buttons = BUTTON_ATTACK;
+		return;
+	}
+	if ( p && !c->shinobi.dummyPlaced ) { // just spawned: in front of him (the guarding one to his right), facing him
+		vec3_t fwd, right, spot, yaw;
+		trace_t tr;
+		VectorSet( yaw, 0, p->client->ps.viewangles[YAW], 0 );
+		AngleVectors( yaw, fwd, right, NULL );
+		VectorMA( p->client->ps.origin, 110, fwd, spot );
+		VectorMA( spot, guard ? 45 : -45, right, spot );
+		trap->Trace( &tr, p->client->ps.origin, ent->r.mins, ent->r.maxs, spot, p->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		if ( !tr.startsolid && !tr.allsolid ) {
+			Shinobi_TeleportClient( ent, tr.endpos );
+			VectorClear( c->ps.velocity );
+		}
+		c->shinobi.dummyPlaced = qtrue;
+		c->ps.eFlags &= ~EF_INVULNERABLE; // (no spawn shield)
+		c->invulnerableTimer = 0;
+	}
+	if ( p ) { // it looks at you
+		vec3_t d;
+		VectorSubtract( p->client->ps.origin, c->ps.origin, d );
+		vectoangles( d, ang );
+		ang[PITCH] = 0;
+	}
+	for ( i = 0; i < 3; i++ )
+		ucmd->angles[i] = ANGLE2SHORT( ang[i] ) - c->ps.delta_angles[i];
+	if ( guard )
+		ucmd->buttons |= SHINOBI_BUTTON_BLOCK; // guard up, always
+	else
+		c->ps.stats[STAT_ARMOR] = 0; // no guard to soak the blows
+}
+
 qboolean Shinobi_AutotestControls( gentity_t *ent ) {
+	if ( Shinobi_IsDummy( ent ) )
+		return qtrue; // (the bag: no bot AI of ours either)
 	if ( at.phase != 2 || !ent || ent->s.number >= MAX_CLIENTS )
 		return qfalse;
 	if ( ent->s.number == at.a )
@@ -110,6 +182,10 @@ void Shinobi_AutotestDrive( gentity_t *ent, usercmd_t *ucmd ) {
 	vec3_t     ang;
 	int        i;
 
+	if ( Shinobi_IsDummy( ent ) ) {
+		Shinobi_DummyDrive( ent, ucmd );
+		return;
+	}
 	if ( !Shinobi_AutotestControls( ent ) )
 		return;
 	d = &at.drive[ent->s.number == at.a ? 0 : 1];
