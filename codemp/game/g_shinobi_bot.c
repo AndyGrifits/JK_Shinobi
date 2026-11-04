@@ -237,7 +237,7 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	case FP_DRAIN:     list = botDrain; break;
 	case FP_RAGE:
 		if ( client->pers.shinobiBuild.perk == SP_GATES && client->shinobi.gate < SHINOBI_GATE_MAX
-			&& ( client->shinobi.gate ? client->shinobi.gateDealt >= SHINOBI_GATE_DAMAGE : client->shinobi.gateNext <= level.time ) ) {
+			&& ( client->shinobi.gate ? client->shinobi.gateDealt >= SHINOBI_GATE_NEED( client->shinobi.gate ) : client->shinobi.gateNext <= level.time ) ) {
 			Cmd_Perk_f( ent );
 			client->shinobi.botJutsuNext = level.time + 1000;
 			return qtrue;

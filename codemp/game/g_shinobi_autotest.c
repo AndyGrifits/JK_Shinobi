@@ -69,6 +69,8 @@ static struct {
 	fileHandle_t file;
 } at;
 
+extern char *modNames[MOD_MAX];
+
 #define A ( &g_entities[at.a] )
 #define B ( &g_entities[at.b] )
 
@@ -300,6 +302,9 @@ static void AT_Reset( gentity_t *e ) {
 	c->shinobi.curseAwake = qfalse;
 	c->shinobi.gate = c->shinobi.gateDealt = c->shinobi.gateNext = 0;
 	c->shinobi.weightsOff = qfalse;
+	c->shinobi.entryNext = c->shinobi.palmsHitNext = 0;
+	if ( c->shinobi.palmsStart || c->shinobi.lotusPhase || c->shinobi.lotusBy )
+		Shinobi_TaiClear( e );
 	VectorClear( c->ps.velocity );
 }
 
@@ -1315,7 +1320,8 @@ static atResult_t T_Build( int t ) {
 	return ( ok == 4 + SP_COUNT && !bad ) ? ATR_PASS : ATR_FAIL;
 }
 
-// 64 Palms: rooted while the field grows; full, the palm strikes B (at 200, inside it) and throws him out
+// Protective Stance: rooted in its pose while the field grows; full, the palm strikes B (at 200, inside it) and throws
+// him out; held on, B back in (150) is struck again; let go: over
 static void T_Palms_Setup( void ) {
 	vec3_t p;
 	AT_Weapon( 0, WP_MELEE );
@@ -1337,17 +1343,30 @@ static atResult_t T_Palms( int t ) {
 		if ( SINCE() >= 1000 && !at.v[2] ) {
 			at.v[2] = 1;
 			at.f[0] = Distance( A->client->ps.origin, at.vec[0] );
+			at.v[3] = A->client->ps.forceHandExtend == HANDEXTEND_TAUNT; // in the stance
 		}
 		if ( SINCE() >= SHINOBI_PALMS_GROW_MS + 400 ) {
-			int hits;
-			AT_DamageTo( B, at.start, NULL, MOD_FORCE_DARK, &hits, NULL );
-			AT_Drive( 0, 0, 0, 0, 0 );
-			AT_Msg( "A moved %.0f while it grew (rooted), chakra spent %i, struck: %i (B hit %i times), B thrown to %.0f",
-				at.f[0], at.v[1] - A->client->ps.fd.forcePower, shinobiTest.palmsHits - at.v[0], hits,
-				Distance( B->client->ps.origin, A->client->ps.origin ) );
-			return ( at.f[0] < 8 && shinobiTest.palmsHits > at.v[0] && hits == 1 && at.v[1] - A->client->ps.fd.forcePower >= 20 )
-				? ATR_PASS : ATR_FAIL;
+			vec3_t p;
+			AT_DamageTo( B, at.start, NULL, MOD_FORCE_DARK, &at.v[4], NULL );
+			at.f[1] = Distance( B->client->ps.origin, A->client->ps.origin );
+			at.v[5] = A->client->shinobi.palmsStart != 0; // still held: the field guards
+			AT_Spot( 150, 0, p ); // B walks back in
+			AT_Place( B, p, at.baseYaw + 180 );
+			NEXT();
 		}
+	}
+	if ( STAGE( 2 ) && SINCE() >= 1300 ) {
+		int hits;
+		AT_DamageTo( B, at.start, NULL, MOD_FORCE_DARK, &hits, NULL );
+		at.f[2] = Distance( A->client->ps.origin, at.vec[0] );
+		Cmd_JutsuRelease_f( A );
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "A moved %.0f while it grew, %.0f in all (rooted), stance pose: %s, chakra spent %i; full: B hit %i times, thrown to %.0f; "
+			"still held: %s, B back in: hit %i times in all; let go: %s",
+			at.f[0], at.f[2], at.v[3] ? "yes" : "NO", at.v[1] - A->client->ps.fd.forcePower, at.v[4], at.f[1], at.v[5] ? "yes" : "NO",
+			hits, A->client->shinobi.palmsStart ? "NO" : "yes" );
+		return ( at.f[2] < 8 && at.v[3] && at.v[4] == 1 && at.v[5] && hits == 2 && !A->client->shinobi.palmsStart
+			&& at.v[1] - A->client->ps.fd.forcePower >= 40 ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1382,6 +1401,81 @@ static atResult_t T_Lotus( int t ) {
 		AT_Msg( "cast: %s, B carried up %.0f, slammed: %s, damage %i, down: %s", at.v[1] ? "yes" : "NO", at.f[1],
 			shinobiTest.lotusSlams > at.v[0] ? "yes" : "NO", dmg, at.v[2] ? "yes" : "no" );
 		return ( at.v[1] && at.f[1] > SHINOBI_LOTUS_HEIGHT * 0.6f && shinobiTest.lotusSlams > at.v[0] && dmg >= SHINOBI_LOTUS_DAMAGE )
+			? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// Reverse Lotus, logged: B holds a blade and swings all along; every 100 ms where both are, how fast
+// they fall, their health and pose, then every blow either of them took. A must take nothing.
+static int at_lotusLast;
+static void T_LotusLog_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_SABER );
+	AT_Spot( 110, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[1].aimAt = qtrue;
+	AT_Drive( 1, 0, 0, 0, BUTTON_ATTACK ); // B swings the whole time
+	at.v[0] = shinobiTest.lotusSlams;
+	at.v[1] = shinobiTest.lotusShielded;
+	at.f[0] = B->client->ps.origin[2];
+	at.f[1] = -99999;
+	at_lotusLast = 0;
+}
+static void AT_LotusRow( int t ) {
+	gclient_t *a = A->client, *b = B->client;
+	AT_Print( "[lotus] %5i ms  phase %i | A z %+5.0f vz %+5.0f hp %3i %s %-16s | B z %+5.0f vz %+5.0f hp %3i %s %-16s held %s\n",
+		t, a->shinobi.lotusPhase, a->ps.origin[2] - at.f[0], a->ps.velocity[2], A->health,
+		a->ps.groundEntityNum == ENTITYNUM_NONE ? "air" : "gnd", AT_AnimName( a->ps.legsAnim ),
+		b->ps.origin[2] - at.f[0], b->ps.velocity[2], B->health, b->ps.groundEntityNum == ENTITYNUM_NONE ? "air" : "gnd",
+		AT_AnimName( b->ps.legsAnim ), b->shinobi.lotusBy ? "yes" : "no" );
+}
+static atResult_t T_LotusLog( int t ) {
+	if ( STAGE( 0 ) && t >= 600 ) { // (B swinging already)
+		at.v[2] = A->client->ps.fd.forcePower;
+		at.v[3] = Shinobi_Cast( A, SJ_LOTUS, 1 );
+		at.v[4] = at.v[2] - A->client->ps.fd.forcePower;
+		at.v[5] = level.time;
+		AT_Print( "[lotus] cast: %s, chakra %i -> %i (spent %i), B caught: %s\n", at.v[3] ? "yes" : "NO", at.v[2],
+			A->client->ps.fd.forcePower, at.v[4], B->client->shinobi.lotusBy ? "yes" : "NO" );
+		NEXT();
+	}
+	if ( STAGE( 1 ) ) {
+		if ( B->client->ps.origin[2] - at.f[0] > at.f[1] )
+			at.f[1] = B->client->ps.origin[2] - at.f[0];
+		if ( level.time - at_lotusLast >= 100 ) {
+			at_lotusLast = level.time;
+			AT_LotusRow( level.time - at.v[5] );
+		}
+		if ( SINCE() >= 3600 ) {
+			AT_Drive( 1, 0, 0, 0, 0 );
+			NEXT();
+		}
+	}
+	if ( STAGE( 2 ) ) {
+		int i, toA = 0, toB = 0, byA = 0;
+		for ( i = 0; i < SHINOBI_TEST_DMGLOG; i++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[i];
+			if ( !d->time || d->time < at.v[5] - 600 || ( d->targ != at.a && d->targ != at.b ) )
+				continue;
+			AT_Print( "[lotus] blow at %5i ms: %s took %i from %s (%s, via %s)\n", d->time - at.v[5], d->targ == at.a ? "A" : "B",
+				d->take, d->attacker == at.a ? "A" : d->attacker == at.b ? "B" : d->attacker == ENTITYNUM_WORLD ? "world" : va( "#%i", d->attacker ),
+				d->mod >= 0 && d->mod < MOD_MAX ? modNames[d->mod] : "?", d->inflictor );
+			if ( d->time < at.v[5] )
+				continue; // (before the cast: B's swings at the start)
+			if ( d->targ == at.a )
+				toA += d->take;
+			else {
+				toB += d->take;
+				if ( d->attacker == at.a )
+					byA += d->take;
+			}
+		}
+		AT_Msg( "cast %s, spent %i chakra, B carried up %.0f, slammed: %s; after the cast A took %i, B took %i (%i from A); "
+			"B's blows stopped by the lotus: %i", at.v[3] ? "yes" : "NO", at.v[4], at.f[1], shinobiTest.lotusSlams > at.v[0] ? "yes" : "NO",
+			toA, toB, byA, shinobiTest.lotusShielded - at.v[1] );
+		return ( at.v[3] && at.v[4] >= 70 && shinobiTest.lotusSlams > at.v[0] && toA == 0 && byA >= SHINOBI_LOTUS_DAMAGE )
 			? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
@@ -1441,7 +1535,7 @@ static atResult_t T_Gates( int t ) {
 		at.v[6] = shinobiTest.weightQuakes - at.v[0];
 		Cmd_Perk_f( A ); // not ready yet: nothing
 		at.v[7] = c->shinobi.gate;
-		c->shinobi.gateDealt = SHINOBI_GATE_DAMAGE;
+		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		NEXT();
 	}
 	if ( STAGE( 2 ) && SINCE() >= 100 ) { // gate 2: +70, no drain
@@ -1454,24 +1548,27 @@ static atResult_t T_Gates( int t ) {
 	}
 	if ( STAGE( 3 ) && SINCE() >= 1200 ) {
 		at.v[11] = at.v[10] - A->health; // drain after gate 2 (want 0)
-		c->shinobi.gateDealt = SHINOBI_GATE_DAMAGE;
+		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		Cmd_Perk_f( A ); // 3
 		at.v[12] = Shinobi_HasJutsu( A, SJ_LOTUS );
-		c->shinobi.gateDealt = SHINOBI_GATE_DAMAGE;
+		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		Cmd_Perk_f( A ); // 4
-		c->shinobi.gateDealt = SHINOBI_GATE_DAMAGE;
+		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		Cmd_Perk_f( A ); // 5
 		at.v[13] = c->shinobi.gate;
 		at.v[14] = Shinobi_BuildDamage( B, A, 100, MOD_MELEE ); // taijutsu 0: 100 x 1.2
+		at.v[15] = A->health;
 		NEXT();
 	}
-	if ( STAGE( 4 ) ) {
+	if ( STAGE( 4 ) && SINCE() >= SHINOBI_GATE_LATE_DRAIN_MS + 300 ) {
+		at.f[0] = (float)( at.v[15] - A->health ); // the slow drain from the third gate on
 		AT_Msg( "weights on: %s, gate %i after C (weights dropped %i, quakes %i), fast: %s, drained %i in 1.6 s; "
-			"C before the damage: gate %i; ready: %s, gate 2 healed %i, drain after it %i; Reverse Lotus at 3: %s; last gate %i, a 100 blow -> %i",
+			"C before the damage: gate %i; ready: %s, gate 2 healed %i, drain after it %i; Reverse Lotus at 3: %s; last gate %i, a 100 blow -> %i; "
+			"drained at gate 5 in 1.8 s: %.0f",
 			at.v[1] ? "yes" : "NO", at.v[2], at.v[3], at.v[6], at.v[4] ? "yes" : "NO", at.v[5], at.v[7], at.v[8] ? "yes" : "NO",
-			at.v[9], at.v[11], at.v[12] ? "yes" : "NO", at.v[13], at.v[14] );
+			at.v[9], at.v[11], at.v[12] ? "yes" : "NO", at.v[13], at.v[14], at.f[0] );
 		return ( at.v[1] && at.v[2] == 1 && at.v[3] == 2 && at.v[6] >= 1 && at.v[4] && at.v[5] >= 2 && at.v[7] == 1 && at.v[8]
-			&& at.v[9] >= SHINOBI_GATE2_HEAL - 1 && at.v[11] == 0 && at.v[12] && at.v[13] == 5 && at.v[14] == 120 ) ? ATR_PASS : ATR_FAIL;
+			&& at.v[9] >= SHINOBI_GATE2_HEAL - 1 && at.v[11] == 0 && at.v[12] && at.v[13] == 5 && at.v[14] == 120 && at.f[0] >= 1 && at.f[0] <= 2 ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1816,8 +1913,9 @@ static atTest_t atTests[] = {
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
-	{ "palms",        "64 Palms: rooted while the field grows, full: the air palm strikes and throws", T_Palms_Setup, T_Palms, 4000 },
+	{ "palms",        "Protective Stance: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },
 	{ "lotus",        "Reverse Lotus: blink, carried up, slammed down (damage, knockdown)", T_Lotus_Setup, T_Lotus, 5000 },
+	{ "lotus_log",    "Reverse Lotus, logged step by step, B swinging a blade: A must take nothing", T_LotusLog_Setup, T_LotusLog, 6000 },
 	{ "entry",        "Dynamic Entry: flies to him, hurts and knocks him down",   T_Entry_Setup, T_Entry, 3000 },
 	{ "gates",        "Inner Gates: weights, speed and drain, damage readies the next, heal, Lotus, +20%", T_Gates_Setup, T_Gates, 6000 },
 	{ "smoke_bomb",   "poison smoke bomb: bursts, poisons, lingers; shuriken pickup 3; pool items registered", T_Smoke_Setup, T_Smoke, 9000 },

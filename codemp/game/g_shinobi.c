@@ -433,9 +433,6 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	int        lvl = wanted, cost, costLvl;
 	qboolean   cast = qfalse, copied;
 
-	if ( jutsu == SJ_SHUNSHIN )
-		lvl = wanted = SHINOBI_SHUNSHIN_LEVEL; // (no levels: always the same blink, the same price)
-
 	if ( jutsu <= SJ_NONE || jutsu >= SJ_COUNT )
 		return qfalse;
 	if ( !Shinobi_CanAct( ent ) && !( jutsu == SJ_KAWARIMI && client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN
@@ -494,7 +491,7 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_KATON:    cast = Shinobi_CastKaton( ent, lvl ); break;
 	case SJ_DOTON:    cast = Shinobi_CastDoton( ent, lvl ); break;
 	case SJ_BUNSHIN:  cast = Shinobi_CastKageBunshin( ent, lvl ); break;
-	case SJ_SHUNSHIN: cast = Shinobi_CastShunshin( ent, SHINOBI_SHUNSHIN_LEVEL, client->shinobi.shunshinBack ); break;
+	case SJ_SHUNSHIN: cast = Shinobi_CastShunshin( ent, lvl, client->shinobi.shunshinBack ); break;
 	case SJ_KAWARIMI: cast = Shinobi_CastKawarimi( ent ); break;
 	case SJ_SUITON:   cast = Shinobi_CastSuiton( ent, lvl ); break;
 	case SJ_FUTON:    cast = Shinobi_CastFuton( ent, lvl ); break;
@@ -618,13 +615,6 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		return; // flinching from a combo punch
 	if ( SHINOBI_JUTSU_INSTANT( jutsu ) ) {
 		Shinobi_Cast( ent, jutsu, 1 );
-		return;
-	}
-	if ( jutsu == SJ_SHUNSHIN ) { // at once, no levels (Shift + back + jump: backward)
-		if ( client->shinobi.shadowBy || client->shinobi.prisonCaster || client->shinobi.shadowTrapEnt )
-			return;
-		client->shinobi.shunshinBack = client->pers.cmd.forwardmove < 0;
-		Shinobi_Cast( ent, SJ_SHUNSHIN, SHINOBI_SHUNSHIN_LEVEL );
 		return;
 	}
 	if ( client->shinobi.shadowBy || client->shinobi.prisonCaster || client->shinobi.shadowTrapEnt )

@@ -413,17 +413,17 @@ static void Shinobi_OpenGates( gentity_t *ent ) {
 			( client->shinobi.gateNext - level.time + 999 ) / 1000 ) );
 		return;
 	}
-	if ( gate > 0 && client->shinobi.gateDealt < SHINOBI_GATE_DAMAGE ) {
+	if ( gate > 0 && client->shinobi.gateDealt < SHINOBI_GATE_NEED( gate ) ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"%s: deal %i more damage\"", shinobiGateNames[gate + 1],
-			SHINOBI_GATE_DAMAGE - client->shinobi.gateDealt ) );
+			SHINOBI_GATE_NEED( gate ) - client->shinobi.gateDealt ) );
 		return;
 	}
 	client->shinobi.gate = gate + 1;
 	client->shinobi.gateDealt = 0;
 	client->shinobi.gateReadySaid = qfalse;
 	client->shinobi.gateFx = level.time;
-	client->shinobi.gateDrain = level.time + SHINOBI_GATE_DRAIN_MS;
+	client->shinobi.gateDrain = level.time + ( client->shinobi.gate >= 3 ? SHINOBI_GATE_LATE_DRAIN_MS : SHINOBI_GATE_DRAIN_MS );
 	shinobiTest.gatesOpened++;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGates );
 	G_PlayEffectID( shinobiMedia.fxGates, ent->r.currentOrigin, up );
@@ -444,7 +444,7 @@ static void Shinobi_OpenGates( gentity_t *ent ) {
 	}
 	{
 		static const char * const what[SHINOBI_GATE_MAX + 1] = { "", "the weights fall - speed, but it eats your health",
-			"+70 health, the drain stops", "a crimson body - Reverse Lotus is yours", "Shunshin costs no charge",
+			"+70 health, the drain stops", "a crimson body - Reverse Lotus is yours; it eats your health again, slowly", "Shunshin costs no charge",
 			"+20% to every close-combat blow" };
 		trap->SendServerCommand( ent - g_entities, va( "cp \"^%c%s open!\n^7%s\"", client->shinobi.gate >= 5 ? '1' : client->shinobi.gate >= 4 ? '2' : '3',
 			shinobiGateNames[client->shinobi.gate], what[client->shinobi.gate] ) );
@@ -479,6 +479,13 @@ static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
 				trap->SendServerCommand( ent - g_entities, "cp \"^3The gates close - your body gives out\"" );
 			}
 		}
+		else if ( client->shinobi.gate >= 3 && client->shinobi.gateDrain <= level.time ) { // from the third: slowly, down to 10 (they stay open)
+			client->shinobi.gateDrain = level.time + SHINOBI_GATE_LATE_DRAIN_MS;
+			if ( ent->health > SHINOBI_GATE_CLOSE_HP ) {
+				ent->health--;
+				client->ps.stats[STAT_HEALTH] = ent->health;
+			}
+		}
 		if ( client->shinobi.gate >= 2 && client->shinobi.gateFx <= level.time ) { // the glow: yellow, then green, then red
 			client->shinobi.gateFx = level.time + 250;
 			G_PlayEffectID( shinobiMedia.fxGateAura[client->shinobi.gate >= 5 ? 2 : client->shinobi.gate >= 4 ? 1 : 0],
@@ -489,8 +496,8 @@ static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
 			G_PlayEffectID( shinobiMedia.fxGates, ent->r.currentOrigin, up );
 		}
 		if ( client->shinobi.gate > 0 && client->shinobi.gate < SHINOBI_GATE_MAX ) {
-			const int prog = client->shinobi.gateDealt * 15 / SHINOBI_GATE_DAMAGE;
-			if ( client->shinobi.gateDealt >= SHINOBI_GATE_DAMAGE ) {
+			const int prog = client->shinobi.gateDealt * 15 / SHINOBI_GATE_NEED( client->shinobi.gate );
+			if ( client->shinobi.gateDealt >= SHINOBI_GATE_NEED( client->shinobi.gate ) ) {
 				bits |= SHINOBI_BC_GATE_READY;
 				if ( !client->shinobi.gateReadySaid ) {
 					client->shinobi.gateReadySaid = qtrue;

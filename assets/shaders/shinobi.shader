@@ -557,8 +557,14 @@ gfx/shinobi/windarc
 // Inner Gates (the third and on): the body glows crimson (rgbGen entity: the colour from the cgame)
 gfx/shinobi/gateshell
 {
-	cull none
-	deformVertexes wave 100 sin 0.5 0 0 0
+	deformVertexes wave 100 sin 0.4 0 0 0
+	{
+		map gfx/shinobi/gateskin
+		blendFunc GL_DST_COLOR GL_ZERO
+		rgbGen identity
+		tcMod scale 2 2
+		tcMod scroll 0 0.05
+	}
 	{
 		map gfx/shinobi/guardshell
 		blendFunc GL_ONE GL_ONE

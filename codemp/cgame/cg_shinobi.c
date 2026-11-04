@@ -451,8 +451,14 @@ void CG_ShinobiFrame( void ) {
 		return;
 	jump = cmd.upmove > 0;
 
-	if ( jump && !shinobiSel.jumpHeld && SHINOBI_MODIFIER( &cmd ) && !shinobiCharge.jutsu ) // Shunshin: at once, no bars
-		trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[SJ_SHUNSHIN] ) );
+	if ( shinobiCharge.jutsu == SJ_SHUNSHIN && shinobiCharge.fromJump ) {
+		if ( !jump )
+			CG_ShinobiJutsuUp( SJ_SHUNSHIN );
+	}
+	else if ( jump && !shinobiSel.jumpHeld && SHINOBI_MODIFIER( &cmd ) && !shinobiCharge.jutsu ) {
+		CG_ShinobiJutsuDown( SJ_SHUNSHIN );
+		shinobiCharge.fromJump = qtrue;
+	}
 	shinobiSel.jumpHeld = jump;
 }
 
@@ -1743,8 +1749,9 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 }
 
 /*
-64 Palms: a glowing field on the ground growing out from the caster (the eight trigrams round
-its rim), the full circle faint ahead of it; struck: a bright flash out to the rim, fading.
+Protective Stance: a glowing field on the ground growing out from the caster (the eight trigrams
+round its rim), the full circle faint ahead of it; full, it stays lit while held, flashing out to
+the rim at each strike (s.apos.trTime); let go: it fades.
 */
 static void CG_ShinobiPalms( centity_t *cent ) {
 	const entityState_t *s = &cent->currentState;
@@ -1772,6 +1779,11 @@ static void CG_ShinobiPalms( centity_t *cent ) {
 		VectorMA( p, -r * 0.08f, side, q );
 		VectorMA( p, r * 0.08f, side, p );
 		trap->FX_AddLine( p, q, 1.6f, 1.0f, 0.0f, 0.9f, 0.0f, 0.0f, c, c, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
+	if ( ( s->frame & 2 ) && s->apos.trTime && cg.time - s->apos.trTime < 450 ) { // a strike: the flash
+		const float a = Com_Clamp( 0, 1, 1.0f - ( cg.time - s->apos.trTime ) / 450.0f );
+		CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.9f * a, 1.0f * a, 1.0f * a, a );
+		CG_ShinobiGroundDecal( org, full * 0.85f, 0, shinobiShaders.glow, 0.5f * a, 0.65f * a, 0.9f * a, a );
 	}
 	trap->R_AddLightToScene( org, 60 + 180 * f, 0.5f, 0.7f, 1.0f );
 }

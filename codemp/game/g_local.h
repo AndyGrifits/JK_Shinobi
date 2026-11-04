@@ -889,16 +889,19 @@ struct gclient_s {
 		int		mistEnd;		// inside a Hidden Mist until
 		int		eyesInfo;		// next "sinfo" update
 		int		gate;			// Inner Gates: the last one open (0 = closed)
-		int		gateDealt;		// damage dealt since it opened (the next one opens at SHINOBI_GATE_DAMAGE)
+		int		gateDealt;		// damage dealt since it opened (the next one opens at SHINOBI_GATE_NEED)
 		int		gateNext;		// may open again from (closed by the drain)
 		int		gateFx, gateDrain; // next aura puff; next health tick (gate 1)
 		qboolean gateReadySaid;	// "Gate N ready" said
 		qboolean weightsOff;	// the leg weights dropped (this life)
-		int		palmsStart, palmsTick, palmsEnt; // 64 Palms: held since (0 = not), next chakra tick, the field (num + 1)
+		int		palmsStart, palmsTick, palmsEnt; // Protective Stance: held since (0 = not), next chakra tick, the field (num + 1)
+		int		palmsFull;		// ... its field full (guarding) since
+		int		palmsHitNext;	// (on him) a Protective Stance's field strikes him again from
 		int		lotusPhase, lotusTime, lotusVictim; // Reverse Lotus: 2 hang, 3 down; since; who (num + 1)
 		int		lotusBy;		// ... carried up by (num + 1): helpless
 		vec3_t	lotusSpot;		// ... where they hang
 		int		entryEnd;		// Dynamic Entry flying until
+		int		entryNext;		// ... ready again from
 		int		entryHit[2];	// ... whom it hit (bits by client num)
 		qboolean blocking;		// guard up this frame (Ctrl)
 		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)
@@ -1550,6 +1553,7 @@ void Shinobi_Damaged( gentity_t *targ, gentity_t *attacker );
 void Shinobi_HitInterrupt( gentity_t *targ, gentity_t *attacker, int mod );
 void Shinobi_InterruptCharge( gentity_t *ent );
 qboolean Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );
+qboolean Shinobi_LotusShield( gentity_t *targ, gentity_t *attacker );
 qboolean Shinobi_KaitenSpinning( gentity_t *ent );
 // g_shinobi_build.c
 int   Shinobi_ModelSize( const char *model );            // g_shinobi.c: models/players/<model>/scale.cfg, in %

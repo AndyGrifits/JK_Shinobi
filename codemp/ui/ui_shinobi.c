@@ -388,29 +388,38 @@ void UI_ShinobiMenuDraw( void ) {
 	x = 20;
 	y = 76;
 	UI_FillRect( x, y - 4, 360, 172, box );
-	for ( k = 0; k < SHINOBI_CYCLE_COUNT; k++ ) {
-		const int      j = shinobiJutsuCycle[k];
-		const qboolean have = Shinobi_BuildHas( &sb.edit, j );
+	{ // more than 8 (Yin / Yang): the rows packed tighter to fit the box
+		int            n = 0;
+		for ( k = 0; k < SHINOBI_CYCLE_COUNT; k++ )
+			n += shinobiJutsuSchool[shinobiJutsuCycle[k]] == sb.tab;
+		{
+		const float    rowH = n > 8 ? 168.0f / n : 20.0f, big = n > 8 ? 0.44f : 0.52f, small = n > 8 ? 0.36f : 0.4f;
+		const float    chk = n > 8 ? 8.0f : 10.0f;
+		for ( k = 0; k < SHINOBI_CYCLE_COUNT; k++ ) {
+			const int      j = shinobiJutsuCycle[k];
+			const qboolean have = Shinobi_BuildHas( &sb.edit, j );
 
-		if ( shinobiJutsuSchool[j] != sb.tab )
-			continue;
-		if ( SB_Over( x, y, 360, 20 ) ) {
-			UI_FillRect( x, y, 360, 20, hot );
-			SB_Describe( shinobiJutsuTitles[j], shinobiJutsuInfo[j], sb.tab );
+			if ( shinobiJutsuSchool[j] != sb.tab )
+				continue;
+			if ( SB_Over( x, y, 360, rowH ) ) {
+				UI_FillRect( x, y, 360, rowH, hot );
+				SB_Describe( shinobiJutsuTitles[j], shinobiJutsuInfo[j], sb.tab );
+			}
+			UI_FillRect( x + 6, y + ( rowH - chk ) * 0.5f, chk, chk, have ? on : off );
+			SB_Rect( x + 6, y + ( rowH - chk ) * 0.5f, chk, chk, frame );
+			SB_Text( x + 24, y + ( n > 8 ? 0 : 1 ), big, have ? white : dim, shinobiJutsuTitles[j] );
+			SB_Text( x + 190, y + ( n > 8 ? 1 : 3 ), small, dim, SB_Kind( j ) );
+			if ( SHINOBI_JUTSU_PASSIVE( j ) )
+				SB_Text( x + 250, y + ( n > 8 ? 1 : 3 ), small, dim, "-" );
+			else if ( SHINOBI_JUTSU_INSTANT( j ) || SHINOBI_JUTSU_HOLD( j ) )
+				SB_Text( x + 250, y + ( n > 8 ? 1 : 3 ), small, dim, va( "%i chakra", Shinobi_JutsuCost( j, 1 ) ) );
+			else
+				SB_Text( x + 250, y + ( n > 8 ? 1 : 3 ), small, dim, va( "%i/%i/%i chakra", Shinobi_JutsuCost( j, 1 ), Shinobi_JutsuCost( j, 2 ), Shinobi_JutsuCost( j, 3 ) ) );
+			if ( SB_Clicked( x, y, 360, rowH ) )
+				SB_ToggleJutsu( j );
+			y += rowH;
 		}
-		UI_FillRect( x + 6, y + 5, 10, 10, have ? on : off );
-		SB_Rect( x + 6, y + 5, 10, 10, frame );
-		SB_Text( x + 24, y + 1, 0.52f, have ? white : dim, shinobiJutsuTitles[j] );
-		SB_Text( x + 190, y + 3, 0.4f, dim, SB_Kind( j ) );
-		if ( SHINOBI_JUTSU_PASSIVE( j ) )
-			SB_Text( x + 250, y + 3, 0.4f, dim, "-" );
-		else if ( SHINOBI_JUTSU_INSTANT( j ) || SHINOBI_JUTSU_HOLD( j ) )
-			SB_Text( x + 250, y + 3, 0.4f, dim, va( "%i chakra", Shinobi_JutsuCost( j, 1 ) ) );
-		else
-			SB_Text( x + 250, y + 3, 0.4f, dim, va( "%i/%i/%i chakra", Shinobi_JutsuCost( j, 1 ), Shinobi_JutsuCost( j, 2 ), Shinobi_JutsuCost( j, 3 ) ) );
-		if ( SB_Clicked( x, y, 360, 20 ) )
-			SB_ToggleJutsu( j );
-		y += 20;
+		}
 	}
 
 	// --- your techniques -----------------------------------------------------
