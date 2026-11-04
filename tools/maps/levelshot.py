@@ -19,7 +19,13 @@ for slot in obj.material_slots:
         nt.nodes.remove(n)
     out = nt.nodes.new('ShaderNodeOutputMaterial'); em = nt.nodes.new('ShaderNodeEmission')
     short = mat.name.split('/')[-1]
-    f = [x for x in os.listdir(texdir) if x.startswith(short + '.')][0]
+    cand = [short]
+    for suf in ("_far", "_d"):                 # derived shaders share their parent's texture file
+        if cand[-1].endswith(suf): cand.append(cand[-1][:-len(suf)])
+    fs = [x for c in cand for x in os.listdir(texdir) if x.startswith(c + '.')]
+    if not fs:
+        nt.links.new(em.outputs[0], out.inputs[0]); continue
+    f = fs[0]
     t = nt.nodes.new('ShaderNodeTexImage'); t.image = bpy.data.images.load(os.path.join(texdir, f))
     nt.links.new(t.outputs[0], em.inputs[0])
     if f.endswith(".tga"):   # alpha-tested in game: cut out here too

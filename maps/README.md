@@ -46,9 +46,22 @@ if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footst
   (`raw` stages, `{tex}` = a generated texture) for brushes; a model shader with `raw` replaces the generated one.
 - `slabs`: smooth (flat or sloped) clip walkways from / to [x, y, top z], e.g. over a bumpy deck.
 - `_d` detail copies and `"twosided"` shaders are drawn from both sides (single-sided railings of a rip).
+- `model.uv_alpha_split`: atlas faces that sample cut-out texels get their own alpha-tested shader, so the rest
+  of an atlas stays an opaque JPG (`texture_opaque`, `texture_size` for a bigger / smaller copy).
+- `model.uv_terrain`: ground textured with a blurry overview image is repainted: a colour map over a region
+  built from the overview colours (classes -> textures_gen kinds, soft blend) plus a tiled grain stage.
+- `far`: faces outside the play area (superellipse + margin) go to `<shader>_far`: no collision, vertex lit.
+- `model.delete_faces`: open up a band of a wall (a `gallery` prop gives it floor, ceiling and posts);
+  `model.drop_beyond`: faces farther than r from the origin go.
+- `water_fill` (`tools/maps/waterfill.py`): water brushes in every open channel below a level.
+- `stairs` (`tools/maps/stairs.py`): one smooth clip ramp per staircase (see the sand village).
+- `import_textures`: images from another asset set (crop / resize / `key_sky` makes a panorama's sky
+  transparent); `sky.clouds`: a cloud stage on the sky shader; `sky.hills`: a panorama painted into the skybox.
 - props: `ledges` (platforms hugging a round wall, inner edge found by raycasts), `pool`, `furniture`
   (desk / shelf at a given floor z), `dust_ring` (translucent scrolling dust curtains along a superellipse),
-  `crates` sit on the lowest ground under each crate.
+  `crates` sit on the lowest ground under each crate; Konoha: `waterway` (stream + pond, cuts the ground and
+  adds its water), `arch_bridge` (walk-through deck on smooth clip slabs), `stones`, `pavilion`, `hall`
+  (enterable, doors per side), `stall` (awning, sign, noren, stools), `gallery`, `fence`.
 
 ## Items
 
@@ -68,7 +81,8 @@ BSP_ARGS=-debugclip tools/build-map.sh ...      # draws the autoclip brushes in 
 ```
 
 `python3 tools/maps/lightstats.py <bsp>` - lightmap brightness per shader (0..255, 255 = full texture).
-`python3 -I tools/maps/preview_fbx.py <fbx> <tex dir> <out>` - flat renders of a raw model before prep.
+`python3 -I tools/maps/preview_fbx.py <fbx|obj|blend> <tex dir> <out>` - flat renders of a raw model before prep;
+`python3 -I tools/maps/preview_prep.py <build> <out> '<cams>'` - the same for the prepared model (props, retexturing).
 `python3 -I tools/maps/bsp_render.py <bsp> <base> <out dir> '<cams json>'` - render the COMPILED map
 (texture x lightmap) without the game. `python3 tools/maps/coverage.py <bsp> 20 8 circle 0 0 <r>` - holes in a floor.
 
@@ -120,3 +134,18 @@ its deck, rails and bumps are walk-through. Dust storm: two translucent curtains
 (one stage each). 8 FFA spawns, duel / power duel, 12 items (Fuma on the Kazekage roof and the NW pillar,
 tags on the SE slab and the pool's NW corner, kunai on the pillar / boulder / ruin, pills by the ring and
 on the desk). Boundary: playerclip superellipse outside the ring up to 2700.
+
+## shinobi_konoha - Village Hidden in the Leaves
+
+Sources: `naruto-hiddenly-village` (FBX: the whole village, 56k tris on one 2828 px atlas) at scale 6000,
+origin in the canal quarter south of the pagoda; `konoha-hidden-leaf-village` (town.obj) gives the cloud
+layer, the distant hills in the skybox and the shop signs. Play area: superellipse 3150 x 2950 around
+(150, 250); the rest of the village and the Hokage rock with the five faces are backdrop (vertex lit,
+no collision). The ground's overview texture is repainted (lawns / paths / canal bed).
+Zones: the canal (water at -300, walkway at -241 on the north side, sloped south bank) with the stone road
+bridge, a red arched footbridge and seven stepping stones; the pagoda with an open, lit top storey (desk,
+shelves) reached by nine wooden ledges around it; a garden pond with an island pavilion, stepping stones
+and a stream with a small arched bridge running into a culvert; a market lane (three stalls) facing
+Ichiraku (noren, stools) and a meat stall; the south field with an enterable dojo (three doors, tatami,
+lit) and training ground 3 (three posts, the memorial stone). Board fences close the streets at the edge,
+water gates the canal. 9 FFA spawns, duel / power duel, 12 items.
