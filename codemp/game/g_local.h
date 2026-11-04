@@ -894,9 +894,9 @@ struct gclient_s {
 		int		gateFx, gateDrain; // next aura puff; next health tick (gate 1)
 		qboolean gateReadySaid;	// "Gate N ready" said
 		qboolean weightsOff;	// the leg weights dropped (this life)
-		int		palmsStart, palmsTick, palmsEnt; // Protective Stance: held since (0 = not), next chakra tick, the field (num + 1)
+		int		palmsStart, palmsTick, palmsEnt; // 64 Seals: held since (0 = not), next chakra tick, the field (num + 1)
 		int		palmsFull;		// ... its field full (guarding) since
-		int		palmsHitNext;	// (on him) a Protective Stance's field strikes him again from
+		int		palmsHitNext;	// (on him) a 64 Seals's field strikes him again from
 		int		lotusPhase, lotusTime, lotusVictim; // Reverse Lotus: 2 hang, 3 down; since; who (num + 1)
 		int		lotusBy;		// ... carried up by (num + 1): helpless
 		vec3_t	lotusSpot;		// ... where they hang

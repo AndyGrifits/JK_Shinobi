@@ -1322,7 +1322,7 @@ static atResult_t T_Build( int t ) {
 	return ( ok == 4 + SP_COUNT && !bad ) ? ATR_PASS : ATR_FAIL;
 }
 
-// Protective Stance: rooted in its pose while the field grows; full, the palm strikes B (at 200, inside it) and throws
+// 64 Seals: rooted in its pose while the field grows; full, the palm strikes B (at 200, inside it) and throws
 // him out; held on, B back in (150) is struck again; let go: over
 static void T_Palms_Setup( void ) {
 	vec3_t p;
@@ -1924,7 +1924,7 @@ static atTest_t atTests[] = {
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
-	{ "palms",        "Protective Stance: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },
+	{ "palms",        "64 Seals: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },
 	{ "lotus",        "Reverse Lotus: blink, carried up, slammed down (damage, knockdown)", T_Lotus_Setup, T_Lotus, 5000 },
 	{ "lotus_log",    "Reverse Lotus, logged step by step, B swinging a blade: A must take nothing", T_LotusLog_Setup, T_LotusLog, 6000 },
 	{ "entry",        "Dynamic Entry: flies to him, hurts and knocks him down",   T_Entry_Setup, T_Entry, 3000 },

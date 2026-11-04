@@ -93,7 +93,7 @@ static const char * const shinobiJutsuNames[SJ_COUNT] = {
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap", "Kaiten", "Protective Stance", "Reverse Lotus", "Dynamic Entry"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap", "Kaiten", "64 Seals", "Reverse Lotus", "Dynamic Entry"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
@@ -141,7 +141,7 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{  5,  5,  5 }, // Healing (to start; then held, chakra into health one for one)
 	{ 20, 20, 20 }, // Shadow Trap (to start; then each caught enemy drains it)
 	{ 10, 10, 10 }, // Kaiten (to start; then it burns chakra fast while held)
-	{ 10, 10, 10 }, // Protective Stance (to start; the field burns chakra while held)
+	{ 10, 10, 10 }, // 64 Seals (to start; the field burns chakra while held)
 	{ 70, 70, 70 }, // Reverse Lotus (a ton of chakra)
 	{ 20, 20, 20 }, // Dynamic Entry
 };
@@ -961,7 +961,7 @@ static const char * const shinobiHitTextNames[STX_COUNT] = {
 #define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
 #define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
 /*
-Protective Stance (Yin / Yang, held; the code calls it "palms"): rooted in a stance
+64 Seals (Yin / Yang, held; the code calls it "palms"): rooted in a stance
 (the shinobi_stanceAnim pose), a field grows round you from nothing to
 SHINOBI_PALMS_RADIUS over SHINOBI_PALMS_GROW_MS, burning chakra; the moment it is
 full an air palm strikes everyone in it (a clear line from you), however far in it
@@ -1345,7 +1345,7 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Healing
 	SS_YINYANG, // Shadow Trap
 	SS_YINYANG, // Kaiten
-	SS_YINYANG, // Protective Stance
+	SS_YINYANG, // 64 Seals
 	SS_YINYANG, // Reverse Lotus (for now: later only from the third Inner Gate)
 	SS_YINYANG, // Dynamic Entry
 };

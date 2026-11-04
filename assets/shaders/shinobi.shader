@@ -582,3 +582,24 @@ models/shinobi/leg_weight
 		rgbGen lightingDiffuse
 	}
 }
+
+// 64 Seals: Neji's eight-trigram seal on the ground (alpha keeps the black of the yin-yang; the
+// second pass makes the green glow in the dark). rgbGen / alphaGen vertex: the cgame reveals it
+gfx/shinobi/hakke_seal
+{
+	cull none
+	nopicmip
+	polygonOffset
+	{
+		clampmap gfx/shinobi/hakke_seal
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+	{
+		clampmap gfx/shinobi/hakke_seal
+		blendFunc GL_SRC_ALPHA GL_ONE
+		rgbGen vertex
+		alphaGen vertex
+	}
+}

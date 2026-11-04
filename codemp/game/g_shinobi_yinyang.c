@@ -681,7 +681,7 @@ static qboolean Shinobi_GuardsFrom( gentity_t *v, const vec3_t src ) {
 
 /*
 ---------------------------------------------------------------------------
-Protective Stance (held; "palms" in the code): rooted in the stance, the field
+64 Seals (held; "palms" in the code): rooted in the stance, the field
 grows; full, the air palm strikes all in it - held on, the full field guards you.
 ---------------------------------------------------------------------------
 */
@@ -1031,6 +1031,7 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_LotusSlam( ent, v );
 		Shinobi_LotusEnd( ent );
 		VectorClear( client->ps.velocity ); // (the 1300 down left on him bounced him 150 up off the floor)
+		client->ps.legsTimer = client->ps.torsoTimer = 0; // out of the spin: on his feet
 	}
 	else if ( client->ps.groundEntityNum != ENTITYNUM_NONE )
 		client->ps.velocity[2] = 0; // down first: wait for him on the floor

@@ -29,7 +29,7 @@ static void CG_ShinobiPrecacheModels( void );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell, windArc;
-	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight;
+	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight, hakkeSeal;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -209,6 +209,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.gateShell   = trap->R_RegisterShader( "gfx/shinobi/gateshell" );
+	shinobiShaders.hakkeSeal   = trap->R_RegisterShader( "gfx/shinobi/hakke_seal" );
 	shinobiShaders.legWeight   = trap->R_RegisterModel( "models/shinobi/leg_weight.md3" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.iceFloe     = trap->R_RegisterShader( "gfx/shinobi/icefloe" );
@@ -1749,43 +1750,77 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 }
 
 /*
-Protective Stance: a glowing field on the ground growing out from the caster (the eight trigrams
-round its rim), the full circle faint ahead of it; full, it stays lit while held, flashing out to
-the rim at each strike (s.apos.trTime); let go: it fades.
+64 Seals: Neji's seal on the ground, at its full size from the start - revealed from the centre
+out (a disc of it, a soft rim), the whole of it faint beyond; full, it stays lit while held,
+flashing at each strike (s.apos.trTime); let go: it fades.
 */
+static void CG_ShinobiSealVert( polyVert_t *v, const vec3_t org, float full, float c, float sn, float x, float y, float a, float bright ) {
+	v->xyz[0] = org[0] + x;
+	v->xyz[1] = org[1] + y;
+	v->xyz[2] = org[2] + 1.0f;
+	v->st[0] = 0.5f + ( x * c + y * sn ) / ( 2.0f * full ); // (the seal turns slowly: rotate the texture)
+	v->st[1] = 0.5f - ( -x * sn + y * c ) / ( 2.0f * full );
+	v->modulate[0] = v->modulate[1] = v->modulate[2] = (byte)( Com_Clamp( 0, 1, bright ) * 255 );
+	v->modulate[3] = (byte)( Com_Clamp( 0, 1, a ) * 255 );
+}
+
+// the seal shown out to 'reveal' of its radius (alpha a), a soft rim beyond, and 'ghost' of it past that
+static void CG_ShinobiSeal( const vec3_t org, float full, float reveal, float a, float ghost, float bright ) {
+	enum { N = 40 };
+	const float rot = DEG2RAD( cg.time * 0.006f ), c = cosf( rot ), sn = sinf( rot );
+	const float r0 = full * Com_Clamp( 0, 1, reveal ), rim = full * 0.12f;
+	const float r1 = r0 + rim < full ? r0 + rim : full;
+	polyVert_t  v[4];
+	int         i;
+
+	if ( !shinobiShaders.hakkeSeal || full <= 0 )
+		return;
+	for ( i = 0; i < N; i++ ) {
+		const float a0 = 2 * M_PI * i / N, a1 = 2 * M_PI * ( i + 1 ) / N;
+		const float x0 = cosf( a0 ), y0 = sinf( a0 ), x1 = cosf( a1 ), y1 = sinf( a1 );
+		if ( r0 > 1 ) { // the revealed disc: a wedge from the centre
+			CG_ShinobiSealVert( &v[0], org, full, c, sn, 0, 0, a, bright );
+			CG_ShinobiSealVert( &v[1], org, full, c, sn, x1 * r0, y1 * r0, a, bright );
+			CG_ShinobiSealVert( &v[2], org, full, c, sn, x0 * r0, y0 * r0, a, bright );
+			trap->R_AddPolysToScene( shinobiShaders.hakkeSeal, 3, v, 1 );
+		}
+		if ( r1 > r0 + 0.5f ) { // the soft rim: from a down to the ghost
+			CG_ShinobiSealVert( &v[0], org, full, c, sn, x0 * r0, y0 * r0, a, bright );
+			CG_ShinobiSealVert( &v[1], org, full, c, sn, x1 * r0, y1 * r0, a, bright );
+			CG_ShinobiSealVert( &v[2], org, full, c, sn, x1 * r1, y1 * r1, ghost, bright );
+			CG_ShinobiSealVert( &v[3], org, full, c, sn, x0 * r1, y0 * r1, ghost, bright );
+			trap->R_AddPolysToScene( shinobiShaders.hakkeSeal, 4, v, 1 );
+		}
+		if ( ghost > 0 && full > r1 + 0.5f ) { // the rest of it, faint: where it will reach
+			CG_ShinobiSealVert( &v[0], org, full, c, sn, x0 * r1, y0 * r1, ghost, bright );
+			CG_ShinobiSealVert( &v[1], org, full, c, sn, x1 * r1, y1 * r1, ghost, bright );
+			CG_ShinobiSealVert( &v[2], org, full, c, sn, x1 * full, y1 * full, ghost, bright );
+			CG_ShinobiSealVert( &v[3], org, full, c, sn, x0 * full, y0 * full, ghost, bright );
+			trap->R_AddPolysToScene( shinobiShaders.hakkeSeal, 4, v, 1 );
+		}
+	}
+}
+
 static void CG_ShinobiPalms( centity_t *cent ) {
 	const entityState_t *s = &cent->currentState;
 	const float full = s->angles2[0];
 	const float f = s->time2 > s->time ? Com_Clamp( 0, 1, (float)( cg.time - s->time ) / ( s->time2 - s->time ) ) : 1.0f;
-	vec3_t      org, p, q, c = { 0.75f, 0.9f, 1.0f };
-	int         k;
+	vec3_t      org;
 
 	VectorCopy( cent->lerpOrigin, org );
 	org[2] += 1;
-	if ( s->frame & 1 ) { // struck
+	if ( s->frame & 1 ) { // let go: the whole seal fades
 		const float a = Com_Clamp( 0, 1, 1.0f - ( cg.time - s->time2 ) / 450.0f );
-		CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.9f * a, 1.0f * a, 1.0f * a, a );
-		CG_ShinobiGroundDecal( org, full * 0.85f, 0, shinobiShaders.glow, 0.5f * a, 0.65f * a, 0.9f * a, a );
+		CG_ShinobiSeal( org, full, 1.0f, a, a, 1.0f );
 		return;
 	}
-	CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.18f, 0.22f, 0.3f, 0.6f ); // where it will reach
-	CG_ShinobiGroundDecal( org, full * f, cg.time * 0.02f, shinobiShaders.ring, 0.6f, 0.8f, 1.0f, 1.0f );
-	CG_ShinobiGroundDecal( org, full * f * 0.95f, 0, shinobiShaders.glow, 0.15f, 0.22f, 0.35f, 0.8f );
-	for ( k = 0; k < 8; k++ ) { // the trigrams: short bars round the rim
-		const float ang = DEG2RAD( k * 45.0f + 22.5f ), r = full * f;
-		vec3_t      side;
-		VectorSet( side, -sinf( ang ), cosf( ang ), 0 );
-		VectorSet( p, org[0] + cosf( ang ) * r * 0.82f, org[1] + sinf( ang ) * r * 0.82f, org[2] + 1 );
-		VectorMA( p, -r * 0.08f, side, q );
-		VectorMA( p, r * 0.08f, side, p );
-		trap->FX_AddLine( p, q, 1.6f, 1.0f, 0.0f, 0.9f, 0.0f, 0.0f, c, c, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
-	}
-	if ( ( s->frame & 2 ) && s->apos.trTime && cg.time - s->apos.trTime < 450 ) { // a strike: the flash
+	CG_ShinobiSeal( org, full, f, 0.95f, 0.12f, 0.85f + 0.15f * sinf( cg.time * 0.006f ) );
+	if ( ( s->frame & 2 ) && s->apos.trTime && cg.time - s->apos.trTime < 450 ) { // a strike: a flash over it
 		const float a = Com_Clamp( 0, 1, 1.0f - ( cg.time - s->apos.trTime ) / 450.0f );
-		CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.9f * a, 1.0f * a, 1.0f * a, a );
-		CG_ShinobiGroundDecal( org, full * 0.85f, 0, shinobiShaders.glow, 0.5f * a, 0.65f * a, 0.9f * a, a );
+		CG_ShinobiSeal( org, full * 1.02f, 1.0f, 0.6f * a, 0.6f * a, 1.0f );
+		CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.glow, 0.3f * a, 0.9f * a, 0.55f * a, a );
 	}
-	trap->R_AddLightToScene( org, 60 + 180 * f, 0.5f, 0.7f, 1.0f );
+	trap->R_AddLightToScene( org, 60 + 180 * f, 0.35f, 1.0f, 0.6f );
 }
 
 qboolean CG_ShinobiEntity( centity_t *cent ) {
