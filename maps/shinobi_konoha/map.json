@@ -129,13 +129,13 @@
  "shaders": {
   "kn_atlas": {
    "solid": true,
-   "mat": "stone",
+   "mat": "concrete",
    "twosided": true,
    "what": "the village (atlas)"
   },
   "kn_atlas_d": {
    "solid": false,
-   "mat": "stone",
+   "mat": "concrete",
    "what": "small details of the atlas: lamps, signs, rails"
   },
   "kn_leaf": {
@@ -197,7 +197,7 @@
   },
   "p_stone": {
    "solid": true,
-   "mat": "stone",
+   "mat": "concrete",
    "what": "stream / pond walls, stepping stones"
   },
   "p_mud": {
@@ -226,7 +226,7 @@
   },
   "p_roof": {
    "solid": true,
-   "mat": "stone",
+   "mat": "concrete",
    "what": "tiled roofs"
   },
   "p_plaster": {
@@ -1969,7 +1969,7 @@
  },
  "clip_shaders": {
   "clip_wood": "solidwood",
-  "clip_stairs": "stone"
+  "clip_stairs": "concrete"
  },
  "water_fill": {
   "z": -300,
