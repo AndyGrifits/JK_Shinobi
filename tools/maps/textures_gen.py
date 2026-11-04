@@ -46,7 +46,7 @@ def make(kind, path, n=None):
     rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
                                  "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83,
                                  "grass": 89, "dirt": 97, "mud": 101, "stone": 103, "redwood": 107, "cloth": 109, "tatami": 113,
-                                 "roof": 127, "plaster": 131, "noren": 137}[kind])
+                                 "roof": 127, "plaster": 131, "noren": 137, "grain": 139}[kind])
     alpha = None
     if kind == "concrete":
         n = n or 1024
@@ -199,6 +199,10 @@ def make(kind, path, n=None):
     elif kind == "plaster":                                           # white plaster wall, faint wear
         n = n or 256
         img = col(232, 226, 210) + (fbm(n, 3, rng, 4) - 0.5)[..., None] * col(20, 20, 18) + (fbm(n, 40, rng, 2) - 0.5)[..., None] * 8
+    elif kind == "grain":                                             # neutral-grey detail (x2 blend keeps brightness)
+        n = n or 256
+        g = 128 + (fbm(n, 16, rng, 3) - 0.5) * 46 + (fbm(n, 64, rng, 2) - 0.5) * 30
+        img = np.repeat(g[..., None], 3, 2)
     elif kind == "noren":                                             # indigo shop curtain
         n = n or 128
         img = col(40, 52, 110) + (fbm(n, 4, rng, 3) - 0.5)[..., None] * 18

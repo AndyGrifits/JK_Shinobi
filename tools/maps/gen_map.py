@@ -44,7 +44,7 @@ for full, info in materials.items():
     short = full.split("/")[-1]
     c = cfg["shaders"].get(short)
     if c is None and short.endswith("_far"):   # backdrop copy: no collision, vertex lit (no lightmap pages)
-        c = dict(cfg["shaders"].get(short[:-4], {}), solid=False, vertexlit=True)
+        c = {k_: v_ for k_, v_ in dict(cfg["shaders"].get(short[:-4], {}), solid=False, vertexlit=True).items() if k_ != "raw"}
     c = c or {}
     tex = os.path.splitext(info["file"])[0]
     lines = [full, "{", f"\tqer_editorimage {info['file']}", f"\t// {c.get('what', '')}"]
@@ -98,7 +98,10 @@ if sky:
         "\tsurfaceparm sky", "\tsurfaceparm noimpact", "\tsurfaceparm nomarks", "\tsurfaceparm nolightmap",
         *([f"\tq3map_sun {' '.join(map(str, sun))}"] if sun else []),
         *([f"\tq3map_skyLight {' '.join(map(str, sl))}"] if sl else []),
-        f"\tskyParms {sky['env']} 512 -", "}\n"]))
+        f"\tskyParms {sky['env']} 512 -",
+        *([] if not sky.get("clouds") else ["\t{", f"\t\tmap textures/{sd}/{sky['clouds']['texture']}",
+          "\t\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA", f"\t\ttcMod scale {sky['clouds'].get('scale', 3)} {sky['clouds'].get('scale', 3)}",
+          f"\t\ttcMod scroll {' '.join(map(str, sky['clouds'].get('scroll', [0.004, 0.001])))}", "\t}"]), "}\n"]))
 # shaders that are not on the model (map.json "extra_shaders": {short: {"gen": textures_gen kind, "raw": [...]}}),
 # e.g. the water of a pool brush; "{tex}" = the generated texture
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -217,11 +220,17 @@ for g in json.load(open(os.path.join(build, "propclip.json"))):
 # floor over a bumpy deck whose own collision was dropped (split_details "regions")
 stairs_json = os.path.join(build, "stairs.json")   # tools/maps/stairs.py: one smooth ramp per staircase
 stair_ramps = json.load(open(stairs_json)) if cfg.get("stairs") and os.path.exists(stairs_json) else []
+if os.path.exists(os.path.join(build, "slabs.json")):    # bridge decks etc. from props.py
+    stair_ramps += json.load(open(os.path.join(build, "slabs.json")))
 for sl in [s_ for s_ in cfg.get("slabs", []) if "from" in s_] + stair_ramps:
     props.append(slab(sl["from"], sl["to"], sl.get("width", 96), sl.get("thick", 24), sl.get("shader", "clip_floor")))
 # water volumes (map.json "water": [{"box": [x0, y0, z0, x1, y1, z1], "shader": short}])
-for wv in [w_ for w_ in cfg.get("water", []) if "box" in w_]:
-    props.append(box(*wv["box"], wv.get("shader", "water")))
+wfiles = [json.load(open(os.path.join(build, f))) for f in ("water.json", "waterfill.json") if os.path.exists(os.path.join(build, f))]
+for wv in cfg.get("water", []) + [w_ for wl in wfiles for w_ in wl]:
+    if "box" in wv:
+        props.append(box(*wv["box"], wv.get("shader", "water")))
+    elif "poly" in wv:                       # convex ccw polygon (streams, ponds)
+        props.append(prism([tuple(q) for q in wv["poly"]], wv["z0"], wv["z1"], wv.get("shader", "water")))
 
 ws = {"classname": "worldspawn", "message": cfg["longname"], **cfg.get("worldspawn", {})}
 out = [ent(ws, hull + props)]

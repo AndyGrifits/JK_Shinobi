@@ -12,7 +12,7 @@ Reads the map's map.json ("model" block), and:
   * writes <out>/textures/<shader_dir>/tNN.jpg (opaque) / .tga (with real alpha),
   * writes <out>/materials.json (shader -> texture file, has alpha, triangle count).
 """
-import json, os, sys
+import json, math, os, sys
 
 import bpy
 import mathutils
@@ -65,6 +65,18 @@ m = mathutils.Matrix.Scale(s, 4) @ mathutils.Matrix.Translation((-ox, -oy, -oz))
 for o in meshes:
     o.data.transform(m)
     o.data.update()
+
+# scenery too far to matter (map.json "model": {"drop_beyond": r}): faces farther than r from the origin go
+# (an island's sea out to the horizon would only blow up the hull and coarsen the light grid)
+if mdl.get("drop_beyond"):
+    import bmesh
+    R_ = mdl["drop_beyond"]; gone = 0
+    for o in meshes:
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        kill = [f for f in bm.faces if f.calc_center_median().xy.length > R_]
+        bmesh.ops.delete(bm, geom=kill, context='FACES'); gone += len(kill)
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+    print(f"DROP {gone} faces beyond {R_}")
 
 # one shader per texture image
 def tex_of(mat):
@@ -127,49 +139,129 @@ for us in mdl.get("uv_alpha_split", []):
     print(f"UV_ALPHA {moved} faces -> {us['alpha_shader']}")
 
 # terrain textured with a blurry overview image (map.json "model": {"uv_terrain": [{"shader": s, "uv_box":
-# [u0, v0, u1, v1], "region": [x0, y0, x1, y1], "step": u, "classes": {short: [r, g, b]}, "tile": {short: u}}]}):
-# faces whose UVs lie in uv_box are sliced into a step grid inside region, each piece gets the class whose
-# colour is nearest to the overview texel under it, and world-planar UVs for that class's tiled texture
+# [u0, v0, u1, v1], "region": [x0, y0, x1, y1], "target": short, "size": px, "classes": {kind: [[r, g, b], ...]},
+# "tile": {kind: u}}]}): faces whose UVs lie in uv_box move to the "target" shader with world-planar UVs over
+# region, and a colour map for it is painted: each texel takes the overview colour under it (bilinear, via
+# the world -> overview UV mapping fitted on those faces), turns it into soft weights of the classes and
+# mixes their tiled textures (textures_gen kinds). gen_map lays a tiled grain over it ("raw" stages).
+terrain_maps = {}
 for ut in mdl.get("uv_terrain", []):
     import bmesh, numpy as np
-    full = f"textures/{shader_dir}/{ut['shader']}"
-    IMG = np.asarray(Image.open(tex_path_of[full]).convert("RGB")).astype(float); Hh, Ww = IMG.shape[:2]
-    u0, v0, u1, v1 = ut["uv_box"]; R = ut["region"]; step = ut.get("step", 128)
-    names_ = list(ut["classes"]); ref = []; ref_cls = []     # a class may list several reference colours
-    for k_, n_ in enumerate(names_):
-        cl = ut["classes"][n_]; cl = cl if isinstance(cl[0], list) else [cl]
-        ref += cl; ref_cls += [k_] * len(cl)
-    cols = np.array(ref, float)
+    full = f"textures/{shader_dir}/{ut['shader']}"; tgt = f"textures/{shader_dir}/{ut['target']}"
+    SRC = np.asarray(Image.open(tex_path_of[full]).convert("RGB")).astype(float); Hh, Ww = SRC.shape[:2]
+    u0, v0, u1, v1 = ut["uv_box"]; R = ut["region"]
+    P = []; Q = []; nmoved = 0
     for o in meshes:
         if not any(sl.material and sl.material.name == full for sl in o.material_slots): continue
-        si = _slot(o, full); ci = [_slot(o, f"textures/{shader_dir}/{n_}") for n_ in names_]
+        si = _slot(o, full); ti = _slot(o, tgt)
         bm = bmesh.new(); bm.from_mesh(o.data); uvl = bm.loops.layers.uv.active
-        def terr():
+        for f in bm.faces:
+            if f.material_index != si: continue
+            c = sum((l[uvl].uv for l in f.loops), mathutils.Vector((0, 0))) / len(f.loops)
+            if not (u0 <= c.x <= u1 and v0 <= c.y <= v1): continue
+            xs_ = [v.co.x for v in f.verts]; ys_ = [v.co.y for v in f.verts]
+            if min(xs_) < R[0] or max(xs_) > R[2] or min(ys_) < R[1] or max(ys_) > R[3]: continue   # backdrop keeps it
+            for l in f.loops:
+                P.append((l.vert.co.x, l.vert.co.y, 1.0)); Q.append((l[uvl].uv.x, l[uvl].uv.y))
+                l[uvl].uv = ((l.vert.co.x - R[0]) / (R[2] - R[0]), (l.vert.co.y - R[1]) / (R[3] - R[1]))
+            f.material_index = ti; nmoved += 1
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+    M, *_ = np.linalg.lstsq(np.array(P), np.array(Q), rcond=None)     # world (x, y, 1) -> overview uv
+    n = ut.get("size", 2048)
+    gx = R[0] + (np.arange(n) + 0.5) / n * (R[2] - R[0]); gy = R[3] - (np.arange(n) + 0.5) / n * (R[3] - R[1])
+    X, Y = np.meshgrid(gx, gy)
+    U = X * M[0, 0] + Y * M[1, 0] + M[2, 0]; V = X * M[0, 1] + Y * M[1, 1] + M[2, 1]
+    fx = (U % 1.0) * Ww - 0.5; fy = (1 - V % 1.0) * Hh - 0.5                  # bilinear overview sample
+    x0_ = np.clip(np.floor(fx).astype(int), 0, Ww - 2); y0_ = np.clip(np.floor(fy).astype(int), 0, Hh - 2)
+    ax_ = np.clip(fx - x0_, 0, 1)[..., None]; ay_ = np.clip(fy - y0_, 0, 1)[..., None]
+    col_ = (SRC[y0_, x0_] * (1 - ax_) + SRC[y0_, x0_ + 1] * ax_) * (1 - ay_) + (SRC[y0_ + 1, x0_] * (1 - ax_) + SRC[y0_ + 1, x0_ + 1] * ax_) * ay_
+    from PIL import ImageFilter
+    col_ = np.asarray(Image.fromarray(col_.clip(0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(n / 400))).astype(float)
+    kinds = list(ut["classes"]); dists = []
+    for k_ in kinds:
+        refs = np.array(ut["classes"][k_], float)
+        dists.append(np.min(((col_[None] - refs[:, None, None]) ** 2).sum(-1), axis=0))
+    D = np.stack(dists); W_ = np.exp(-(D - D.min(0)) / ut.get("softness", 900.0)); W_ /= W_.sum(0)
+    out_img = np.zeros((n, n, 3))
+    for k_, kind in enumerate(kinds):           # each class: its tiled texture resampled to world positions
+        os.makedirs(os.path.join(out, "gen"), exist_ok=True)
+        tp = textures_gen.make(kind, os.path.join(out, "gen", f"_tile_{kind}.jpg"))
+        T_ = np.asarray(Image.open(tp).convert("RGB")).astype(float); th, tw = T_.shape[:2]
+        tl = ut.get("tile", {}).get(kind, 384)
+        tx = ((X / tl) % 1.0 * tw).astype(int) % tw; ty = ((-Y / tl) % 1.0 * th).astype(int) % th
+        out_img += T_[ty, tx] * W_[k_][..., None]
+    cp = os.path.join(out, "gen", ut["target"] + ".jpg"); os.makedirs(os.path.dirname(cp), exist_ok=True)
+    Image.fromarray(out_img.clip(0, 255).astype(np.uint8)).save(cp, quality=92)
+    terrain_maps[tgt] = cp
+    print(f"UV_TERRAIN {nmoved} faces -> {ut['target']} ({n} px colour map over {R})")
+
+# open up a storey (map.json "model": {"delete_faces": [{"center": [x, y], "r0": u, "r1": u, "z0": u, "z1": u,
+# "max_nz": 0.5, "shaders": [...]}]}): wall faces in that ring and height band go (a "gallery" prop adds
+# floor, ceiling and posts)
+for dl in mdl.get("delete_faces", []):
+    import bmesh
+    shs = {f"textures/{shader_dir}/{x}" for x in dl["shaders"]}; cx_, cy_ = dl["center"]; gone = 0
+    for o in meshes:
+        names_ = [sl.material.name if sl.material else "" for sl in o.material_slots]
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        kill = []
+        for f in bm.faces:
+            if names_[f.material_index] not in shs: continue
+            c = f.calc_center_median(); r = math.hypot(c.x - cx_, c.y - cy_)
+            if dl["r0"] <= r <= dl["r1"] and dl["z0"] <= c.z <= dl["z1"] and abs(f.normal.z) <= dl.get("max_nz", 0.5):
+                kill.append(f)
+        bmesh.ops.delete(bm, geom=kill, context='FACES'); gone += len(kill)
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+    print(f"DELETE_FACES {gone} at {dl['center']} z {dl['z0']}..{dl['z1']}")
+
+# holes in the ground for sunken things (map.json "cuts": [{"poly": [[x, y], ...] convex ccw, "shaders": [...]}];
+# a "waterway" prop adds its own outline): faces are split along the outline and the inside removed
+def _cut_polys():
+    polys = [(c["poly"], c["shaders"]) for c in cfg.get("cuts", [])]
+    for pr in cfg.get("props", []):
+        if pr.get("type") != "waterway": continue
+        e = pr.get("width", 260) / 2 + 32 + 20; shs = pr.get("cut_shaders", cfg.get("ground_shaders", []))
+        pts = pr["path"]
+        for (ax, ay), (bx, by) in zip(pts[:-1], pts[1:]):
+            L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
+            ax, ay, bx, by = ax - ux * 30, ay - uy * 30, bx + ux * 40, by + uy * 40
+            polys.append(([(ax + uy * e, ay - ux * e), (bx + uy * e, by - ux * e), (bx - uy * e, by + ux * e), (ax - uy * e, ay + ux * e)], shs))
+        if pr.get("pond"):
+            R = pr["pond"]["r"] + 32 + 20; cx_, cy_ = pts[0]
+            polys.append(([(cx_ + R / math.cos(math.pi / 16) * math.cos(2 * math.pi * k / 16), cy_ + R / math.cos(math.pi / 16) * math.sin(2 * math.pi * k / 16)) for k in range(16)], shs))
+    return polys
+for poly, shs_ in _cut_polys():
+    import bmesh
+    shs = {f"textures/{shader_dir}/{x}" for x in shs_}
+    xs_ = [q[0] for q in poly]; ys_ = [q[1] for q in poly]
+    def inside(x, y):
+        n_ = len(poly)
+        for k in range(n_):
+            (ax, ay), (bx, by) = poly[k], poly[(k + 1) % n_]
+            if (bx - ax) * (y - ay) - (by - ay) * (x - ax) < 0: return False
+        return True
+    cut = 0
+    for o in meshes:
+        names_ = [sl.material.name if sl.material else "" for sl in o.material_slots]
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        def near():
             out_ = []
             for f in bm.faces:
-                if f.material_index != si: continue
-                xs_ = [v.co.x for v in f.verts]; ys_ = [v.co.y for v in f.verts]
-                if max(xs_) < R[0] or min(xs_) > R[2] or max(ys_) < R[1] or min(ys_) > R[3]: continue
-                c = sum((l[uvl].uv for l in f.loops), mathutils.Vector((0, 0))) / len(f.loops)
-                if u0 <= c.x <= u1 and v0 <= c.y <= v1:
+                if names_[f.material_index] not in shs: continue
+                fx = [v.co.x for v in f.verts]; fy = [v.co.y for v in f.verts]
+                if max(fx) >= min(xs_) and min(fx) <= max(xs_) and max(fy) >= min(ys_) and min(fy) <= max(ys_):
                     out_.append(f)
             return out_
-        for axis in (0, 1):
-            for k_ in range(int((R[2 + axis] - R[axis]) / step) + 1):
-                cc = R[axis] + k_ * step; fs = terr()
-                geom = fs + list({e for f in fs for e in f.edges}) + list({v for f in fs for v in f.verts})
-                bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(cc, 0, 0) if axis == 0 else (0, cc, 0),
-                                       plane_no=(1, 0, 0) if axis == 0 else (0, 1, 0))
-        fs = terr(); cnt = [0] * len(names_)
-        for f in fs:
-            c = sum((l[uvl].uv for l in f.loops), mathutils.Vector((0, 0))) / len(f.loops)
-            px = IMG[min(Hh - 1, int((1 - c.y % 1.0) * Hh)), min(Ww - 1, int((c.x % 1.0) * Ww))]
-            k_ = ref_cls[int(np.argmin(((cols - px) ** 2).sum(1)))]; cnt[k_] += 1
-            f.material_index = ci[k_]; tl = ut.get("tile", {}).get(names_[k_], 256)
-            for l in f.loops:
-                l[uvl].uv = (l.vert.co.x / tl, l.vert.co.y / tl)
+        for k in range(len(poly)):
+            (ax, ay), (bx, by) = poly[k], poly[(k + 1) % len(poly)]
+            fs = near()
+            if not fs: break
+            geom = fs + list({e for f in fs for e in f.edges}) + list({v for f in fs for v in f.verts})
+            bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(ax, ay, 0), plane_no=(by - ay, -(bx - ax), 0))
+        kill = [f for f in near() if inside(f.calc_center_median().x, f.calc_center_median().y)]
+        bmesh.ops.delete(bm, geom=kill, context='FACES'); cut += len(kill)
         bm.to_mesh(o.data); bm.free(); o.data.update()
-        print(f"UV_TERRAIN {len(fs)} pieces: " + ", ".join(f"{n_} {c_}" for n_, c_ in zip(names_, cnt)))
+    print(f"CUT {cut} faces inside a {len(poly)}-gon at ({sum(xs_) / len(xs_):.0f}, {sum(ys_) / len(ys_):.0f})")
 
 # props that keep their own size when the hall is scaled (map.json "rescale"):
 # scale the objects of those shaders by "factor" about an anchor on their joint bbox
@@ -307,13 +399,15 @@ if cfg.get("props"):
             print(f"RING {len(ring)} elements, {sum(1 for e in ring if e.get('_pushed'))} pushed out of the way")
             json.dump(ring, open(os.path.join(out, "ring.json"), "w"), indent=0)
         for pr in cfg["props"]:
-            if "type" not in pr or pr.get("ground") is False or pr["type"] in ("ground_plane", "ledges", "pool", "dust_ring"):
+            if "type" not in pr or pr.get("ground") is False or "at" not in pr or pr["type"] in ("ground_plane", "ledges", "pool", "dust_ring", "waterway", "horizon_ring", "stones"):
                 continue
             rad = pr.get("r") or (max(pr["size"][:2]) / 2 if "size" in pr else pr.get("len", 100) / 2)
             zs = [ground_z(pr["at"][0] + dx * rad, pr["at"][1] + dy * rad)
                   for dx in (-0.7, 0, 0.7) for dy in (-0.7, 0, 0.7)]
             pr["_zmin"], pr["_zmax"] = min(zs), max(zs) if pr["type"] not in ("adobe_tower", "adobe_block", "adobe_wall") else sorted(zs)[4]
     gen_tex.update(props_mod.build(cfg["props"], mat_for))
+    json.dump(props_mod.SLABS, open(os.path.join(out, "slabs.json"), "w"), indent=0)     # walkway clips (bridges)
+    json.dump(props_mod.WATER, open(os.path.join(out, "water.json"), "w"), indent=0)     # water volumes (streams)
     for short, kind in cfg.get("prop_textures", {}).items():   # e.g. {"p_rock": "sandrock"}
         if short in gen_tex:
             gen_tex[short] = kind
@@ -448,6 +542,8 @@ def _parent(n):                              # "<shader>_d", "<shader>_far", "<s
     for suf in ("_far", "_d"):
         if n.endswith(suf): n = n[:-len(suf)]
     return n
+for full_, p_ in terrain_maps.items():
+    sources[full_] = (p_, "uv_terrain colour map")
 for short, kind in cfg.get("gen_textures", {}).items():     # generated textures for model shaders (terrain)
     ext = ".png" if kind in textures_gen.ALPHA else ".jpg"
     sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ext)), f"gen:{kind}")
@@ -458,6 +554,12 @@ for short, spec in cfg.get("import_textures", {}).items():  # other images: {"pa
         im_ = im_.crop(tuple(spec["crop"]))
     if "resize" in spec:
         im_ = im_.resize(tuple(spec["resize"]), Image.LANCZOS)
+    if spec.get("key_sky"):                     # sky above a panorama -> transparent (per column, from the top)
+        import numpy as np
+        a_ = np.asarray(im_.convert("RGBA")).copy(); r_, g_, b_ = (a_[..., k].astype(int) for k in range(3))
+        sky = ((b_ - r_) > spec["key_sky"][0]) & (b_ > spec["key_sky"][1])
+        keep = np.cumsum(~sky, axis=0) > 0
+        a_[..., 3] = np.where(keep, 255, 0); im_ = Image.fromarray(a_, "RGBA")
     p_ = os.path.join(gen_dir, short + ".png"); im_.save(p_)
     sources[f"textures/{shader_dir}/{short}"] = (p_, spec["path"])
 for short, parent in cfg.get("texture_copy", {}).items():   # (also done below: before the suffix copies here)

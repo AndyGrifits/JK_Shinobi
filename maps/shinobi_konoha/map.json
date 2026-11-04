@@ -1,0 +1,2097 @@
+{
+ "name": "shinobi_konoha",
+ "longname": "Village Hidden in the Leaves",
+ "shader_dir": "shinobi_konoha",
+ "source": {
+  "fbx": "C:/Games/Blender My Models/naruto-hiddenly-village/source/untitled.fbx",
+  "textures": "C:/Games/Blender My Models/naruto-hiddenly-village/textures",
+  "extra": "C:/Games/Blender My Models/konoha-hidden-leaf-village (town.obj textures: sky clouds, distant hills, shop signs)"
+ },
+ "model": {
+  "_comment": "the FBX is the whole village on one 2828 px atlas, ~6.4 units across; 1 unit = 6000 u puts a house at 2-3 storeys. Origin = the district's centre (canal quarter south of the pagoda).",
+  "scale": 6000,
+  "origin": [
+   1.3,
+   2.75,
+   -0.1212
+  ],
+  "shader_names": "basename",
+  "shader_rename": {
+   "picsart_26_05_30_22_38_46_674": "kn_atlas"
+  },
+  "uv_alpha_split": [
+   {
+    "shader": "kn_atlas",
+    "alpha_shader": "kn_leaf"
+   }
+  ],
+  "uv_terrain": [
+   {
+    "shader": "kn_atlas",
+    "uv_box": [
+     0.44,
+     0.8,
+     0.55,
+     0.91
+    ],
+    "region": [
+     -4300,
+     -4100,
+     4600,
+     4800
+    ],
+    "target": "kn_ground",
+    "size": 2048,
+    "classes": {
+     "grass": [
+      [
+       85,
+       90,
+       47
+      ],
+      [
+       47,
+       48,
+       25
+      ],
+      [
+       120,
+       117,
+       74
+      ]
+     ],
+     "dirt": [
+      [
+       167,
+       145,
+       103
+      ],
+      [
+       137,
+       125,
+       78
+      ]
+     ],
+     "mud": [
+      [
+       75,
+       125,
+       138
+      ]
+     ]
+    },
+    "tile": {
+     "grass": 384,
+     "dirt": 320,
+     "mud": 256
+    },
+    "softness": 700
+   }
+  ],
+  "split_details": {
+   "shaders": [
+    "kn_atlas"
+   ],
+   "max_dim": 24,
+   "thin": 6,
+   "ribbon": 64
+  },
+  "delete_faces": [
+   {
+    "_": "pagoda: the white top storey's wall goes, a gallery prop gives it floor, ceiling and posts",
+    "center": [
+     450,
+     402
+    ],
+    "r0": 250,
+    "r1": 390,
+    "z0": 1125,
+    "z1": 1470,
+    "max_nz": 0.6,
+    "shaders": [
+     "kn_atlas"
+    ]
+   }
+  ],
+  "drop_beyond": 22000
+ },
+ "far": {
+  "superellipse": [
+   150,
+   250,
+   3150,
+   2950,
+   3
+  ],
+  "margin": 700,
+  "exclude": []
+ },
+ "shaders": {
+  "kn_atlas": {
+   "solid": true,
+   "mat": "stone",
+   "twosided": true,
+   "what": "the village (atlas)"
+  },
+  "kn_atlas_d": {
+   "solid": false,
+   "mat": "stone",
+   "what": "small details of the atlas: lamps, signs, rails"
+  },
+  "kn_leaf": {
+   "solid": false,
+   "mat": "greenleaves",
+   "what": "cut-out foliage cards of the atlas"
+  },
+  "kn_ground": {
+   "what": "lawns, paths and canal bed: a colour map painted from the village's overview texture, with a tiled grain",
+   "raw": [
+    "q3map_clipModel",
+    "q3map_material shortgrass",
+    "q3map_nonplanar",
+    "q3map_shadeAngle 70",
+    "q3map_lightmapSampleSize 32",
+    "{",
+    "\tmap $lightmap",
+    "\trgbGen identity",
+    "}",
+    "{",
+    "\tmap {tex}",
+    "\tblendFunc GL_DST_COLOR GL_ZERO",
+    "\trgbGen identity",
+    "}",
+    "{",
+    "\tmap textures/shinobi_konoha/kn_grain",
+    "\tblendFunc GL_DST_COLOR GL_SRC_COLOR",
+    "\ttcMod scale 42 42",
+    "}"
+   ]
+  },
+  "kn_grain": {
+   "solid": false,
+   "what": "grain detail for kn_ground (not on the model)"
+  },
+  "kn_sign_ramen": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_yakitori": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_sake": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_izakaya": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_sign_niku": {
+   "solid": false,
+   "what": "shop sign (town.obj texset01)"
+  },
+  "kn_clouds": {
+   "solid": false,
+   "what": "cloud layer of the sky shader (town.obj sora00)"
+  },
+  "p_stone": {
+   "solid": true,
+   "mat": "stone",
+   "what": "stream / pond walls, stepping stones"
+  },
+  "p_mud": {
+   "solid": true,
+   "mat": "mud",
+   "what": "stream bed"
+  },
+  "p_dark": {
+   "solid": false,
+   "what": "culvert mouth, pigeon-holes"
+  },
+  "p_redwood": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "red bridge rails, posts"
+  },
+  "p_wood": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "floors, counters, furniture"
+  },
+  "p_deck": {
+   "solid": false,
+   "mat": "solidwood",
+   "what": "bridge deck (walk-through: smooth clip slabs carry you)"
+  },
+  "p_roof": {
+   "solid": true,
+   "mat": "stone",
+   "what": "tiled roofs"
+  },
+  "p_plaster": {
+   "solid": true,
+   "mat": "plaster",
+   "what": "dojo walls"
+  },
+  "p_tatami": {
+   "solid": true,
+   "mat": "fabric",
+   "what": "dojo floor"
+  },
+  "p_cloth": {
+   "solid": true,
+   "mat": "canvas",
+   "what": "stall awnings"
+  },
+  "p_noren": {
+   "solid": false,
+   "twosided": true,
+   "what": "shop curtains"
+  },
+  "p_paper": {
+   "solid": false,
+   "what": "scrolls"
+  },
+  "p_crate": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "crates"
+  },
+  "p_rock": {
+   "solid": true,
+   "mat": "rock",
+   "what": "memorial stone, rocks"
+  },
+  "p_post": {
+   "solid": true,
+   "mat": "solidwood",
+   "what": "training posts"
+  }
+ },
+ "gen_textures": {
+  "kn_grain": "grain"
+ },
+ "texture_copy": {
+  "kn_leaf": "kn_atlas"
+ },
+ "texture_opaque": [
+  "kn_atlas"
+ ],
+ "texture_size": {
+  "kn_atlas": 4096,
+  "kn_leaf": 2048
+ },
+ "ground_shaders": [
+  "kn_ground",
+  "kn_atlas"
+ ],
+ "ignore_shaders": [
+  "kn_leaf",
+  "kn_atlas_d"
+ ],
+ "ground_default_z": 0,
+ "prop_clip": {
+  "cell": 16,
+  "groups": []
+ },
+ "hull_margin": 512,
+ "worldspawn": {
+  "_lightmapscale": "1",
+  "_minlight": "36",
+  "_blocksize": "0",
+  "distanceCull": "34000"
+ },
+ "arena_type": "ffa duel powerduel team holocron jedi",
+ "sky": {
+  "env": "env/shinobi_konoha",
+  "sun": [
+   1.0,
+   0.96,
+   0.88,
+   200,
+   220,
+   55
+  ],
+  "skylight": [
+   500,
+   4
+  ],
+  "zenith": [
+   70,
+   130,
+   205
+  ],
+  "horizon": [
+   200,
+   225,
+   240
+  ],
+  "ground": [
+   120,
+   140,
+   110
+  ],
+  "clouds": {
+   "texture": "kn_clouds",
+   "scale": 2,
+   "scroll": [
+    0.003,
+    0.001
+   ]
+  },
+  "hills": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/enkei.png",
+   "crop": [
+    0,
+    0,
+    256,
+    128
+   ],
+   "key_sky": [
+    50,
+    170
+   ],
+   "top_deg": 12,
+   "bottom_deg": -1.5
+  }
+ },
+ "boundary": {
+  "center": [
+   150,
+   250
+  ],
+  "superellipse": [
+   3150,
+   2950,
+   3
+  ],
+  "segments": 96,
+  "thickness": 40,
+  "z0": -700,
+  "z1": 3000
+ },
+ "spawns": {
+  "_comment": "[x, y, z, yaw]: flat open ground >= 140 u around, spread by farthest-point sampling, away from props",
+  "info_player_deathmatch": [
+   [
+    -2000,
+    1200,
+    41,
+    -24
+   ],
+   [
+    2700,
+    -1100,
+    40,
+    152
+   ],
+   [
+    1500,
+    2600,
+    210,
+    -120
+   ],
+   [
+    -900,
+    -2400,
+    43,
+    68
+   ],
+   [
+    600,
+    -300,
+    39,
+    129
+   ],
+   [
+    -2600,
+    -1000,
+    43,
+    24
+   ],
+   [
+    3000,
+    1000,
+    211,
+    -165
+   ],
+   [
+    -500,
+    2700,
+    39,
+    -75
+   ],
+   [
+    1400,
+    -2300,
+    43,
+    116
+   ]
+  ],
+  "info_player_duel": [
+   [
+    600,
+    -300,
+    39,
+    129
+   ],
+   [
+    1500,
+    2600,
+    210,
+    -120
+   ]
+  ],
+  "info_player_duel1": [
+   [
+    -2000,
+    1200,
+    41,
+    -24
+   ],
+   [
+    -2600,
+    -1000,
+    43,
+    24
+   ]
+  ],
+  "info_player_duel2": [
+   [
+    2700,
+    -1100,
+    40,
+    152
+   ],
+   [
+    1400,
+    -2300,
+    43,
+    116
+   ]
+  ],
+  "info_player_start": [
+   [
+    600,
+    -300,
+    39,
+    129
+   ]
+  ]
+ },
+ "items": [
+  {
+   "_": "stock classnames -> ninja items (bg_shinobi.c): weapon_thermal = Explosive Kunai, weapon_trip_mine = Explosive Tag, weapon_rocket_launcher = Fuma Shuriken, item_medpac = Healing Pill, ammo_force = Chakra Pill"
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    450,
+    402,
+    1180
+   ],
+   "_": "Fuma Shuriken in the pagoda's top storey"
+  },
+  {
+   "class": "weapon_rocket_launcher",
+   "at": [
+    900,
+    -2200,
+    560
+   ],
+   "_": "Fuma Shuriken on the dojo roof"
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    1810,
+    -1556,
+    300
+   ],
+   "_": "Explosive Tag on top of the red bridge"
+  },
+  {
+   "class": "weapon_trip_mine",
+   "at": [
+    900,
+    -2200,
+    80
+   ],
+   "_": "Explosive Tag inside the dojo"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    1750,
+    350,
+    100
+   ],
+   "_": "Explosive Kunai in the pond pavilion"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    -300,
+    -300,
+    -180
+   ],
+   "_": "Explosive Kunai on the canal walkway"
+  },
+  {
+   "class": "weapon_thermal",
+   "at": [
+    -500,
+    2700,
+    80
+   ],
+   "_": "Explosive Kunai on the north plaza"
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    1050,
+    890,
+    90
+   ],
+   "_": "Healing Pill on Ichiraku's counter"
+  },
+  {
+   "class": "item_medpac",
+   "at": [
+    -150,
+    -2100,
+    60
+   ],
+   "_": "Healing Pill at the training posts"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    -2000,
+    1200,
+    80
+   ],
+   "_": "Chakra Pill on the NW lawn"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    3000,
+    1000,
+    260
+   ],
+   "_": "Chakra Pill on the east plaza"
+  },
+  {
+   "class": "ammo_force",
+   "at": [
+    -530,
+    -833,
+    -240
+   ],
+   "_": "Chakra Pill on a stepping stone"
+  }
+ ],
+ "props": [
+  {
+   "_": "garden pond with an island pavilion, a stream to a culvert near the canal"
+  },
+  {
+   "type": "waterway",
+   "path": [
+    [
+     1750,
+     350
+    ],
+    [
+     1500,
+     -150
+    ],
+    [
+     1350,
+     -600
+    ]
+   ],
+   "width": 220,
+   "floor": -190,
+   "water": -80,
+   "top": 6,
+   "pond": {
+    "r": 360,
+    "island": 150,
+    "stones": 4,
+    "stones_dir": 235
+   },
+   "cut_shaders": [
+    "kn_ground"
+   ]
+  },
+  {
+   "type": "pavilion",
+   "at": [
+    1750,
+    350
+   ],
+   "z": 14,
+   "r": 110,
+   "h": 190
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    1235.2,
+    -311.8,
+    6
+   ],
+   "b": [
+    1614.8,
+    -438.2,
+    6
+   ],
+   "width": 120,
+   "rise": 50,
+   "segments": 8
+  },
+  {
+   "_": "canal: red arched footbridge (east) and stepping stones (west)"
+  },
+  {
+   "type": "arch_bridge",
+   "a": [
+    2100,
+    -1100,
+    0
+   ],
+   "b": [
+    1521,
+    -2012,
+    2
+   ],
+   "width": 150,
+   "rise": 160,
+   "segments": 14
+  },
+  {
+   "type": "stones",
+   "points": [
+    [
+     -338,
+     -529
+    ],
+    [
+     -402,
+     -630
+    ],
+    [
+     -466,
+     -732
+    ],
+    [
+     -530,
+     -833
+    ],
+    [
+     -595,
+     -934
+    ],
+    [
+     -659,
+     -1035
+    ],
+    [
+     -723,
+     -1137
+    ]
+   ],
+   "top": -276,
+   "bottom": -470,
+   "r": 46
+  },
+  {
+   "_": "pagoda: open top storey (floor 1100) and ledges up to it"
+  },
+  {
+   "type": "gallery",
+   "at": [
+    450,
+    402
+   ],
+   "z0": 1100,
+   "z1": 1470,
+   "r": 322,
+   "posts": 8,
+   "gaps": [
+    160,
+    340
+   ],
+   "ground": false
+  },
+  {
+   "type": "ledges",
+   "at": [
+    450,
+    402
+   ],
+   "depth": 180,
+   "thick": 24,
+   "levels": [
+    [
+     120,
+     200,
+     232
+    ],
+    [
+     240,
+     238,
+     270
+    ],
+    [
+     360,
+     276,
+     308
+    ],
+    [
+     480,
+     314,
+     346
+    ],
+    [
+     600,
+     352,
+     384
+    ],
+    [
+     725,
+     30,
+     62
+    ],
+    [
+     850,
+     68,
+     100
+    ],
+    [
+     975,
+     106,
+     138
+    ],
+    [
+     1100,
+     144,
+     176
+    ]
+   ],
+   "shader": "p_wood"
+  },
+  {
+   "type": "furniture",
+   "kind": "desk",
+   "at": [
+    450,
+    560
+   ],
+   "z": 1100,
+   "size": [
+    160,
+    70,
+    44
+   ],
+   "ground": false
+  },
+  {
+   "type": "furniture",
+   "kind": "shelf",
+   "at": [
+    300,
+    260
+   ],
+   "z": 1100,
+   "size": [
+    150,
+    40,
+    140
+   ],
+   "yaw": -45,
+   "ground": false
+  },
+  {
+   "type": "furniture",
+   "kind": "shelf",
+   "at": [
+    600,
+    260
+   ],
+   "z": 1100,
+   "size": [
+    150,
+    40,
+    140
+   ],
+   "yaw": 45,
+   "ground": false
+  },
+  {
+   "_": "market lane north of the pagoda, Ichiraku ramen across it"
+  },
+  {
+   "type": "stall",
+   "at": [
+    700,
+    1180
+   ],
+   "z": 0,
+   "size": [
+    250,
+    150
+   ],
+   "yaw": 0,
+   "sign": "kn_sign_yakitori",
+   "ground": false
+  },
+  {
+   "type": "stall",
+   "at": [
+    980,
+    1180
+   ],
+   "z": 0,
+   "size": [
+    250,
+    150
+   ],
+   "yaw": 0,
+   "sign": "kn_sign_sake",
+   "ground": false
+  },
+  {
+   "type": "stall",
+   "at": [
+    1260,
+    1180
+   ],
+   "z": 1,
+   "size": [
+    250,
+    150
+   ],
+   "yaw": 0,
+   "sign": "kn_sign_izakaya",
+   "ground": false
+  },
+  {
+   "type": "stall",
+   "at": [
+    1050,
+    830
+   ],
+   "z": 0,
+   "size": [
+    300,
+    170
+   ],
+   "yaw": 180,
+   "sign": "kn_sign_ramen",
+   "noren": true,
+   "stools": 4,
+   "ground": false
+  },
+  {
+   "type": "stall",
+   "at": [
+    1400,
+    830
+   ],
+   "z": 0,
+   "size": [
+    240,
+    150
+   ],
+   "yaw": 180,
+   "sign": "kn_sign_niku",
+   "ground": false
+  },
+  {
+   "type": "crates",
+   "at": [
+    1530,
+    1120
+   ],
+   "stack": [
+    [
+     0,
+     0,
+     70,
+     10
+    ],
+    [
+     60,
+     -20,
+     60,
+     -15
+    ],
+    [
+     20,
+     0,
+     56,
+     30
+    ]
+   ]
+  },
+  {
+   "type": "crates",
+   "at": [
+    560,
+    960
+   ],
+   "stack": [
+    [
+     0,
+     0,
+     64,
+     0
+    ],
+    [
+     0,
+     0,
+     48,
+     20
+    ]
+   ]
+  },
+  {
+   "_": "south field: dojo and training ground 3 (three posts, memorial stone)"
+  },
+  {
+   "type": "hall",
+   "at": [
+    900,
+    -2200
+   ],
+   "z": 2,
+   "size": [
+    620,
+    380,
+    230
+   ],
+   "yaw": -32,
+   "doors": [
+    [
+     0,
+     -120,
+     150,
+     170
+    ],
+    [
+     2,
+     120,
+     150,
+     170
+    ],
+    [
+     1,
+     0,
+     140,
+     170
+    ]
+   ],
+   "rise": 150,
+   "ground": false
+  },
+  {
+   "type": "furniture",
+   "kind": "shelf",
+   "at": [
+    1166.0584707893945,
+    -2189.375023707841
+   ],
+   "z": 12,
+   "size": [
+    160,
+    36,
+    120
+   ],
+   "yaw": 148,
+   "ground": false
+  },
+  {
+   "type": "post",
+   "at": [
+    -300,
+    -2100
+   ],
+   "r": 16,
+   "h": 130
+  },
+  {
+   "type": "post",
+   "at": [
+    -150,
+    -2250
+   ],
+   "r": 16,
+   "h": 130
+  },
+  {
+   "type": "post",
+   "at": [
+    0,
+    -2100
+   ],
+   "r": 16,
+   "h": 130
+  },
+  {
+   "type": "pillar",
+   "at": [
+    -150,
+    -1930
+   ],
+   "r": 46,
+   "h": 150,
+   "seed": 3
+  },
+  {
+   "type": "log",
+   "at": [
+    300,
+    -2450
+   ],
+   "len": 260,
+   "r": 24,
+   "yaw": 20
+  },
+  {
+   "type": "boulder",
+   "at": [
+    -600,
+    -2350
+   ],
+   "size": [
+    200,
+    170,
+    120
+   ],
+   "yaw": 10
+  },
+  {
+   "type": "boulder",
+   "at": [
+    1900,
+    -2400
+   ],
+   "size": [
+    180,
+    150,
+    110
+   ],
+   "yaw": 40
+  },
+  {
+   "_": "edge of the district: board fences where streets and lawns meet the invisible wall, water gates across the canal"
+  },
+  {
+   "type": "fence",
+   "a": [
+    3230,
+    250
+   ],
+   "b": [
+    3229,
+    517
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3229,
+    517
+   ],
+   "b": [
+    3224,
+    778
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3224,
+    778
+   ],
+   "b": [
+    3209,
+    1041
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3209,
+    1041
+   ],
+   "b": [
+    3179,
+    1303
+   ],
+   "z": 170,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3179,
+    1303
+   ],
+   "b": [
+    3129,
+    1566
+   ],
+   "z": 170,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3129,
+    1566
+   ],
+   "b": [
+    3053,
+    1821
+   ],
+   "z": 170,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3053,
+    1821
+   ],
+   "b": [
+    2951,
+    2060
+   ],
+   "z": 170,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    2951,
+    2060
+   ],
+   "b": [
+    2816,
+    2282
+   ],
+   "z": 172,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    2816,
+    2282
+   ],
+   "b": [
+    2650,
+    2482
+   ],
+   "z": 172,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    2650,
+    2482
+   ],
+   "b": [
+    2454,
+    2654
+   ],
+   "z": 172,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    2454,
+    2654
+   ],
+   "b": [
+    2324,
+    2743
+   ],
+   "z": 172,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1916,
+    2936
+   ],
+   "b": [
+    1681,
+    3007
+   ],
+   "z": 170,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1456,
+    3055
+   ],
+   "b": [
+    1191,
+    3092
+   ],
+   "z": 204,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1191,
+    3092
+   ],
+   "b": [
+    947,
+    3113
+   ],
+   "z": 204,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    815,
+    3120
+   ],
+   "b": [
+    552,
+    3128
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    552,
+    3128
+   ],
+   "b": [
+    287,
+    3130
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    287,
+    3130
+   ],
+   "b": [
+    13,
+    3130
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -215,
+    3128
+   ],
+   "b": [
+    -487,
+    3121
+   ],
+   "z": 2,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -487,
+    3121
+   ],
+   "b": [
+    -708,
+    3109
+   ],
+   "z": 2,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1721,
+    2896
+   ],
+   "b": [
+    -1800,
+    2862
+   ],
+   "z": 1,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1848,
+    2840
+   ],
+   "b": [
+    -2078,
+    2707
+   ],
+   "z": 1,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2078,
+    2707
+   ],
+   "b": [
+    -2284,
+    2545
+   ],
+   "z": 1,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2284,
+    2545
+   ],
+   "b": [
+    -2465,
+    2350
+   ],
+   "z": 1,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2717,
+    1916
+   ],
+   "b": [
+    -2740,
+    1858
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2928,
+    609
+   ],
+   "b": [
+    -2930,
+    348
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2930,
+    348
+   ],
+   "b": [
+    -2930,
+    69
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2930,
+    69
+   ],
+   "b": [
+    -2926,
+    -205
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2926,
+    -205
+   ],
+   "b": [
+    -2914,
+    -471
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2914,
+    -471
+   ],
+   "b": [
+    -2888,
+    -734
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2888,
+    -734
+   ],
+   "b": [
+    -2844,
+    -997
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2844,
+    -997
+   ],
+   "b": [
+    -2777,
+    -1253
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2777,
+    -1253
+   ],
+   "b": [
+    -2680,
+    -1500
+   ],
+   "z": 2,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2680,
+    -1500
+   ],
+   "b": [
+    -2552,
+    -1730
+   ],
+   "z": 2,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2552,
+    -1730
+   ],
+   "b": [
+    -2393,
+    -1936
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2393,
+    -1936
+   ],
+   "b": [
+    -2199,
+    -2119
+   ],
+   "z": 8,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2199,
+    -2119
+   ],
+   "b": [
+    -1980,
+    -2269
+   ],
+   "z": 7,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1980,
+    -2269
+   ],
+   "b": [
+    -1743,
+    -2387
+   ],
+   "z": 7,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1743,
+    -2387
+   ],
+   "b": [
+    -1498,
+    -2475
+   ],
+   "z": 7,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1498,
+    -2475
+   ],
+   "b": [
+    -1240,
+    -2539
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -1240,
+    -2539
+   ],
+   "b": [
+    -977,
+    -2582
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -977,
+    -2582
+   ],
+   "b": [
+    -708,
+    -2609
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -708,
+    -2609
+   ],
+   "b": [
+    -444,
+    -2623
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -444,
+    -2623
+   ],
+   "b": [
+    -177,
+    -2629
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -177,
+    -2629
+   ],
+   "b": [
+    84,
+    -2630
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    84,
+    -2630
+   ],
+   "b": [
+    368,
+    -2630
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    368,
+    -2630
+   ],
+   "b": [
+    637,
+    -2626
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    637,
+    -2626
+   ],
+   "b": [
+    909,
+    -2616
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    909,
+    -2616
+   ],
+   "b": [
+    1170,
+    -2595
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1170,
+    -2595
+   ],
+   "b": [
+    1436,
+    -2558
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1436,
+    -2558
+   ],
+   "b": [
+    1698,
+    -2502
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1698,
+    -2502
+   ],
+   "b": [
+    1947,
+    -2425
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    1947,
+    -2425
+   ],
+   "b": [
+    2182,
+    -2323
+   ],
+   "z": 3,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    2990,
+    -1479
+   ],
+   "b": [
+    3084,
+    -1229
+   ],
+   "z": 7,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    3215,
+    -459
+   ],
+   "b": [
+    3225,
+    -249
+   ],
+   "z": 166,
+   "h": 110
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2761,
+    1799
+   ],
+   "b": [
+    -2831,
+    1558
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2831,
+    1558
+   ],
+   "b": [
+    -2879,
+    1303
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2879,
+    1303
+   ],
+   "b": [
+    -2908,
+    1053
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    -2908,
+    1053
+   ],
+   "b": [
+    -2923,
+    792
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    2261,
+    -2280
+   ],
+   "b": [
+    2471,
+    -2141
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    2471,
+    -2141
+   ],
+   "b": [
+    2659,
+    -1972
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    2659,
+    -1972
+   ],
+   "b": [
+    2820,
+    -1777
+   ],
+   "z": -470,
+   "h": 330
+  },
+  {
+   "type": "fence",
+   "a": [
+    2820,
+    -1777
+   ],
+   "b": [
+    2951,
+    -1560
+   ],
+   "z": -470,
+   "h": 330
+  }
+ ],
+ "import_textures": {
+  "kn_clouds": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/sora00.png"
+  },
+  "kn_sign_ramen": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    96,
+    160,
+    256,
+    192
+   ],
+   "resize": [
+    256,
+    64
+   ]
+  },
+  "kn_sign_yakitori": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    0,
+    0,
+    64,
+    32
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_sake": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    64,
+    96,
+    128,
+    128
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_izakaya": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    192,
+    96,
+    256,
+    128
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  },
+  "kn_sign_niku": {
+   "path": "/mnt/user-data/uploads/konoha-hidden-leaf-village/textures/texset01.png",
+   "crop": [
+    64,
+    64,
+    128,
+    96
+   ],
+   "resize": [
+    128,
+    64
+   ]
+  }
+ },
+ "clip_shaders": {
+  "clip_wood": "solidwood",
+  "clip_stairs": "stone"
+ },
+ "water_fill": {
+  "z": -300,
+  "floor": -470,
+  "area": [
+   -4200,
+   -3600,
+   4600,
+   3400
+  ],
+  "cell": 64,
+  "min_depth": 30
+ },
+ "stairs": {
+  "shaders": [
+   "kn_atlas"
+  ],
+  "area": [
+   -3200,
+   -2900,
+   3500,
+   3400
+  ],
+  "cell": 8,
+  "min_cells": 16,
+  "clip": "clip_stairs"
+ },
+ "lights": {
+  "grid_x": [],
+  "grid_y": [],
+  "extra": [
+   {
+    "origin": [
+     450,
+     402,
+     1330
+    ],
+    "light": 500,
+    "color": [
+     1,
+     0.88,
+     0.7
+    ]
+   },
+   {
+    "origin": [
+     300,
+     402,
+     1300
+    ],
+    "light": 260,
+    "color": [
+     1,
+     0.88,
+     0.7
+    ]
+   },
+   {
+    "origin": [
+     600,
+     402,
+     1300
+    ],
+    "light": 260,
+    "color": [
+     1,
+     0.88,
+     0.7
+    ]
+   },
+   {
+    "origin": [
+     900,
+     -2200,
+     180
+    ],
+    "light": 420,
+    "color": [
+     1,
+     0.9,
+     0.75
+    ]
+   },
+   {
+    "origin": [
+     1069.6096192312853,
+     -2305.983852846641,
+     180
+    ],
+    "light": 300,
+    "color": [
+     1,
+     0.9,
+     0.75
+    ]
+   },
+   {
+    "origin": [
+     730.3903807687147,
+     -2094.016147153359,
+     180
+    ],
+    "light": 300,
+    "color": [
+     1,
+     0.9,
+     0.75
+    ]
+   },
+   {
+    "origin": [
+     1050,
+     800,
+     170
+    ],
+    "light": 220,
+    "color": [
+     1,
+     0.85,
+     0.6
+    ]
+   }
+  ]
+ }
+}

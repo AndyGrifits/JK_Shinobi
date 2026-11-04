@@ -174,6 +174,7 @@ TEXTURES = {"p_rock": "rock", "p_bark": "bark", "p_post": "wood"}
 def build(props, mat_for):
     """create the props; returns {shader short name: textures_gen kind} for the ones used"""
     used = {}
+    del SLABS[:]; del WATER[:]
     for i, p in enumerate(props):
         if "type" not in p:          # {"_": "comment"} entries
             continue
@@ -450,7 +451,8 @@ def ledges(p, mat_for, i):
                 bm.faces.new((A[q], A[(q + 1) % 4], B[(q + 1) % 4], B[q]))
         bm.faces.new(ring[0]); bm.faces.new(ring[-1][::-1])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return _finish_multi(bm, f"prop_ledges_{i}", ["p_adobe"], mat_for, (0, 0), 0, [TILE["p_adobe"]])
+    sh_ = p.get("shader", "p_adobe")
+    return _finish_multi(bm, f"prop_ledges_{i}", [sh_], mat_for, (0, 0), 0, [TILE.get(sh_, 256.0)])
 
 
 def pool(p, mat_for, i):
@@ -610,3 +612,282 @@ def plan_ring(rc, occupied):
         out.append(e)
         s += w
     return out
+
+
+# --------------------------------------------------------------------------------------------------
+# Konoha pieces: waterway (stream + pond, with water and walkway data for gen_map), arched bridge,
+# stepping stones, pavilion, hall (enterable dojo), market stall, tower gallery, horizon ring, fence.
+# Builders may append clip walkways to SLABS and water volumes to WATER (prep_model writes them to
+# build/slabs.json and build/water.json, gen_map turns them into brushes).
+# --------------------------------------------------------------------------------------------------
+SLABS = []
+WATER = []
+TILE.update({"p_stone": 192.0, "p_mud": 256.0, "p_redwood": 128.0, "p_roof": 160.0, "p_plaster": 256.0,
+             "p_tatami": 128.0, "p_cloth": 192.0, "p_noren": 96.0, "p_deck": 128.0, "p_sign": 1.0})
+TEXTURES.update({"p_stone": "stone", "p_mud": "mud", "p_redwood": "redwood", "p_roof": "roof", "p_plaster": "plaster",
+                 "p_tatami": "tatami", "p_cloth": "cloth", "p_noren": "noren", "p_deck": "wood"})
+
+
+def _obox(bm, cx, cy, ux, uy, L, W, z0, z1, mat):
+    """box centred at (cx, cy), length L along (ux, uy), width W across"""
+    px, py = -uy, ux
+    pts = [(cx + ux * a * L / 2 + px * b * W / 2, cy + uy * a * L / 2 + py * b * W / 2) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    _prism(bm, pts, z0, z1, mat)
+
+
+def _ngon(cx, cy, r, n, rot=0.0):
+    return [(cx + r * math.cos(rot + 2 * math.pi * k / n), cy + r * math.sin(rot + 2 * math.pi * k / n)) for k in range(n)]
+
+
+def waterway(p, mat_for, i):
+    """sunken stream between stone walls from a round pond (map.json: "path" [[x, y], ...] starting at the pond
+    centre, "width" (water), "floor", "water", "top" (coping height), "pond": {"r", "island": r, "stones": n},
+    "culvert": true). Records water volumes; prep cuts the ground with the same outline ("cuts")."""
+    path = [tuple(q) for q in p["path"]]; w = p.get("width", 260) / 2; t = 32
+    F, Wz, T = p["floor"], p["water"], p.get("top", 6)
+    bm = bmesh.new()
+    pond = p.get("pond")
+    segs = list(zip(path[:-1], path[1:]))
+    if pond:                                    # the stream starts at the pond's rim
+        (ax, ay), (bx, by) = segs[0]; L = math.hypot(bx - ax, by - ay)
+        segs[0] = ((ax + (bx - ax) / L * (pond["r"] - 20), ay + (by - ay) / L * (pond["r"] - 20)), (bx, by))
+    for k, ((ax, ay), (bx, by)) in enumerate(segs):
+        L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L; mx, my = (ax + bx) / 2, (ay + by) / 2
+        ext = t * 2 if k < len(segs) - 1 else 0
+        for sgn in (-1, 1):
+            cx, cy = mx - uy * sgn * (w + t / 2), my + ux * sgn * (w + t / 2)
+            _obox(bm, cx, cy, ux, uy, L + ext, t, F - 16, T, 0)
+            _obox(bm, mx - uy * sgn * (w + t / 2 + 6), my + ux * sgn * (w + t / 2 + 6), ux, uy, L + ext, t + 28, T, T + 10, 0)
+        _obox(bm, mx, my, ux, uy, L + ext, 2 * w, F - 16, F, 1)
+        quad = [(ax - uy * w, ay + ux * w), (ax + uy * w, ay - ux * w), (bx + uy * w, by - ux * w), (bx - uy * w, by + ux * w)]
+        quad = quad if (quad[1][0] - quad[0][0]) * (quad[2][1] - quad[0][1]) - (quad[1][1] - quad[0][1]) * (quad[2][0] - quad[0][0]) > 0 else quad[::-1]
+        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in quad], "z0": F, "z1": Wz})
+    (ax, ay), (bx, by) = segs[-1]; L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
+    _obox(bm, bx + ux * t / 2, by + uy * t / 2, -uy, ux, 2 * w + 2 * t, t, F - 16, T, 0)          # end wall
+    if p.get("culvert", True):                   # dark arched mouth in the end wall: the water runs on underground
+        _arch(bm, (bx - ux * 1, by - uy * 1, (F + Wz) / 2 + 30), (uy, -ux, 0), (0, 0, 1), min(2 * w - 40, 180), (Wz - F) + 60, 2)
+    if pond:
+        cx, cy = path[0]; R = pond["r"]; n = 24
+        (sx, sy), (ex, ey) = segs[0]
+        for k in range(n):
+            a = 2 * math.pi * (k + 0.5) / n
+            mx, my = cx + (R + t / 2) * math.cos(a), cy + (R + t / 2) * math.sin(a)
+            # leave the stream's mouth open
+            vx, vy = ex - sx, ey - sy; vl = math.hypot(vx, vy); qx, qy = mx - sx, my - sy
+            along = (qx * vx + qy * vy) / vl; across = abs(qx * vy - qy * vx) / vl
+            if -t <= along <= vl and across < w + t: continue
+            if math.hypot(mx - sx, my - sy) < w + t: continue
+            L = 2 * math.pi * (R + t) / n + 6; ux, uy = -math.sin(a), math.cos(a)
+            _obox(bm, mx, my, ux, uy, L, t, F - 16, T, 0)
+            _obox(bm, cx + (R + t / 2 + 6) * math.cos(a), cy + (R + t / 2 + 6) * math.sin(a), ux, uy, L, t + 28, T, T + 10, 0)
+        _prism(bm, _ngon(cx, cy, R + 4, n), F - 16, F, 1)
+        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in _ngon(cx, cy, R, 16)], "z0": F, "z1": Wz})
+        if pond.get("island"):
+            ir = pond["island"]
+            _prism(bm, _ngon(cx, cy, ir, 16), F - 16, T + 8, 0)
+            ns = pond.get("stones", 0)
+            for k in range(ns):                  # stepping stones from the south rim to the island
+                f = (k + 1) / (ns + 1); d = ir + (R - ir) * f
+                a = math.radians(pond.get("stones_dir", 250))
+                _prism(bm, _ngon(cx + d * math.cos(a), cy + d * math.sin(a), 36, 8), F - 16, Wz + 14, 0)
+    bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != 2])
+    return _finish_multi(bm, f"prop_waterway_{i}", ["p_stone", "p_mud", "p_dark"], mat_for, (0, 0), 0,
+                         [TILE["p_stone"], TILE["p_mud"], TILE["p_dark"]])
+
+
+def arch_bridge(p, mat_for, i):
+    """red wooden arched footbridge from "a" [x, y, z] to "b" (deck ends at those heights), "width", "rise";
+    the deck is walk-through (p_deck) with smooth clip slabs per segment (SLABS), rails and posts are solid"""
+    (ax, ay, az), (bx, by, bz) = p["a"], p["b"]; W = p.get("width", 150); rise = p.get("rise", 140); n = p.get("segments", 12)
+    L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L; px, py = -uy, ux
+    pt = lambda f: (ax + (bx - ax) * f, ay + (by - ay) * f, az + (bz - az) * f + rise * math.sin(math.pi * f))
+    bm = bmesh.new(); th = 14
+    for k in range(n):
+        f0, f1 = k / n, (k + 1) / n; A, B = pt(f0), pt(f1)
+        vs = []
+        for (x, y, z) in (A, B):
+            for s in (-1, 1):
+                vs.append((x + px * s * W / 2, y + py * s * W / 2, z))
+        a0, a1, b0, b1 = vs[0], vs[1], vs[2], vs[3]
+        top = [bm.verts.new(v) for v in (a0, b0, b1, a1)]; bot = [bm.verts.new((v[0], v[1], v[2] - th)) for v in (a0, b0, b1, a1)]
+        bm.faces.new(top).material_index = 0; bm.faces.new(bot[::-1]).material_index = 0
+        for q in range(4):
+            bm.faces.new((top[q], bot[q], bot[(q + 1) % 4], top[(q + 1) % 4])).material_index = 0
+        SLABS.append({"from": [round(A[0], 1), round(A[1], 1), round(A[2], 1)], "to": [round(B[0], 1), round(B[1], 1), round(B[2], 1)],
+                      "width": W, "thick": 20, "shader": "clip_wood"})
+    # arch beams under the deck, rails and posts
+    for s in (-1, 1):
+        for k in range(n):
+            A, B = pt(k / n), pt((k + 1) / n); m = ((A[0] + B[0]) / 2, (A[1] + B[1]) / 2)
+            seg = math.hypot(B[0] - A[0], B[1] - A[1]) + 2
+            zt = min(A[2], B[2]) - th
+            _obox(bm, m[0] + px * s * (W / 2 - 10), m[1] + py * s * (W / 2 - 10), ux, uy, seg, 16, zt - 26, zt, 2)
+            ztop = (A[2] + B[2]) / 2 + 44
+            _obox(bm, m[0] + px * s * (W / 2 - 4), m[1] + py * s * (W / 2 - 4), ux, uy, seg, 8, ztop - 6, ztop, 2)
+        for k in range(n + 1):
+            x, y, z = pt(k / n)
+            _obox(bm, x + px * s * (W / 2 - 4), y + py * s * (W / 2 - 4), ux, uy, 10, 10, z - 4, z + 48, 2)
+    for s in (-1, 1):                                # big posts at the ends
+        for f in (0, 1):
+            x, y, z = pt(f)
+            _obox(bm, x + px * s * (W / 2 + 4), y + py * s * (W / 2 + 4), ux, uy, 20, 20, z - 30, z + 70, 2)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _finish_multi(bm, f"prop_bridge_{i}", ["p_deck", "p_wood", "p_redwood"], mat_for, (0, 0), 0,
+                         [TILE["p_deck"], TILE["p_wood"], TILE["p_redwood"]])
+
+
+def stones(p, mat_for, i):
+    """stepping stones: "at" list of [x, y], "top", "bottom", "r" (rough octagonal blocks)"""
+    bm = bmesh.new(); seed = p.get("seed", i)
+    for k, (x, y) in enumerate(p["points"]):
+        r = p.get("r", 46) * (0.9 + 0.2 * (0.5 + 0.5 * _noise(Vector((k, 0, 0)), seed, 1.3)))
+        _prism(bm, _ngon(x, y, r, 8, k * 0.4), p["bottom"], p["top"] + 4 * _noise(Vector((k, 1, 0)), seed, 2.0), 0, scale_top=0.92)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _finish_multi(bm, f"prop_stones_{i}", ["p_stone"], mat_for, (0, 0), 0, [TILE["p_stone"]])
+
+
+def _roof_hip(bm, cx, cy, ux, uy, L, W, z, rise, over, mat, th=12):
+    """hipped/pyramid roof slab over a rectangle (overhang "over"), ridge along u"""
+    px, py = -uy, ux; L2, W2 = L / 2 + over, W / 2 + over; ridge = max(0.0, L2 - W2)
+    P = lambda a, b, h: (cx + ux * a + px * b, cy + uy * a + py * b, h)
+    for dz, m in ((0, mat), (-th, mat)):
+        c = [bm.verts.new(P(a, b, z + dz)) for a, b in ((-L2, -W2), (L2, -W2), (L2, W2), (-L2, W2))]
+        r0 = bm.verts.new(P(-ridge, 0, z + rise + dz)); r1 = bm.verts.new(P(ridge, 0, z + rise + dz))
+        faces = [(c[0], c[1], r1, r0), (c[1], c[2], r1), (c[2], c[3], r0, r1), (c[3], c[0], r0)] if ridge > 1 else \
+                [(c[0], c[1], r1), (c[1], c[2], r1), (c[2], c[3], r1), (c[3], c[0], r1)]
+        for fv in faces:
+            f = bm.faces.new(fv if dz == 0 else fv[::-1]); f.material_index = m
+
+
+def pavilion(p, mat_for, i):
+    """open hexagonal pavilion (azumaya): "at", "z" floor, "r", "h" eaves height; 6 posts, low floor, roof"""
+    cx, cy = p["at"]; z = p["z"]; r = p.get("r", 150); h = p.get("h", 190); bm = bmesh.new()
+    _prism(bm, _ngon(cx, cy, r + 10, 6), z - 20, z + 10, 0)
+    for (x, y) in _ngon(cx, cy, r - 6, 6, math.pi / 6):
+        _prism(bm, _ngon(x, y, 8, 6), z + 10, z + h, 1)
+    # roof: six-sided pyramid with overhang, two layers (outer slope + inner ceiling)
+    ring = _ngon(cx, cy, r + 70, 6); apex = (cx, cy, z + h + 120)
+    for dz in (0, -10):
+        rv = [bm.verts.new((x, y, z + h + dz)) for x, y in ring]; av = bm.verts.new((apex[0], apex[1], apex[2] + dz))
+        for k in range(6):
+            f = bm.faces.new((rv[k], rv[(k + 1) % 6], av) if dz == 0 else (rv[(k + 1) % 6], rv[k], av)); f.material_index = 2
+    _prism(bm, _ngon(cx, cy, 14, 6), z + h + 100, z + h + 150, 1)          # finial
+    return _finish_multi(bm, f"prop_pavilion_{i}", ["p_wood", "p_redwood", "p_roof"], mat_for, (0, 0), 0,
+                         [TILE["p_wood"], TILE["p_redwood"], TILE["p_roof"]])
+
+
+def hall(p, mat_for, i):
+    """enterable hall (dojo): "at", "z" ground, "size" [length, depth, wall height], "yaw", "doors": [[side,
+    offset, width, height], ...] (side 0 = local -y, 1 = +x, 2 = +y, 3 = -x; offset from the side's centre),
+    tatami floor, red corner posts, hipped tiled roof"""
+    L, D, H = p["size"]; z = p.get("z", 0); t = 24; bm = bmesh.new()
+    _box(bm, -L / 2, -D / 2, z - 30, L / 2, D / 2, z + 10, 1)                        # floor (tatami)
+    doors = p.get("doors", [[0, 0, 160, 170], [2, 0, 160, 170]])
+    sides = [((0, -D / 2), (1, 0), L), ((L / 2, 0), (0, 1), D), ((0, D / 2), (-1, 0), L), ((-L / 2, 0), (0, -1), D)]
+    for si, ((cx, cy), (ux, uy), SL) in enumerate(sides):
+        cuts = sorted((o - w / 2, o + w / 2, hh) for s_, o, w, hh in doors if s_ == si)
+        s = -SL / 2 - t / 2
+        for a, b, hh in cuts + [(SL / 2 + t / 2, None, None)]:
+            if a > s + 1:
+                _obox(bm, cx + ux * (s + a) / 2, cy + uy * (s + a) / 2, ux, uy, a - s, t, z + 10, z + H, 0)
+            if b is not None:
+                _obox(bm, cx + ux * (a + b) / 2, cy + uy * (a + b) / 2, ux, uy, b - a, t, z + 10 + hh, z + H, 0)   # lintel
+                s = b
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            _box(bm, sx * L / 2 - 18, sy * D / 2 - 18, z, sx * L / 2 + 18, sy * D / 2 + 18, z + H + 6, 2)
+    for k in range(1, int(L / 220)):                                                  # inner posts down the middle
+        x = -L / 2 + k * L / int(L / 220)
+        _box(bm, x - 14, -14, z + 10, x + 14, 14, z + H, 2)
+    _box(bm, -L / 2 - 8, -D / 2 - 8, z + H - 4, L / 2 + 8, D / 2 + 8, z + H + 8, 2)  # top beam / ceiling
+    _roof_hip(bm, 0, 0, 1, 0, L, D, z + H + 8, p.get("rise", 150), 70, 3)
+    return _finish_multi(bm, f"prop_hall_{i}", ["p_plaster", "p_tatami", "p_redwood", "p_roof"], mat_for, p["at"], p.get("yaw", 0),
+                         [TILE["p_plaster"], TILE["p_tatami"], TILE["p_redwood"], TILE["p_roof"]])
+
+
+def stall(p, mat_for, i):
+    """market stall: "at", "z", "size" [w, d], "yaw" (front = local -y), counter, posts, striped awning,
+    "sign": shader of a sign board over the front, "noren": curtains, "stools": n"""
+    w, d = p.get("size", [260, 160]); z = p.get("z", 0); bm = bmesh.new(); H = p.get("h", 210)
+    _box(bm, -w / 2, -d / 2, z, w / 2, -d / 2 + 50, z + 44, 0)                          # counter
+    _box(bm, -w / 2, d / 2 - 30, z, w / 2, d / 2, z + 120, 0)                           # back shelf
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            _box(bm, sx * (w / 2) - 6 * sx - 6, sy * (d / 2) - 6 * sy - 6, z, sx * (w / 2) - 6 * sx + 6, sy * (d / 2) - 6 * sy + 6, z + H + (20 if sy > 0 else 0), 1)
+    # sloped awning (cloth), front edge lower
+    a0 = [bm.verts.new(v) for v in ((-w / 2 - 20, -d / 2 - 50, z + H), (w / 2 + 20, -d / 2 - 50, z + H), (w / 2 + 20, d / 2 + 10, z + H + 40), (-w / 2 - 20, d / 2 + 10, z + H + 40))]
+    a1 = [bm.verts.new((v.co.x, v.co.y, v.co.z - 6)) for v in a0]
+    bm.faces.new(a0).material_index = 2; bm.faces.new(a1[::-1]).material_index = 2
+    for q in range(4):
+        bm.faces.new((a0[q], a1[q], a1[(q + 1) % 4], a0[(q + 1) % 4])).material_index = 2
+    mats = ["p_wood", "p_redwood", "p_cloth"]
+    if p.get("noren"):
+        mats.append("p_noren"); nk = 4; sw = (w - 20) / nk
+        for k in range(nk):
+            x = -w / 2 + 10 + sw * (k + 0.5)
+            _quad(bm, (x, -d / 2 - 46, z + H - 40), (1, 0, 0), (0, 0, 1), sw - 8, 70, 3)
+            _quad(bm, (x, -d / 2 - 44, z + H - 40), (-1, 0, 0), (0, 0, 1), sw - 8, 70, 3)
+    if p.get("sign"):
+        mats.append(p["sign"]); si = len(mats) - 1
+        f = _quad(bm, (0, -d / 2 - 52, z + H + 26), (1, 0, 0), (0, 0, 1), w * 0.7, 46, si)
+        uv = bm.loops.layers.uv.verify()
+    for k in range(p.get("stools", 0)):
+        x = -w / 2 + (k + 0.5) * w / p["stools"]
+        _prism(bm, _ngon(x, -d / 2 - 60, 14, 8), z, z + 30, 1)
+    ob = _finish_multi(bm, f"prop_stall_{i}", mats, mat_for, p["at"], p.get("yaw", 0), [TILE.get(m, 128.0) for m in mats])
+    if p.get("sign"):                                   # the sign shows its whole texture
+        me = ob.data; si = len(mats) - 1; uvl = me.uv_layers.active.data
+        for poly in me.polygons:
+            if poly.material_index == si:
+                for li, (u, v) in zip(poly.loop_indices, ((0, 0), (1, 0), (1, 1), (0, 1))):
+                    uvl[li].uv = (u, v)
+    return ob
+
+
+def gallery(p, mat_for, i):
+    """open top storey of a round tower (the walls between z0 and z1 are deleted in prep "delete_faces"):
+    "at", "z0" floor, "z1" ceiling, "r"; floor and ceiling discs, a ring of posts, a low rail with gaps"""
+    cx, cy = p["at"]; z0, z1, r = p["z0"], p["z1"], p["r"]; bm = bmesh.new(); n = p.get("posts", 8)
+    _prism(bm, _ngon(cx, cy, r + 12, 24), z0 - 24, z0, 0)
+    _prism(bm, _ngon(cx, cy, r + 12, 24), z1, z1 + 20, 0)
+    for (x, y) in _ngon(cx, cy, r - 10, n, math.pi / n):
+        _prism(bm, _ngon(x, y, 12, 8), z0, z1, 1)
+    gaps = p.get("gaps", [0, 180])
+    for k in range(24):
+        a = 360 * (k + 0.5) / 24
+        if any(abs((a - g + 180) % 360 - 180) < 22 for g in gaps): continue
+        ar = math.radians(a); x, y = cx + (r - 4) * math.cos(ar), cy + (r - 4) * math.sin(ar)
+        _obox(bm, x, y, -math.sin(ar), math.cos(ar), 2 * math.pi * r / 24 + 2, 8, z0 + 34, z0 + 42, 1)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _finish_multi(bm, f"prop_gallery_{i}", ["p_wood", "p_redwood"], mat_for, (0, 0), 0, [TILE["p_wood"], TILE["p_redwood"]])
+
+
+def horizon_ring(p, mat_for, i):
+    """distant hills: a ring of inward-facing cards ("at", "r", "z0", "z1", "shader", "repeats")"""
+    cx, cy = p["at"]; R = p["r"]; n = p.get("segments", 48); rep = p.get("repeats", 6)
+    bm = bmesh.new(); uv = bm.loops.layers.uv.verify()
+    for k in range(n):
+        a0, a1 = 2 * math.pi * k / n, 2 * math.pi * (k + 1) / n
+        P = lambda a, z: bm.verts.new((cx + R * math.cos(a), cy + R * math.sin(a), z))
+        f = bm.faces.new((P(a1, p["z0"]), P(a0, p["z0"]), P(a0, p["z1"]), P(a1, p["z1"])))   # faces the centre
+        for lp, (u, v) in zip(f.loops, (((k + 1) / n, 0), (k / n, 0), (k / n, 1), ((k + 1) / n, 1))):
+            lp[uv].uv = (u * rep, v)
+    return _to_object(bm, f"prop_horizon_{i}", [p["shader"]], mat_for)
+
+
+def fence(p, mat_for, i):
+    """wooden board fence (street barrier) from "a" to "b": posts + two rails + boards"""
+    (ax, ay), (bx, by) = p["a"], p["b"]; z = p.get("z", 0); h = p.get("h", 110)
+    L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L; bm = bmesh.new()
+    n = max(1, int(L / 120))
+    for k in range(n + 1):
+        f = k / n; _obox(bm, ax + (bx - ax) * f, ay + (by - ay) * f, ux, uy, 12, 12, z - 10, z + h + 10, 0)
+    mx, my = (ax + bx) / 2, (ay + by) / 2
+    _obox(bm, mx, my, ux, uy, L, 10, z + 10, z + h - 6, 0)                 # boards (one panel)
+    for zz in (z + 24, z + h - 20):
+        _obox(bm, mx - uy * 8, my + ux * 8, ux, uy, L, 6, zz - 5, zz + 5, 0)
+    return _finish_multi(bm, f"prop_fence_{i}", ["p_wood"], mat_for, (0, 0), 0, [TILE["p_wood"]])
+
+
+BUILDERS.update({"waterway": waterway, "arch_bridge": arch_bridge, "stones": stones, "pavilion": pavilion,
+                 "hall": hall, "stall": stall, "gallery": gallery, "horizon_ring": horizon_ring, "fence": fence})
