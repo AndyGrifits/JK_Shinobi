@@ -2975,6 +2975,31 @@ static QINLINE int G_PowerLevelForSaberAnim( gentity_t *ent, int saberNum, qbool
 		int	animTimer = ent->client->ps.torsoTimer;
 		int	animTimeElapsed = BG_AnimLength( ent->localAnimIndex, (animNumber_t)anim ) - animTimer;
 		saberInfo_t *saber = &ent->client->saber[saberNum];
+		float shinobiSpeed = 1.0f;
+		// JK_Shinobi: the windows below (when a special move's blade may hurt) are in ms of the move at
+		// its stock pace; ours play faster (finishers, pairs, thrusts): read the time as where the move
+		// is in its own motion, put back into stock ms - the same frames do the damage, only sooner
+		if ( ent->client->ps.weapon == WP_SABER && ent->localAnimIndex >= 0 && ent->localAnimIndex < MAX_ANIM_FILES
+			&& anim >= 0 && anim < MAX_ANIMATIONS )
+		{
+			BG_SaberStartTransAnim( ent->s.number, ent->client->ps.fd.saberAnimLevel, WP_SABER, anim, &shinobiSpeed, ent->client->ps.brokenLimbs );
+			if ( shinobiSpeed > 1.001f || shinobiSpeed < 0.999f )
+			{
+				const animation_t *a = &bgAllAnims[ent->localAnimIndex].anims[anim];
+				const float lerp = fabs( (float)a->frameLerp ), len = (float)BG_AnimLength( ent->localAnimIndex, (animNumber_t)anim );
+				float start = ( a->numFrames - 1 ) * lerp * ( 2.0f - shinobiSpeed ); // the move's timer at its start (HOLDLESS)
+				float done;
+				if ( start < lerp )
+					start = lerp;
+				done = ( start - animTimer ) * shinobiSpeed; // how far the motion has played, in stock ms
+				if ( done < 0 )
+					done = 0;
+				if ( done > len )
+					done = len;
+				animTimeElapsed = (int)done;
+				animTimer = (int)( len - done );
+			}
+		}
 		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_D1_B____ )
 		{
 			//FIXME: these two need their own style

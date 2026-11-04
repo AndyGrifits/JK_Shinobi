@@ -393,6 +393,13 @@ launched with the rising cut and are still near (110) is slammed down with it: t
 knocked down, no falling damage on him. So: chain - rising cut - jump (Shunshin up) - attack.
 Lower than that an attack in the air is the stock air swing. Autotest `sword_air`.
 
+**Damage windows at our pace.** The stock code lets a special move's blade hurt only in a set
+part of it (`G_PowerLevelForSaberAnim`: the lunge from 150 ms in to 400 ms before its end, the
+pull swing from 650 ms in to 500 ms before its end, Alora's spin, the stab...) - in ms of the
+move at its stock pace. Ours play faster (finishers x1.45, pairs, Nuibari's stab), and the
+windows shrank or were gone (Nuibari's stab: never a hit). The time is read as how far the
+motion has played, put back into stock ms: the same frames hurt as in the base game, only sooner.
+
 The reach follows the visible blade: the katana keeps
 the stock saber's 40, a longer or shorter blade reaches as much farther or shorter as its
 tip is from the katana's (about 14 past the tip), but never less than the fists
@@ -471,7 +478,7 @@ icons and names; no guns are handed out any more):
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
 | Fuma Shuriken (`fuma`) | flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
 | Shuriken x3 (`stars`) | the old Bryar pistol, blaster, repeater | the small ones (Shinobi Striker's model): 3 throws a pickup, each throw a fan of three (5 deg apart) straight at 1600 u/s, 8 damage each to the first one it cuts; a wall keeps them 8 s. A throw every 0.35 s, 6 throws carried |
-| Poison Smoke Bomb (`smokebomb`) | rocket launcher | lobbed (700 u/s, a little up); where it lands - or on whom - it bursts into a tall (200), thick green cloud, 150 round, 12 s. It hides nothing (no fog on the screen), but a breath of it poisons: 2 damage every 0.6 s for 10 s after the last breath (the thrower holds his breath). Wind blows it away. One a pickup, 2 carried |
+| Poison Smoke Bomb (`smokebomb`) | rocket launcher | lobbed (700 u/s, a little up); where it lands - or on whom - it bursts into a tall (200), thick green cloud, 150 round, 12 s. It hides nothing (no fog on the screen), but a breath of it poisons: 2 damage every 0.6 s for 10 s after the last breath (the thrower too, if he walks in). Wind blows it away. One a pickup, 2 carried |
 
 The throwables are the stock explosive weapons underneath (thermal detonator = explosive
 kunai, trip mine = tag, det pack = fuma shuriken; the small shuriken ride on the old Bryar

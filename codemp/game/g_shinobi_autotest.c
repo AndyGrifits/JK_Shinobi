@@ -480,7 +480,7 @@ static atResult_t T_Fuma( int t ) {
 	return ATR_RUN;
 }
 
-// Poison Smoke Bomb: thrown at B's feet, it bursts into the cloud; B is poisoned (not A, who threw it),
+// Poison Smoke Bomb: thrown at B's feet, it bursts into the cloud; B is poisoned (the thrower would be too, in it),
 // and stays poisoned after he has left it; the pickups: a shuriken pickup gives 3 throws; every
 // item a pickup may come back as is registered (else the cgame draws an axis for it)
 static void T_Smoke_Setup( void ) {
@@ -534,10 +534,10 @@ static atResult_t T_Smoke( int t ) {
 			if ( n < 0 || n >= (int)strlen( cs ) || cs[n] != '1' )
 				unreg++;
 		}
-		AT_Msg( "burst: yes; B poisoned in it: %s (ticks %i), A (the thrower): %s; 3 s after leaving it B still poisoned: %s (ticks %i); "
+		AT_Msg( "burst: yes; B poisoned in it: %s (ticks %i), A (the thrower, outside it): %s; 3 s after leaving it B still poisoned: %s (ticks %i); "
 			"a shuriken pickup gives %i throws; pool items unregistered: %i",
 			at.v[3] ? "yes" : "NO", at.v[5], at.v[4] ? "YES" : "no", still ? "yes" : "NO", after, amt, unreg );
-		return ( at.v[3] && !at.v[4] && at.v[5] >= 2 && still && after >= 3 && amt == SHINOBI_STAR_PICKUP && !unreg ) ? ATR_PASS : ATR_FAIL;
+		return ( at.v[3] && at.v[5] >= 2 && still && after >= 3 && amt == SHINOBI_STAR_PICKUP && !unreg ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1651,7 +1651,7 @@ static atTest_t atTests[] = {
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
-	{ "smoke_bomb",   "poison smoke bomb: bursts, poisons (not the thrower), lingers; shuriken pickup 3; pool items registered", T_Smoke_Setup, T_Smoke, 9000 },
+	{ "smoke_bomb",   "poison smoke bomb: bursts, poisons, lingers; shuriken pickup 3; pool items registered", T_Smoke_Setup, T_Smoke, 9000 },
 	{ "sword_air",    "blade: rising cut, jump (Shunshin up), attack = the plunge that slams him", T_SwordAir_Setup, T_SwordAir, 12000 },
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },

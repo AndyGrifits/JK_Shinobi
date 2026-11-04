@@ -465,13 +465,11 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 		case SZ_ICE:
 			p->client->shinobi.iceEnd = level.time + SHINOBI_ZONE_TICK_MS + 150;
 			break;
-		case SZ_POISON: // a breath of it: poisoned for a long while (the thrower holds his breath)
-			if ( p->s.number + 1 != ZONE_OWNER( z ) ) {
-				if ( p->client->shinobi.poisonEnd <= level.time )
-					p->client->shinobi.poisonTick = level.time + SHINOBI_POISON_TICK_MS;
-				p->client->shinobi.poisonEnd = level.time + SHINOBI_POISON_MS;
-				p->client->shinobi.poisonBy = ZONE_OWNER( z );
-			}
+		case SZ_POISON: // a breath of it: poisoned for a long while (the thrower too)
+			if ( p->client->shinobi.poisonEnd <= level.time )
+				p->client->shinobi.poisonTick = level.time + SHINOBI_POISON_TICK_MS;
+			p->client->shinobi.poisonEnd = level.time + SHINOBI_POISON_MS;
+			p->client->shinobi.poisonBy = ZONE_OWNER( z );
 			break;
 		case SZ_MIST:
 			p->client->shinobi.mistEnd = level.time + SHINOBI_ZONE_TICK_MS + 150; // (the Copy Sharingan can't read through it)
