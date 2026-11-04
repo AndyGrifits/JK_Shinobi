@@ -1544,6 +1544,32 @@
      0.8,
      0.58
     ]
+   },
+   {
+    "origin": [
+     1316,
+     420,
+     -40
+    ],
+    "light": 1250,
+    "color": [
+     1,
+     0.8,
+     0.58
+    ]
+   },
+   {
+    "origin": [
+     1316,
+     800,
+     -40
+    ],
+    "light": 1250,
+    "color": [
+     1,
+     0.8,
+     0.58
+    ]
    }
   ]
  },
@@ -1778,5 +1804,83 @@
  "prop_clip": {
   "cell": 16,
   "groups": []
- }
+ },
+ "extra_shaders": {
+  "water": {
+   "_": "dark murky water over the game's own water_1 ripples (the pit in the top corridor)",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.5",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water",
+    "cull twosided",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
+    "\trgbGen const ( 0.2 0.3 0.29 )",
+    "\talphaGen const 0.72",
+    "\ttcMod scale 0.5 0.5",
+    "\ttcMod turb 0.01 0.03 5 0.1",
+    "\ttcMod scroll 0.01 0.005",
+    "}",
+    "{",
+    "\tmap textures/common/water_1",
+    "\tblendFunc GL_ONE GL_ONE",
+    "\trgbGen const ( 0.09 0.11 0.11 )",
+    "\ttcMod scale 0.3 0.3",
+    "\ttcMod turb 0.02 -0.06 0 0.1",
+    "\ttcMod scroll -0.012 0.01",
+    "}"
+   ]
+  },
+  "water_side": {
+   "_": "sides / bottoms of water volumes: water, but not drawn (only the surface shows)",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.3",
+    "surfaceparm nodraw",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water"
+   ]
+  }
+ },
+ "water_side_shader": "water_side",
+ "clip_shaders": {
+  "clip_stairs": "rock"
+ },
+ "water": [
+  {
+   "_": "the pit between the two doors in the top corridor (floor -236): flooded up to just under the corridor floor at its north end (-139)",
+   "poly": [
+    [
+     1189,
+     64
+    ],
+    [
+     1447,
+     64
+    ],
+    [
+     1447,
+     1020
+    ],
+    [
+     1189,
+     1020
+    ]
+   ],
+   "z0": -260,
+   "z1": -146
+  }
+ ]
 }
