@@ -706,6 +706,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_BladeSwingUpdate( ent ); // blades: one blow per swing
 	Shinobi_BladeStance( ent ); // blades: each in its own stance
 	Shinobi_SwordThink( ent ); // blade finishers: Kurosawa's extra cuts, bleeding
+	Shinobi_LockThink( ent ); // lock-on: let go of a target that is gone
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
 		Shinobi_StatusClear( ent );
 	else
@@ -1204,4 +1205,104 @@ void Shinobi_ApplySize( gentity_t *ent, const char *model )
 		model = Info_ValueForKey( userinfo, "model" );
 	}
 	Shinobi_SetSize( ent, Shinobi_ModelSize( model ) );
+}
+
+/*
+===========================================================================
+Lock-on ("lockon", T): the enemy nearest your aim, in plain sight within
+SHINOBI_LOCK_RANGE; Pmove keeps the view on him (PM_ShinobiLockOn). T again,
+his death, distance or losing sight of him for a while lets go.
+===========================================================================
+*/
+static qboolean Shinobi_LockTarget( gentity_t *ent, gentity_t *t ) {
+	if ( !t || t == ent || !t->inuse || !t->client || t->health <= 0 || !t->takedamage )
+		return qfalse;
+	if ( t->s.number < MAX_CLIENTS && ( t->client->pers.connected != CON_CONNECTED
+		|| t->client->sess.sessionTeam == TEAM_SPECTATOR ) )
+		return qfalse;
+	if ( t->s.number >= MAX_CLIENTS && !t->shinobiCloneOwner )
+		return qfalse; // (other NPCs: not here)
+	if ( t->shinobiCloneOwner && Shinobi_CloneOwner( t ) == ent )
+		return qfalse; // our own clone
+	if ( level.gametype >= GT_TEAM && t->s.number < MAX_CLIENTS && OnSameTeam( ent, t ) )
+		return qfalse;
+	return qtrue;
+}
+
+static qboolean Shinobi_LockSees( gentity_t *ent, gentity_t *t ) {
+	trace_t tr;
+	vec3_t  eye, at;
+	VectorCopy( ent->client->ps.origin, eye );
+	eye[2] += ent->client->ps.viewheight;
+	VectorCopy( t->r.currentOrigin, at );
+	at[2] += 8;
+	trap->Trace( &tr, eye, NULL, NULL, at, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+	return tr.fraction >= 1.0f;
+}
+
+void Cmd_LockOn_f( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	gentity_t *best = NULL;
+	float      bestScore = 0;
+	vec3_t     fwd, eye;
+	int        i;
+
+	if ( c->ps.stats[STAT_SHINOBI_LOCK] ) {
+		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
+		trap->SendServerCommand( ent - g_entities, "cp \"Lock off\"" );
+		return;
+	}
+	AngleVectors( c->ps.viewangles, fwd, NULL, NULL );
+	VectorCopy( c->ps.origin, eye );
+	eye[2] += c->ps.viewheight;
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *t = &g_entities[i];
+		vec3_t     d;
+		float      dist, dot, score;
+		if ( !Shinobi_LockTarget( ent, t ) )
+			continue;
+		VectorSubtract( t->r.currentOrigin, eye, d );
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_LOCK_RANGE )
+			continue;
+		dot = DotProduct( d, fwd );
+		if ( dot < SHINOBI_LOCK_FOV && dist > 150 )
+			continue; // (one right next to you counts wherever he is)
+		if ( !Shinobi_LockSees( ent, t ) )
+			continue;
+		score = dot * 2.0f - dist / SHINOBI_LOCK_RANGE; // nearest the aim first, then the nearest
+		if ( !best || score > bestScore ) {
+			best = t;
+			bestScore = score;
+		}
+	}
+	if ( !best ) {
+		trap->SendServerCommand( ent - g_entities, "cp \"No one to lock on to\"" );
+		return;
+	}
+	c->ps.stats[STAT_SHINOBI_LOCK] = best->s.number + 1;
+	c->shinobi.lockSeen = level.time;
+	trap->SendServerCommand( ent - g_entities, va( "cp \"Locked on: %s\"",
+		best->client && best->s.number < MAX_CLIENTS ? best->client->pers.netname : "clone" ) );
+}
+
+void Shinobi_LockThink( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const int  n = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
+	gentity_t *t;
+
+	if ( n < 0 )
+		return;
+	t = &g_entities[n];
+	if ( ent->health <= 0 || n >= ENTITYNUM_WORLD || !Shinobi_LockTarget( ent, t )
+		|| Distance( t->r.currentOrigin, c->ps.origin ) > SHINOBI_LOCK_KEEP ) {
+		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
+		return;
+	}
+	if ( Shinobi_LockSees( ent, t ) )
+		c->shinobi.lockSeen = level.time;
+	else if ( level.time - c->shinobi.lockSeen > SHINOBI_LOCK_LOST_MS ) {
+		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
+		trap->SendServerCommand( ent - g_entities, "cp \"Lost him\"" );
+	}
 }

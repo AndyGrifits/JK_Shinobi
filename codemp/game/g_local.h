@@ -842,6 +842,7 @@ struct gclient_s {
 		int		bladeReachSwing;	// the swing a "reach" finisher was thrown with (its own blow doesn't count)
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts
 		int		bleedEnd, bleedNext, bleedBy; // a wound: bleeding until, next tick, who opened it (+1)
+		int		lockSeen;		// lock-on: the target was last in sight then
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast
@@ -1573,6 +1574,8 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 void     Shinobi_BladeSwingUpdate( gentity_t *ent );
 void     Shinobi_BladeStance( gentity_t *ent );
 void     Shinobi_SwordThink( gentity_t *ent );
+void     Cmd_LockOn_f( gentity_t *ent );
+void     Shinobi_LockThink( gentity_t *ent );
 qboolean Shinobi_BladeChainLivePublic( gclient_t *c );
 float    Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDamage );
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity

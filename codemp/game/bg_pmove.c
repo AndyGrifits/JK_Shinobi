@@ -10662,6 +10662,48 @@ static void PM_ShinobiRollKey( void )
 	ps->pm_flags |= PMF_ROLLING;
 }
 
+/*
+Lock-on (T): the view - and the third-person camera with it - turns after the locked
+target, up to SHINOBI_LOCK_TURN degrees a second; the mouse does nothing meanwhile.
+Predicted: the target's position comes from its entity state.
+*/
+static void PM_ShinobiLockOn( void )
+{
+	playerState_t *ps = pm->ps;
+	const int n = ps->stats[STAT_SHINOBI_LOCK] - 1;
+	bgEntity_t *t;
+	vec3_t eye, want, ang, now;
+	float step, d;
+	int i;
+
+	if ( n < 0 || n >= ENTITYNUM_WORLD || ps->clientNum >= MAX_CLIENTS || ps->pm_type != PM_NORMAL
+		|| ( ps->pm_flags & PMF_STUCK_TO_WALL ) )
+		return;
+	t = PM_BGEntForNum( n );
+	if ( !t )
+		return;
+	VectorCopy( ps->origin, eye );
+	eye[2] += ps->viewheight;
+	VectorSubtract( t->s.pos.trBase, eye, want );
+	want[2] += 8; // (his chest)
+	if ( VectorLength( want ) < 24 )
+		return; // right on top of him: no sense in turning
+	vectoangles( want, ang );
+	for ( i = 0; i < 2; i++ )
+		now[i] = SHORT2ANGLE( pm->cmd.angles[i] + ps->delta_angles[i] );
+	now[ROLL] = 0;
+	step = SHINOBI_LOCK_TURN * pml.msec / 1000.0f;
+	for ( i = 0; i < 2; i++ ) {
+		d = AngleNormalize180( ang[i] - now[i] );
+		if ( d > step ) d = step;
+		if ( d < -step ) d = -step;
+		now[i] = AngleNormalize180( now[i] + d );
+	}
+	if ( now[PITCH] > 60 ) now[PITCH] = 60;
+	if ( now[PITCH] < -60 ) now[PITCH] = -60;
+	PM_SetPMViewAngle( ps, now, &pm->cmd );
+}
+
 static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
@@ -11436,6 +11478,7 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_SetSpecialMoveValues();
 
 	// update the viewangles
+	PM_ShinobiLockOn(); // JK_Shinobi: locked on - the view turns after the target
 	PM_UpdateViewAngles( pm->ps, &pm->cmd );
 
 	AngleVectors (pm->ps->viewangles, pml.forward, pml.right, pml.up);

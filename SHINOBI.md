@@ -65,6 +65,9 @@ roll up to a side. Kawarimi works from the floor.
 
 ## Small things
 
+- The camera (set by shinobi_binds.cfg): 110 back (stock 80), 10 up (16), and on a wide
+  screen the 4:3 height of the view (`cg_fovAspectAdjust 1`) - the whole body shows.
+
 - **Ctrl rolls** (`+button12`) the way the keys point, from a stand too (no keys: backward);
   held, it keeps rolling. Not while caught, knocked down, swinging or holding a jutsu; it
   drops a raised guard.
@@ -516,6 +519,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
+| **T** | lock on to the enemy nearest your aim, in plain sight within 1500 (red brackets on him): the view and camera turn after him (720 degrees a second, the mouse does nothing meanwhile); T again, his death, 2200 away or 1.5 s out of sight lets go. Team chat moved to U |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
 | **2** | fists / your weapon (nothing with Fists only) |
 | **B** | ninja build screen |

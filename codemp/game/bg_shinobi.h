@@ -858,6 +858,12 @@ someone lying in front of you: a downward blow (the saber stab-down animation).
 Attack in the air (anywhere, combo or not): a kick forward and down (45 degrees) that hits
 around where you land. Block + attack: the stock grab.
 */
+#define STAT_SHINOBI_LOCK          11    // lock-on (T): the target's entity number + 1 (0 = free); Pmove turns the view to him
+#define SHINOBI_LOCK_RANGE         1500  // finds the one nearest your aim within this, in plain sight
+#define SHINOBI_LOCK_KEEP          2200  // lets go past this
+#define SHINOBI_LOCK_LOST_MS       1500  // ... or out of sight this long
+#define SHINOBI_LOCK_FOV           0.34f // cos of the half angle to pick from (70 degrees)
+#define SHINOBI_LOCK_TURN          720.0f // degrees a second the view turns after him
 #define STAT_SHINOBI_COMBO         14    // hit number (bits 0-2) and kind (bits 3-5) of the current move
 #define STAT_SHINOBI_COMBOT        15    // ms left to chain the next hit
 #define SHINOBI_COMBO_WINDOW       450

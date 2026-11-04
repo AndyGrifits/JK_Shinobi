@@ -1874,6 +1874,36 @@ static void CG_ShinobiDrawCharges( void ) {
 	}
 }
 
+// lock-on (T): red brackets round the target, turning slowly
+static void CG_ShinobiDrawLock( void ) {
+	const int n = cg.predictedPlayerState.stats[STAT_SHINOBI_LOCK] - 1;
+	centity_t *t;
+	vec3_t     at;
+	float      x, y, r;
+	int        k;
+	const vec4_t c = { 1.0f, 0.2f, 0.15f, 0.9f };
+
+	if ( n < 0 || n >= MAX_GENTITIES || cg.snap->ps.pm_type == PM_SPECTATOR )
+		return;
+	t = &cg_entities[n];
+	if ( !t->currentValid )
+		return;
+	VectorCopy( t->lerpOrigin, at );
+	at[2] += 8;
+	if ( !CG_WorldCoordToScreenCoordFloat( at, &x, &y ) )
+		return;
+	r = 3000.0f / ( Distance( at, cg.refdef.vieworg ) + 60.0f ) + 10.0f;
+	if ( r > 46 )
+		r = 46;
+	for ( k = 0; k < 4; k++ ) { // four corners
+		const float sx = ( k & 1 ) ? 1.0f : -1.0f, sy = ( k & 2 ) ? 1.0f : -1.0f;
+		const float cx = x + sx * r, cy = y + sy * r;
+		CG_FillRect( sx > 0 ? cx - 8 : cx, cy - 1, 8, 2, (float *)c );
+		CG_FillRect( cx - 1, sy > 0 ? cy - 8 : cy, 2, 8, (float *)c );
+	}
+	CG_FillRect( x - 1.5f, y - 1.5f, 3, 3, (float *)c );
+}
+
 static void CG_ShinobiDrawJutsuList( void ) {
 	const float scale = 0.42f, gap = 10, y = 448;
 	const int   chakra = cg.predictedPlayerState.fd.forcePower;
@@ -2729,6 +2759,7 @@ void CG_ShinobiDrawHUD( void ) {
 	if ( CG_ShinobiMyEyes() == SP_BYAKUGAN )
 		CG_ShinobiDrawEyeInfo();
 
+	CG_ShinobiDrawLock();
 	CG_ShinobiDrawJutsuList();
 	CG_ShinobiDrawCharges();
 
