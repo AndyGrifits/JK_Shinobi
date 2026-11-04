@@ -340,15 +340,17 @@ measures every blade on a still target and tries every finisher.
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
 1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo. One swing is
 one blow (never two for one cut: two blows on the same one come at least half a stance's swing
-time apart). Under the crosshair a white pip lights for each blow and a
-gold one waits at the end; when the combo stands one short (3 blows fast and dual, 2 medium,
-1 strong) the gold pip lights up and pulses and a hint shows: **now the next swing is the finisher**
-(held attack: the one after at once; clicks: your next click) - a move of its own, picked by what you hold as you swing, its blow x1.5:
-**back** - a low turning cut that knocks him down (`LS_A_BACK_CR`); **left / right** - a full
-spin (Alora's spin slash, the dual spin with two blades) cutting everyone round you;
-**jump** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`); **nothing or
-forward** - a lunge (`LS_A_LUNGE`) with the weapon's own finisher (`shinobiFinisher` in its
-.sab), each with its own look ("Finisher!" over him):
+time apart). Under the crosshair a white pip lights for each blow and a gold one waits at the
+end; when the combo stands one short (4 blows fast and dual, 3 medium, 2 strong) the gold pip
+lights up and pulses: **now the next swing is the finisher** (held attack: the one after at
+once; clicks: your next click) - a move of its own, picked by what you hold as you swing (as
+with fists), its blow x1.5 and played at the stance's pace (x0.8 medium, x0.6 strong):
+**forward** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`); **back** - a low
+turning cut that knocks him down (`LS_A_BACK_CR`); **left / right** - a full spin (Alora's spin
+slash, the dual spin with two blades) cutting everyone round you; **nothing** - a lunge
+(`LS_A_LUNGE`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
+own look ("Finisher!" over him). The swing glow runs along 70% of the visible steel, from a
+little out of the hand (`cg_shinobiTrail`):
 
 | weapon | its finisher |
 |---|---|

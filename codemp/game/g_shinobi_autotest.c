@@ -832,7 +832,7 @@ static const bcCase_t bcCases[] = {
 	{ "shinobi_knife", "shinobi_knife_l", 0, 0, 0, -1, "knives: thrown chakra blade" },
 	{ "shinobi_katana", "none", -127, 0, 0, SFX_SWEEP, "back: sweep (knockdown)" },
 	{ "shinobi_katana", "none", 0, 127, 0, SFX_SPIN, "side: spin" },
-	{ "shinobi_katana", "none", 0, 0, 127, SFX_LAUNCH, "jump: rising cut (launch)" },
+	{ "shinobi_katana", "none", 127, 0, 0, SFX_LAUNCH, "forward: rising cut (launch)" },
 };
 #define BC_COUNT  ( (int)( sizeof( bcCases ) / sizeof( bcCases[0] ) ) )
 #define BC_MS     12000
@@ -1514,7 +1514,7 @@ static atTest_t atTests[] = {
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
-	{ "blade_combo",  "blade finishers: each weapon's own and sweep / spin / rising cut", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
+	{ "blade_combo",  "blade finishers: each weapon's own (nothing held) and back sweep / side spin / forward rising cut", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },

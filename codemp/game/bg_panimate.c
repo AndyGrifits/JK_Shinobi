@@ -2692,6 +2692,7 @@ void PM_SetTorsoAnimTimer(int time )
 
 void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int anim, float *animSpeed, int broken )
 {
+	*animSpeed *= Shinobi_FinisherAnimSpeed( anim, saberAnimLevel ); // JK_Shinobi: blade finishers at the stance's pace
 	if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_ROLL_STAB )
 	{
 		if ( weapon == WP_SABER )

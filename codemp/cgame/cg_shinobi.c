@@ -1906,15 +1906,6 @@ static void CG_ShinobiDrawBladeCombo( void ) {
 		const float p = 0.5f + 0.5f * sinf( cg.time * 0.02f );
 		gold[3] = 0.6f + 0.4f * p;
 		CG_FillRect( x - 1, 261, 12, 12, gold );
-		{
-			static const char * const own[SBF_COUNT] = { "lunge", "drain", "bleed", "chakra blade", "iai", "flurry" };
-			const clientInfo_t *ci = &cgs.clientinfo[ps->clientNum];
-			const int f = ci->saber[0].shinobiFinisher >= 0 && ci->saber[0].shinobiFinisher < SBF_COUNT ? ci->saber[0].shinobiFinisher : 0;
-			const char *t = va( "NEXT SWING - FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] );
-			const vec4_t c = { 1.0f, 0.85f, 0.35f, 0.9f };
-			CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.36f, FONT_SMALL ) * 0.5f, 276, 0.36f, (float *)c, t, 0, 0,
-				ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
-		}
 	}
 	else { // empty: a dark box with a gold rim
 		CG_FillRect( x, 262, 10, 10, (float *)off );

@@ -6519,13 +6519,17 @@ CheckTrail:
 		}
 
 		// we must always do this, even if we aren't active..otherwise we won't know where to pick up from
-		VectorCopy( org_, saberTrail->base );
-		{ // JK_Shinobi: a cold weapon's trail runs only along the steel you see, not its whole reach
+		{ // JK_Shinobi: a cold weapon's glow runs along part of the steel you see (cg_shinobiTrail), not its whole reach
 			const float vis = bladeNum ? client->saber[saberNum].shinobiTrail2 : client->saber[saberNum].shinobiTrail;
-			if ( vis > 0 && vis < saberLen )
-				VectorMA( org_, vis + 3.0f, axis_[0], saberTrail->tip );
-			else
+			if ( vis > 0 ) {
+				const float len = ( vis < saberLen ? vis : saberLen ) * Com_Clamp( 0.1f, 1.0f, cg_shinobiTrail.value );
+				VectorMA( org_, len * 0.25f, axis_[0], saberTrail->base ); // (not over the hand)
+				VectorMA( org_, len, axis_[0], saberTrail->tip );
+			}
+			else {
+				VectorCopy( org_, saberTrail->base );
 				VectorMA( end, 3.0f, axis_[0], saberTrail->tip );
+			}
 		}
 		saberTrail->lastTime = cg.time;
 	}

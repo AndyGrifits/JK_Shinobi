@@ -3718,8 +3718,8 @@ weapChecks:
 			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
 				&& ( pm->cmd.buttons & BUTTON_ATTACK ) // (not the return after a swing: that comes this way too, without attack)
 				&& Shinobi_BladeFinisherReady( pm->ps )
-				&& ( pm->ps->groundEntityNum != ENTITYNUM_NONE || Shinobi_FinisherKindFor( &pm->cmd ) == SFK_RISE ) )
-			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher (the rising one may be in the air: jump)
+				&& pm->ps->groundEntityNum != ENTITYNUM_NONE )
+			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher
 				newmove = Shinobi_FinisherMove( Shinobi_FinisherKindFor( &pm->cmd ),
 					pm->ps->fd.saberAnimLevel == SS_DUAL ? qtrue : qfalse );
 				anim = saberMoveData[newmove].animToUse;

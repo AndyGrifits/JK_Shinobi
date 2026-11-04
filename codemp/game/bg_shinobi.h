@@ -737,7 +737,7 @@ forward - the weapon's own (shinobiFinisher in its .sab):
   flurry (Kurosawa)      two more quick cuts right after (_FLURRY_SCALE of the blow each)
 */
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordChain[8] =  {   0,  4,   3,     2,     2,     4,     4,   4 };
+static const int shinobiSwordChain[8] =  {   0,  5,   4,     3,     3,     5,     5,   5 };
 static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1700, 1700 };
 #define SHINOBI_SWORD_FINISH       1.5f
 enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_COUNT };
@@ -764,14 +764,26 @@ static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
 	return have > 0 && have == need - 1;
 }
+// as with fists: forward - up he goes, back - the sweep, a side - the spin, nothing - the weapon's own
 static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
-	if ( cmd->upmove > 0 )
+	if ( cmd->forwardmove > 0 )
 		return SFK_RISE;
 	if ( cmd->forwardmove < 0 )
 		return SFK_SWEEP;
 	if ( cmd->rightmove )
 		return SFK_SPIN;
 	return SFK_OWN;
+}
+// the finisher moves play slower in the slower stances, to match their own swings
+static QINLINE float Shinobi_FinisherAnimSpeed( int anim, int saberAnimLevel ) {
+	if ( anim != BOTH_LUNGE2_B__T_ && anim != BOTH_CROUCHATTACKBACK1 && anim != BOTH_ALORA_SPIN_SLASH
+		&& anim != BOTH_SPINATTACK6 && anim != BOTH_PULL_IMPALE_SWING )
+		return 1.0f;
+	if ( saberAnimLevel == SS_STRONG || saberAnimLevel == SS_DESANN )
+		return 0.6f;
+	if ( saberAnimLevel == SS_MEDIUM )
+		return 0.8f;
+	return 1.0f;
 }
 // the stock moves the finishers play
 static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {
