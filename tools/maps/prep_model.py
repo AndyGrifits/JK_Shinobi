@@ -418,7 +418,7 @@ def find_rooms(rc, bvh):
         ctr = min(pts, key=lambda p_: (p_[0] - mx) ** 2 + (p_[1] - my) ** 2)
         area = len(pts) * C_ * C_
         lights_.append({"origin": [round(ctr[0]), round(ctr[1]), round(zf + min(0.75 * (zc - zf), 120))],
-                        "light": int(min(420, 150 + area / 700)), "color": [1, 0.86, 0.66]})
+                        "light": int(min(rc.get("light_max", 900), rc.get("light_base", 380) + area / 300)), "color": [1, 0.86, 0.66]})
         def fits(x, y, hw, hd, yaw):          # footprint inside the room's cells (with a margin)
             ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
             for a_ in (-1, 0, 1):
@@ -426,7 +426,8 @@ def find_rooms(rc, bvh):
                     px_ = x + (a_ * (hw + 16)) * ca - (b_ * (hd + 16)) * sa; py_ = y + (a_ * (hw + 16)) * sa + (b_ * (hd + 16)) * ca
                     if (round((px_ - xs_[0]) / C_), round((py_ - ys_[0]) / C_)) not in ij: return False
             return True
-        if zf < rc.get("furnish_above", -40):    # under bridges / along the canal: light only
+        if zf < rc.get("furnish_above", -40):    # under bridges / along the canal: light only, softer
+            lights_[-1]["light"] = int(lights_[-1]["light"] * 0.6)
             continue
         used = []
         def free(x, y, r): return all(math.hypot(x - u, y - v) > r + rr for u, v, rr in used)
