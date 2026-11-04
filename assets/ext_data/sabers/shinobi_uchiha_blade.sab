@@ -1,0 +1,55 @@
+// JK_Shinobi: written by tools/weapon2glm.py from tools/weapons.json - edit that
+shinobi_uchiha_blade
+{
+	name			"Uchiha Ninja Blade"
+	saberType		SABER_SINGLE
+	saberModel		models/weapons2/shinobi_uchiha_blade/model.glm
+	numBlades		1
+	saberLength		40
+	saberColor		blue
+	shinobiTrail		20.5
+	saberStyle		dual
+	shinobiUse		two
+	noBlade			1
+	noBlade2		1
+	noDlight		1
+	noDlight2		1
+	noClashFlare	1
+	noClashFlare2	1
+	noWallMarks		1
+	noWallMarks2	1
+	noIdleEffect	1
+	noIdleEffect2	1
+	trailStyle		1
+	trailStyle2		1
+	noManualDeactivate	1
+	noManualDeactivate2	1
+	g2MarksShader		gfx/shinobi/cutmark
+	g2MarksShader2		gfx/shinobi/cutmark
+	g2WeaponMarkShader	gfx/shinobi/cutmark
+	g2WeaponMarkShader2	gfx/shinobi/cutmark
+	onInWater		1
+	throwable		0
+	disarmable		0
+	soundOn			sound/weapons/sword/draw1.mp3
+	soundLoop		sound/weapons/shinobi/silence.wav
+	spinSound		sound/weapons/shinobi/silence.wav
+	soundOff		sound/weapons/sword/catch.mp3
+	swingSound1		sound/weapons/sword/swing1.mp3
+	swingSound2		sound/weapons/sword/swing2.mp3
+	swingSound3		sound/weapons/sword/swing3.mp3
+	hitSound1		sound/weapons/sword/stab1.mp3
+	hit2Sound1		sound/weapons/sword/stab1.mp3
+	hitSound2		sound/weapons/sword/stab2.mp3
+	hit2Sound2		sound/weapons/sword/stab2.mp3
+	hitSound3		sound/weapons/sword/stab3.mp3
+	hit2Sound3		sound/weapons/sword/stab3.mp3
+	blockSound1		sound/effects/metal_bounce.mp3
+	block2Sound1		sound/effects/metal_bounce.mp3
+	blockSound2		sound/effects/metal_bounce2.mp3
+	block2Sound2		sound/effects/metal_bounce2.mp3
+	blockSound3		sound/weapons/sword/fall1.mp3
+	block2Sound3		sound/weapons/sword/fall1.mp3
+	bounceSound1		sound/effects/metal_bounce2.mp3
+	bounce2Sound1		sound/effects/metal_bounce2.mp3
+}

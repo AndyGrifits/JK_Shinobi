@@ -721,6 +721,8 @@ typedef struct { const char *s1, *s2; int style; } sdpsCase_t;
 static const sdpsCase_t sdpsCases[] = { // (each fights in its own stance: the .sab's saberStyle)
 	{ "shinobi_katana", "none", 0 }, { "shinobi_kurosawa", "none", 0 }, { "shinobi_kubikiribocho", "none", 0 },
 	{ "shinobi_samehada", "none", 0 }, { "shinobi_knife", "shinobi_knife_l", 0 },
+	{ "shinobi_shibuki", "none", 0 }, { "shinobi_nuibari", "none", 0 },
+	{ "shinobi_uchiha_blade", "shinobi_uchiha_blade", 0 }, { "shinobi_cloud_tanto", "shinobi_cloud_tanto", 0 },
 };
 #define SDPS_COUNT ( (int)( sizeof( sdpsCases ) / sizeof( sdpsCases[0] ) ) )
 static const char *sdpsStyleNames[] = { "-", "fast", "medium", "strong", "desann", "tavion", "dual", "staff" };

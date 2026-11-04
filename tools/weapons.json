@@ -284,5 +284,174 @@
     "stance": "strong",
     "use": "one",
     "finisher": "drain"
+  },
+  "shibuki": {
+    "title": "Shibuki",
+    "source": "Blastsword - Shibuki/Blastsword - Shibuki.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      7
+    ],
+    "scale": 0.37,
+    "thickness": 0.45,
+    "blades": [
+      [
+        2.2,
+        1,
+        48
+      ]
+    ],
+    "stance": "strong",
+    "use": "one",
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing4.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab3.mp3",
+        "sound/weapons/sword/stab4.mp3",
+        "sound/weapons/sword/stab1.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
+  },
+  "nuibari": {
+    "title": "Nuibari",
+    "source": "Sewing Needle - Nuibari/Sewing Needle - Nuibari.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      8
+    ],
+    "scale": 0.37,
+    "blades": [
+      [
+        4.1,
+        1,
+        68
+      ]
+    ],
+    "stance": "fast",
+    "use": "one",
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab1.mp3",
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab3.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
+  },
+  "uchiha_blade": {
+    "title": "Uchiha Ninja Blade",
+    "source": "Ninja Blade - Uchiha/Ninja Blade - Uchiha.obj",
+    "map": "X,Y,Z",
+    "grip": [
+      0,
+      0,
+      -1
+    ],
+    "scale": 0.37,
+    "blades": [
+      [
+        4.4,
+        1,
+        40
+      ]
+    ],
+    "stance": "dual",
+    "use": "two",
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab1.mp3",
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab3.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
+  },
+  "cloud_tanto": {
+    "title": "Hidden Cloud Short Sword",
+    "source": "PC _ Computer - Naruto to Boruto_ Shinobi Striker - Custom Weapons - Hidden Cloud Short Sword/Hidden Cloud Short Sword/Hidden Cloud Short Sword.obj",
+    "map": "-Z,Y,X",
+    "grip": [
+      3.5,
+      0,
+      0
+    ],
+    "scale": 0.37,
+    "blades": [
+      [
+        2.2,
+        1,
+        42
+      ]
+    ],
+    "stance": "dual",
+    "use": "two",
+    "sounds": {
+      "on": "sound/weapons/sword/draw1.mp3",
+      "off": "sound/weapons/sword/catch.mp3",
+      "swing": [
+        "sound/weapons/sword/swing1.mp3",
+        "sound/weapons/sword/swing2.mp3",
+        "sound/weapons/sword/swing3.mp3"
+      ],
+      "hit": [
+        "sound/weapons/sword/stab1.mp3",
+        "sound/weapons/sword/stab2.mp3",
+        "sound/weapons/sword/stab3.mp3"
+      ],
+      "block": [
+        "sound/effects/metal_bounce.mp3",
+        "sound/effects/metal_bounce2.mp3",
+        "sound/weapons/sword/fall1.mp3"
+      ],
+      "bounce": [
+        "sound/effects/metal_bounce2.mp3"
+      ]
+    }
   }
 }

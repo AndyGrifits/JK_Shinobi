@@ -324,6 +324,10 @@ kubikiribocho, samehada, fists); shadow clones carry what their maker carries.
 | Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | one | fast | 41 (as far as the fists) |
 | Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | one | strong | 52 |
 | Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | one | strong | 49 |
+| Shibuki (`shinobi_shibuki`) | Blastsword (Shinobi Striker), blade 0.45 as wide and thick so it stays out of the body | one | strong | 48 |
+| Nuibari (`shinobi_nuibari`) | Sewing Needle (Shinobi Striker), 70 long | one | fast | 68 |
+| Uchiha Ninja Blade (`shinobi_uchiha_blade`) | Ninja Blade - Uchiha (Shinobi Striker) | pair | dual | 40 (as far as the fists) |
+| Hidden Cloud Short Sword (`shinobi_cloud_tanto`) | Hidden Cloud Short Sword (Shinobi Striker) | pair | dual | 42 (as far as the fists) |
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
