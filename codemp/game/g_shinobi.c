@@ -1209,16 +1209,15 @@ void Shinobi_ApplySize( gentity_t *ent, const char *model )
 
 /*
 ===========================================================================
-Lock-on ("lockon", T): the enemy nearest your aim, in plain sight within
-SHINOBI_LOCK_RANGE; Pmove keeps the view on him (PM_ShinobiLockOn). T again,
-his death, distance or losing sight of him for a while lets go.
+Lock-on (see bg_shinobi.h): by itself in close combat, "lockon" (T) the next
+one close by; Pmove keeps the view on him (PM_ShinobiLockOn).
 ===========================================================================
 */
 static qboolean Shinobi_LockTarget( gentity_t *ent, gentity_t *t ) {
 	if ( !t || t == ent || !t->inuse || !t->client || t->health <= 0 || !t->takedamage )
 		return qfalse;
 	if ( t->s.number < MAX_CLIENTS && ( t->client->pers.connected != CON_CONNECTED
-		|| t->client->sess.sessionTeam == TEAM_SPECTATOR ) )
+		|| t->client->sess.sessionTeam == TEAM_SPECTATOR || SHINOBI_UNSEEN( &t->client->ps ) ) )
 		return qfalse;
 	if ( t->s.number >= MAX_CLIENTS && !t->shinobiCloneOwner )
 		return qfalse; // (other NPCs: not here)
@@ -1240,50 +1239,84 @@ static qboolean Shinobi_LockSees( gentity_t *ent, gentity_t *t ) {
 	return tr.fraction >= 1.0f;
 }
 
-void Cmd_LockOn_f( gentity_t *ent ) {
-	gclient_t *c = ent->client;
-	gentity_t *best = NULL;
-	float      bestScore = 0;
-	vec3_t     fwd, eye;
-	int        i;
+// close combat: fists or a blade in hand (with a tool you aim yourself)
+static qboolean Shinobi_LockHands( gentity_t *ent ) {
+	const int w = ent->client->ps.weapon;
+	return ( w == WP_MELEE || w == WP_SABER ) && ent->client->ps.pm_type == PM_NORMAL;
+}
 
-	if ( c->ps.stats[STAT_SHINOBI_LOCK] ) {
-		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
-		trap->SendServerCommand( ent - g_entities, "cp \"Lock off\"" );
-		return;
-	}
-	AngleVectors( c->ps.viewangles, fwd, NULL, NULL );
+/*
+Who could be locked on: in plain sight within range; in front (or close by anywhere).
+Their angle off the view (-180..180, right is negative) for the T cycle; the best is
+the one nearest the aim (then the nearest).
+*/
+static int Shinobi_LockCandidates( gentity_t *ent, gentity_t **list, float *yaw, int max ) {
+	gclient_t *c = ent->client;
+	vec3_t     fwd, eye, ang;
+	int        i, n = 0;
+
+	VectorSet( ang, 0, c->ps.viewangles[YAW], 0 );
+	AngleVectors( ang, fwd, NULL, NULL );
 	VectorCopy( c->ps.origin, eye );
 	eye[2] += c->ps.viewheight;
-	for ( i = 0; i < level.num_entities; i++ ) {
+	for ( i = 0; i < level.num_entities && n < max; i++ ) {
 		gentity_t *t = &g_entities[i];
 		vec3_t     d;
-		float      dist, dot, score;
+		float      dist;
 		if ( !Shinobi_LockTarget( ent, t ) )
 			continue;
 		VectorSubtract( t->r.currentOrigin, eye, d );
+		d[2] = 0;
 		dist = VectorNormalize( d );
 		if ( dist > SHINOBI_LOCK_RANGE )
 			continue;
-		dot = DotProduct( d, fwd );
-		if ( dot < SHINOBI_LOCK_FOV && dist > 150 )
-			continue; // (one right next to you counts wherever he is)
+		if ( DotProduct( d, fwd ) < SHINOBI_LOCK_FOV && dist > 150 )
+			continue;
 		if ( !Shinobi_LockSees( ent, t ) )
 			continue;
-		score = dot * 2.0f - dist / SHINOBI_LOCK_RANGE; // nearest the aim first, then the nearest
-		if ( !best || score > bestScore ) {
-			best = t;
-			bestScore = score;
+		list[n] = t;
+		yaw[n] = AngleNormalize180( vectoyaw( d ) - c->ps.viewangles[YAW] );
+		n++;
+	}
+	return n;
+}
+
+static void Shinobi_LockSet( gentity_t *ent, gentity_t *t ) {
+	ent->client->ps.stats[STAT_SHINOBI_LOCK] = t ? t->s.number + 1 : 0;
+	ent->client->shinobi.lockSeen = level.time;
+}
+
+// T: the next one close by (to the right of the one locked, round again); nothing locked: the best
+void Cmd_LockOn_f( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	gentity_t *list[MAX_CLIENTS], *pick = NULL;
+	float      yaw[MAX_CLIENTS], curYaw = 0, bestGap = 999;
+	const int  cur = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
+	int        i, n;
+
+	n = Shinobi_LockCandidates( ent, list, yaw, MAX_CLIENTS );
+	for ( i = 0; i < n; i++ )
+		if ( list[i]->s.number == cur )
+			curYaw = yaw[i];
+	for ( i = 0; i < n; i++ ) { // the next one clockwise (to the right) from the locked one
+		float gap;
+		if ( list[i]->s.number == cur )
+			continue;
+		gap = curYaw - yaw[i];
+		if ( cur < 0 )
+			gap = fabs( yaw[i] ); // none locked: the one nearest the aim
+		else if ( gap <= 0 )
+			gap += 360;
+		if ( gap < bestGap ) {
+			bestGap = gap;
+			pick = list[i];
 		}
 	}
-	if ( !best ) {
-		trap->SendServerCommand( ent - g_entities, "cp \"No one to lock on to\"" );
+	if ( !pick ) {
+		trap->SendServerCommand( ent - g_entities, cur >= 0 ? "cp \"No one else close\"" : "cp \"No one close to lock on to\"" );
 		return;
 	}
-	c->ps.stats[STAT_SHINOBI_LOCK] = best->s.number + 1;
-	c->shinobi.lockSeen = level.time;
-	trap->SendServerCommand( ent - g_entities, va( "cp \"Locked on: %s\"",
-		best->client && best->s.number < MAX_CLIENTS ? best->client->pers.netname : "clone" ) );
+	Shinobi_LockSet( ent, pick );
 }
 
 void Shinobi_LockThink( gentity_t *ent ) {
@@ -1291,18 +1324,36 @@ void Shinobi_LockThink( gentity_t *ent ) {
 	const int  n = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
 	gentity_t *t;
 
-	if ( n < 0 )
-		return;
-	t = &g_entities[n];
-	if ( ent->health <= 0 || n >= ENTITYNUM_WORLD || !Shinobi_LockTarget( ent, t )
-		|| Distance( t->r.currentOrigin, c->ps.origin ) > SHINOBI_LOCK_KEEP ) {
-		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
+	if ( n >= 0 ) {
+		t = &g_entities[n];
+		if ( n < ENTITYNUM_WORLD && t->inuse && t->client && t->s.number < MAX_CLIENTS && t->health > 0
+			&& SHINOBI_UNSEEN( &t->client->ps ) )
+			c->shinobi.lockNoAuto = level.time + SHINOBI_LOCK_HIDE_MS; // he vanished: lost him
+		if ( ent->health <= 0 || n >= ENTITYNUM_WORLD || !Shinobi_LockTarget( ent, t ) || !Shinobi_LockHands( ent )
+			|| Distance( t->r.currentOrigin, c->ps.origin ) > SHINOBI_LOCK_KEEP ) {
+			Shinobi_LockSet( ent, NULL );
+			return;
+		}
+		if ( Shinobi_LockSees( ent, t ) )
+			c->shinobi.lockSeen = level.time;
+		else if ( level.time - c->shinobi.lockSeen > SHINOBI_LOCK_LOST_MS )
+			Shinobi_LockSet( ent, NULL );
 		return;
 	}
-	if ( Shinobi_LockSees( ent, t ) )
-		c->shinobi.lockSeen = level.time;
-	else if ( level.time - c->shinobi.lockSeen > SHINOBI_LOCK_LOST_MS ) {
-		c->ps.stats[STAT_SHINOBI_LOCK] = 0;
-		trap->SendServerCommand( ent - g_entities, "cp \"Lost him\"" );
+	// nothing locked: close combat finds its own (not bots - their AI aims)
+	if ( shinobi_autolock.integer && ent->health > 0 && !( ent->r.svFlags & SVF_BOT ) && Shinobi_LockHands( ent )
+		&& level.time >= c->shinobi.lockNoAuto && c->sess.sessionTeam != TEAM_SPECTATOR ) {
+		gentity_t *list[MAX_CLIENTS], *best = NULL;
+		float      yaw[MAX_CLIENTS], bestScore = -999;
+		int        i, k = Shinobi_LockCandidates( ent, list, yaw, MAX_CLIENTS );
+		for ( i = 0; i < k; i++ ) {
+			const float score = -fabs( yaw[i] ) / 90.0f - Distance( list[i]->r.currentOrigin, c->ps.origin ) / SHINOBI_LOCK_RANGE;
+			if ( score > bestScore ) {
+				bestScore = score;
+				best = list[i];
+			}
+		}
+		if ( best )
+			Shinobi_LockSet( ent, best );
 	}
 }

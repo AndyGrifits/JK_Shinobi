@@ -519,7 +519,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
-| **T** | lock on to the enemy nearest your aim, in plain sight within 1500 (red brackets on him): the view and camera turn after him (720 degrees a second, the mouse does nothing meanwhile); T again, his death, 2200 away or 1.5 s out of sight lets go. Team chat moved to U |
+| **T** | lock-on, for close combat: with fists or a blade in hand the nearest enemy in front within 500 (anywhere within 150) is locked on by itself (`shinobi_autolock 0` turns that off); **T moves it to the next one close by** (to the right). Red brackets on him; the view and camera turn sideways after him (300 degrees a second - a quick step round him, a Shunshin behind or a jump over slips it; the mouse keeps the pitch and adds to the turn). Lets go past 700, out of sight 1 s, with a tool in hand, and the moment he hides (Kawarimi, burrow, shadow) - then no lock for 1.2 s. Bots don't lock. Team chat moved to U |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
 | **2** | fists / your weapon (nothing with Fists only) |
 | **B** | ninja build screen |

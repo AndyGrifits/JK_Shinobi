@@ -843,6 +843,7 @@ struct gclient_s {
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts
 		int		bleedEnd, bleedNext, bleedBy; // a wound: bleeding until, next tick, who opened it (+1)
 		int		lockSeen;		// lock-on: the target was last in sight then
+		int		lockNoAuto;		// ... no lock by itself until (he just hid)
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast

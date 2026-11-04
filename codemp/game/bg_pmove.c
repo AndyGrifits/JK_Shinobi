@@ -10663,9 +10663,9 @@ static void PM_ShinobiRollKey( void )
 }
 
 /*
-Lock-on (T): the view - and the third-person camera with it - turns after the locked
-target, up to SHINOBI_LOCK_TURN degrees a second; the mouse does nothing meanwhile.
-Predicted: the target's position comes from its entity state.
+Lock-on: the view - and the third-person camera with it - turns sideways after the locked
+target, up to SHINOBI_LOCK_TURN degrees a second (the mouse still adds its own, and keeps the
+pitch). Predicted: the target's position comes from its entity state.
 */
 static void PM_ShinobiLockOn( void )
 {
@@ -10693,14 +10693,10 @@ static void PM_ShinobiLockOn( void )
 		now[i] = SHORT2ANGLE( pm->cmd.angles[i] + ps->delta_angles[i] );
 	now[ROLL] = 0;
 	step = SHINOBI_LOCK_TURN * pml.msec / 1000.0f;
-	for ( i = 0; i < 2; i++ ) {
-		d = AngleNormalize180( ang[i] - now[i] );
-		if ( d > step ) d = step;
-		if ( d < -step ) d = -step;
-		now[i] = AngleNormalize180( now[i] + d );
-	}
-	if ( now[PITCH] > 60 ) now[PITCH] = 60;
-	if ( now[PITCH] < -60 ) now[PITCH] = -60;
+	d = AngleNormalize180( ang[YAW] - now[YAW] ); // sideways only: the pitch is the mouse's
+	if ( d > step ) d = step;
+	if ( d < -step ) d = -step;
+	now[YAW] = AngleNormalize180( now[YAW] + d );
 	PM_SetPMViewAngle( ps, now, &pm->cmd );
 }
 

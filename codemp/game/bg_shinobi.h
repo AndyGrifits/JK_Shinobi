@@ -858,12 +858,22 @@ someone lying in front of you: a downward blow (the saber stab-down animation).
 Attack in the air (anywhere, combo or not): a kick forward and down (45 degrees) that hits
 around where you land. Block + attack: the stock grab.
 */
-#define STAT_SHINOBI_LOCK          11    // lock-on (T): the target's entity number + 1 (0 = free); Pmove turns the view to him
-#define SHINOBI_LOCK_RANGE         1500  // finds the one nearest your aim within this, in plain sight
-#define SHINOBI_LOCK_KEEP          2200  // lets go past this
-#define SHINOBI_LOCK_LOST_MS       1500  // ... or out of sight this long
-#define SHINOBI_LOCK_FOV           0.34f // cos of the half angle to pick from (70 degrees)
-#define SHINOBI_LOCK_TURN          720.0f // degrees a second the view turns after him
+/*
+Lock-on, for close combat: with fists or a blade in hand the nearest enemy in front of you,
+in plain sight within SHINOBI_LOCK_RANGE, is locked on by itself (shinobi_autolock); T moves
+it to the next one close by. Pmove turns the view after him - only sideways (the mouse keeps
+the pitch: the floor for a tag, the air for a throw), at most SHINOBI_LOCK_TURN a second, so
+a quick step round him, a Shunshin behind him or a jump over him slips it for a moment.
+It lets go past SHINOBI_LOCK_KEEP, out of sight, with a tool in hand, and the moment he
+hides (Kawarimi, under the ground, in his shadow) - then nothing is locked for a moment.
+*/
+#define STAT_SHINOBI_LOCK          11    // the target's entity number + 1 (0 = free)
+#define SHINOBI_LOCK_RANGE         500   // locks on within this
+#define SHINOBI_LOCK_KEEP          700   // lets go past this
+#define SHINOBI_LOCK_LOST_MS       1000  // ... or out of sight this long
+#define SHINOBI_LOCK_HIDE_MS       1200  // after he hid: no new lock this long
+#define SHINOBI_LOCK_FOV           0.34f // cos of the half angle it picks from (70 degrees; within 150: anywhere)
+#define SHINOBI_LOCK_TURN          300.0f // degrees a second the view turns after him
 #define STAT_SHINOBI_COMBO         14    // hit number (bits 0-2) and kind (bits 3-5) of the current move
 #define STAT_SHINOBI_COMBOT        15    // ms left to chain the next hit
 #define SHINOBI_COMBO_WINDOW       450
