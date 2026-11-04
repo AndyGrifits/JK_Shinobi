@@ -346,9 +346,9 @@ lights up and pulses: **now the next swing is the finisher** (held attack: the o
 once; clicks: your next click) - a move of its own, picked by what you hold as you swing (as
 with fists), its blow x1.5; every finisher move plays x1.45 faster than stock (`SHINOBI_FINISHER_ANIM_SPEED`,
 the stock windups were too long to land), and two blades play the two-blade moves (in brackets):
-**forward** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`; `LS_JUMPATTACK_DUAL`) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
+**nothing** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`; `LS_JUMPATTACK_DUAL`) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
 turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** - a full spin (Alora's spin
-slash, the dual spin with two blades) cutting everyone round you; **nothing** - a lunge
+slash, the dual spin with two blades) cutting everyone round you; **forward** - a lunge
 (`LS_A_LUNGE`; `LS_DUAL_FB`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
 own look ("Finisher!" over him). The swing glow (both edges of its trail) runs along 70% of the visible steel, from a
 little out of the hand (`cg_shinobiTrail`):
@@ -359,7 +359,16 @@ little out of the hand (`cg_shinobiTrail`):
 | Kubikiribocho | **bleed**: a wound, 2 damage every 0.5 s for 4 s (blood on each tick) |
 | Trench Knives | **reach**: the finishing swing throws a chakra blade out to 220 - it lands even when he got out of reach |
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
-| Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) | The reach follows the visible blade: the katana keeps
+| Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
+
+**The plunge.** A blade in the air (at least 56 above the floor): attack = a dive straight down
+(1100 a second, the stab-down move, two-blade one for a pair); where it lands the blade goes in:
+everyone within 80 takes the stance's blow x1.25 (no falling damage for you). Whoever you
+launched with the rising cut and are still near (110) is slammed down with it: the blow x1.5,
+knocked down, no falling damage on him. So: chain - rising cut - jump (Shunshin up) - attack.
+Lower than that an attack in the air is the stock air swing. Autotest `sword_air`.
+
+The reach follows the visible blade: the katana keeps
 the stock saber's 40, a longer or shorter blade reaches as much farther or shorter as its
 tip is from the katana's (about 14 past the tip), but never less than the fists
 (`SHINOBI_PUNCH_RANGE`: 40 from a blade starting at the hand, the knife's); the staff

@@ -770,12 +770,12 @@ static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 // as with fists: forward - up he goes, back - the sweep, a side - the spin, nothing - the weapon's own
 static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
 	if ( cmd->forwardmove > 0 )
-		return SFK_RISE;
+		return SFK_OWN;   // forward: the weapon's own (a lunge)
 	if ( cmd->forwardmove < 0 )
 		return SFK_SWEEP;
 	if ( cmd->rightmove )
 		return SFK_SPIN;
-	return SFK_OWN;
+	return SFK_RISE;      // nothing held: up he goes
 }
 // the stock moves the finishers play (a pair: the two-blade ones)
 static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {
@@ -983,6 +983,10 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        10
+// a blade in the air: attack = a plunge straight down, the blade into the ground where you land
+#define SHINOBI_SWORD_DIVE_SPEED   1100
+#define SHINOBI_SWORD_DIVE_RADIUS  80
+#define SHINOBI_SWORD_DIVE_SCALE   1.25f // x the stance's blow; whoever you launched, slammed: x SHINOBI_SWORD_FINISH
 #define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be
 #define SHINOBI_GROUND_DAMAGE      21
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle

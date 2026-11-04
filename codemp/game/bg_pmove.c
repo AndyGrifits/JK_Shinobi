@@ -10374,6 +10374,64 @@ static qboolean PM_ShinobiLyingAhead( void )
 	return ( ent && ( ent->s.eType == ET_PLAYER || ent->s.eType == ET_NPC ) && BG_InKnockDown( ent->s.legsAnim ) ) ? qtrue : qfalse;
 }
 
+// a blade in the air: a fresh attack, high enough = a plunge straight down (lands: the server's
+// Shinobi_DiveImpact); lower than that, the stock air swing
+static void PM_ShinobiSwordDive( qboolean attackNew )
+{
+	playerState_t *ps = pm->ps;
+	const int      plunge = ( ps->fd.saberAnimLevel == SS_DUAL ) ? BOTH_STABDOWN_DUAL : BOTH_STABDOWN;
+
+	ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVEREQ;
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
+	{
+		if ( ps->groundEntityNum != ENTITYNUM_NONE )
+		{
+			ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVE;
+			ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVELAND;
+			ps->weaponTime = 350;
+			ps->velocity[0] = ps->velocity[1] = 0;
+		}
+		else
+		{
+			ps->velocity[0] = ps->velocity[1] = 0;
+			if ( ps->velocity[2] > -SHINOBI_SWORD_DIVE_SPEED )
+				ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
+			if ( ps->legsAnim != plunge && ps->legsAnim != BOTH_STABDOWN && ps->legsAnim != BOTH_STABDOWN_DUAL )
+				PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+			ps->weaponTime = 3000;
+			pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
+		}
+		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
+		return;
+	}
+	if ( !attackNew || ps->groundEntityNum != ENTITYNUM_NONE || ps->saberHolstered
+		|| ( pm->cmd.buttons & ( BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK ) )
+		|| BG_SaberInSpecial( ps->saberMove ) || BG_InGrappleMove( ps->torsoAnim ) || BG_KickingAnim( ps->legsAnim )
+		|| ps->forceHandExtend != HANDEXTEND_NONE
+		|| ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_BURROW
+			| SHINOBI_STAT_SHADOWHIDE | SHINOBI_STAT_RAIDASH ) ) )
+		return;
+	{
+		trace_t tr;
+		vec3_t  down;
+		VectorCopy( ps->origin, down );
+		down[2] -= 56;
+		pm->trace( &tr, ps->origin, pm->mins, pm->maxs, down, ps->clientNum, pm->tracemask );
+		if ( tr.fraction < 1.0f )
+			return; // too low: a stock air swing
+	}
+	ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVE;
+	ps->saberMove = LS_READY; // a swing in the air ends here: the plunge does the damage
+	ps->saberBlocked = BLOCKED_NONE;
+	PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+	ps->weaponTime = 3000; // until it lands
+	ps->velocity[0] = ps->velocity[1] = 0;
+	ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
+	ps->fd.forcePowersActive &= ~( 1 << FP_LEVITATION );
+	pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
+	pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+}
+
 static void PM_ShinobiComboPre( void )
 {
 	playerState_t *ps = pm->ps;
@@ -10395,6 +10453,11 @@ static void PM_ShinobiComboPre( void )
 	if ( pm->cmd.buttons & BUTTON_ATTACK )
 		ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ATTACKHELD;
 
+	if ( ps->weapon == WP_SABER && ps->stats[STAT_HEALTH] > 0 && ps->clientNum < MAX_CLIENTS )
+	{
+		PM_ShinobiSwordDive( attackNew );
+		return;
+	}
 	if ( ps->weapon != WP_MELEE || ps->stats[STAT_HEALTH] <= 0 )
 	{
 		ps->stats[STAT_SHINOBI2] &= ~( SHINOBI_STAT2_DIVE | SHINOBI_STAT2_DIVEREQ );

@@ -100,8 +100,9 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 
 // the diving kick came down: hits everyone around the landing spot
 static void Shinobi_DiveImpact( gentity_t *ent ) {
-	vec3_t up = { 0, 0, 1 }, feet;
-	int    i, dmg;
+	vec3_t         up = { 0, 0, 1 }, feet;
+	int            i, dmg;
+	const qboolean sword = ent->client->ps.weapon == WP_SABER;
 
 	VectorCopy( ent->client->ps.origin, feet );
 	feet[2] += ent->r.mins[2] + 2;
@@ -109,6 +110,11 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 	G_PlayEffectID( shinobiMedia.fxRockMed, feet, up );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWallBreak );
 	dmg = SHINOBI_DIVE_DAMAGE;
+	if ( sword ) { // the blade's plunge: the stance's blow, a little more
+		const int style = ent->client->ps.fd.saberAnimLevel;
+		dmg = (int)( shinobiSwordDamage[( style < 0 || style > 7 ) ? 2 : style] * SHINOBI_SWORD_DIVE_SCALE + 0.5f );
+		shinobiTest.swordDives++;
+	}
 	for ( i = 0; i < level.num_entities; i++ ) {
 		gentity_t *v = &g_entities[i];
 		vec3_t     d;
@@ -119,7 +125,7 @@ static void Shinobi_DiveImpact( gentity_t *ent ) {
 		if ( fabs( d[2] ) > 64 )
 			continue;
 		d[2] = 0;
-		if ( VectorLength( d ) > SHINOBI_DIVE_RADIUS )
+		if ( VectorLength( d ) > ( sword ? SHINOBI_SWORD_DIVE_RADIUS : SHINOBI_DIVE_RADIUS ) )
 			continue;
 		G_Damage( v, ent, ent, up, v->r.currentOrigin, dmg, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // just damage
 	}
@@ -226,7 +232,13 @@ static void Shinobi_SweepRoll( gentity_t *ent ) {
 
 // the air combo's diving kick: whoever we keep up there is slammed down
 static void Shinobi_AirSlam( gentity_t *ent ) {
-	int i;
+	int i, dmg;
+
+	if ( ent->client->ps.weapon == WP_SABER ) { // the blade's plunge onto whoever we launched
+		const int style = ent->client->ps.fd.saberAnimLevel;
+		dmg = (int)( shinobiSwordDamage[( style < 0 || style > 7 ) ? 2 : style] * SHINOBI_SWORD_FINISH + 0.5f );
+	} else
+		dmg = (int)( SHINOBI_SLAM_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f );
 
 	for ( i = 0; i < MAX_CLIENTS; i++ ) {
 		gentity_t *v = &g_entities[i];
@@ -241,8 +253,7 @@ static void Shinobi_AirSlam( gentity_t *ent ) {
 		v->client->shinobi.juggleBy = 0;
 		v->client->shinobi.slamNoFall = level.time + 2000; // the slam hurts, not the floor
 		shinobiTest.slams++;
-		G_Damage( v, ent, ent, dir, v->r.currentOrigin, (int)( SHINOBI_SLAM_DAMAGE * shinobiFistFinisher[SHINOBI_FIST_STYLE( &ent->client->ps )] + 0.5f ),
-			DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		G_Damage( v, ent, ent, dir, v->r.currentOrigin, dmg, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 		if ( !v->inuse || v->health <= 0 )
 			continue;
 		v->client->ps.velocity[0] = dir[0] * 120;
@@ -266,8 +277,9 @@ void Shinobi_TaijutsuThink( gentity_t *ent ) {
 		else if ( client->shinobi.flinchEnd < level.time + 150 )
 			client->shinobi.flinchEnd = level.time + 150;
 	}
-	if ( ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE ) && ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) )
-		Shinobi_AirSlam( ent );
+	if ( ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
+		&& ( ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) || client->ps.weapon == WP_SABER ) )
+		Shinobi_AirSlam( ent ); // (a blade: the plunge slams whoever it launched)
 
 	if ( client->ps.weapon == WP_MELEE && SHINOBI_COMBO_KIND( &client->ps ) == SCK_SWEEP
 		&& client->ps.legsAnim == BOTH_ROLL_F && client->ps.legsTimer > 0 && ent->health > 0 )

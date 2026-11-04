@@ -820,19 +820,19 @@ static atResult_t T_SaberDps( int t ) {
 }
 
 /*
-blade_combo: each weapon's own finisher (nothing held) and the three common ones (katana,
-back / right / jump held): the chain lands, the finisher comes, its effect shows.
+blade_combo: each weapon's own finisher (forward held) and the three common ones (katana,
+back / side / nothing held): the chain lands, the finisher comes, its effect shows.
 */
 typedef struct { const char *s1, *s2; int fwd, right, up, kind; const char *what; } bcCase_t;
 static const bcCase_t bcCases[] = {
-	{ "shinobi_katana", "none", 0, 0, 0, SFX_IAI, "katana: iai (stagger)" },
-	{ "shinobi_kurosawa", "none", 0, 0, 0, SFX_FLURRY, "kurosawa: flurry (2 more cuts)" },
-	{ "shinobi_kubikiribocho", "none", 0, 0, 0, SFX_BLEED, "kubikiribocho: bleed" },
-	{ "shinobi_samehada", "none", 0, 0, 0, SFX_DRAIN, "samehada: drain chakra" },
-	{ "shinobi_knife", "shinobi_knife_l", 0, 0, 0, -1, "knives: thrown chakra blade" },
+	{ "shinobi_katana", "none", 127, 0, 0, SFX_IAI, "katana: iai (stagger)" },
+	{ "shinobi_kurosawa", "none", 127, 0, 0, SFX_FLURRY, "kurosawa: flurry (2 more cuts)" },
+	{ "shinobi_kubikiribocho", "none", 127, 0, 0, SFX_BLEED, "kubikiribocho: bleed" },
+	{ "shinobi_samehada", "none", 127, 0, 0, SFX_DRAIN, "samehada: drain chakra" },
+	{ "shinobi_knife", "shinobi_knife_l", 127, 0, 0, -1, "knives: thrown chakra blade" },
 	{ "shinobi_katana", "none", -127, 0, 0, SFX_SWEEP, "back: sweep (knockdown)" },
 	{ "shinobi_katana", "none", 0, 127, 0, SFX_SPIN, "side: spin" },
-	{ "shinobi_katana", "none", 127, 0, 0, SFX_LAUNCH, "forward: rising cut (launch)" },
+	{ "shinobi_katana", "none", 0, 0, 0, SFX_LAUNCH, "nothing held: rising cut (launch)" },
 };
 #define BC_COUNT  ( (int)( sizeof( bcCases ) / sizeof( bcCases[0] ) ) )
 #define BC_MS     12000
@@ -1085,6 +1085,66 @@ static atResult_t T_Flinch( int t ) {
 		}
 		AT_Msg( "flinching %i of %i frames between blows 1 and 3, B moved %.0f u", at.v[1], at.v[0], at.f[4] );
 		return ( at.v[0] && at.v[1] * 10 >= at.v[0] * 8 && at.f[4] < 40 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// the blade's air game: the rising cut (nothing held), jump = Shunshin up to him, attack = a plunge straight down that slams him
+static void T_SwordAir_Setup( void ) {
+	T_BladeCombo_Setup();
+	bc.idx = BC_COUNT - 1; // the katana's rising cut
+	BC_Arm();
+	at.v[0] = shinobiTest.slams;
+	at.v[1] = shinobiTest.swordDives;
+}
+static atResult_t T_SwordAir( int t ) {
+	gclient_t *ac = A->client, *bcl = B->client;
+	const int  need = shinobiSwordChain[ac->ps.fd.saberAnimLevel & 7];
+	const int  slams = shinobiTest.slams - at.v[0], dives = shinobiTest.swordDives - at.v[1];
+
+	if ( B->health < 200 )
+		B->health = bcl->ps.stats[STAT_HEALTH] = 500;
+	bcl->ps.eFlags &= ~EF_INVULNERABLE;
+	bcl->invulnerableTimer = 0;
+	if ( STAGE( 0 ) ) { // the chain, then the rising cut
+		if ( Distance( ac->ps.origin, bc.spotA ) > 6 )
+			AT_Place( A, bc.spotA, at.baseYaw );
+		if ( Distance( bcl->ps.origin, bc.spotB ) > 6 )
+			AT_Place( B, bc.spotB, at.baseYaw + 180 );
+		VectorClear( bcl->ps.velocity );
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		if ( bcl->shinobi.juggleEnd > level.time && bcl->shinobi.juggleBy == A->s.number + 1 ) {
+			AT_Drive( 0, 0, 0, 0, 0 );
+			NEXT();
+		}
+		else if ( t > 9000 ) {
+			AT_Msg( "no rising cut in 9 s (chain %i of %i)", ac->shinobi.bladeChain, need );
+			return ATR_FAIL;
+		}
+	}
+	if ( STAGE( 1 ) && SINCE() >= 100 ) { // jump: Shunshin up to him
+		AT_Drive( 0, 0, 0, 127, 0 );
+		NEXT();
+	}
+	if ( STAGE( 2 ) ) {
+		if ( !at.v[2] && ac->ps.groundEntityNum == ENTITYNUM_NONE && ac->ps.origin[2] > bc.spotA[2] + 40 )
+			at.v[2] = 1; // up there
+		if ( SINCE() >= 250 )
+			AT_Drive( 0, 0, 0, 0, ( ( SINCE() / 120 ) % 2 ) ? 0 : BUTTON_ATTACK );
+		if ( ac->ps.legsAnim == BOTH_STABDOWN || ac->ps.legsAnim == BOTH_STABDOWN_DUAL )
+			at.v[3] = 1; // the plunge played
+		if ( ( slams && dives ) || SINCE() >= 3000 ) {
+			at.v[4] = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim );
+			AT_Drive( 0, 0, 0, 0, 0 );
+			NEXT();
+		}
+	}
+	if ( STAGE( 3 ) && SINCE() >= 1000 ) {
+		int fallHits;
+		AT_DamageTo( B, at.start, NULL, MOD_FALLING, &fallHits, NULL );
+		AT_Msg( "A up to him: %s, plunge anim: %s, slams: %i, plunge landings: %i, B down: %s, falling damage on B: %i",
+			at.v[2] ? "yes" : "NO", at.v[3] ? "yes" : "NO", slams, dives, at.v[4] ? "yes" : "no", fallHits );
+		return ( at.v[2] && at.v[3] && slams && dives && !fallHits ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1514,7 +1574,8 @@ static atTest_t atTests[] = {
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
-	{ "blade_combo",  "blade finishers: each weapon's own (nothing held) and back sweep / side spin / forward rising cut", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
+	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
+	{ "sword_air",    "blade: rising cut, jump (Shunshin up), attack = the plunge that slams him", T_SwordAir_Setup, T_SwordAir, 12000 },
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
