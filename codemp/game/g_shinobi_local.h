@@ -131,6 +131,7 @@ typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
 	int kawarimiHides, launches, airHits, slams, stuns, swordDives;
 	int kaitenBlocks, kaitenDeflects;
+	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
 	int bladeFinishers[8];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
 	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];
 	shinobiTestDamage_t dmg[SHINOBI_TEST_DMGLOG];

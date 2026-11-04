@@ -764,6 +764,8 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_BLEED_MS     4000
 #define SHINOBI_SWORD_REACH        220
 #define SHINOBI_SWORD_FINISH_LEN   52    // a finisher swing reaches at least as far as the Kubikiribocho (blade length)
+#define SHINOBI_SWORD_FINISH_REACH 80    // ... and lands on whoever stands that close in front (centre to centre; the spin: all round) by mid-swing, the blade or not
+#define SHINOBI_SWORD_FINISH_AT    0.45f // (mid-swing: this much of the move)
 #define SHINOBI_PAIR_MIN_CUT       450   // a pair's cut (an attack move of the two-blade set) never plays quicker than this (ms)
 #define SHINOBI_SWORD_IAI_MS       800
 #define SHINOBI_SWORD_FLURRY       2
@@ -787,12 +789,12 @@ static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 }
 // as with fists: forward - up he goes, back - the sweep, a side - the spin, nothing - the weapon's own
 static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
+	if ( cmd->rightmove )
+		return SFK_SPIN;  // a side first (forward + side: the spin)
 	if ( cmd->forwardmove > 0 )
 		return SFK_OWN;   // forward: the weapon's own (a lunge)
 	if ( cmd->forwardmove < 0 )
 		return SFK_SWEEP;
-	if ( cmd->rightmove )
-		return SFK_SPIN;
 	return SFK_RISE;      // nothing held: up he goes
 }
 // the stock moves the finishers play (a pair: the two-blade ones)

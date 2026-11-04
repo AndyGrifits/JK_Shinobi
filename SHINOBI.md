@@ -357,9 +357,11 @@ once; clicks: your next click) - a move of its own, picked by what you hold as y
 with fists), its blow x1.5; every finisher move plays x1.45 faster than stock (`SHINOBI_FINISHER_ANIM_SPEED`,
 the stock windups were too long to land; that alone, never times a pair's own speed-up: a saber move's timer is
 length x (2 - speed), at x2 it comes to nothing), every finisher swing reaches as far as the Kubikiribocho
-(its blades out to 52 while it lasts, `SHINOBI_SWORD_FINISH_LEN`), and two blades play the two-blade moves (in brackets):
+(its blades out to 52 while it lasts, `SHINOBI_SWORD_FINISH_LEN`); and if by mid-swing the blade has cut no one, it lands
+on whoever stands within 80 in front (all round for the spin; `SHINOBI_SWORD_FINISH_REACH`) - the moves swing wide
+or close, so the blade alone missed someone the plain cuts reached. A blow his blade guard holds counts for the combo too, and two blades play the two-blade moves (in brackets):
 **nothing** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`, a pair too: the dual jump attack leaps over him) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
-turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** - a full spin (Alora's spin
+turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** (forward or back with it too) - a full spin (Alora's spin
 slash, the dual spin with two blades) cutting everyone round you; **forward** - a lunge
 (`LS_A_LUNGE`; `LS_DUAL_FB`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
 own look ("Finisher!" over him). The swing glow (both edges of its trail) runs along 70% of the visible steel, from a
@@ -374,7 +376,7 @@ little out of the hand (`cg_shinobiTrail`):
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
 
 **The plunge.** A blade in the air (at least 56 above the floor): attack = a dive straight down
-(the stab-down move, two-blade one for a pair: you hang in the air for the first 35% of it, the blade going up, then down at 650 a second); where it lands the blade goes in:
+(the stance's own overhead cut, as when you attack standing: you hang in the air for the first 35% of it, the blade going up, then down at 650 a second); where it lands the blade goes in:
 everyone within 80 takes the stance's blow x1.25 (no falling damage for you). Whoever you
 launched with the rising cut and are still near (110) is slammed down with it: the blow x1.5,
 knocked down, no falling damage on him. So: chain - rising cut - jump (Shunshin up) - attack.
@@ -587,7 +589,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s) standing still, radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
 | Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 4 / 6 / 8 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
-| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash along your look, up to 180 u (14 saber / 7 fists): a bright crescent flies out and stops at the first one it cuts (a white cross and the damage number) or at a wall / its reach, and hits cut through the guard (a perfect parry still stops them) | 20 |
+| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash along your look, up to 180 u (14 saber / 7 fists): a dark, dense crescent (a sword trail cut loose, two fainter ones behind it, a fine light cutting edge) flies out and stops at the first one it cuts (a white cross and the damage number) or at a wall / its reach; a guard holds it like any blow - it is only reach | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
 | Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out); a dust trail follows you and leaves patches of dust on the floor every 64 u. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
 | Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a wide stone block (108 x 108; 72 / 112 / 160 high by the charge: jump on it) erupts there, launching whoever is on the spot (20 / 30 / 40, knockdown). Aimed at a wall: a ledge (108 x 108 x 32) sticks out of it instead, shoving people off the wall. Blocks are axis-aligned, stay 90 s, take 50 / 100 / 170 damage (Lightning x3), are not pushable; at most 3 per caster (a 4th takes the oldest down). Broken, they leave dust. 4 s cooldown | 20 / 30 / 40 |

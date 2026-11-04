@@ -10378,14 +10378,14 @@ static qboolean PM_ShinobiLyingAhead( void )
 static void PM_ShinobiSwordDive( qboolean attackNew )
 {
 	playerState_t *ps = pm->ps;
-	const int      plunge = ( ps->fd.saberAnimLevel == SS_DUAL ) ? BOTH_STABDOWN_DUAL : BOTH_STABDOWN;
+	const int      level = ( ps->fd.saberAnimLevel >= SS_FAST && ps->fd.saberAnimLevel <= SS_STAFF ) ? ps->fd.saberAnimLevel : SS_MEDIUM;
+	const int      plunge = BOTH_A1_T__B_ + ( level - SS_FAST ) * SABER_ANIM_GROUP_SIZE; // the stance's own overhead cut (a standing attack)
 
-	ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVEREQ;
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
-	{
+	{ // (DIVEREQ, a blade's: the cut has played out - not again)
 		if ( ps->groundEntityNum != ENTITYNUM_NONE )
 		{
-			ps->stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_DIVE;
+			ps->stats[STAT_SHINOBI2] &= ~( SHINOBI_STAT2_DIVE | SHINOBI_STAT2_DIVEREQ );
 			ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVELAND;
 			ps->weaponTime = 350;
 			ps->velocity[0] = ps->velocity[1] = 0;
@@ -10393,10 +10393,15 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 		else
 		{
 			const int len = PM_AnimLength( 0, (animNumber_t)plunge );
-			if ( ps->legsAnim != plunge && ps->legsAnim != BOTH_STABDOWN && ps->legsAnim != BOTH_STABDOWN_DUAL )
-				PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+			if ( !( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVEREQ ) )
+			{
+				if ( ps->legsAnim != plunge )
+					PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+				else if ( ps->legsTimer <= 60 )
+					ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVEREQ; // played out: let it go
+			}
 			ps->velocity[0] = ps->velocity[1] = 0;
-			if ( ps->legsTimer > 0 && len - ps->legsTimer < len * SHINOBI_SWORD_DIVE_HANG )
+			if ( ps->legsAnim == plunge && ps->legsTimer > 0 && len - ps->legsTimer < len * SHINOBI_SWORD_DIVE_HANG )
 				ps->velocity[2] = 0; // the blade goes up: you hang
 			else if ( ps->velocity[2] > -SHINOBI_SWORD_DIVE_SPEED )
 				ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
@@ -10422,7 +10427,7 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 		if ( tr.fraction < 1.0f )
 			return; // too low: a stock air swing
 	}
-	ps->stats[STAT_SHINOBI2] |= SHINOBI_STAT2_DIVE;
+	ps->stats[STAT_SHINOBI2] = ( ps->stats[STAT_SHINOBI2] & ~SHINOBI_STAT2_DIVEREQ ) | SHINOBI_STAT2_DIVE;
 	ps->saberMove = LS_READY; // a swing in the air ends here: the plunge does the damage
 	ps->saberBlocked = BLOCKED_NONE;
 	PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );

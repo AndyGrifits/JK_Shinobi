@@ -842,6 +842,7 @@ struct gclient_s {
 		int		bladeReachSwing;	// the swing a "reach" finisher was thrown with (its own blow doesn't count)
 		int		finisherSwing, finisherKind; // the finisher swing (bladeSwing) and which (SFK_*)
 		int		bladeLenSwing;		// the finisher swing whose blades were lengthened (0: none)
+		int		finisherStart, finisherDur, finisherHit; // the finisher swing: when, how long; landed (or tried by reach)
 		float	bladeLenSave[2][2];	// ... their own lengths, put back after it
 		int		bladeAirUntil, bladeAirVictim, bladeAirJumpWas; // after the rising cut: jump to Shunshin up to him
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts

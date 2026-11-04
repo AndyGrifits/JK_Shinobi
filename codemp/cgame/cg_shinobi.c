@@ -28,7 +28,7 @@ static void CG_ShinobiPrecacheModels( void );
 
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
-	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell;
+	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell, windArc;
 	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell;
 } shinobiShaders;
 
@@ -200,6 +200,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiFx.mist       = CG_ShinobiRegisterFx( SHINOBI_FX_MIST );
 	shinobiFx.quakeDust  = CG_ShinobiRegisterFx( SHINOBI_FX_QUAKE_DUST );
 	shinobiShaders.shadowBand = trap->R_RegisterShader( "gfx/shinobi/shadowband" );
+	shinobiShaders.windArc    = trap->R_RegisterShader( "gfx/shinobi/windarc" );
 	shinobiShaders.fogScreen  = trap->R_RegisterShader( "gfx/shinobi/fogscreen" );
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
@@ -1035,11 +1036,11 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 	const float    fade = age <= SHINOBI_WINDSLASH_FLY_MS ? 1.0f
 		: Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
 	const qboolean finisher = ( s->frame & 4 ) != 0; // the trench knives' chakra blade: bigger
-	const float    R = ( blade ? 24.0f : 17.0f ) * ( finisher ? 1.6f : 1.0f );
+	const float    R = ( blade ? 34.0f : 26.0f ) * ( finisher ? 1.6f : 1.0f );
 	vec3_t         start, stop, dir, ang, axis[3], pos, prev, p, core = { 0.92f, 1.0f, 1.0f }, haze = { 0.45f, 0.85f, 1.0f };
 	float          len;
 	int            k;
-	const int      N = 10;
+	const int      N = 14;
 
 	if ( age < 0 || fade <= 0 )
 		return;
@@ -1058,19 +1059,51 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 	trap->FX_AddLine( start, pos, 1.2f, 0.4f, 0.0f, 0.22f * fade, 0.0f, 0.0f, haze, haze, 0.0f, 1,
 		shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
 
-	// the crescent: an arc across the flight, its tips swept back
-	for ( k = 0; k <= N; k++ ) {
-		const float a = DEG2RAD( -70.0f + 140.0f * k / N );
-		const float edge = 1.0f - fabsf( (float)k / N - 0.5f ) * 1.6f; // thick in the middle, fine at the tips
-		VectorMA( pos, -R * ( 1.0f - cosf( a ) ) * 0.9f, axis[0], p );
-		VectorMA( p, R * sinf( a ), axis[1], p );
-		if ( k ) {
-			trap->FX_AddLine( prev, p, 2.4f * edge + 0.4f, 1.0f, 0.0f, 0.95f * fade, 0.0f, 0.0f, core, core, 0.0f, 1,
-				shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
-			trap->FX_AddLine( prev, p, 9.0f * edge + 2.0f, 4.0f, 0.0f, 0.3f * fade, 0.0f, 0.0f, haze, haze, 0.0f, 1,
-				shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	// the crescent: a dark, dense band across the flight, its tips swept back (a sword trail
+	// cut loose), two fainter ones following it; a fine light line along its cutting edge
+	{
+		static const float ghostBack[3] = { 0.0f, 9.0f, 18.0f }, ghostAlpha[3] = { 1.0f, 0.45f, 0.2f };
+		int g;
+		(void)haze;
+		for ( g = 2; g >= 0; g-- ) {
+			const float r = R * ( 1.0f - 0.08f * g ), thick = r * 0.5f;
+			const int   alpha = (int)( 235.0f * fade * ghostAlpha[g] );
+			vec3_t      c, outPrev, inPrev, out, in;
+			if ( alpha <= 0 )
+				continue;
+			VectorMA( pos, -ghostBack[g] * fly, dir, c );
+			for ( k = 0; k <= N; k++ ) {
+				const float a = DEG2RAD( -75.0f + 150.0f * k / N );
+				const float edge = Com_Clamp( 0.15f, 1.0f, 1.0f - fabsf( (float)k / N - 0.5f ) * 1.7f ); // thick in the middle
+				float       nf = -cosf( a ), nl = -0.9f * sinf( a ), nn = sqrtf( nf * nf + nl * nl );
+				VectorMA( c, -r * ( 1.0f - cosf( a ) ) * 0.9f, axis[0], out );
+				VectorMA( out, r * sinf( a ), axis[1], out );
+				nf /= nn; nl /= nn; // inward, across the band
+				VectorMA( out, thick * edge * nf, axis[0], in );
+				VectorMA( in, thick * edge * nl, axis[1], in );
+				if ( k ) {
+					polyVert_t v[4];
+					int        m;
+					VectorCopy( outPrev, v[0].xyz ); VectorCopy( out, v[1].xyz );
+					VectorCopy( in, v[2].xyz );      VectorCopy( inPrev, v[3].xyz );
+					v[0].st[0] = v[3].st[0] = (float)( k - 1 ) / N;
+					v[1].st[0] = v[2].st[0] = (float)k / N;
+					v[0].st[1] = v[1].st[1] = 0.0f;
+					v[2].st[1] = v[3].st[1] = 1.0f;
+					for ( m = 0; m < 4; m++ ) {
+						v[m].modulate[0] = 16; v[m].modulate[1] = 22; v[m].modulate[2] = 30;
+						v[m].modulate[3] = (byte)alpha;
+					}
+					trap->R_AddPolysToScene( shinobiShaders.windArc, 4, v, 1 );
+					if ( !g )
+						trap->FX_AddLine( outPrev, out, 0.9f * edge + 0.3f, 0.5f, 0.0f, 0.55f * fade, 0.0f, 0.0f, core, core, 0.0f, 1,
+							shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+				}
+				VectorCopy( out, outPrev );
+				VectorCopy( in, inPrev );
+			}
 		}
-		VectorCopy( p, prev );
+		(void)prev; (void)p;
 	}
 
 	if ( hit && fly >= 1.0f ) { // it cut someone: a white cross where it struck

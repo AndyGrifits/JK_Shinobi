@@ -541,3 +541,15 @@ gfx/shinobi/cutmark
 		alphaGen vertex
 	}
 }
+
+// Wind Edge: the dark crescent flying out (vertex colour and alpha, CG_ShinobiWindSlash)
+gfx/shinobi/windarc
+{
+	cull none
+	{
+		map gfx/shinobi/windarc
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}

@@ -13,7 +13,7 @@ to whoever it hit. The diving kick's landing is resolved here.
 extern void G_Knockdown( gentity_t *victim ); // g_combat.c
 extern qboolean BG_InKnockDown( int anim ); // bg_pmove.c
 
-static qboolean Shinobi_ComboTarget( gentity_t *ent, gentity_t *v ) {
+qboolean Shinobi_ComboTarget( gentity_t *ent, gentity_t *v ) {
 	if ( !v || !v->inuse || !v->client || v == ent || v->health <= 0 || !v->takedamage )
 		return qfalse;
 	if ( v->s.number < MAX_CLIENTS && v->client->sess.sessionTeam == TEAM_SPECTATOR )

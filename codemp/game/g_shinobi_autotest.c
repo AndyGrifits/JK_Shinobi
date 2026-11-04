@@ -841,7 +841,7 @@ static const bcCase_t bcCases[] = {
 #define BC_COUNT  ( (int)( sizeof( bcCases ) / sizeof( bcCases[0] ) ) )
 #define BC_MS     12000
 static struct {
-	int idx, start, found, foundAt, before, chakra0, ok, okCount;
+	int idx, start, found, foundAt, before, chakra0, ok, okCount, reach0;
 	vec3_t spotA, spotB;
 } bc;
 
@@ -860,6 +860,7 @@ static void BC_Arm( void ) {
 	bc.start = level.time;
 	bc.found = bc.foundAt = bc.ok = 0;
 	bc.before = shinobiTest.bladeFinishers[SBF_REACH];
+	bc.reach0 = shinobiTest.bladeFinisherReach;
 }
 static void T_BladeCombo_Setup( void ) {
 	memset( &bc, 0, sizeof( bc ) );
@@ -944,8 +945,8 @@ static atResult_t T_BladeCombo( int t ) {
 			bc.ok = extra >= SHINOBI_SWORD_FLURRY;
 		if ( c->kind == SFX_BLEED )
 			bc.ok = bleed >= 1 && bcl->shinobi.bleedEnd > level.time;
-		AT_Print( "[autotest]   %-34s finisher after %.1f s: %s%s\n", c->what, ( bc.foundAt - bc.start ) / 1000.0f,
-			bc.ok ? "works" : "EFFECT MISSING",
+		AT_Print( "[autotest]   %-34s finisher after %.1f s: %s%s%s\n", c->what, ( bc.foundAt - bc.start ) / 1000.0f,
+			bc.ok ? "works" : "EFFECT MISSING", shinobiTest.bladeFinisherReach > bc.reach0 ? " - landed by reach (the blade missed)" : " - the blade cut",
 			c->kind == SFX_FLURRY ? va( " (%i extra cuts)", extra ) : c->kind == SFX_BLEED ? va( " (%i bleed ticks so far)", bleed ) : "" );
 		if ( bc.ok )
 			bc.okCount++;
@@ -1135,8 +1136,9 @@ static atResult_t T_SwordAir( int t ) {
 			at.v[2] = 1; // up there
 		if ( SINCE() >= 250 )
 			AT_Drive( 0, 0, 0, 0, ( ( SINCE() / 120 ) % 2 ) ? 0 : BUTTON_ATTACK );
-		if ( ac->ps.legsAnim == BOTH_STABDOWN || ac->ps.legsAnim == BOTH_STABDOWN_DUAL )
-			at.v[3] = 1; // the plunge played
+		if ( ( ac->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
+			&& ac->ps.legsAnim == BOTH_A1_T__B_ + ( ac->ps.fd.saberAnimLevel - SS_FAST ) * SABER_ANIM_GROUP_SIZE )
+			at.v[3] = 1; // the plunge played (the stance's overhead cut)
 		if ( ( slams && dives ) || SINCE() >= 3000 ) {
 			at.v[4] = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim );
 			AT_Drive( 0, 0, 0, 0, 0 );
