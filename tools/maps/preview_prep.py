@@ -3,6 +3,7 @@ look at retexturing, props and layout. Cameras as in bsp_render.py.
 
     python3 -I tools/maps/preview_prep.py <build dir> <out dir> '<cams json>' [hide shader,shader...]
     cams: [{"from": [x,y,z], "to": [x,y,z], "lens": 18, "name": "a.png"}]  or {"top": true, "center": [x,y], "size": u}
+    PREVIEW_SHADE=1: darken surfaces seen at a grazing angle (reads corners in evenly textured interiors)
 """
 import json, os, sys
 import bpy
@@ -36,6 +37,12 @@ for sl in o.material_slots:
             if os.path.exists(q): p = q; break
     if p:
         t = nt.nodes.new('ShaderNodeTexImage'); t.image = bpy.data.images.load(p); nt.links.new(t.outputs[0], em.inputs[0])
+        if os.environ.get("PREVIEW_SHADE"):
+            lw = nt.nodes.new('ShaderNodeLayerWeight'); lw.inputs[0].default_value = 0.5
+            mr = nt.nodes.new('ShaderNodeMapRange'); mr.inputs[3].default_value = 1.0; mr.inputs[4].default_value = 0.25
+            nt.links.new(lw.outputs['Facing'], mr.inputs[0])
+            mu = nt.nodes.new('ShaderNodeMix'); mu.data_type = 'RGBA'; mu.blend_type = 'MULTIPLY'; mu.inputs[0].default_value = 1.0
+            nt.links.new(t.outputs[0], mu.inputs[6]); nt.links.new(mr.outputs[0], mu.inputs[7]); nt.links.new(mu.outputs[2], em.inputs[0])
         if p.endswith(".tga"):
             tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mix = nt.nodes.new('ShaderNodeMixShader')
             gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.5

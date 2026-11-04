@@ -77,7 +77,7 @@ def _finish(bm, name, shader, mat_for, at, yaw=0.0, z=0.0):
 
 def boulder(p, mat_for, i):
     sx, sy, sz = p["size"]; seed = p.get("seed", i)
-    bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=3, radius=1.0)
+    bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=p.get("subdiv", 3), radius=1.0)
     for v in bm.verts:
         d = v.co.normalized()
         k = 1 + 0.42 * _noise(d, seed, 1.4) + 0.16 * _noise(d, seed + 3, 3.5) + 0.06 * _noise(d, seed + 9, 8.0)
@@ -926,5 +926,45 @@ def fence(p, mat_for, i):
     return _finish_multi(bm, f"prop_fence_{i}", ["p_wood"], mat_for, (0, 0), 0, [TILE["p_wood"]])
 
 
-BUILDERS.update({"waterway": waterway, "arch_bridge": arch_bridge, "stones": stones, "pavilion": pavilion,
+def tunnel(p, mat_for, i):
+    """closed corridor along a polyline (map.json: "path": [[x, y, floor z, height], ...], "width", "floor",
+    "wall", "ceiling" shaders): floor and ceiling follow the path heights linearly, walls along the sides,
+    both ends open (they meet existing corridors; prep "openings" cut the doorways there)"""
+    from shapely.geometry import LineString, Point
+    pts = p["path"]; w = p.get("width", 160) / 2
+    line = LineString([(q[0], q[1]) for q in pts]); L = line.length
+    cum = [0.0]
+    for a, b in zip(pts[:-1], pts[1:]):
+        cum.append(cum[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    def zh(x, y):                                     # floor z and height at the nearest point of the path
+        t = line.project(Point(x, y))
+        for k in range(len(pts) - 1):
+            if t <= cum[k + 1] + 1e-6 or k == len(pts) - 2:
+                f = 0 if cum[k + 1] == cum[k] else min(1, max(0, (t - cum[k]) / (cum[k + 1] - cum[k])))
+                a, b = pts[k], pts[k + 1]
+                return a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f
+    foot = line.buffer(w, cap_style="flat", join_style="mitre")
+    import shapely
+    bm = bmesh.new()
+    for tri in shapely.constrained_delaunay_triangles(foot).geoms:
+        c = list(tri.exterior.coords)[:3]
+        area = (c[1][0] - c[0][0]) * (c[2][1] - c[0][1]) - (c[1][1] - c[0][1]) * (c[2][0] - c[0][0])
+        if abs(area) < 1e-3: continue
+        if area < 0: c = c[::-1]
+        bm.faces.new([bm.verts.new((x, y, zh(x, y)[0])) for x, y in c]).material_index = 0          # floor, up
+        bm.faces.new([bm.verts.new((x, y, sum(zh(x, y)))) for x, y in c[::-1]]).material_index = 2  # ceiling, down
+    ring = list(foot.exterior.coords)[:-1]; ccw = foot.exterior.is_ccw
+    ends = [(pts[0][0], pts[0][1]), (pts[-1][0], pts[-1][1])]
+    for k in range(len(ring)):
+        (ax, ay), (bx, by) = ring[k], ring[(k + 1) % len(ring)]
+        mx, my = (ax + bx) / 2, (ay + by) / 2
+        if any(math.hypot(mx - ex, my - ey) < 2 for ex, ey in ends): continue       # the open ends
+        za, ha = zh(ax, ay); zb, hb = zh(bx, by)
+        vs = [bm.verts.new(v) for v in ((ax, ay, za - 2), (bx, by, zb - 2), (bx, by, zb + hb + 2), (ax, ay, za + ha + 2))]
+        f = bm.faces.new(vs[::-1] if ccw else vs); f.material_index = 1                            # walls face inwards
+    return _finish_multi(bm, f"prop_tunnel_{i}", [p["floor"], p["wall"], p.get("ceiling", p["wall"])], mat_for, (0, 0), 0,
+                         [p.get("tile", 256.0)] * 3)
+
+
+BUILDERS.update({"tunnel": tunnel, "waterway": waterway, "arch_bridge": arch_bridge, "stones": stones, "pavilion": pavilion,
                  "hall": hall, "stall": stall, "gallery": gallery, "horizon_ring": horizon_ring, "fence": fence})

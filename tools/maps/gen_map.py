@@ -212,6 +212,27 @@ if bnd:
     if bnd.get("ceiling", True):
         e = int(R + th + 64)
         hull.append(box(cx - e, cy - e, z1, cx + e, cy + e, z1 + 16, "playerclip"))
+# irregular playerclip fence (map.json "clip_ring": {"center": [x, y], "radii": [r per point, evenly spaced angles
+# from +x ccw], "seg_z0": [bottom per segment i -> i+1], "z1", "thickness"}): keeps players inside a crater whose
+# rim is torn open in places; each segment starts just under the rim surface so tunnels below stay free
+cr = cfg.get("clip_ring")
+if cr:
+    import math
+    cx, cy = cr.get("center", [0, 0]); RR = cr["radii"]; n = len(RR); th = cr.get("thickness", 32)
+    pts = [(cx + RR[i] * math.cos(2 * math.pi * i / n), cy + RR[i] * math.sin(2 * math.pi * i / n)) for i in range(n)]
+    def outward_r(i):
+        (ax, ay), (bx, by) = pts[i - 1], pts[(i + 1) % n]
+        tx, ty = bx - ax, by - ay; L = math.hypot(tx, ty) or 1
+        return ty / L, -tx / L
+    for i in range(n):
+        j = (i + 1) % n
+        (ix, iy), (jx, jy) = pts[i], pts[j]; (nix, niy), (njx, njy) = outward_r(i), outward_r(j); e = th * 1.6
+        poly = [(ix, iy), (ix + nix * e, iy + niy * e), (jx + njx * e, jy + njy * e), (jx, jy)]
+        cross = [(poly[(k + 1) % 4][0] - poly[k][0]) * (poly[(k + 2) % 4][1] - poly[k][1]) -
+                 (poly[(k + 1) % 4][1] - poly[k][1]) * (poly[(k + 2) % 4][0] - poly[k][0]) for k in range(4)]
+        if min(cross) <= 0:
+            print(f"clip_ring: segment {i} not convex, skipped"); continue
+        hull.append(prism(poly, cr["seg_z0"][i], cr["z1"], cr.get("shader", "playerclip")))
 props = []
 for g in json.load(open(os.path.join(build, "propclip.json"))):
     props += [box(*b, g["shader"]) for b in g["boxes"]]

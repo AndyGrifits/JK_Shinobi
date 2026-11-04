@@ -37,6 +37,10 @@ if fbx.lower().endswith(".blend"):
     for o in list(bpy.context.scene.objects):
         if o.type != 'MESH':
             bpy.data.objects.remove(o, do_unlink=True)
+elif fbx.lower().endswith(".obj"):
+    # an .obj source: Blender's importer turns the OBJ's Y-up into Z-up and reads the .mtl's textures
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.wm.obj_import(filepath=fbx)
 else:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.fbx(filepath=fbx)
@@ -227,6 +231,36 @@ for dl in mdl.get("delete_faces", []):
         bmesh.ops.delete(bm, geom=kill, context='FACES'); gone += len(kill)
         bm.to_mesh(o.data); bm.free(); o.data.update()
     print(f"DELETE_FACES {gone} at {dl['center']} z {dl['z0']}..{dl['z1']}")
+
+# doorways (map.json "model": {"openings": [{"box": [x0, y0, z0, x1, y1, z1]}]}): every face touching the box is
+# split along the box's planes and the pieces inside go - a hole in a wall where a new tunnel meets it
+for op in mdl.get("openings", []):
+    import bmesh
+    x0_, y0_, z0_, x1_, y1_, z1_ = op["box"]; gone = 0
+    planes = [((x0_, 0, 0), (1, 0, 0)), ((x1_, 0, 0), (1, 0, 0)), ((0, y0_, 0), (0, 1, 0)), ((0, y1_, 0), (0, 1, 0)),
+              ((0, 0, z0_), (0, 0, 1)), ((0, 0, z1_), (0, 0, 1))]
+    for o in meshes:
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        def touching():
+            out_ = []
+            for f in bm.faces:
+                xs = [v.co.x for v in f.verts]; ys = [v.co.y for v in f.verts]; zs = [v.co.z for v in f.verts]
+                if max(xs) >= x0_ and min(xs) <= x1_ and max(ys) >= y0_ and min(ys) <= y1_ and max(zs) >= z0_ and min(zs) <= z1_:
+                    out_.append(f)
+            return out_
+        for co, no in planes:
+            fs = touching()
+            if not fs: break
+            geom = fs + list({e for f in fs for e in f.edges}) + list({v for f in fs for v in f.verts})
+            bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
+        kill = []
+        for f in touching():
+            c = f.calc_center_median()
+            if x0_ < c.x < x1_ and y0_ < c.y < y1_ and z0_ < c.z < z1_:
+                kill.append(f)
+        bmesh.ops.delete(bm, geom=kill, context='FACES'); gone += len(kill)
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+    print(f"OPENING {gone} faces removed in {op['box']}")
 
 # holes in the ground for sunken things (map.json "cuts": [{"poly": [[x, y], ...] convex ccw, "shaders": [...]}];
 # a "waterway" prop adds its own outline): faces are split along the outline and the inside removed

@@ -28,7 +28,7 @@ if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footst
 
 ## Other model options (map.json "model" / top level)
 
-- `.blend` sources work like FBX (armature modifiers are dropped); `"shader_names": "basename"` names
+- `.obj` sources (with their .mtl) and `.blend` sources work like FBX (armature modifiers are dropped); `"shader_names": "basename"` names
   shaders after the texture file (when the files share digits).
 - `split_details`: loose parts of the listed shaders that are tiny (< `max_dim`) or thin narrow ribbons
   (wires, poles, railings) go to a `<shader>_d` copy without collision; flat horizontal pieces and
@@ -61,7 +61,12 @@ if listed under `prop_clip`, get the stepped boxes. `q3map_material` sets footst
   (desk / shelf at a given floor z), `dust_ring` (translucent scrolling dust curtains along a superellipse),
   `crates` sit on the lowest ground under each crate; Konoha: `waterway` (stream + pond, cuts the ground and
   adds its water), `arch_bridge` (walk-through deck on smooth clip slabs), `stones`, `pavilion`, `hall`
-  (enterable, doors per side), `stall` (awning, sign, noren, stools), `gallery`, `fence`.
+  (enterable, doors per side), `stall` (awning, sign, noren, stools), `gallery`, `fence`; Orochimaru:
+  `tunnel` (closed corridor along a polyline `[x, y, floor z, height]`, open at both ends, model shaders).
+- `model.openings`: boxes that cut doorways into the model's walls (faces split on the box planes, the
+  inside goes) - where a new `tunnel` meets an existing corridor.
+- `clip_ring`: an irregular playerclip fence (radius per point, bottom per segment) around a crater whose
+  rim is torn open; bottoms sit just under the rim so tunnels and roofs below stay free.
 
 ## Items
 
@@ -149,3 +154,15 @@ and a stream with a small arched bridge running into a culvert; a market lane (t
 Ichiraku (noren, stools) and a meat stall; the south field with an enterable dojo (three doors, tatami,
 lit) and training ground 3 (three posts, the memorial stone). Board fences close the streets at the edge,
 water gates the canal. 9 FFA spawns, duel / power duel, 12 items.
+
+## shinobi_orochimaru - Orochimaru's Hideout
+
+Source: `naruto_slugfest_orochimaru_hideout` (Slugfest rip, OBJ, 16 meshes, 28.5k tris) at scale 320, origin at
+the crater's floor centre. The main corridor feeds three side corridors: to the big hall (and the snake hall
+behind it), to the open crater, and to a corridor at the top. Two new tunnels close the dead ends into loops:
+A runs from the big hall's north wall to the crater's west dead end, B crosses that dead end, runs north under
+the plateau and east into the end of the top corridor (doorways cut with `model.openings`). The crater is the
+open arena: a crown of 40 boulders (crater rock texture) covers the torn rim and a `clip_ring` keeps players
+inside it. Torch-coloured lights every ~420 u over the covered floor, the crater sunlit; 12 FFA spawns (duel /
+power duel), 12 items, all on floor reachable from the crater.
+
