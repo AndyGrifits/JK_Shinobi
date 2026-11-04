@@ -717,10 +717,10 @@ of the stock sum of every frame the blade spent inside the body (1 to 120 for on
 Special moves and katas: SHINOBI_BLADE_SPECIAL times as much, again every
 SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 */
-// (the saber_dps autotest: holding attack, fast swings 1.25 a second, medium 0.75, strong 0.5,
-// dual 1 - so each stance does about the same damage a second, ~35, the fast in many small cuts)
+// (the saber_dps autotest, attack held: fast swings 1.25 a second, medium 0.75, strong 0.375,
+// dual 0.875 - so fast, medium and dual do ~35 a second; strong ~30, in rare heavy blows)
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordDamage[8] = {   0,  28,  45,    68,    68,    30,    34,  34 };
+static const int shinobiSwordDamage[8] = {   0,  28,  45,    80,    80,    30,    40,  40 };
 #define SHINOBI_BLADE_SPECIAL      1.6f
 #define SHINOBI_BLADE_SPECIAL_MS   350
 

@@ -319,8 +319,8 @@ A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`).
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
 style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
-for a set amount by stance (`shinobiSwordDamage`: fast 28, medium 45, strong 68, dual 34 -
-about 35 a second each at their swing rates; no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
+for a set amount by stance (`shinobiSwordDamage`: fast 28, medium 45, strong 80, dual 40 -
+about 35 a second (strong ~30, in rare heavy blows) at their swing rates; no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
 a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotest `saber_dps`) measures every
