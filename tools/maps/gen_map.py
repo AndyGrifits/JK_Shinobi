@@ -131,14 +131,15 @@ def box(x0, y0, z0, x1, y1, z1, shader):
         f"( 0 0 {z1} ) ( 0 1 {z1} ) ( 1 0 {z1} ) {s}",   # +Z
         "}"])
 
-def prism(poly, z0, z1, shader):
-    """vertical prism over a convex polygon (counter-clockwise x, y points)"""
-    s = f"{sd}/{shader} 0 0 0 0.5 0.5 0 0 0"
+def prism(poly, z0, z1, shader, side=None):
+    """vertical prism over a convex polygon (counter-clockwise x, y points); "side": shader for the sides and
+    the bottom (e.g. a nodraw water: only the top of a water volume is drawn)"""
+    s = f"{sd}/{shader} 0 0 0 0.5 0.5 0 0 0"; ss = f"{sd}/{side} 0 0 0 0.5 0.5 0 0 0" if side else s
     f = lambda v: f"{v:.3f}".rstrip("0").rstrip(".")
-    faces = [f"( 0 0 {f(z0)} ) ( 1 0 {f(z0)} ) ( 0 1 {f(z0)} ) {s}", f"( 0 0 {f(z1)} ) ( 0 1 {f(z1)} ) ( 1 0 {f(z1)} ) {s}"]
+    faces = [f"( 0 0 {f(z0)} ) ( 1 0 {f(z0)} ) ( 0 1 {f(z0)} ) {ss}", f"( 0 0 {f(z1)} ) ( 0 1 {f(z1)} ) ( 1 0 {f(z1)} ) {s}"]
     for (ax, ay), (bx, by) in zip(poly, poly[1:] + poly[:1]):
         # points p0=a(z0), p1=a(z1), p2=b(z0): normal = (p2-p0) x (p1-p0) points outward for a ccw polygon
-        faces.append(f"( {f(ax)} {f(ay)} {f(z0)} ) ( {f(ax)} {f(ay)} {f(z1)} ) ( {f(bx)} {f(by)} {f(z0)} ) {s}")
+        faces.append(f"( {f(ax)} {f(ay)} {f(z0)} ) ( {f(ax)} {f(ay)} {f(z1)} ) ( {f(bx)} {f(by)} {f(z0)} ) {ss}")
     return "{\n" + "\n".join(faces) + "\n}"
 
 def plane_brush(planes, shader):
@@ -229,8 +230,9 @@ wfiles = [json.load(open(os.path.join(build, f))) for f in ("water.json", "water
 for wv in cfg.get("water", []) + [w_ for wl in wfiles for w_ in wl]:
     if "box" in wv:
         props.append(box(*wv["box"], wv.get("shader", "water")))
-    elif "poly" in wv:                       # convex ccw polygon (streams, ponds)
-        props.append(prism([tuple(q) for q in wv["poly"]], wv["z0"], wv["z1"], wv.get("shader", "water")))
+    elif "poly" in wv:                       # convex ccw polygon (streams, ponds, canal segments)
+        props.append(prism([tuple(q) for q in wv["poly"]], wv["z0"], wv["z1"], wv.get("shader", "water"),
+                           cfg.get("water_side_shader")))
 
 ws = {"classname": "worldspawn", "message": cfg["longname"], **cfg.get("worldspawn", {})}
 out = [ent(ws, hull + props)]

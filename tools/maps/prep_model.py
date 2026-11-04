@@ -419,15 +419,23 @@ def find_rooms(rc, bvh):
         area = len(pts) * C_ * C_
         lights_.append({"origin": [round(ctr[0]), round(ctr[1]), round(zf + min(0.75 * (zc - zf), 120))],
                         "light": int(min(rc.get("light_max", 900), rc.get("light_base", 380) + area / 300)), "color": [1, 0.86, 0.66]})
-        def fits(x, y, hw, hd, yaw):          # footprint inside the room's cells (with a margin)
+        up_ = mathutils.Vector((0, 0, 1))
+        def fits(x, y, hw, hd, yaw, hgt=40):  # footprint inside the room, on this floor, nothing of the model in it
             ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-            for a_ in (-1, 0, 1):
-                for b_ in (-1, 0, 1):
+            for a_ in (-1, -0.5, 0, 0.5, 1):
+                for b_ in (-1, -0.5, 0, 0.5, 1):
                     px_ = x + (a_ * (hw + 16)) * ca - (b_ * (hd + 16)) * sa; py_ = y + (a_ * (hw + 16)) * sa + (b_ * (hd + 16)) * ca
-                    if (round((px_ - xs_[0]) / C_), round((py_ - ys_[0]) / C_)) not in ij: return False
+                    if abs(a_) == 1 or abs(b_) == 1:
+                        if (round((px_ - xs_[0]) / C_), round((py_ - ys_[0]) / C_)) not in ij: return False
+                    h = bvh.ray_cast(mathutils.Vector((px_, py_, zf + hgt + 20)), down, hgt + 40)
+                    if h[0] is None or abs(h[0].z - zf) > 6: return False        # a step, a hole or clutter
+                    h = bvh.ray_cast(mathutils.Vector((px_, py_, zf + 4)), up_, hgt + 20)
+                    if h[0] is not None: return False                            # a shelf, a beam, a stair above
             return True
         if zf < rc.get("furnish_above", -40):    # under bridges / along the canal: light only, softer
             lights_[-1]["light"] = int(lights_[-1]["light"] * 0.6)
+            continue
+        if zf < rc.get("living_above", 120):     # ground floors (shops, halls): light only
             continue
         used = []
         def free(x, y, r): return all(math.hypot(x - u, y - v) > r + rr for u, v, rr in used)
@@ -438,19 +446,20 @@ def find_rooms(rc, bvh):
                 if (i_ + di, j_ + dj) not in ij:
                     edge.append((xs_[0] + i_ * C_, ys_[0] + j_ * C_, math.degrees(math.atan2(-dj, -di))))
         rnd.shuffle(edge)
-        plan = [("futon", 70, 110, "p_noren"), ("shelf", 75, 20, None)]
-        if area > 90000: plan.append(("futon", 70, 110, "p_cloth"))
-        for kind, hw, hd, cloth in plan:
+        plan = [("futon", 60, 100, "p_futon", 30), ("shelf", 75, 20, None, 150)]
+        if area > 120000: plan.append(("futon", 60, 100, "p_futon", 30))
+        for kind, hw, hd, cloth, hgt in plan:
             for (x, y, nyaw) in edge:
-                yaw = nyaw + 90 if kind == "futon" else nyaw - 90          # futon along the wall, shelf facing in
-                ox, oy = math.cos(math.radians(nyaw)) * (hd + 20), math.sin(math.radians(nyaw)) * (hd + 20)
-                px_, py_ = x + ox, y + oy
-                if fits(px_, py_, hw, hd, yaw) and free(px_, py_, max(hw, hd)):
+                # futon: long side against the wall; shelf: back to the wall, facing in
+                yaw = nyaw + 90 if kind == "futon" else nyaw - 90
+                off = (hw if kind == "futon" else hd) + 20
+                px_, py_ = x + math.cos(math.radians(nyaw)) * off, y + math.sin(math.radians(nyaw)) * off
+                if fits(px_, py_, hw, hd, yaw, hgt) and free(px_, py_, max(hw, hd) + 30):
                     sz = [2 * hw, 2 * hd, 22] if kind == "futon" else [2 * hw, 2 * hd + 4, min(140, zc - zf - 30)]
                     props_.append({"type": "furniture", "kind": kind, "at": [round(px_), round(py_)], "z": round(zf), "size": sz,
                                    "yaw": round(yaw), "ground": False, **({"cloth": cloth} if cloth else {})})
                     used.append((px_, py_, max(hw, hd))); break
-        if area > 50000 and fits(ctr[0], ctr[1], 90, 90, 0) and free(ctr[0], ctr[1], 90):
+        if area > 50000 and fits(ctr[0], ctr[1], 90, 90, 0, 50) and free(ctr[0], ctr[1], 130):
             props_.append({"type": "furniture", "kind": "lowtable", "at": [round(ctr[0]), round(ctr[1])], "z": round(zf), "size": [110, 110, 34], "ground": False})
     return {"props": props_, "lights": lights_, "n": len(rooms)}
 

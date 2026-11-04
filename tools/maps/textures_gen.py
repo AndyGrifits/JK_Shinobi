@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-ALPHA = {"dust", "leafwind"}          # kinds with an alpha channel (saved as PNG, packed as TGA)
+ALPHA = {"dust", "leafwind", "windhaze"}          # kinds with an alpha channel (saved as PNG, packed as TGA)
 
 
 def pnoise(n, k, rng, aspect=(1, 1)):
@@ -46,7 +46,7 @@ def make(kind, path, n=None):
     rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
                                  "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83,
                                  "grass": 89, "dirt": 97, "mud": 101, "stone": 103, "redwood": 107, "cloth": 109, "tatami": 113,
-                                 "roof": 127, "plaster": 131, "noren": 137, "grain": 139, "leafwind": 149}[kind])
+                                 "roof": 127, "plaster": 131, "noren": 137, "grain": 139, "leafwind": 149, "windhaze": 151}[kind])
     alpha = None
     if kind == "concrete":
         n = n or 1024
@@ -138,7 +138,19 @@ def make(kind, path, n=None):
         a = fbm(n, 4, rng, 4); b = fbm(n, 8, rng, 3)
         rip = np.abs(np.sin((a * 3 + b) * 2 * np.pi))                 # wavy caustic-like bands
         img = col(38, 112, 128) + (a - 0.5)[..., None] * col(30, 40, 40) + (rip ** 8)[..., None] * col(90, 110, 100)
-    elif kind == "dust":                                              # wind-blown sand curtain: RGBA, opaque at the
+    elif kind in ("dust", "windhaze"):                                # wind-blown curtain (sand / green-blue leafy
+        n = n or 512                                                  # haze): RGBA, dense at the foot, fading upwards
+        streak = fbm(n, 3, rng, 5, aspect=(1, 1))
+        streak = 0.6 * fbm(n, 2, rng, 4, aspect=(1, 6)) + 0.4 * streak
+        v = np.linspace(1, 0, n)[:, None]
+        prof = np.clip(1 - v, 0, 1) ** 1.1
+        alpha = np.clip(prof * (0.45 + 0.9 * streak), 0, 1) * 245
+        base = col(214, 178, 128) if kind == "dust" else col(132, 186, 170)
+        tint = col(40, 34, 26) if kind == "dust" else col(26, 40, 46)
+        img = base + (streak - 0.5)[..., None] * tint
+        if kind == "windhaze":                                        # greener at the foot, bluer up high
+            img = img + (1 - v)[..., None] * col(-18, 8, -16) + v[..., None] * col(-10, 4, 26)
+    elif kind == "dust_old":                                          # (previous sand curtain, kept for reference)
         n = n or 512                                                  # foot (image bottom), fading out at the top
         streak = fbm(n, 3, rng, 5, aspect=(1, 1))
         streak = 0.6 * fbm(n, 2, rng, 4, aspect=(1, 6)) + 0.4 * streak  # long horizontal gusts

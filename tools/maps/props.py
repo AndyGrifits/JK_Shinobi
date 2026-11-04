@@ -552,13 +552,13 @@ def furniture(p, mat_for, i):
                 cx_ = -w / 2 + (c_ + 0.5) * w / cols; cz = z + (r_ + 0.5) * h / rows
                 _quad(bm, (cx_, -d / 2 - 1, cz), (1, 0, 0), (0, 0, 1), w / cols - 8, h / rows - 8, 1)
     bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != 1])
-    mats = ["p_wood", "p_dark", "p_paper", p.get("cloth", "p_noren")]
+    mats = ["p_wood", "p_dark", "p_paper", p.get("cloth", "p_futon")]
     return _finish_multi(bm, f"prop_{kind}_{i}", mats, mat_for, p["at"], p.get("yaw", 0),
                          [TILE.get(m_, 128.0) for m_ in mats])
 
 
-TILE.update({"p_pooltile": 128.0, "p_wood": 128.0, "p_paper": 64.0})
-TEXTURES.update({"p_pooltile": "pooltile", "p_wood": "wood", "p_paper": "paper", "p_dust": "dust"})
+TILE.update({"p_pooltile": 128.0, "p_wood": 128.0, "p_paper": 64.0, "p_futon": 96.0})
+TEXTURES.update({"p_pooltile": "pooltile", "p_wood": "wood", "p_paper": "paper", "p_dust": "dust", "p_futon": "noren"})
 BUILDERS.update({"adobe_tower": adobe_tower, "adobe_block": adobe_block, "adobe_wall": adobe_wall,
                  "ruin": ruin, "crates": crates, "ground_plane": ground_plane, "ledges": ledges, "pool": pool,
                  "dust_ring": dust_ring, "furniture": furniture})
@@ -650,72 +650,76 @@ def _ngon(cx, cy, r, n, rot=0.0):
     return [(cx + r * math.cos(rot + 2 * math.pi * k / n), cy + r * math.sin(rot + 2 * math.pi * k / n)) for k in range(n)]
 
 
+def _poly_faces(bm, geom, z, mat, up=True):
+    """flat faces of a shapely (multi)polygon at height z (constrained triangulation, holes respected)"""
+    import shapely
+    for tri in shapely.constrained_delaunay_triangles(geom).geoms:
+        c = list(tri.exterior.coords)[:3]
+        area = (c[1][0] - c[0][0]) * (c[2][1] - c[0][1]) - (c[1][1] - c[0][1]) * (c[2][0] - c[0][0])
+        if abs(area) < 1e-3: continue
+        if (area > 0) != up: c = c[::-1]
+        f = bm.faces.new([bm.verts.new((x, y, z)) for x, y in c]); f.material_index = mat
+
+
+def _ring_walls(bm, geom, z0, z1, mat, inward):
+    """vertical faces along every boundary ring of a shapely (multi)polygon; inward=True faces into the
+    polygon's interior (channel walls seen from the water), False faces out (the coping's outer lip)"""
+    from shapely.geometry import Polygon, MultiPolygon
+    polys = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
+    for pg in polys:
+        for ring, is_hole in [(pg.exterior, False)] + [(r_, True) for r_ in pg.interiors]:
+            pts = list(ring.coords)[:-1]
+            ccw = ring.is_ccw
+            for k in range(len(pts)):
+                (ax, ay), (bx, by) = pts[k], pts[(k + 1) % len(pts)]
+                if math.hypot(bx - ax, by - ay) < 0.5: continue
+                vs = [bm.verts.new(v) for v in ((ax, ay, z0), (bx, by, z0), (bx, by, z1), (ax, ay, z1))]
+                # face normal = edge x up; for a ccw exterior that points outwards
+                out_normal = ccw != is_hole
+                f = bm.faces.new(vs if out_normal != inward else vs[::-1]); f.material_index = mat
+
+
 def waterway(p, mat_for, i):
-    """sunken stream between stone walls from a round pond (map.json: "path" [[x, y], ...] starting at the pond
-    centre, "width" (water), "floor", "water", "top" (coping height), "pond": {"r", "island": r, "stones": n},
-    "culvert": true). Records water volumes; prep cuts the ground with the same outline ("cuts")."""
-    path = [tuple(q) for q in p["path"]]; w = p.get("width", 260) / 2; t = 32
-    F, Wz, T = p["floor"], p["water"], p.get("top", 6)
-    bm = bmesh.new()
-    pond = p.get("pond")
-    segs = list(zip(path[:-1], path[1:]))
-    if pond:                                    # the stream starts at the pond's rim
-        (ax, ay), (bx, by) = segs[0]; L = math.hypot(bx - ax, by - ay)
-        segs[0] = ((ax + (bx - ax) / L * (pond["r"] - 20), ay + (by - ay) / L * (pond["r"] - 20)), (bx, by))
-    cw = p.get("coping", 110)                     # coping width: covers the ground cut's edge generously
-    def turn(k):                                  # half the bend angle at the joint after segment k
-        if k >= len(segs) - 1: return 0.0
-        (ax, ay), (bx, by) = segs[k]; (cx_, cy_), (dx, dy) = segs[k + 1]
-        a1 = math.atan2(by - ay, bx - ax); a2 = math.atan2(dy - cy_, dx - cx_)
-        return abs((a2 - a1 + math.pi) % (2 * math.pi) - math.pi) / 2
-    for k, ((ax, ay), (bx, by)) in enumerate(segs):
-        L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
-        e0 = (w + t + cw) * math.tan(turn(k - 1)) + 8 if k > 0 else 0       # mitre overlap at both joints
-        e1 = (w + t + cw) * math.tan(turn(k)) + 8 if k < len(segs) - 1 else 0
-        a2x, a2y, b2x, b2y = ax - ux * e0, ay - uy * e0, bx + ux * e1, by + uy * e1
-        L2 = L + e0 + e1; mx, my = (a2x + b2x) / 2, (a2y + b2y) / 2
-        for sgn in (-1, 1):
-            cx, cy = mx - uy * sgn * (w + t / 2), my + ux * sgn * (w + t / 2)
-            _obox(bm, cx, cy, ux, uy, L2, t, F - 16, T, 0)
-            _obox(bm, mx - uy * sgn * (w + cw / 2), my + ux * sgn * (w + cw / 2), ux, uy, L2, cw, T, T + 10 + 0.7 * (k % 2), 0)   # no coplanar overlaps
-        _obox(bm, mx, my, ux, uy, L2, 2 * w + 2, F - 16, F, 1)
-        quad = [(ax - uy * w, ay + ux * w), (ax + uy * w, ay - ux * w), (bx + uy * w, by - ux * w), (bx - uy * w, by + ux * w)]
-        quad = quad if (quad[1][0] - quad[0][0]) * (quad[2][1] - quad[0][1]) - (quad[1][1] - quad[0][1]) * (quad[2][0] - quad[0][0]) > 0 else quad[::-1]
-        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in quad], "z0": F, "z1": Wz})
-    (ax, ay), (bx, by) = segs[-1]; L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
-    _obox(bm, bx + ux * t / 2, by + uy * t / 2, -uy, ux, 2 * w + 2 * t, t, F - 16, T, 0)          # end wall
-    if p.get("culvert", True):                   # dark arched mouth in the end wall: the water runs on underground
-        _arch(bm, (bx - ux * 1, by - uy * 1, (F + Wz) / 2 + 30), (uy, -ux, 0), (0, 0, 1), min(2 * w - 40, 180), (Wz - F) + 60, 2)
+    """sunken stream from a round pond (map.json: "path" [[x, y], ...] starting at the pond centre, "width" of
+    the water, "floor", "water", "top" (ground), "coping" width, "pond": {"r", "island": r, "stones": n,
+    "stones_dir": deg}, "culvert": true). One clean stone border: the water outline (stream + pond) and a
+    coping band around it are built as polygons, so walls and coping meet without seams or overlaps.
+    Records convex water volumes (WATER); prep cuts the ground with a matching outline."""
+    from shapely.geometry import LineString, Point
+    path = [tuple(q) for q in p["path"]]; w = p.get("width", 260) / 2; cw = p.get("coping", 90)
+    F, Wz, T = p["floor"], p["water"], p.get("top", 6); Tc = T + 8
+    pond = p.get("pond"); bm = bmesh.new()
+    (ex, ey), (fx, fy) = path[-2], path[-1]; L = math.hypot(fx - ex, fy - ey); ux, uy = (fx - ex) / L, (fy - ey) / L
+    line = LineString(path)
+    water = line.buffer(w, cap_style="flat", join_style="mitre")
+    ext = LineString(path[:-1] + [(fx + ux * cw, fy + uy * cw)])                # the coping closes round the end
+    outer = ext.buffer(w + cw, cap_style="flat", join_style="mitre")
     if pond:
-        cx, cy = path[0]; R = pond["r"]; n = 24
-        (sx, sy), (ex, ey) = segs[0]
-        for k in range(n):
-            a = 2 * math.pi * (k + 0.5) / n
-            mx, my = cx + (R + t / 2) * math.cos(a), cy + (R + t / 2) * math.sin(a)
-            # leave the stream's mouth open
-            vx, vy = ex - sx, ey - sy; vl = math.hypot(vx, vy); qx, qy = mx - sx, my - sy
-            along = (qx * vx + qy * vy) / vl; across = abs(qx * vy - qy * vx) / vl
-            if -t <= along <= vl and across < w + t: continue
-            if math.hypot(mx - sx, my - sy) < w + t: continue
-            L = 2 * math.pi * (R + t) / n + 10; ux, uy = -math.sin(a), math.cos(a)
-            _obox(bm, mx, my, ux, uy, L, t, F - 16, T, 0)
-            Lc = 2 * math.pi * (R + cw) / n + 12
-            _obox(bm, cx + (R + cw / 2) * math.cos(a), cy + (R + cw / 2) * math.sin(a), ux, uy, Lc, cw, T, T + 10 + 0.7 * (k % 2), 0)
-        (sx, sy), (ex, ey) = segs[0]; vl = math.hypot(ex - sx, ey - sy); ux, uy = (ex - sx) / vl, (ey - sy) / vl
-        for sgn in (-1, 1):                       # collar where the stream leaves the pond: no slits
-            _obox(bm, sx - uy * sgn * (w + cw / 2), sy + ux * sgn * (w + cw / 2), ux, uy, 2 * cw, cw, T, T + 11.4, 0)
-            _obox(bm, sx - uy * sgn * (w + t / 2), sy + ux * sgn * (w + t / 2), ux, uy, 2 * t + 40, t, F - 16, T, 0)
-        _prism(bm, _ngon(cx, cy, R + 4, n), F - 16, F, 1)
-        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in _ngon(cx, cy, R, 16)], "z0": F, "z1": Wz})
+        cxp, cyp = path[0]; R = pond["r"]
+        water = water.union(Point(cxp, cyp).buffer(R, 32)); outer = outer.union(Point(cxp, cyp).buffer(R + cw, 32))
+    coping = outer.difference(water)
+    _poly_faces(bm, coping, Tc, 0)                                             # coping top
+    _ring_walls(bm, water, F - 16, Tc, 0, inward=True)                         # channel / pond walls
+    _ring_walls(bm, outer, T - 18, Tc, 0, inward=False)                        # outer lip into the ground
+    _poly_faces(bm, water, F, 1)                                               # bed
+    # water volumes: convex pieces reaching 16 u into the walls (their sides are nodraw)
+    for (ax, ay), (bx, by) in zip(path[:-1], path[1:]):
+        if pond and (ax, ay) == path[0]:
+            Ls = math.hypot(bx - ax, by - ay); ax, ay = ax + (bx - ax) / Ls * (R * 0.8), ay + (by - ay) / Ls * (R * 0.8)
+        Ls = math.hypot(bx - ax, by - ay); vx, vy = (bx - ax) / Ls, (by - ay) / Ls; ww = w + 16
+        quad = [(ax + vy * ww, ay - vx * ww), (bx + vy * ww, by - vx * ww), (bx - vy * ww, by + vx * ww), (ax - vy * ww, ay + vx * ww)]
+        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in quad], "z0": F, "z1": Wz})
+    if pond:
+        WATER.append({"poly": [[round(x, 1), round(y, 1)] for x, y in _ngon(cxp, cyp, (R + 16) / math.cos(math.pi / 16), 16)], "z0": F, "z1": Wz})
         if pond.get("island"):
             ir = pond["island"]
-            _prism(bm, _ngon(cx, cy, ir, 16), F - 16, T + 8, 0)
-            ns = pond.get("stones", 0)
-            for k in range(ns):                  # stepping stones from the south rim to the island
-                f = (k + 1) / (ns + 1); d = ir + (R - ir) * f
-                a = math.radians(pond.get("stones_dir", 250))
-                _prism(bm, _ngon(cx + d * math.cos(a), cy + d * math.sin(a), 36, 8), F - 16, Wz + 14, 0)
-    bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != 2])
+            _prism(bm, _ngon(cxp, cyp, ir, 24), F - 16, Tc, 0)
+            ns = pond.get("stones", 0); a = math.radians(pond.get("stones_dir", 250))
+            for k in range(ns):
+                d = ir + (R - ir) * (k + 1) / (ns + 1)
+                _prism(bm, _ngon(cxp + d * math.cos(a), cyp + d * math.sin(a), 36, 8), F - 16, Wz + 14, 0)
+    if p.get("culvert", True):                   # dark arched mouth in the end wall: the water runs on underground
+        _arch(bm, (fx - ux * 1, fy - uy * 1, (F + Wz) / 2 + 20), (uy, -ux, 0), (0, 0, 1), min(2 * w - 40, 170), (Wz - F) + 40, 2)
     return _finish_multi(bm, f"prop_waterway_{i}", ["p_stone", "p_mud", "p_dark"], mat_for, (0, 0), 0,
                          [TILE["p_stone"], TILE["p_mud"], TILE["p_dark"]])
 
@@ -746,7 +750,8 @@ def arch_bridge(p, mat_for, i):
     bm = bmesh.new()
     _sweep(bm, pts, (px, py), 0, W, 14, 0)                                   # deck
     for s_ in (-1, 1):
-        _sweep(bm, pts, (px, py), s_ * (W / 2 - 8), 16, 40, 2)                # stringer (top flush with the deck)
+        low = [(x, y, z - 4) for x, y, z in pts]
+        _sweep(bm, low, (px, py), s_ * (W / 2 - 9), 14, 36, 2)                # stringer, tucked under the deck
         top = [(x, y, z + 46) for x, y, z in pts]; mid = [(x, y, z + 24) for x, y, z in pts]
         _sweep(bm, top, (px, py), s_ * (W / 2 - 4), 10, 8, 2)                 # top rail
         _sweep(bm, mid, (px, py), s_ * (W / 2 - 4), 6, 5, 2)                  # mid rail

@@ -143,7 +143,7 @@
   ],
   "margin": 700,
   "exclude": [
-   "p_wind"
+   "p_dust"
   ]
  },
  "shaders": {
@@ -288,8 +288,13 @@
    "mat": "solidwood",
    "what": "training posts"
   },
-  "p_wind": {
-   "what": "wind with blown leaves at the edge (generated, alpha fades upwards)",
+  "p_futon": {
+   "solid": true,
+   "mat": "fabric",
+   "what": "futons, cushions"
+  },
+  "p_dust": {
+   "what": "wind haze at the edge: the sand village's dust curtain in green-blue (generated, alpha fades upwards)",
    "raw": [
     "surfaceparm nonsolid",
     "surfaceparm nolightmap",
@@ -301,14 +306,13 @@
     "\tmap {tex}",
     "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA",
     "\trgbGen identity",
-    "\ttcMod scroll 0.06 0",
+    "\ttcMod scroll 0.035 0",
     "}"
    ]
   }
  },
  "gen_textures": {
-  "kn_grain": "grain",
-  "p_wind": "leafwind"
+  "kn_grain": "grain"
  },
  "texture_copy": {
   "kn_leaf": "kn_atlas"
@@ -653,7 +657,7 @@
    ],
    "width": 220,
    "floor": -330,
-   "water": -60,
+   "water": -24,
    "top": 6,
    "pond": {
     "r": 360,
@@ -664,7 +668,7 @@
    "cut_shaders": [
     "kn_ground"
    ],
-   "coping": 110
+   "coping": 90
   },
   {
    "type": "pavilion",
@@ -1949,19 +1953,19 @@
    ],
    "layers": [
     [
-     -30,
+     -120,
      -760,
-     700
+     1400
     ],
     [
-     230,
+     220,
      -760,
-     1000
+     1800
     ]
    ],
    "segments": 128,
-   "tile": 1800,
-   "shader": "p_wind"
+   "tile": 2400,
+   "shader": "p_dust"
   }
  ],
  "import_textures": {
@@ -2187,11 +2191,9 @@
     "surfaceparm nonopaque",
     "surfaceparm water",
     "surfaceparm trans",
-    "surfaceparm fog",
     "surfaceparm nomarks",
     "surfaceparm nolightmap",
     "q3map_material water",
-    "fogparms ( 0.11 0.22 0.22 ) 640",
     "cull twosided",
     "{",
     "\tmap textures/common/water_1",
@@ -2210,6 +2212,21 @@
     "\ttcMod turb 0.02 -0.06 0 0.1",
     "\ttcMod scroll -0.012 0.01",
     "}"
+   ]
+  },
+  "water_side": {
+   "_": "sides / bottoms of water volumes: water, but not drawn (only the surface shows)",
+   "raw": [
+    "qer_editorimage textures/common/water_1",
+    "qer_trans 0.3",
+    "surfaceparm nodraw",
+    "surfaceparm nonsolid",
+    "surfaceparm nonopaque",
+    "surfaceparm water",
+    "surfaceparm trans",
+    "surfaceparm nomarks",
+    "surfaceparm nolightmap",
+    "q3map_material water"
    ]
   }
  },
@@ -2230,5 +2247,9 @@
     470
    ]
   ]
- }
+ },
+ "prop_textures": {
+  "p_dust": "windhaze"
+ },
+ "water_side_shader": "water_side"
 }
