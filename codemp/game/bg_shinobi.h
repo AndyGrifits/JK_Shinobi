@@ -710,6 +710,18 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 // deeper, earth hits harder, lightning jolts, Yin/Yang just hits harder.
 #define SHINOBI_EDGE_MS            15000 // Wind / Lightning Edge duration
 #define SHINOBI_EDGE_FX_MS         220
+/*
+Blades: one blow per swing to each one it cuts, for a set amount by stance (times the
+weapon's damageScale; taijutsu and the rest come on top in Shinobi_BuildDamage), instead
+of the stock sum of every frame the blade spent inside the body (1 to 120 for one swing).
+Special moves and katas: SHINOBI_BLADE_SPECIAL times as much, again every
+SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
+*/
+//                                           -   fast medium strong desann tavion dual staff
+static const int shinobiSwordDamage[8] = {   0,  16,  26,    40,    40,    18,    18,  18 };
+#define SHINOBI_BLADE_SPECIAL      1.6f
+#define SHINOBI_BLADE_SPECIAL_MS   350
+
 #define SHINOBI_WINDSLASH_REACH    180   // air slashes fly this far (from the eyes)
 #define SHINOBI_WINDSLASH_FLY_MS   110   // drawn flying out over this long
 #define SHINOBI_WINDSLASH_LIFE_MS  420   // the entity drawing it (fly + fade)

@@ -3579,6 +3579,12 @@ void WP_SaberApplyDamage( gentity_t *self )
 		}
 		dflags |= saberKnockbackFlags[i];
 
+		if ( victim->client && self->client && self->s.number < MAX_CLIENTS )
+		{ // JK_Shinobi: one blow per swing for a set amount, not however many frames the blade was inside
+			totalDmg[i] = Shinobi_BladeDamage( self, victim, totalDmg[i] );
+			if ( totalDmg[i] <= 0 )
+				continue;
+		}
 		G_Damage( victim, self, self, dmgDir[i], dmgSpot[i], totalDmg[i], dflags, MOD_SABER );
 	}
 }

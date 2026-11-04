@@ -703,6 +703,7 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
 	BG_ShinobiBlockAttack( &client->ps, ucmd ); // block + attack = the blade's special attack, not a guard
 	Shinobi_TaijutsuThink( ent ); // the diving kick's landing
+	Shinobi_BladeSwingUpdate( ent ); // blades: one blow per swing
 	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR )
 		Shinobi_StatusClear( ent );
 	else

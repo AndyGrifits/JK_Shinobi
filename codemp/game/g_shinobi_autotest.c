@@ -706,9 +706,9 @@ static atResult_t T_SaberDps( int t ) {
 	}
 	if ( since < ( sdps.idx ? SDPS_GAP : SDPS_FIRST ) + SDPS_MS ) {
 		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
-		if ( BG_SaberInAttack( ac->ps.saberMove ) && ac->ps.saberMove != sdps.lastMove )
-			sdps.swings++;
-		sdps.lastMove = ac->ps.saberMove;
+		if ( !sdps.lastMove )
+			sdps.lastMove = ac->shinobi.bladeSwing + 1; // (the count when this case began, + 1)
+		sdps.swings = ac->shinobi.bladeSwing + 1 - sdps.lastMove;
 		return ATR_RUN;
 	}
 	{ // the case is over: what it did

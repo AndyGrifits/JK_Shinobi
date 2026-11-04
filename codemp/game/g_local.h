@@ -834,6 +834,10 @@ struct gclient_s {
 		qboolean kawarimiPending; // waiting for the double to appear before hiding
 		qboolean kawarimiPhase;	// non-solid until clear of other bodies
 		int		kawarimiHeld;	// buttons already held when it was cast (only a new press reveals; -1 bit 31: jump held)
+		// one blade hit per swing (Shinobi_BladeDamage)
+		int		bladeSwing;		// swings started so far (a new attack move / its anim restarted)
+		int		bladeMove, bladeAnim, bladeTimer; // what the last look saw
+		int		bladeHitBy[4], bladeHitSwing[4], bladeHitTime[4]; // victim side: the last blades that hit him
 		int		shunshinBack;	// Shunshin charge goes backward
 		int		castBack;		// back was held when this jutsu was let go (the alternative cast)
 		int		costLevel;		// pay as for this level (Shift + F: the quick cast), 0 = as cast
@@ -1562,6 +1566,8 @@ void Shinobi_HitText( gentity_t *targ, int kind, int value );
 void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ); // g_shinobi_build.c
 qboolean Shinobi_SaberGuardUp( gentity_t *ent ); // g_shinobi_block.c
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
+void     Shinobi_BladeSwingUpdate( gentity_t *ent );
+float    Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDamage );
 void  Shinobi_PerkBroadcasts( gentity_t *self ); // who receives this client's entity
 int  Shinobi_ElementDamage( gentity_t *targ, gentity_t *attacker, int damage );
 qboolean Shinobi_CloneIsHostile( gentity_t *clone, gentity_t *other );

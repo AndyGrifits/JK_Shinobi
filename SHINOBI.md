@@ -316,8 +316,14 @@ kubikiribocho, fists); shadow clones carry what their maker carries.
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
-Only the reach differs between weapons; speed, damage and knockback are the stock ones of
-the style (one blade / two / staff). The reach follows the visible blade: the katana keeps
+Only the reach differs between weapons; speed and knockback are the stock ones of the
+style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
+for a set amount by stance (`shinobiSwordDamage`: fast 16, medium 26, strong 40, dual and
+staff 18; special moves and katas x1.6, again every 0.35 s while they last; times the
+weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
+blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
+a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotest `saber_dps`) measures every
+blade and stance on a still target. The reach follows the visible blade: the katana keeps
 the stock saber's 40, a longer or shorter blade reaches as much farther or shorter as its
 tip is from the katana's (about 14 past the tip), but never less than the fists
 (`SHINOBI_PUNCH_RANGE`: 40 from a blade starting at the hand, the knife's); the staff

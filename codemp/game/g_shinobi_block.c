@@ -190,6 +190,68 @@ qboolean Shinobi_SaberGuardUp( gentity_t *ent ) {
 }
 
 // a blade swing of 'attacker' is about to be blocked by targ's blade: qfalse = the guard gave, it goes through
+/*
+===========================================================================
+One blade hit per swing (see shinobiSwordDamage)
+===========================================================================
+*/
+extern qboolean BG_SaberInAttack( int move );
+extern qboolean BG_SaberInKata( int saberMove );
+extern qboolean BG_SaberInSpecial( int move );
+
+// a new swing: a new attack move, another anim, or the same one started over
+void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const playerState_t *ps = &c->ps;
+
+	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) {
+		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim
+			|| ps->torsoTimer > c->shinobi.bladeTimer + 50 )
+			c->shinobi.bladeSwing++;
+	}
+	c->shinobi.bladeMove = ps->saberMove;
+	c->shinobi.bladeAnim = ps->torsoAnim;
+	c->shinobi.bladeTimer = ps->torsoTimer;
+}
+
+float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDamage ) {
+	gclient_t *ac = attacker->client, *vc = victim->client;
+	const int  move = ac->ps.saberMove;
+	const qboolean special = BG_SaberInSpecial( move ) || BG_SaberInKata( move );
+	int        style = ac->ps.fd.saberAnimLevel, k, slot = -1, oldest = 0;
+	float      dmg;
+
+	(void)stockDamage;
+	Shinobi_BladeSwingUpdate( attacker );
+	if ( !BG_SaberInAttack( move ) && !special )
+		return 0; // a touch with a blade at rest
+	for ( k = 0; k < 4; k++ ) { // has this swing cut him already?
+		if ( vc->shinobi.bladeHitBy[k] == attacker->s.number + 1 ) {
+			slot = k;
+			break;
+		}
+		if ( vc->shinobi.bladeHitTime[k] < vc->shinobi.bladeHitTime[oldest] )
+			oldest = k;
+	}
+	if ( slot >= 0 && vc->shinobi.bladeHitSwing[slot] == ac->shinobi.bladeSwing
+		&& ( !special || level.time - vc->shinobi.bladeHitTime[slot] < SHINOBI_BLADE_SPECIAL_MS ) )
+		return 0;
+	if ( slot < 0 )
+		slot = oldest;
+	vc->shinobi.bladeHitBy[slot] = attacker->s.number + 1;
+	vc->shinobi.bladeHitSwing[slot] = ac->shinobi.bladeSwing;
+	vc->shinobi.bladeHitTime[slot] = level.time;
+
+	if ( style < 0 || style > 7 )
+		style = 2;
+	dmg = (float)shinobiSwordDamage[style];
+	if ( special )
+		dmg *= SHINOBI_BLADE_SPECIAL;
+	if ( ac->saber[0].damageScale > 0 )
+		dmg *= ac->saber[0].damageScale;
+	return dmg;
+}
+
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at ) {
 	gclient_t *client;
 	qboolean   perfect;
