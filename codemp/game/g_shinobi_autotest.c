@@ -717,12 +717,13 @@ A measurement for balancing (it always passes if every case hit at all).
 #define SDPS_MS     8000
 #define SDPS_GAP    600
 #define SDPS_FIRST  1500  // before the first case: the bots settle after spawning
-typedef struct { const char *s1, *s2; int style; } sdpsCase_t;
+typedef struct { const char *s1, *s2; int style, fwd; } sdpsCase_t;
 static const sdpsCase_t sdpsCases[] = { // (each fights in its own stance: the .sab's saberStyle)
 	{ "shinobi_katana", "none", 0 }, { "shinobi_kurosawa", "none", 0 }, { "shinobi_kubikiribocho", "none", 0 },
 	{ "shinobi_samehada", "none", 0 }, { "shinobi_knife", "shinobi_knife_l", 0 },
 	{ "shinobi_shibuki", "none", 0 }, { "shinobi_nuibari", "none", 0 },
 	{ "shinobi_uchiha_blade", "shinobi_uchiha_blade", 0 }, { "shinobi_cloud_tanto", "shinobi_cloud_tanto", 0 },
+	{ "shinobi_knife", "shinobi_knife_l", 0, 127 }, // forward held: the pair's cuts chain without returns
 };
 #define SDPS_COUNT ( (int)( sizeof( sdpsCases ) / sizeof( sdpsCases[0] ) ) )
 static const char *sdpsStyleNames[] = { "-", "fast", "medium", "strong", "desann", "tavion", "dual", "staff" };
@@ -782,7 +783,7 @@ static atResult_t T_SaberDps( int t ) {
 		return ATR_RUN;
 	}
 	if ( since < ( sdps.idx ? SDPS_GAP : SDPS_FIRST ) + SDPS_MS ) {
-		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 0, sdpsCases[sdps.idx].fwd, 0, 0, BUTTON_ATTACK );
 		if ( !sdps.lastMove )
 			sdps.lastMove = ac->shinobi.bladeSwing + 1; // (the count when this case began, + 1)
 		sdps.swings = ac->shinobi.bladeSwing + 1 - sdps.lastMove;
@@ -803,7 +804,8 @@ static atResult_t T_SaberDps( int t ) {
 		}
 		sdps.dealt[sdps.idx] = dealt;
 		sdps.hits[sdps.idx] = hits;
-		AT_Print( "[autotest]   %-22s %-16s %-7s %6i %5i %6i %3i-%-3i %9.1f %5i\n", c->s1, c->s2, sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7],
+		AT_Print( "[autotest]   %-22s %-16s %-7s %6i %5i %6i %3i-%-3i %9.1f %5i\n", c->s1, c->s2,
+			c->fwd ? va( "%s+fwd", sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7] ) : sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7],
 			dealt, hits, sdps.swings, hits ? mn : 0, hits ? mx : 0, dealt * 1000.0f / SDPS_MS, sdps.knocked );
 	}
 	AT_Drive( 0, 0, 0, 0, 0 );
@@ -831,7 +833,7 @@ static const bcCase_t bcCases[] = {
 	{ "shinobi_kurosawa", "none", 127, 0, 0, SFX_FLURRY, "kurosawa: flurry (2 more cuts)" },
 	{ "shinobi_kubikiribocho", "none", 127, 0, 0, SFX_BLEED, "kubikiribocho: bleed" },
 	{ "shinobi_samehada", "none", 127, 0, 0, SFX_DRAIN, "samehada: drain chakra" },
-	{ "shinobi_knife", "shinobi_knife_l", 127, 0, 0, -1, "knives: thrown chakra blade" },
+	{ "shinobi_knife", "shinobi_knife_l", 127, 0, 0, SFX_BLEED, "knives: bleed" },
 	{ "shinobi_katana", "none", -127, 0, 0, SFX_SWEEP, "back: sweep (knockdown)" },
 	{ "shinobi_katana", "none", 0, 127, 0, SFX_SPIN, "side: spin" },
 	{ "shinobi_katana", "none", 0, 0, 0, SFX_LAUNCH, "nothing held: rising cut (launch)" },
@@ -1575,7 +1577,7 @@ static atTest_t atTests[] = {
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
-	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
+	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "sword_air",    "blade: rising cut, jump (Shunshin up), attack = the plunge that slams him", T_SwordAir_Setup, T_SwordAir, 12000 },
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },

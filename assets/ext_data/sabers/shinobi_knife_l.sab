@@ -10,7 +10,7 @@ shinobi_knife_l
 	shinobiTrail		6
 	saberStyle		dual
 	shinobiUse		two
-	shinobiFinisher	reach
+	shinobiFinisher	bleed
 	noBlade			1
 	noBlade2		1
 	noDlight		1
@@ -35,7 +35,7 @@ shinobi_knife_l
 	soundOn			sound/weapons/sword/draw1.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav
-	animSpeedScale	1.25
+	animSpeedScale	1.35
 	soundOff		sound/weapons/sword/catch.mp3
 	swingSound1		sound/weapons/sword/swing1.mp3
 	swingSound2		sound/weapons/sword/swing3.mp3

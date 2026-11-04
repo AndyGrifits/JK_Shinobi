@@ -321,21 +321,26 @@ kubikiribocho, samehada, fists); shadow clones carry what their maker carries.
 | weapon | from | held | stance | reach (blade length) |
 |---|---|---|---|---|
 | ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | one | medium | 40 |
-| Trench Knives (`shinobi_knife` + `_l`) | Asuma's knuckle knives | pair | dual (the two-blade moves, played x1.25 faster: `animSpeedScale`) | 40 (as far as the fists) |
+| Trench Knives (`shinobi_knife` + `_l`) | Asuma's knuckle knives | pair | dual, fast (see below) | 40 (as far as the fists) |
 | Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | one | fast | 41 (as far as the fists) |
 | Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | one | strong | 52 |
 | Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | one | strong | 49 |
 | Shibuki (`shinobi_shibuki`) | Blastsword (Shinobi Striker), blade 0.45 as wide and thick so it stays out of the body | one | strong | 48 |
 | Nuibari (`shinobi_nuibari`) | Sewing Needle (Shinobi Striker), 70 long | one | fast | 68 |
-| Uchiha Ninja Blade (`shinobi_uchiha_blade`) | Ninja Blade - Uchiha (Shinobi Striker) | pair | dual | 40 (as far as the fists) |
-| Hidden Cloud Short Sword (`shinobi_cloud_tanto`) | Hidden Cloud Short Sword (Shinobi Striker) | pair | dual | 42 (as far as the fists) |
+| Uchiha Ninja Blade (`shinobi_uchiha_blade`) | Ninja Blade - Uchiha (Shinobi Striker) | pair | dual, fast | 40 (as far as the fists) |
+| Hidden Cloud Short Sword (`shinobi_cloud_tanto`) | Hidden Cloud Short Sword (Shinobi Striker) | pair | dual, fast | 42 (as far as the fists) |
+
+**Pairs fight fast.** The two-blade (dual) stance is the stock medium pace; our pairs play it
+x1.35 (`animSpeedScale`, once for the pair: stock times it once per hand) and the HUD shows
+them as fast. Held forward the dual cuts chain into each other with no returns: each cut
+plays no quicker than 0.45 s (`SHINOBI_PAIR_MIN_CUT`), so it is no machine gun.
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
 style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
-for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 12 -
+for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 8 -
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
@@ -343,15 +348,17 @@ a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `blade_clicks`, `blad
 measures every blade on a still target and tries every finisher.
 
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
-1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo. One swing is
+1.9 s medium, 3.2 s strong, 1.3 s dual), hold him flinching like the fist combo. One swing is
 one blow (never two for one cut: two blows on the same one come at least half a stance's swing
 time apart). Under the crosshair a white pip lights for each blow and a gold one waits at the
 end; when the combo stands one short (4 blows fast and dual, 3 medium, 2 strong) the gold pip
 lights up and pulses: **now the next swing is the finisher** (held attack: the one after at
 once; clicks: your next click) - a move of its own, picked by what you hold as you swing (as
 with fists), its blow x1.5; every finisher move plays x1.45 faster than stock (`SHINOBI_FINISHER_ANIM_SPEED`,
-the stock windups were too long to land), and two blades play the two-blade moves (in brackets):
-**nothing** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`; `LS_JUMPATTACK_DUAL`) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
+the stock windups were too long to land; that alone, never times a pair's own speed-up: a saber move's timer is
+length x (2 - speed), at x2 it comes to nothing), every finisher swing reaches as far as the Kubikiribocho
+(its blades out to 52 while it lasts, `SHINOBI_SWORD_FINISH_LEN`), and two blades play the two-blade moves (in brackets):
+**nothing** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`, a pair too: the dual jump attack leaps over him) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
 turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** - a full spin (Alora's spin
 slash, the dual spin with two blades) cutting everyone round you; **forward** - a lunge
 (`LS_A_LUNGE`; `LS_DUAL_FB`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
@@ -362,12 +369,12 @@ little out of the hand (`cg_shinobiTrail`):
 |---|---|
 | Samehada | **drain**: eats up to 25 of his chakra and gives it to you (blue motes flow to you), and throws him back |
 | Kubikiribocho | **bleed**: a wound, 2 damage every 0.5 s for 4 s (blood on each tick) |
-| Trench Knives | **reach**: the finishing swing throws a chakra blade out to 220 - it lands even when he got out of reach |
+| Trench Knives | **bleed** (as the Kubikiribocho) |
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
 
 **The plunge.** A blade in the air (at least 56 above the floor): attack = a dive straight down
-(1100 a second, the stab-down move, two-blade one for a pair); where it lands the blade goes in:
+(the stab-down move, two-blade one for a pair: you hang in the air for the first 35% of it, the blade going up, then down at 650 a second); where it lands the blade goes in:
 everyone within 80 takes the stance's blow x1.25 (no falling damage for you). Whoever you
 launched with the rising cut and are still near (110) is slammed down with it: the blow x1.5,
 knocked down, no falling damage on him. So: chain - rising cut - jump (Shunshin up) - attack.

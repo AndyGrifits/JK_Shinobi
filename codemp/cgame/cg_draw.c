@@ -811,6 +811,7 @@ static void CG_DrawSaberStyle( centity_t *cent, menuDef_t *menuHUD)
 	{
 	case 1://FORCE_LEVEL_1:
 	case 5://FORCE_LEVEL_5://Tavion
+	case 6://SS_DUAL - JK_Shinobi: our pairs fight fast (x1.35)
 
 		focusItem = Menu_FindItemByName(menuHUD, "saberstyle_fast");
 
@@ -829,7 +830,6 @@ static void CG_DrawSaberStyle( centity_t *cent, menuDef_t *menuHUD)
 
 		break;
 	case 2://FORCE_LEVEL_2:
-	case 6://SS_DUAL
 	case 7://SS_STAFF
 		focusItem = Menu_FindItemByName(menuHUD, "saberstyle_medium");
 
@@ -1194,7 +1194,7 @@ static void CG_DrawSimpleSaberStyle( const centity_t *cent )
 		calcColor = CT_ICON_BLUE;
 		break;
 	case SS_DUAL:
-		Com_sprintf( num, sizeof( num ), "AKIMBO" );
+		Com_sprintf( num, sizeof( num ), "FAST" ); // JK_Shinobi: our pairs fight fast
 		calcColor = CT_HUD_ORANGE;
 		break;
 	case SS_STAFF:

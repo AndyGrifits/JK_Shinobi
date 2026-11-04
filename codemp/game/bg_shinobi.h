@@ -738,7 +738,7 @@ SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 // dual 0.875 - so fast, medium and dual do ~10 a second, strong ~9 in rare heavier blows;
 // cut to 30% after a play test - half the health a blow was too much)
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordDamage[8] = {   0,  8,   14,    24,    24,    9,     12,  12 };
+static const int shinobiSwordDamage[8] = {   0,  8,   14,    24,    24,    9,     8,   12 }; // (dual: the knives, a fast pair)
 /*
 Blade combo: swings that land on the same one, each soon after the last (shinobiSwordWindow),
 hold him flinching like the fist combo; the shinobiSwordChain-th is the finisher (x1.5),
@@ -754,7 +754,7 @@ forward - the weapon's own (shinobiFinisher in its .sab):
 */
 //                                           -   fast medium strong desann tavion dual staff
 static const int shinobiSwordChain[8] =  {   0,  5,   4,     3,     3,     5,     5,   5 };
-static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1700, 1700 };
+static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1300, 1700 };
 #define SHINOBI_SWORD_FINISH       1.5f
 enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_COUNT };
 static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry" };
@@ -763,6 +763,8 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_BLEED_TICK   500
 #define SHINOBI_SWORD_BLEED_MS     4000
 #define SHINOBI_SWORD_REACH        220
+#define SHINOBI_SWORD_FINISH_LEN   52    // a finisher swing reaches at least as far as the Kubikiribocho (blade length)
+#define SHINOBI_PAIR_MIN_CUT       450   // a pair's cut (an attack move of the two-blade set) never plays quicker than this (ms)
 #define SHINOBI_SWORD_IAI_MS       800
 #define SHINOBI_SWORD_FLURRY       2
 #define SHINOBI_SWORD_FLURRY_MS    120
@@ -798,7 +800,7 @@ static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {
 	switch ( kind ) {
 	case SFK_SWEEP: return dual ? LS_DUAL_LR : LS_A_BACK_CR;                  // low, turning: at the legs
 	case SFK_SPIN:  return dual ? LS_SPINATTACK_DUAL : LS_SPINATTACK_ALORA;  // a full turn
-	case SFK_RISE:  return dual ? LS_JUMPATTACK_DUAL : LS_PULL_ATTACK_SWING;  // a heave upward
+	case SFK_RISE:  return LS_PULL_ATTACK_SWING;                              // a heave upward (the dual jump attack leaps over him: no good)
 	default:        return dual ? LS_DUAL_FB : LS_A_LUNGE;                    // the weapon's own: a lunge
 	}
 }
@@ -806,7 +808,7 @@ static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
 	switch ( move ) {
 	case LS_A_BACK_CR: case LS_DUAL_LR: return SFK_SWEEP;
 	case LS_SPINATTACK_DUAL: case LS_SPINATTACK_ALORA: return SFK_SPIN;
-	case LS_PULL_ATTACK_SWING: case LS_JUMPATTACK_DUAL: return SFK_RISE;
+	case LS_PULL_ATTACK_SWING: return SFK_RISE;
 	case LS_A_LUNGE: case LS_DUAL_FB: return SFK_OWN;
 	default: return SFK_NONE;
 	}
@@ -816,7 +818,7 @@ static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
 static QINLINE float Shinobi_FinisherAnimSpeed( int anim ) {
 	switch ( anim ) {
 	case BOTH_LUNGE2_B__T_: case BOTH_CROUCHATTACKBACK1: case BOTH_ALORA_SPIN_SLASH: case BOTH_SPINATTACK6:
-	case BOTH_PULL_IMPALE_SWING: case BOTH_A6_FB: case BOTH_A6_LR: case BOTH_JUMPATTACK6:
+	case BOTH_PULL_IMPALE_SWING: case BOTH_A6_FB: case BOTH_A6_LR:
 		return SHINOBI_FINISHER_ANIM_SPEED;
 	default:
 		return 1.0f;
@@ -825,7 +827,7 @@ static QINLINE float Shinobi_FinisherAnimSpeed( int anim ) {
 // the same swing never cuts the same one twice, nor do two swings this close together (half
 // a stance's swing time: one cut seen as two swings stays one blow)
 //                                            -   fast medium strong desann tavion dual staff
-static const int shinobiSwordRehitMs[8] = {   0,  400, 650,   1300,  1300,  400,   550, 550 };
+static const int shinobiSwordRehitMs[8] = {   0,  400, 650,   1300,  1300,  400,   300, 550 }; // (dual: its cuts never come quicker than SHINOBI_PAIR_MIN_CUT)
 
 // what the cgame draws for a finisher (SHINOBI_ENT_FINISHER s.frame)
 enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH };
@@ -1000,7 +1002,8 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 #define SHINOBI_DIVE_RADIUS        90
 #define SHINOBI_DIVE_DAMAGE        10
 // a blade in the air: attack = a plunge straight down, the blade into the ground where you land
-#define SHINOBI_SWORD_DIVE_SPEED   1100
+#define SHINOBI_SWORD_DIVE_SPEED   650
+#define SHINOBI_SWORD_DIVE_HANG    0.35f // of the stab-down move: you hang while the blade goes up, then down
 #define SHINOBI_SWORD_DIVE_RADIUS  80
 #define SHINOBI_SWORD_DIVE_SCALE   1.25f // x the stance's blow; whoever you launched, slammed: x SHINOBI_SWORD_FINISH
 #define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be

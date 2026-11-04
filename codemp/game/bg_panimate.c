@@ -2692,9 +2692,12 @@ void PM_SetTorsoAnimTimer(int time )
 
 void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int anim, float *animSpeed, int broken )
 {
-	if ( weapon == WP_SABER )
-		*animSpeed *= Shinobi_FinisherAnimSpeed( anim ); // JK_Shinobi: blade finishers, quicker
-	if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_ROLL_STAB )
+	// JK_Shinobi: blade finishers, quicker - that alone: on top of a weapon's own speed-up the
+	// move's timer (dur x (2 - speed) for a saber move, HOLDLESS) would come to nothing
+	const float shinobiFinisher = weapon == WP_SABER ? Shinobi_FinisherAnimSpeed( anim ) : 1.0f;
+	if ( shinobiFinisher != 1.0f )
+		*animSpeed *= shinobiFinisher;
+	else if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_ROLL_STAB )
 	{
 		if ( weapon == WP_SABER )
 		{
@@ -2704,11 +2707,14 @@ void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int 
 			{
 				*animSpeed *= saber->animSpeedScale;
 			}
+			if ( !saber || saber->shinobiUse != 2 ) // JK_Shinobi: a pair speeds up once, not once per hand
+			{
 			saber = BG_MySaber( clientNum, 1 );
 			if ( saber
 				&& saber->animSpeedScale != 1.0f )
 			{
 				*animSpeed *= saber->animSpeedScale;
+			}
 			}
 		}
 	}
@@ -2747,6 +2753,21 @@ void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int 
 		else if (broken & (1<<BROKENLIMB_LARM))
 		{
 			*animSpeed *= 0.65f;
+		}
+	}
+
+	// JK_Shinobi: a pair's cuts (the two-blade attack moves) never quicker than SHINOBI_PAIR_MIN_CUT:
+	// held forward they chain straight into each other (no returns) - not a machine gun
+	if ( weapon == WP_SABER && saberAnimLevel == SS_DUAL && anim >= BOTH_A6_T__B_ && anim <= BOTH_A6_TR_BL && *animSpeed > 0.0f )
+	{
+		const saberInfo_t *saber = BG_MySaber( clientNum, 0 );
+		const animation_t *a = &bgHumanoidAnimations[anim];
+		const float        len = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp );
+		if ( saber && saber->shinobiUse == 2 && len > SHINOBI_PAIR_MIN_CUT )
+		{ // both: as it plays (len / speed) and the move's timer (len x (2 - speed))
+			const float maxSpeed = Q_min( len / SHINOBI_PAIR_MIN_CUT, 2.0f - SHINOBI_PAIR_MIN_CUT / len );
+			if ( *animSpeed > maxSpeed )
+				*animSpeed = maxSpeed;
 		}
 	}
 }

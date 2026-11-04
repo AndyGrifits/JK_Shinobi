@@ -84,8 +84,8 @@
     },
     "stance": "dual",
     "use": "two",
-    "finisher": "reach",
-    "speed": 1.25
+    "finisher": "bleed",
+    "speed": 1.35
   },
   "knife_l": {
     "title": "Trench Knife (left)",
@@ -153,8 +153,8 @@
     ],
     "stance": "dual",
     "use": "two",
-    "finisher": "reach",
-    "speed": 1.25
+    "finisher": "bleed",
+    "speed": 1.35
   },
   "kurosawa": {
     "title": "Kurosawa (Tsubaki)",
@@ -410,7 +410,8 @@
       "bounce": [
         "sound/effects/metal_bounce2.mp3"
       ]
-    }
+    },
+    "speed": 1.35
   },
   "cloud_tanto": {
     "title": "Hidden Cloud Short Sword",
@@ -452,6 +453,7 @@
       "bounce": [
         "sound/effects/metal_bounce2.mp3"
       ]
-    }
+    },
+    "speed": 1.35
   }
 }

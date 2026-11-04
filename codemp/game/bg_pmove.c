@@ -10392,11 +10392,14 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 		}
 		else
 		{
-			ps->velocity[0] = ps->velocity[1] = 0;
-			if ( ps->velocity[2] > -SHINOBI_SWORD_DIVE_SPEED )
-				ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
+			const int len = PM_AnimLength( 0, (animNumber_t)plunge );
 			if ( ps->legsAnim != plunge && ps->legsAnim != BOTH_STABDOWN && ps->legsAnim != BOTH_STABDOWN_DUAL )
 				PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+			ps->velocity[0] = ps->velocity[1] = 0;
+			if ( ps->legsTimer > 0 && len - ps->legsTimer < len * SHINOBI_SWORD_DIVE_HANG )
+				ps->velocity[2] = 0; // the blade goes up: you hang
+			else if ( ps->velocity[2] > -SHINOBI_SWORD_DIVE_SPEED )
+				ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
 			ps->weaponTime = 3000;
 			pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
 		}
@@ -10424,8 +10427,7 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 	ps->saberBlocked = BLOCKED_NONE;
 	PM_SetAnim( SETANIM_BOTH, plunge, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 	ps->weaponTime = 3000; // until it lands
-	ps->velocity[0] = ps->velocity[1] = 0;
-	ps->velocity[2] = -SHINOBI_SWORD_DIVE_SPEED;
+	VectorClear( ps->velocity ); // (hangs a moment first: PM_ShinobiSwordDive)
 	ps->fd.forcePowersActive &= ~( 1 << FP_LEVITATION );
 	pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
 	pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );

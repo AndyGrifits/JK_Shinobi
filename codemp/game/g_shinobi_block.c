@@ -243,9 +243,41 @@ qboolean Shinobi_BladeChainLivePublic( gclient_t *c ) { return Shinobi_BladeChai
 // a new swing: a new attack move, another anim, or the same one started over. A finisher move
 // begun with the combo one blow short is the finisher swing: its blow (on each one it cuts)
 // finishes; the knives throw their chakra blade right as it starts
+// a finisher swing reaches as far as a big blade (SHINOBI_SWORD_FINISH_LEN); put back after it
+static void Shinobi_BladeLength( gclient_t *c, qboolean on ) {
+	int s, b;
+	for ( s = 0; s < 2; s++ ) {
+		saberInfo_t *sab = &c->saber[s];
+		if ( sab->numBlades <= 0 )
+			continue;
+		for ( b = 0; b < sab->numBlades && b < 2; b++ ) {
+			bladeInfo_t *bl = &sab->blade[b];
+			if ( on ) {
+				c->shinobi.bladeLenSave[s][b] = bl->lengthMax;
+				if ( bl->lengthMax < SHINOBI_SWORD_FINISH_LEN ) {
+					bl->lengthMax = SHINOBI_SWORD_FINISH_LEN;
+					if ( bl->length > 0 )
+						bl->length = SHINOBI_SWORD_FINISH_LEN;
+				}
+			} else if ( c->shinobi.bladeLenSave[s][b] > 0 && bl->lengthMax == SHINOBI_SWORD_FINISH_LEN ) {
+				bl->lengthMax = c->shinobi.bladeLenSave[s][b];
+				if ( bl->length > bl->lengthMax )
+					bl->length = bl->lengthMax;
+			}
+		}
+	}
+}
+
 void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 	gclient_t *c = ent->client;
 	const playerState_t *ps = &c->ps;
+
+	if ( c->shinobi.bladeLenSwing && ( c->shinobi.bladeLenSwing != c->shinobi.finisherSwing
+		|| !( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) || ps->weapon != WP_SABER ) ) {
+		Shinobi_BladeLength( c, qfalse );
+		c->shinobi.bladeLenSwing = 0;
+		memset( c->shinobi.bladeLenSave, 0, sizeof( c->shinobi.bladeLenSave ) );
+	}
 
 	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) {
 		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim ) {
@@ -257,6 +289,10 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 				c->shinobi.finisherSwing = c->shinobi.bladeSwing;
 				c->shinobi.finisherKind = kind;
 				c->shinobi.bladeChain = 0;
+				if ( !c->shinobi.bladeLenSwing ) {
+					Shinobi_BladeLength( c, qtrue );
+					c->shinobi.bladeLenSwing = c->shinobi.bladeSwing;
+				}
 				if ( kind == SFK_OWN && c->saber[0].shinobiFinisher == SBF_REACH ) { // the knives: a chakra blade out ahead
 					gentity_t *v;
 					c->shinobi.bladeReachSwing = c->shinobi.bladeSwing;
