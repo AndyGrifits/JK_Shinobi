@@ -132,7 +132,7 @@ typedef struct {
 } shinobiTestDamage_t;
 typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
-	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage;
+	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage, thrustReach;
 	int kaitenBlocks, kaitenDeflects;
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
 	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)

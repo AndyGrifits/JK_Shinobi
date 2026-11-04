@@ -447,14 +447,8 @@ void CG_ShinobiFrame( void ) {
 		return;
 	jump = cmd.upmove > 0;
 
-	if ( shinobiCharge.jutsu == SJ_SHUNSHIN && shinobiCharge.fromJump ) {
-		if ( !jump )
-			CG_ShinobiJutsuUp( SJ_SHUNSHIN );
-	}
-	else if ( jump && !shinobiSel.jumpHeld && SHINOBI_MODIFIER( &cmd ) && !shinobiCharge.jutsu ) {
-		CG_ShinobiJutsuDown( SJ_SHUNSHIN );
-		shinobiCharge.fromJump = qtrue;
-	}
+	if ( jump && !shinobiSel.jumpHeld && SHINOBI_MODIFIER( &cmd ) && !shinobiCharge.jutsu ) // Shunshin: at once, no bars
+		trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[SJ_SHUNSHIN] ) );
 	shinobiSel.jumpHeld = jump;
 }
 
@@ -1576,8 +1570,8 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		fx = shinobiFx.ash;
 		interval = (int)( 45 / ( area < 0.4f ? 0.4f : area ) );
 		break;
-	case SZ_POISON: // a tall, thick green cloud (no fog on the screen: it hurts, it doesn't hide)
-		CG_ShinobiGroundDecal( org, R * 0.85f, rot, shinobiShaders.mud, 0.35f, 0.6f, 0.2f, 0.45f * a );
+	case SZ_POISON: // a tall, thick dark violet cloud (no fog on the screen: it hurts, it doesn't hide)
+		CG_ShinobiGroundDecal( org, R * 0.85f, rot, shinobiShaders.mud, 0.35f, 0.2f, 0.45f, 0.5f * a );
 		fx = shinobiFx.poison;
 		interval = (int)( 28 / ( area < 0.4f ? 0.4f : area ) );
 		break;
@@ -2656,11 +2650,9 @@ static void CG_ShinobiDrawEyes( centity_t *cent, clientInfo_t *ci ) {
 
 // bars over the heads of whoever our eyes see
 static void CG_ShinobiDrawEyeInfo( void ) {
-	const int eyes = CG_ShinobiMyEyes();
+	const int eyes = CG_ShinobiMyEyes(); // (0: only the one we are locked on to - his health)
 	int i;
 
-	if ( !eyes )
-		return;
 	if ( ( eyes == SP_SHARINGAN || eyes == SP_COPYEYE ) && shinobiMist.lastTime >= cg.time - 100 && shinobiMist.lastAmount > 0.3f )
 		return; // the Sharingan can't see through the Hidden Mist
 	for ( i = 0; i < MAX_GENTITIES; i++ ) {
@@ -2692,7 +2684,7 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 			continue;
 		y0 = y;
 
-		if ( ( s->flags & SHINOBI_SEEN_HEALTH ) && ( s->flags & SHINOBI_SEEN_CLONE ) ) { // the Sharingan sees through it
+		if ( ( s->flags & SHINOBI_SEEN_HEALTH ) && ( s->flags & SHINOBI_SEEN_CLONE ) && eyes == SP_SHARINGAN ) { // the Sharingan sees through it
 			vec4_t      c = { 1.0f, 0.55f, 0.5f, 0.95f };
 			const float w = CG_Text_Width( "clone", 0.4f, FONT_SMALL );
 			CG_Text_Paint( x - w * 0.5f, y - 4, 0.4f, c, "clone", 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
@@ -2705,7 +2697,7 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 			CG_FillRect( x - 25, y + 1, 50 * frac, 4, c );
 			y += 7;
 		}
-		if ( s->flags & SHINOBI_SEEN_CHAKRA ) {
+		if ( ( s->flags & SHINOBI_SEEN_CHAKRA ) && !( eyes == SP_SHARINGAN && ( s->flags & SHINOBI_SEEN_CLONE ) ) ) {
 			vec4_t c = { 0.3f, 0.6f, 1.0f, 0.9f };
 			frac = ( s->flags & SHINOBI_SEEN_CLONE ) ? 0.04f
 				: ( s->chakraMax > 0 ? Com_Clamp( 0, 1, (float)s->chakra / s->chakraMax ) : 0 );

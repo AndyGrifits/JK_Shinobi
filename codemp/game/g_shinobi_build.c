@@ -367,9 +367,11 @@ static qboolean Shinobi_EyeTarget( gentity_t *viewer, gentity_t *e ) {
 }
 
 // tell the eye user what he sees: "sinfo <num> <hp> <maxhp> <chakra> <chakramax> <jutsu> <flags> ..."
+// - and anyone locked on (lock-on) the one he is locked on to: his health (the Sharingan: his chakra too)
 static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	const int  eyes = client->shinobi.eyes;
+	const int  lock = client->ps.stats[STAT_SHINOBI_LOCK] - 1;
 	char       buf[MAX_STRING_CHARS - 64];
 	int        i, len, n = 0;
 	vec3_t     eye;
@@ -383,6 +385,7 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 		gentity_t *e = &g_entities[i];
 		gentity_t *who;
 		const qboolean clone = ( i >= MAX_CLIENTS );
+		const qboolean locked = ( i == lock );
 		qboolean hidden;
 		int   hp, maxhp, chakra = 0, chakraMax = 0, jutsu = 0, flags = 0;
 		float dist;
@@ -394,25 +397,17 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 		dist = Distance( client->ps.origin, e->r.currentOrigin );
 
 		if ( eyes == SP_COPYEYE ) { // only the jutsu people in plain sight are charging
-			if ( clone || hidden || dist > SHINOBI_SHARINGAN_RANGE || !Shinobi_EyeSees( ent, e ) )
-				continue;
-			jutsu = e->client->shinobi.chargeJutsu;
-			if ( jutsu == SJ_SHUNSHIN )
-				jutsu = 0;
-			Com_sprintf( entry, sizeof( entry ), " %i 0 0 0 0 %i %i", i, jutsu, SHINOBI_SEEN_JUTSU );
-			if ( len + (int)strlen( entry ) >= (int)sizeof( buf ) )
-				break;
-			Q_strcat( buf, sizeof( buf ), entry );
-			len += strlen( entry );
-			n++;
-			continue;
+			if ( !clone && !hidden && dist <= SHINOBI_SHARINGAN_RANGE && Shinobi_EyeSees( ent, e ) ) {
+				jutsu = e->client->shinobi.chargeJutsu;
+				if ( jutsu == SJ_SHUNSHIN )
+					jutsu = 0;
+				flags = SHINOBI_SEEN_JUTSU;
+			}
 		}
-		if ( eyes == SP_SHARINGAN ) {
-			if ( hidden && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) )
-				continue; // under the ground: only the Byakugan sees that far
-			if ( hidden ? dist > SHINOBI_SHARINGAN_HIDDEN_RANGE : dist > SHINOBI_SHARINGAN_RANGE )
-				continue;
-			{ // only who the eye actually sees: a clear line to his head or his middle (no walls)
+		else if ( eyes == SP_SHARINGAN ) {
+			qboolean sees = !( hidden && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_BURROW ) ) // (under the ground: only the Byakugan)
+				&& ( hidden ? dist <= SHINOBI_SHARINGAN_HIDDEN_RANGE : dist <= SHINOBI_SHARINGAN_RANGE );
+			if ( sees ) { // only who the eye actually sees: a clear line to his head or his middle (no walls)
 				trace_t tr;
 				vec3_t  head;
 				VectorCopy( e->r.currentOrigin, head );
@@ -421,26 +416,33 @@ static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 				if ( tr.fraction < 1.0f ) {
 					trap->Trace( &tr, eye, NULL, NULL, e->r.currentOrigin, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
 					if ( tr.fraction < 1.0f )
-						continue;
+						sees = qfalse;
 				}
 			}
-			flags = SHINOBI_SEEN_HEALTH | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 ); // (it sees through clones)
+			if ( sees )
+				flags = SHINOBI_SEEN_HEALTH | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 ); // (it sees through clones)
 		}
-		else {
-			if ( dist > SHINOBI_BYAKUGAN_RANGE )
-				continue;
-			flags = SHINOBI_SEEN_CHAKRA | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
+		else if ( eyes == SP_BYAKUGAN ) {
+			if ( dist <= SHINOBI_BYAKUGAN_RANGE )
+				flags = SHINOBI_SEEN_CHAKRA | ( clone ? SHINOBI_SEEN_CLONE : 0 ) | ( hidden ? SHINOBI_SEEN_HIDDEN : 0 );
 		}
+		if ( locked ) { // the one we're locked on to: his health over his head (the Sharingan reads his chakra too)
+			flags |= SHINOBI_SEEN_HEALTH | SHINOBI_SEEN_LOCK;
+			if ( eyes == SP_SHARINGAN )
+				flags |= SHINOBI_SEEN_CHAKRA;
+		}
+		if ( !flags )
+			continue;
 
-		// (a clone's numbers are its owner's; the eyes just mark it "clone")
+		// (a clone's numbers are its owner's; only the Sharingan marks it "clone" in place of the health)
 		who = clone ? Shinobi_CloneOwner( e ) : e;
 		if ( !who || !who->client )
 			who = e;
 		hp = who->health;
 		maxhp = who->client->ps.stats[STAT_MAX_HEALTH];
-		if ( !clone ) {
-			chakra = e->client->ps.fd.forcePower;
-			chakraMax = e->client->ps.fd.forcePowerMax;
+		chakra = who->client->ps.fd.forcePower;
+		chakraMax = who->client->ps.fd.forcePowerMax;
+		if ( !clone && ( eyes == SP_SHARINGAN || eyes == SP_COPYEYE ) && ( flags & ( SHINOBI_SEEN_HEALTH | SHINOBI_SEEN_JUTSU ) ) ) { // (the red eyes read the seals)
 			jutsu = e->client->shinobi.chargeJutsu;
 			if ( jutsu == SJ_SHUNSHIN )
 				jutsu = 0;
@@ -517,10 +519,11 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 			else
 				client->ps.fd.forcePower--;
 		}
-		if ( client->shinobi.eyes && client->shinobi.eyesInfo <= level.time ) {
-			client->shinobi.eyesInfo = level.time + SHINOBI_PERK_INFO_MS;
-			Shinobi_SendEyeInfo( ent );
-		}
+	}
+	if ( ( client->shinobi.eyes || ( alive && client->ps.stats[STAT_SHINOBI_LOCK] ) ) && client->shinobi.eyesInfo <= level.time
+		&& ent->s.number < MAX_CLIENTS && !( ent->r.svFlags & SVF_BOT ) ) { // the eyes, or a lock-on: health over his head
+		client->shinobi.eyesInfo = level.time + SHINOBI_PERK_INFO_MS;
+		Shinobi_SendEyeInfo( ent );
 	}
 	client->ps.eFlags2 &= ~( SHINOBI_EF2_SHARINGAN | SHINOBI_EF2_BYAKUGAN );
 	if ( client->shinobi.eyes == SP_SHARINGAN || client->shinobi.eyes == SP_COPYEYE ) // (the same red eyes; the

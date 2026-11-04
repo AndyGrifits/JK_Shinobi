@@ -52,8 +52,9 @@ back held too it is that jutsu's alternative form (for now: Storm Wind pulls). S
 
 ## Kawarimi and Shunshin charges
 
-Both work on charges (the pips over the jutsu list): Kawarimi 3, each back 15 s after use
-on its own; Shunshin 3, each back in 6 s (and cheaper: 10 / 15 / 20). Kawarimi puts you
+Both work on charges (the pips over the jutsu list): Kawarimi 3, each back 25 s after use
+on its own; Shunshin 3, each back in 6 s. Shunshin has no levels: Shift + jump blinks at once,
+as you press it, always 360 (the old second level), for its price (15). Kawarimi puts you
 80 u back, already hidden, works lying on the floor too, and breaks you out of a combo
 (flinch, air juggle), a Water Prison, a Shadow Bind or Trap.
 
@@ -369,7 +370,7 @@ length x (2 - speed), at x2 it comes to nothing), every finisher swing reaches a
 on whoever stands within 80 in front (all round for the spin; `SHINOBI_SWORD_FINISH_REACH`) - the moves swing wide
 or close, so the blade alone missed someone the plain cuts reached. A blow his blade guard holds counts for the combo too, and two blades play the two-blade moves (in brackets):
 **nothing** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`, a pair too: the dual jump attack leaps over him) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
-turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** (forward or back with it too) - a full spin (Alora's spin
+turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** (forward or back with it too) - a full spin, at the plain blow (no x1.5: it cuts all round, easy to land) (Alora's spin
 slash, the dual spin with two blades) cutting everyone round you; **forward** - a lunge
 (`LS_A_LUNGE`; `LS_DUAL_FB`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
 own look ("Finisher!" over him). The swing glow (both edges of its trail) runs along 70% of the visible steel, from a
@@ -382,7 +383,7 @@ little out of the hand (`cg_shinobiTrail`):
 | Trench Knives | **reach**: a wide, flat arc of chakra thrown far ahead (320, 40 deg each side of the look): it cuts everyone it sweeps over, nothing solid between |
 | Uchiha Ninja Blade | **burn**: sets him alight (as fire does) |
 | Hidden Cloud Short Sword | **bleed** (as the Kubikiribocho) |
-| Shibuki | **blast**: an explosion on him - thrown back (460) and knocked down |
+| Shibuki | **blast**: an explosion on him - thrown back (460) and knocked down; a little fire stays where it went off (60 round, 4 s: lights ash, burns, steams on water) |
 | Nuibari | **stun**: he stands helpless 1.5 s |
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
@@ -393,6 +394,10 @@ everyone within 80 takes the stance's blow x1.25 (no falling damage for you). Wh
 launched with the rising cut and are still near (110) is slammed down with it: the blow x1.5,
 knocked down, no falling damage on him. So: chain - rising cut - jump (Shunshin up) - attack.
 Lower than that an attack in the air is the stock air swing. Autotest `sword_air`.
+
+**Nuibari's reach.** The stock stab swings its needle close and low: a plain thrust missed nearly
+everyone. If 40% into a thrust it has cut no one, it goes into whoever stands straight ahead
+(25 deg each side) within its blade + 24 - a blow like the blade's own (combo, flinch, guard).
 
 **Damage windows at our pace.** The stock code lets a special move's blade hurt only in a set
 part of it (`G_PowerLevelForSaberAnim`: the lunge from 150 ms in to 400 ms before its end, the
@@ -479,7 +484,7 @@ icons and names; no guns are handed out any more):
 | Explosive Tag x2 (`extag`) | trip mines, det packs, seeker, sentry, shield, e-web | stuck on the wall / floor ahead (or under you); armed after 1 s; an enemy within 90 u sets it off 0.4 s later: 55 fire damage in 170 u. Blasts and shots set tags off (chains). Two at a time, 90 s |
 | Fuma Shuriken (`fuma`) | flechette, concussion, disruptor, bowcaster | one at a time, thrown like a saber: flies out 850 u spinning, turns and homes back to your hand, 45 damage to everyone it cuts (once out, once back). Catch it to throw again; a wall on the way keeps it - walk up to it (anyone without one) to pull it out (30 s) |
 | Shuriken x3 (`stars`) | the old Bryar pistol, blaster, repeater | the small ones (Shinobi Striker's model): 3 throws a pickup, each throw a fan of three (5 deg apart) straight at 1600 u/s, 8 damage each to the first one it cuts; a wall keeps them 8 s. A throw every 0.35 s, 6 throws carried |
-| Poison Smoke Bomb (`smokebomb`) | rocket launcher | lobbed (700 u/s, a little up); where it lands - or on whom - it bursts into a tall (200), thick green cloud, 150 round, 12 s. It hides nothing (no fog on the screen), but a breath of it poisons: 2 damage every 0.6 s for 10 s after the last breath (the thrower too, if he walks in). Wind blows it away. One a pickup, 2 carried |
+| Poison Smoke Bomb (`smokebomb`) | rocket launcher | lobbed (700 u/s, a little up); where it lands - or on whom - it bursts into a tall (200), thick dark violet cloud, 150 round, 12 s. It hides nothing (no fog on the screen), but a breath of it poisons: 2 damage every 0.6 s for 10 s after the last breath (the thrower too, if he walks in). Wind blows it away. One a pickup, 2 carried |
 
 The throwables are the stock explosive weapons underneath (thermal detonator = explosive
 kunai, trip mine = tag, det pack = fuma shuriken; the small shuriken ride on the old Bryar
@@ -583,7 +588,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
-| **T** | lock-on, for close combat: with fists or a blade in hand the nearest enemy in front within 250 (anywhere within 150) is locked on by itself (`shinobi_autolock 0` turns that off); **T moves it to the next one close by** (to the right). Red brackets on him; the view and camera turn sideways after him (300 degrees a second - a quick step round him, a Shunshin behind or a jump over slips it; the mouse keeps the pitch and adds to the turn). Lets go past 350, out of sight 1 s, with a tool in hand, while you are blinded or in a mist / ash cloud (the Byakugan sees through those), and the moment he hides (Kawarimi, burrow, shadow) - then no lock for 1.2 s. Bots don't lock. Team chat moved to U |
+| **T** | lock-on, for close combat: with fists or a blade in hand the nearest enemy in front within 250 (anywhere within 150) is locked on by itself (`shinobi_autolock 0` turns that off); **T moves it to the next one close by** (to the right). Red brackets on him and his health bar over his head (for everyone; over a clone its owner's - only the Sharingan reads "clone" there; the Sharingan also sees his chakra, the Byakugan its own chakra bar as ever); the view and camera turn sideways after him (300 degrees a second - a quick step round him, a Shunshin behind or a jump over slips it; the mouse keeps the pitch and adds to the turn). Lets go past 350, out of sight 1 s, with a tool in hand, while you are blinded or in a mist / ash cloud (the Byakugan sees through those), and the moment he hides (Kawarimi, burrow, shadow) - then no lock for 1.2 s. Bots don't lock. Team chat moved to U |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
 | **2** | fists / your weapon (nothing with Fists only) |
 | **B** | ninja build screen |

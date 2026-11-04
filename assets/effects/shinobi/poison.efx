@@ -1,6 +1,6 @@
 repeatDelay				0
 
-// Poison Smoke Bomb: a thick, slowly rising puff of sickly green smoke
+// Poison Smoke Bomb: a thick, slowly churning billow of dark violet smoke
 // (the cgame keeps spawning them all through the tall cloud).
 
 Particle
@@ -8,7 +8,7 @@ Particle
 	name				poison
 	flags				useAlpha
 	count				1
-	life				1800 2600
+	life				2200 3200
 	rotation			0 360
 	rotationDelta		-4 4
 	spawnFlags			orgOnSphere
@@ -16,17 +16,17 @@ Particle
 	vel					-8 -8 4 8 8 16
 	size
 	{
-		start			44 60
-		end				84 104
+		start			56 72
+		end				96 120
 	}
 	rgb
 	{
-		start			0.32 0.55 0.18
-		end				0.42 0.48 0.22
+		start			0.30 0.18 0.38
+		end				0.24 0.14 0.32
 	}
 	alpha
 	{
-		start			0.55
+		start			0.85
 		end				0
 	}
 	shaders
@@ -50,7 +50,7 @@ Particle
 	}
 	rgb
 	{
-		start			0.6 1 0.35
+		start			0.7 0.4 0.9
 	}
 	shaders
 	[

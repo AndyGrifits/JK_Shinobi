@@ -259,9 +259,10 @@ static const int shinobiChidoriDashMs[3]  = { 330, 430,  540 }; // 380 / 495 / 6
 static const float shinobiChidoriRadius[3] = { 6.0f, 9.0f, 13.0f };
 
 // Shunshin (body flicker): Shift + jump teleports along the view (up and down
-// too), Shift + back + jump the opposite way; holding jump charges the
-// distance (about 4 / 10 / 18 metres)
-static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
+// too), Shift + back + jump the opposite way - at once, as you press it, no
+// levels: always the old second level's distance (about 10 metres)
+static const int shinobiShunshinDist[3]  = { 360, 360, 360 };
+#define SHINOBI_SHUNSHIN_LEVEL     2    // (its price: the old second level's)
 #define SHINOBI_SHUNSHIN_MIN_DIST  24   // don't bother if a wall is right there
 #define SHINOBI_SHUNSHIN_CHARGES   3    // blinks ready at once; each one comes back on its own
 #define SHINOBI_SHUNSHIN_RECHARGE  6000
@@ -269,7 +270,7 @@ static const int shinobiShunshinDist[3]  = { 160, 360, 640 };
 // Kawarimi (substitution): an AI double takes your place, you turn invisible
 // and creep away; any action but moving ends it and the double becomes a log
 #define SHINOBI_KAWARIMI_CHARGES   3    // substitutions ready at once (also from the ground); each comes back on its own
-#define SHINOBI_KAWARIMI_RECHARGE  15000
+#define SHINOBI_KAWARIMI_RECHARGE  25000
 #define SHINOBI_KAWARIMI_HOP       80   // you are put this far back, already hidden
 #define SHINOBI_KAWARIMI_MAX_MS    12000 // hidden at most this long
 #define SHINOBI_KAWARIMI_DECOY_MS  15000
@@ -784,6 +785,7 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_ARC_REACH    320
 #define SHINOBI_SWORD_ARC_HALF     40.0f // degrees each side of the look
 #define SHINOBI_SWORD_BLAST_PUSH   460
+#define SHINOBI_SWORD_BLAST_FIRE   60    // the blast leaves a little fire where it went off (radius; 4 s): it lights ash, people
 #define SHINOBI_SWORD_STUN_MS      1500
 #define SHINOBI_BLADE_SHUNSHIN_STAT 15   // shinobiTest.bladeFinishers[]: the Shunshins up after the rising cut
 #define SHINOBI_SWORD_DRAIN        25
@@ -798,6 +800,8 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_PAIR_FAST_SCALE    1.2f  // a pair played this much faster (animSpeedScale) fights as a fast stance, else as a medium one
 #define SHINOBI_THRUST_MS          650   // a thrusting blade's thrust (shinobiThrust): about this long
 #define SHINOBI_THRUST_DASH        620   // its own finisher: the thrust with a dash forward, this fast
+#define SHINOBI_THRUST_REACH_AT    0.4f  // a thrust that by this much of it cut no one lands on whoever is straight ahead
+#define SHINOBI_THRUST_CONE        0.9f  // (cosine: about 25 degrees each side), within its blade + 24 (centre to centre)
 #define SHINOBI_THRUST_DASH_PART   0.35f // ... for this much of the move
 #define SHINOBI_SWORD_IAI_MS       800
 #define SHINOBI_SWORD_FLURRY       2
@@ -1106,6 +1110,7 @@ Perks (perk command, key C):
 #define SHINOBI_SEEN_CLONE    4
 #define SHINOBI_SEEN_HIDDEN   8
 #define SHINOBI_SEEN_JUTSU    16  // Copy Sharingan: only the jutsu being charged
+#define SHINOBI_SEEN_LOCK     32  // the one we are locked on to (lock-on): his health for anyone
 
 // Futon: Daitoppa (wind gust): cone in front, pushes, fans flames
 #define SHINOBI_WIND_COOLDOWN      1500

@@ -202,6 +202,7 @@ extern qboolean BG_SaberInSpecial( int move );
 extern void G_Knockdown( gentity_t *victim );
 void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, float *dmg );
 static void Shinobi_FinisherReach( gentity_t *ent );
+static void Shinobi_ThrustReach( gentity_t *ent );
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 
 // the stance whose numbers a blade fights by (shinobiSword*): its own, but a pair (the two-blade
@@ -292,6 +293,12 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 			const int kind = Shinobi_FinisherKindOfMove( ps->saberMove );
 			const int style = Shinobi_BladeStyle( c );
 			c->shinobi.bladeSwing++;
+			c->shinobi.thrustSwing = 0;
+			if ( c->saber[0].shinobiThrust && ps->torsoAnim == BOTH_PULL_IMPALE_STAB && ent->s.number < MAX_CLIENTS ) {
+				c->shinobi.thrustSwing = c->shinobi.bladeSwing; // a thrust: its reach is checked part way (Shinobi_ThrustReach)
+				c->shinobi.thrustStart = level.time;
+				c->shinobi.thrustDur = ps->torsoTimer > 0 ? ps->torsoTimer : 400;
+			}
 			if ( kind && ps->weapon == WP_SABER && ent->s.number < MAX_CLIENTS && Shinobi_BladeChainLive( c )
 				&& c->shinobi.bladeChain == shinobiSwordChain[style] - 1 ) {
 				c->shinobi.finisherSwing = c->shinobi.bladeSwing;
@@ -312,6 +319,12 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 				}
 			}
 		}
+	}
+	if ( c->shinobi.thrustSwing == c->shinobi.bladeSwing && c->shinobi.swingBlow != c->shinobi.bladeSwing
+		&& BG_SaberInAttack( ps->saberMove ) && ps->weapon == WP_SABER
+		&& level.time - c->shinobi.thrustStart >= c->shinobi.thrustDur * SHINOBI_THRUST_REACH_AT ) {
+		c->shinobi.thrustSwing = 0; // (tried once)
+		Shinobi_ThrustReach( ent );
 	}
 	if ( c->shinobi.finisherKind && c->shinobi.finisherSwing == c->shinobi.bladeSwing && !c->shinobi.finisherHit
 		&& ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) && ps->weapon == WP_SABER
@@ -413,7 +426,8 @@ static void Shinobi_FinisherReach( gentity_t *ent ) {
 			continue;
 		if ( !Shinobi_BladeNewBlow( ent, v, qfalse, qtrue ) )
 			continue;
-		dmg = (float)shinobiSwordDamage[style] * ( c->saber[0].damageScale > 0 ? c->saber[0].damageScale : 1.0f ) * SHINOBI_SWORD_FINISH;
+		dmg = (float)shinobiSwordDamage[style] * ( c->saber[0].damageScale > 0 ? c->saber[0].damageScale : 1.0f )
+			* ( kind == SFK_SPIN ? 1.0f : SHINOBI_SWORD_FINISH ); // (the spin cuts all round: no bonus)
 		if ( Shinobi_SaberGuardUp( v ) && Shinobi_FacingHit( v, ent->r.currentOrigin )
 			&& Shinobi_SaberGuard( v, ent, (int)dmg, v->r.currentOrigin ) )
 			continue; // his blade held it
@@ -421,6 +435,53 @@ static void Shinobi_FinisherReach( gentity_t *ent ) {
 		shinobiTest.bladeFinisherReach++;
 		Shinobi_BladeFinisher( ent, v, kind, &dmg );
 		G_Damage( v, ent, ent, d, v->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC | DAMAGE_NO_KNOCKBACK, MOD_SABER );
+	}
+}
+
+/*
+A thrusting blade (Nuibari) part way into a thrust that hasn't cut anyone: the needle goes into
+whoever stands straight ahead within its length - the stock stab swings its blade close and low,
+the plain thrust missed nearly everyone. A blow like the blade's own (combo, flinch, guard).
+*/
+static void Shinobi_ThrustReach( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const float reach = ( c->saber[0].blade[0].lengthMax > 0 ? c->saber[0].blade[0].lengthMax : 40 ) + 24;
+	gentity_t *best = NULL;
+	float      bestDist = reach + 1;
+	vec3_t     fwd, yaw, bestDir;
+	int        i;
+
+	VectorSet( yaw, 0, c->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+		if ( !Shinobi_ComboTarget( ent, v ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, d );
+		if ( fabs( d[2] ) > 56 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > reach || dist >= bestDist || ( dist > 16 && DotProduct( d, fwd ) < SHINOBI_THRUST_CONE ) )
+			continue;
+		best = v;
+		bestDist = dist;
+		VectorCopy( d, bestDir );
+	}
+	if ( !best )
+		return;
+	if ( Shinobi_SaberGuardUp( best ) && Shinobi_FacingHit( best, ent->r.currentOrigin )
+		&& Shinobi_SaberGuard( best, ent, shinobiSwordDamage[Shinobi_BladeStyle( c )], best->r.currentOrigin ) )
+		return; // his blade held it (it counts for the combo there)
+	{
+		const float dmg = Shinobi_BladeDamage( ent, best, 0 );
+		Shinobi_Debug( "thrust %i -> %i by reach (%.0f u): %.0f", ent->s.number, best->s.number, bestDist, dmg );
+		if ( dmg > 0 ) {
+			shinobiTest.thrustReach++;
+			G_Damage( best, ent, ent, bestDir, best->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC, MOD_SABER );
+		}
 	}
 }
 
@@ -441,6 +502,7 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	finisher = ac->shinobi.finisherSwing == ac->shinobi.bladeSwing && ac->shinobi.finisherKind;
 	if ( !Shinobi_BladeNewBlow( attacker, victim, special, finisher ) )
 		return 0;
+	ac->shinobi.swingBlow = ac->shinobi.bladeSwing;
 
 	dmg = (float)shinobiSwordDamage[style];
 	if ( ac->saber[0].damageScale > 0 )
@@ -449,7 +511,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	if ( finisher ) { // the finisher swing: each one it cuts
 		Shinobi_Debug( "blade %i -> %i: FINISHER kind %i (swing %i)", attacker->s.number, victim->s.number,
 			ac->shinobi.finisherKind, ac->shinobi.bladeSwing );
-		dmg *= SHINOBI_SWORD_FINISH;
+		if ( ac->shinobi.finisherKind != SFK_SPIN ) // (the spin cuts all round, easy to land: no bonus)
+			dmg *= SHINOBI_SWORD_FINISH;
 		ac->shinobi.finisherHit = 1;
 		Shinobi_BladeFinisher( attacker, victim, ac->shinobi.finisherKind, &dmg );
 		return dmg;
@@ -564,6 +627,14 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		G_PlayEffectID( shinobiMedia.fxStockExplode, victim->r.currentOrigin, up );
 		G_SoundAtLoc( victim->r.currentOrigin, CHAN_AUTO, shinobiMedia.sndFireballBoom );
 		G_ScreenShake( victim->r.currentOrigin, NULL, 2.0f, 300, qfalse );
+		{ // a little fire where it went off: it lights ash clouds, burns whoever stands in it, steams in water
+			vec3_t floor, pos;
+			VectorCopy( victim->r.currentOrigin, pos );
+			if ( Shinobi_FloorBelow( pos, 96, floor ) )
+				Shinobi_SpawnZone( SZ_FIRE, floor, SHINOBI_SWORD_BLAST_FIRE, 4000, attacker->s.number + 1 );
+			else
+				Shinobi_IgniteAshAt( pos, SHINOBI_SWORD_BLAST_FIRE * 2, attacker->s.number + 1 );
+		}
 		if ( !Shinobi_CCImmune( victim ) ) {
 			VectorScale( dir, SHINOBI_SWORD_BLAST_PUSH, vc->ps.velocity );
 			vc->ps.velocity[2] = 220;
