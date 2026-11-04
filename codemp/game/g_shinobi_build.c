@@ -116,7 +116,7 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 			f *= SHINOBI_GATES_TIRED_TAIJUTSU;
 		damage = (int)( damage * f + 0.5f );
 	}
-	// Shift + attack: the hit carries your chakra nature
+	// Lightning Edge: the hit jolts harder (3x through stone)
 	damage = Shinobi_InfuseHit( targ, attacker, damage );
 
 	// Gentle Fist: with the Byakugan open, bare-handed hits burn the target's chakra

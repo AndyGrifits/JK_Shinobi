@@ -705,9 +705,8 @@ const char *Shinobi_ToolModel( int tool );  // its model (on the floor, in fligh
 #define SHINOBI_SHADOWTRAP_DRAIN    2      // chakra per tick per caught enemy (~7/s)
 #define SHINOBI_KUNAI_MODEL        "models/shinobi/kunai.md3"
 
-// Shift + attack: chakra flows into fists, kicks and the blade (5 chakra a hit)
-// with the nature of your main school: fire burns, water soaks, wind cuts
-// deeper, earth hits harder, lightning jolts, Yin/Yang just hits harder.
+// Wind Edge / Lightning Edge (jutsu): chakra on the fists and blade for a while
+// (the old Shift + attack infusion is gone - Shift + attack does nothing special)
 #define SHINOBI_EDGE_MS            15000 // Wind / Lightning Edge duration
 #define SHINOBI_EDGE_FX_MS         220
 /*
@@ -1274,7 +1273,7 @@ static QINLINE int Shinobi_ChargeLevelCast( int jutsu, int heldMs, int castLvl )
 }
 
 
-// the nature your Shift + attack carries: the first elemental school in the build
+// the build's main nature: its first elemental school
 static QINLINE int Shinobi_BuildElement( const shinobiBuild_t *b ) {
 	int i;
 	for ( i = 0; i < b->numJutsu; i++ ) {

@@ -9,7 +9,7 @@ JK_Shinobi - kunai and what is built on them.
                marked enemy if it is on one
   Lightning Trap (Raiton jutsu) two or three marks: a lightning net between them
 
-Also here: Shift + attack infuses fists, kicks and the blade with chakra.
+Also here: Wind Edge / Lightning Edge, chakra on the fists and blade for a while.
 ===========================================================================
 */
 #include "g_shinobi_local.h"
