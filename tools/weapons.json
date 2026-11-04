@@ -82,9 +82,10 @@
         "sound/effects/metal_bounce2.mp3"
       ]
     },
-    "stance": "fast",
+    "stance": "dual",
     "use": "two",
-    "finisher": "reach"
+    "finisher": "reach",
+    "speed": 1.25
   },
   "knife_l": {
     "title": "Trench Knife (left)",
@@ -150,9 +151,10 @@
         -0.133
       ]
     ],
-    "stance": "fast",
+    "stance": "dual",
     "use": "two",
-    "finisher": "reach"
+    "finisher": "reach",
+    "speed": 1.25
   },
   "kurosawa": {
     "title": "Kurosawa (Tsubaki)",

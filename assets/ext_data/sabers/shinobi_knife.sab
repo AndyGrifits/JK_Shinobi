@@ -8,7 +8,7 @@ shinobi_knife
 	saberLength		40
 	saberColor		blue
 	shinobiTrail		6
-	saberStyle		fast
+	saberStyle		dual
 	shinobiUse		two
 	shinobiFinisher	reach
 	noBlade			1
@@ -35,6 +35,7 @@ shinobi_knife
 	soundOn			sound/weapons/sword/draw1.mp3
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav
+	animSpeedScale	1.25
 	soundOff		sound/weapons/sword/catch.mp3
 	swingSound1		sound/weapons/sword/swing1.mp3
 	swingSound2		sound/weapons/sword/swing3.mp3

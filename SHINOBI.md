@@ -320,7 +320,7 @@ kubikiribocho, samehada, fists); shadow clones carry what their maker carries.
 | weapon | from | held | stance | reach (blade length) |
 |---|---|---|---|---|
 | ANBU Katana (`shinobi_katana`) | Itachi's ANBU blade | one | medium | 40 |
-| Trench Knives (`shinobi_knife` + `_l`) | Asuma's knuckle knives | pair | fast (a pair may fight in its own stance) | 40 (as far as the fists) |
+| Trench Knives (`shinobi_knife` + `_l`) | Asuma's knuckle knives | pair | dual (the two-blade moves, played x1.25 faster: `animSpeedScale`) | 40 (as far as the fists) |
 | Kurosawa (Tsubaki) (`shinobi_kurosawa`) | Famed Blade Kurosawa (39 long) | one | fast | 41 (as far as the fists) |
 | Kubikiribocho (`shinobi_kubikiribocho`) | Zabuza's Executioner's Blade | one | strong | 52 |
 | Samehada (`shinobi_samehada`) | Kisame's Shark Skin (bandaged) | one | strong | 49 |
@@ -344,11 +344,12 @@ time apart). Under the crosshair a white pip lights for each blow and a gold one
 end; when the combo stands one short (4 blows fast and dual, 3 medium, 2 strong) the gold pip
 lights up and pulses: **now the next swing is the finisher** (held attack: the one after at
 once; clicks: your next click) - a move of its own, picked by what you hold as you swing (as
-with fists), its blow x1.5:
-**forward** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
-turning cut that knocks him down (`LS_A_BACK_CR`); **left / right** - a full spin (Alora's spin
+with fists), its blow x1.5; every finisher move plays x1.45 faster than stock (`SHINOBI_FINISHER_ANIM_SPEED`,
+the stock windups were too long to land), and two blades play the two-blade moves (in brackets):
+**forward** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`; `LS_JUMPATTACK_DUAL`) - jump within 0.8 s and you Shunshin up to him (smoke, right in front of him, rising with him); **back** - a low
+turning cut that knocks him down (`LS_A_BACK_CR`; `LS_DUAL_LR`); **left / right** - a full spin (Alora's spin
 slash, the dual spin with two blades) cutting everyone round you; **nothing** - a lunge
-(`LS_A_LUNGE`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
+(`LS_A_LUNGE`; `LS_DUAL_FB`) with the weapon's own finisher (`shinobiFinisher` in its .sab), each with its
 own look ("Finisher!" over him). The swing glow (both edges of its trail) runs along 70% of the visible steel, from a
 little out of the hand (`cg_shinobiTrail`):
 

@@ -2692,6 +2692,8 @@ void PM_SetTorsoAnimTimer(int time )
 
 void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int anim, float *animSpeed, int broken )
 {
+	if ( weapon == WP_SABER )
+		*animSpeed *= Shinobi_FinisherAnimSpeed( anim ); // JK_Shinobi: blade finishers, quicker
 	if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_ROLL_STAB )
 	{
 		if ( weapon == WP_SABER )

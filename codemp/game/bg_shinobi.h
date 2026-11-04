@@ -777,22 +777,33 @@ static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
 		return SFK_SPIN;
 	return SFK_OWN;
 }
-// the stock moves the finishers play
+// the stock moves the finishers play (a pair: the two-blade ones)
 static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {
 	switch ( kind ) {
-	case SFK_SWEEP: return LS_A_BACK_CR;                                      // low, turning: at the legs
+	case SFK_SWEEP: return dual ? LS_DUAL_LR : LS_A_BACK_CR;                  // low, turning: at the legs
 	case SFK_SPIN:  return dual ? LS_SPINATTACK_DUAL : LS_SPINATTACK_ALORA;  // a full turn
-	case SFK_RISE:  return LS_PULL_ATTACK_SWING;                              // a heave upward
-	default:        return LS_A_LUNGE;                                        // the weapon's own: a lunge
+	case SFK_RISE:  return dual ? LS_JUMPATTACK_DUAL : LS_PULL_ATTACK_SWING;  // a heave upward
+	default:        return dual ? LS_DUAL_FB : LS_A_LUNGE;                    // the weapon's own: a lunge
 	}
 }
 static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
 	switch ( move ) {
-	case LS_A_BACK_CR: return SFK_SWEEP;
+	case LS_A_BACK_CR: case LS_DUAL_LR: return SFK_SWEEP;
 	case LS_SPINATTACK_DUAL: case LS_SPINATTACK_ALORA: return SFK_SPIN;
-	case LS_PULL_ATTACK_SWING: return SFK_RISE;
-	case LS_A_LUNGE: return SFK_OWN;
+	case LS_PULL_ATTACK_SWING: case LS_JUMPATTACK_DUAL: return SFK_RISE;
+	case LS_A_LUNGE: case LS_DUAL_FB: return SFK_OWN;
 	default: return SFK_NONE;
+	}
+}
+// the finisher moves wind up long: played faster, so they land in a fight (both sides of Pmove use it)
+#define SHINOBI_FINISHER_ANIM_SPEED 1.45f
+static QINLINE float Shinobi_FinisherAnimSpeed( int anim ) {
+	switch ( anim ) {
+	case BOTH_LUNGE2_B__T_: case BOTH_CROUCHATTACKBACK1: case BOTH_ALORA_SPIN_SLASH: case BOTH_SPINATTACK6:
+	case BOTH_PULL_IMPALE_SWING: case BOTH_A6_FB: case BOTH_A6_LR: case BOTH_JUMPATTACK6:
+		return SHINOBI_FINISHER_ANIM_SPEED;
+	default:
+		return 1.0f;
 	}
 }
 // the same swing never cuts the same one twice, nor do two swings this close together (half
