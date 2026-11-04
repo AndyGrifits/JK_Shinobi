@@ -833,6 +833,19 @@ static void Shinobi_WindSlash( gentity_t *ent ) {
 }
 
 // the slash itself (finisher: bigger, chakra-coloured - s.frame bit 4); the entity drawing it
+// the roll that lays a crescent along a swing (its start and end quadrants, as seen from behind)
+float Shinobi_SwingRoll( int move ) {
+	static const float qx[Q_NUM_QUADS] = { 0.707f, 1.0f, 0.707f, 0.0f, -0.707f, -1.0f, -0.707f, 0.0f };   // Q_BR..Q_B: right
+	static const float qy[Q_NUM_QUADS] = { -0.707f, 0.0f, 0.707f, 1.0f, 0.707f, 0.0f, -0.707f, -1.0f }; // up
+	const int s = saberMoveData[move].startQuad, e = saberMoveData[move].endQuad;
+	float dx, dy;
+	if ( s < 0 || s >= Q_NUM_QUADS || e < 0 || e >= Q_NUM_QUADS || s == e )
+		return 0.0f;
+	dx = qx[e] - qx[s];
+	dy = qy[e] - qy[s];
+	return RAD2DEG( atan2f( dy, -dx ) ); // (AnglesToAxis: the crescent's span, axis[1], is (-cos roll, sin roll) on the screen)
+}
+
 gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean finisher ) {
 	gclient_t *client = ent->client;
 	const qboolean saber = client->ps.weapon == WP_SABER;
@@ -862,10 +875,14 @@ gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean
 		VectorCopy( tr.startsolid ? start : tr.endpos, slash->s.origin2 );
 		slash->s.time = level.time;
 		slash->s.frame = ( other ? 1 : 0 ) | ( saber ? 2 : 0 ) | ( finisher ? 4 : 0 );
-		tilt = ( tilt + 1 ) % 4; // swings come from different sides: the cuts alternate
-		slash->s.angles2[2] = ( tilt & 1 ? 1 : -1 ) * ( tilt & 2 ? 35.0f : 12.0f );
+		if ( saber && BG_SaberInAttack( client->ps.saberMove ) ) // the crescent lies along the cut: from where it starts to where it ends
+			slash->s.angles2[2] = Shinobi_SwingRoll( client->ps.saberMove );
+		else {
+			tilt = ( tilt + 1 ) % 4; // fists: the punches come from different sides, the cuts alternate
+			slash->s.angles2[2] = ( tilt & 1 ? 1 : -1 ) * ( tilt & 2 ? 35.0f : 12.0f );
+		}
 		slash->think = Shinobi_WindSlashFree;
-		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS;
+		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS + 150; // (it flies out slower now: the knives' arc look)
 		trap->LinkEntity( (sharedEntity_t *)slash );
 	}
 	if ( other ) {
@@ -896,6 +913,24 @@ void Shinobi_BladeArc( gentity_t *ent, int damage ) {
 	VectorMA( eye, SHINOBI_SWORD_ARC_REACH, fwd, end );
 	trap->Trace( &tr, start, NULL, NULL, end, ent->s.number, MASK_SOLID, qfalse, 0, 0 ); // (where a wall stops it)
 
+	slash = G_Spawn();
+	if ( slash ) {
+		slash->classname = "shinobi_windslash";
+		slash->s.eType = ET_GENERAL;
+		slash->s.generic1 = SHINOBI_ENT_WINDSLASH;
+		slash->r.ownerNum = ent->s.number;
+		slash->s.owner = ent->s.number;
+		slash->r.contents = 0;
+		G_SetOrigin( slash, start );
+		VectorCopy( tr.endpos, slash->s.origin2 );
+		slash->s.time = level.time;
+		slash->s.frame = 2 | 4 | 8; // (8: the wide level arc; 1 below, if it cut someone)
+		slash->s.angles2[2] = 0;
+		slash->think = Shinobi_WindSlashFree;
+		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS + 150;
+		trap->LinkEntity( (sharedEntity_t *)slash );
+	}
+
 	for ( i = 0; i < level.num_entities; i++ ) {
 		gentity_t *v = &g_entities[i];
 		vec3_t     d, at;
@@ -918,29 +953,20 @@ void Shinobi_BladeArc( gentity_t *ent, int damage ) {
 		trap->Trace( &los, eye, NULL, NULL, at, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
 		if ( los.fraction < 1.0f && los.entityNum != v->s.number )
 			continue;
-		G_Damage( v, ent, ent, d, at, damage, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, MOD_SABER );
+		{
+			const int before = v->health;
+			G_Damage( v, slash ? slash : ent, ent, d, at, damage, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, MOD_SABER );
+			Shinobi_Debug( "knife arc %i -> %i: %i damage asked, health %i -> %i (%.0f u)", ent->s.number, v->s.number, damage,
+				before, v->health, dist );
+			shinobiTest.arcDamage += before - v->health;
+		}
 		if ( v->client )
 			Shinobi_HitText( v, STX_FINISHER, 0 );
 		hits++;
 	}
-
-	slash = G_Spawn();
-	if ( slash ) {
-		slash->classname = "shinobi_windslash";
-		slash->s.eType = ET_GENERAL;
-		slash->s.generic1 = SHINOBI_ENT_WINDSLASH;
-		slash->r.ownerNum = ent->s.number;
-		slash->s.owner = ent->s.number;
-		slash->r.contents = 0;
-		G_SetOrigin( slash, start );
-		VectorCopy( tr.endpos, slash->s.origin2 );
-		slash->s.time = level.time;
-		slash->s.frame = ( hits ? 1 : 0 ) | 2 | 4 | 8; // (8: the wide level arc)
-		slash->s.angles2[2] = 0;
-		slash->think = Shinobi_WindSlashFree;
-		slash->nextthink = level.time + SHINOBI_WINDSLASH_LIFE_MS + 150;
-		trap->LinkEntity( (sharedEntity_t *)slash );
-	}
+	shinobiTest.arcHits += hits;
+	if ( slash && hits )
+		slash->s.frame |= 1;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind );
 }
 

@@ -85,6 +85,7 @@ qboolean  Shinobi_WaterSurface( const vec3_t pos, float up, float down, vec3_t s
 void      Shinobi_CopyWitness( gentity_t *caster, int jutsu ); // Copy Sharingan eyes that see it take it
 gentity_t *Shinobi_BladeSlash( gentity_t *ent, int damage, float reach, qboolean finisher ); // an air / chakra blade along the look
 void      Shinobi_BladeArc( gentity_t *ent, int damage ); // the knives' finisher: a wide arc thrown far ahead
+float     Shinobi_SwingRoll( int move ); // the roll laying a crescent along a swing
 int       Shinobi_BladeStylePublic( gentity_t *ent ); // the stance a blade fights by (a pair: by its pace)
 void      Shinobi_WaterWalkThink( gentity_t *ent );
 void      Shinobi_WaterShock( vec3_t point, int ownerNum );
@@ -131,7 +132,7 @@ typedef struct {
 } shinobiTestDamage_t;
 typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
-	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks;
+	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage;
 	int kaitenBlocks, kaitenDeflects;
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
 	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)

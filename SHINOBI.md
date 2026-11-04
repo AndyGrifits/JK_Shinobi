@@ -338,9 +338,10 @@ chain into each other with no returns: each cut plays no quicker than 0.45 s
 (`SHINOBI_PAIR_MIN_CUT`), so it is no machine gun. Everything else (finisher reach, the moves,
 the plunge) is the same for every blade.
 
-**Thrusts.** Nuibari (`shinobiThrust 1`) thrusts instead of cutting: the overhead (forward or
-nothing held) is the lunge (`BOTH_LUNGE2_B__T_`), the rest a straight stab
-(`BOTH_PULL_IMPALE_STAB`, played to take about 0.65 s) - the stock anims closest to fencing.
+**Thrusts.** Nuibari (`shinobiThrust 1`) thrusts instead of cutting: every cut is a straight stab
+(`BOTH_PULL_IMPALE_STAB`, played to take about 0.65 s) but the plain side ones (strafing: the
+stock medium cut); its own finisher is the same stab with a dash forward (620 u/s for the first
+35% of it); its plunge from the air is the stab into one lying down (`BOTH_STABDOWN`).
 
 A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`). A
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
@@ -610,7 +611,7 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Earthquake | `jishin`: long charge (bars at 0.7 / 1.7 / 3 s) standing still, radius 220 / 340 / 480. A faint circle shows the area, cracks race out to it (0.5-0.75 s), then everyone standing on the ground inside takes 15 / 30 / 45 and is knocked down (level 1: staggered); anyone in the air is spared. Ignores the guard. Leaves the whole area under dust (40 s); puddles turn to mud, the camera shakes. 5 s cooldown | 20 / 35 / 55 |
 | Wind Wall | `kazekabe`: a wall of wind 64 u ahead, 160-240 wide, for 4 / 6 / 8 s. Fireballs, water bullets and kunai flying into its face go back at whoever threw them (they become yours; a fireball grows a level, a marked kunai loses its mark). 6 s cooldown | 15 / 25 / 35 |
 | Sky Step | `tenpo`, Futon passive (takes a slot, never cast, skipped by Q/E): jumps and wall runs cost half the chakra, no falling damage | - |
-| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash along your look, up to 180 u (14 saber / 7 fists): a dark, dense crescent (a sword trail cut loose, two fainter ones behind it, a fine light cutting edge) flies out and stops at the first one it cuts (a white cross and the damage number) or at a wall / its reach; a guard holds it like any blow - it is only reach | 20 |
+| Wind Edge | `kazeyaiba`, Futon, instant: 15 s of wind on fists and blade - each swing throws an air slash along your look, up to 180 u (14 saber / 7 fists): a dark, dense crescent - the trench knives' arc, laid along the swing's own plane (from where the cut starts to where it ends; fists alternate) - flies out and stops at the first one it cuts (a white cross and the damage number) or at a wall / its reach; a guard holds it like any blow - it is only reach | 20 |
 | Lightning Edge | `raiyaiba`, Raiton, instant: 15 s - fist and blade hits +20%, x3 against earth walls (and future stone) | 20 |
 | Burrow | `moguragakure`, Doton, hold F: under the ground (5 chakra/s, up to 6 s): invisible (but to the Byakugan), untouchable but for an Earthquake (which throws you out); a dust trail follows you and leaves patches of dust on the floor every 64 u. Let go / attack / run dry: burst out, launching (20 dmg, knockdown) whoever is within 96 u. 8 s cooldown | 15 |
 | Rock Pillar | `ganchu`, Doton: a rumble where you look (450-650 u), 0.35 s later a wide stone block (108 x 108; 72 / 112 / 160 high by the charge: jump on it) erupts there, launching whoever is on the spot (20 / 30 / 40, knockdown). Aimed at a wall: a ledge (108 x 108 x 32) sticks out of it instead, shoving people off the wall. Blocks are axis-aligned, stay 90 s, take 50 / 100 / 170 damage (Lightning x3), are not pushable; at most 3 per caster (a 4th takes the oldest down). Broken, they leave dust. 4 s cooldown | 20 / 30 / 40 |

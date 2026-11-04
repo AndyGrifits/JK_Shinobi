@@ -1031,15 +1031,14 @@ flash where it cut someone.
 */
 static void CG_ShinobiWindSlash( centity_t *cent ) {
 	const entityState_t *s = &cent->currentState;
-	const qboolean hit = ( s->frame & 1 ) != 0, blade = ( s->frame & 2 ) != 0;
+	const qboolean hit = ( s->frame & 1 ) != 0;
 	const float    age = (float)( cg.time - s->time );
-	const float    flyMs = ( s->frame & 8 ) ? SHINOBI_WINDSLASH_FLY_MS * 2.2f : SHINOBI_WINDSLASH_FLY_MS; // (the wide arc flies far)
+	const float    flyMs = SHINOBI_WINDSLASH_FLY_MS * 2.2f; // (all in the knives' arc look: big, flying out)
 	const float    fly = Com_Clamp( 0, 1, age / flyMs );
 	const float    fade = age <= flyMs ? 1.0f
 		: Com_Clamp( 0, 1, 1.0f - ( age - flyMs ) / ( SHINOBI_WINDSLASH_LIFE_MS - SHINOBI_WINDSLASH_FLY_MS - 60 ) );
-	const qboolean finisher = ( s->frame & 4 ) != 0; // the trench knives' chakra blade: bigger
-	const qboolean wide = ( s->frame & 8 ) != 0; // the trench knives' finisher: a wide level arc
-	const float    R = wide ? 70.0f : ( blade ? 34.0f : 26.0f ) * ( finisher ? 1.6f : 1.0f );
+	const qboolean wide = ( s->frame & 8 ) != 0; // the trench knives' finisher (no cross: it cuts many)
+	const float    R = 70.0f; // (the Wind Edge in the knives' arc look; its roll is its swing's plane)
 	vec3_t         start, stop, dir, ang, axis[3], pos, prev, p, core = { 0.92f, 1.0f, 1.0f }, haze = { 0.45f, 0.85f, 1.0f };
 	float          len;
 	int            k;
@@ -1109,7 +1108,7 @@ static void CG_ShinobiWindSlash( centity_t *cent ) {
 		(void)prev; (void)p;
 	}
 
-	if ( hit && fly >= 1.0f && !( s->frame & 8 ) ) { // it cut someone: a white cross where it struck
+	if ( hit && fly >= 1.0f && !wide ) { // it cut someone: a white cross where it struck
 		const float f = Com_Clamp( 0, 1, 1.0f - ( age - SHINOBI_WINDSLASH_FLY_MS ) / 220.0f );
 		vec3_t      a0, a1, b0, b1, c, white = { 1, 1, 1 };
 		if ( f > 0 ) {

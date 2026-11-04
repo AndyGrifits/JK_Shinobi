@@ -3859,15 +3859,25 @@ void PM_SetSaberMove(short newMove)
 		anim += (pm->ps->fd.saberAnimLevel-FORCE_LEVEL_1) * SABER_ANIM_GROUP_SIZE;
 	}
 
-	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) thrusts instead of cutting - the
-	// overhead (forward / nothing held) a lunge, the rest a straight stab
-	if ( newMove >= LS_A_TL2BR && newMove <= LS_A_T2B && pm->ps->clientNum < MAX_CLIENTS )
+	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) thrusts instead of cutting - a straight
+	// stab for every cut but the plain side ones (strafing: its own stock cut), and for its own
+	// finisher (the lunge move): the stab with a dash forward (PM_ShinobiThrustDash)
+	if ( ( ( newMove >= LS_A_TL2BR && newMove <= LS_A_T2B && newMove != LS_A_L2R && newMove != LS_A_R2L )
+			|| newMove == LS_A_LUNGE ) && pm->ps->clientNum < MAX_CLIENTS )
 	{
 		const saberInfo_t *s0 = BG_MySaber( pm->ps->clientNum, 0 );
 		if ( s0 && s0->shinobiThrust )
 		{
-			anim = newMove == LS_A_T2B ? BOTH_LUNGE2_B__T_ : BOTH_PULL_IMPALE_STAB;
+			anim = BOTH_PULL_IMPALE_STAB;
 			setflags |= SETANIM_FLAG_RESTART;
+			if ( newMove == LS_A_LUNGE )
+			{
+				vec3_t fwd, ang;
+				VectorSet( ang, 0, pm->ps->viewangles[YAW], 0 );
+				AngleVectors( ang, fwd, NULL, NULL );
+				pm->ps->velocity[0] = fwd[0] * SHINOBI_THRUST_DASH;
+				pm->ps->velocity[1] = fwd[1] * SHINOBI_THRUST_DASH;
+			}
 		}
 	}
 

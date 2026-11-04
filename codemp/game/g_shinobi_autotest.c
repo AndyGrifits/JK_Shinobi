@@ -908,7 +908,7 @@ static const bcCase_t bcCases[] = {
 #define BC_COUNT  ( (int)( sizeof( bcCases ) / sizeof( bcCases[0] ) ) )
 #define BC_MS     12000
 static struct {
-	int idx, start, found, foundAt, before, chakra0, ok, okCount, reach0;
+	int idx, start, found, foundAt, before, chakra0, ok, okCount, reach0, arc0;
 	vec3_t spotA, spotB;
 } bc;
 
@@ -928,6 +928,7 @@ static void BC_Arm( void ) {
 	bc.found = bc.foundAt = bc.ok = 0;
 	bc.before = shinobiTest.bladeFinishers[SBF_REACH];
 	bc.reach0 = shinobiTest.bladeFinisherReach;
+	bc.arc0 = shinobiTest.arcDamage;
 }
 static void T_BladeCombo_Setup( void ) {
 	memset( &bc, 0, sizeof( bc ) );
@@ -987,7 +988,7 @@ static atResult_t T_BladeCombo( int t ) {
 			case SFX_BURN:   bc.ok = bcl->shinobi.burnEnd > level.time; break;
 			case SFX_BLAST:  bc.ok = bcl->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bcl->ps.legsAnim ); break;
 			case SFX_STUN:   bc.ok = bcl->shinobi.stunEnd > level.time + 1000; break;
-			case -1:         bc.ok = 1; break;
+			case -1:         bc.ok = shinobiTest.arcDamage > bc.arc0; break; // (the arc did hurt him)
 			default:         bc.ok = 0; break;
 			}
 		}
@@ -1017,7 +1018,8 @@ static atResult_t T_BladeCombo( int t ) {
 			bc.ok = bleed >= 1 && bcl->shinobi.bleedEnd > level.time;
 		AT_Print( "[autotest]   %-34s finisher after %.1f s: %s%s%s\n", c->what, ( bc.foundAt - bc.start ) / 1000.0f,
 			bc.ok ? "works" : "EFFECT MISSING", shinobiTest.bladeFinisherReach > bc.reach0 ? " - landed by reach (the blade missed)" : " - the blade cut",
-			c->kind == SFX_FLURRY ? va( " (%i extra cuts)", extra ) : c->kind == SFX_BLEED ? va( " (%i bleed ticks so far)", bleed ) : "" );
+			c->kind == SFX_FLURRY ? va( " (%i extra cuts)", extra ) : c->kind == SFX_BLEED ? va( " (%i bleed ticks so far)", bleed )
+			: c->kind < 0 ? va( " (the arc: %i damage)", shinobiTest.arcDamage - bc.arc0 ) : "" );
 		if ( bc.ok )
 			bc.okCount++;
 	}

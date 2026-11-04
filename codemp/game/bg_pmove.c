@@ -10376,10 +10376,30 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 {
 	playerState_t *ps = pm->ps;
 	const int      level = ( ps->fd.saberAnimLevel >= SS_FAST && ps->fd.saberAnimLevel <= SS_STAFF ) ? ps->fd.saberAnimLevel : SS_MEDIUM;
-	const int      plunge = BOTH_A1_T__B_ + ( level - SS_FAST ) * SABER_ANIM_GROUP_SIZE; // the stance's own overhead cut (a standing attack)
+	const saberInfo_t *s0 = BG_MySaber( ps->clientNum, 0 );
+	const int      plunge = ( s0 && s0->shinobiThrust ) ? BOTH_STABDOWN // a thrusting blade: the stab into one lying down
+		: BOTH_A1_T__B_ + ( level - SS_FAST ) * SABER_ANIM_GROUP_SIZE; // the stance's own overhead cut (a standing attack)
 
 	if ( ps->groundEntityNum != ENTITYNUM_NONE && ps->velocity[2] <= 0 )
 		ps->stats[STAT_SHINOBI_COMBO] &= ~SHINOBI_COMBO_AIR; // (the Shunshin up after the rising cut: down again)
+
+	// a thrusting blade's own finisher: the dash forward goes on for the first part of the thrust
+	if ( ps->saberMove == LS_A_LUNGE && ps->torsoAnim == BOTH_PULL_IMPALE_STAB && s0 && s0->shinobiThrust && ps->torsoTimer > 0
+		&& pm->animations )
+	{
+		const animation_t *a = &pm->animations[BOTH_PULL_IMPALE_STAB];
+		float speed = 1.0f, start;
+		BG_SaberStartTransAnim( ps->clientNum, ps->fd.saberAnimLevel, ps->weapon, BOTH_PULL_IMPALE_STAB, &speed, ps->brokenLimbs );
+		start = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp ) * ( 2.0f - speed ); // (the move's timer at its start)
+		if ( ps->torsoTimer > start * ( 1.0f - SHINOBI_THRUST_DASH_PART ) )
+		{
+			vec3_t fwd, ang;
+			VectorSet( ang, 0, ps->viewangles[YAW], 0 );
+			AngleVectors( ang, fwd, NULL, NULL );
+			ps->velocity[0] = fwd[0] * SHINOBI_THRUST_DASH;
+			ps->velocity[1] = fwd[1] * SHINOBI_THRUST_DASH;
+		}
+	}
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
 	{ // (DIVEREQ, a blade's: the cut has played out - not again)
 		if ( ps->groundEntityNum != ENTITYNUM_NONE )

@@ -796,6 +796,8 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_PAIR_MIN_CUT       450   // a pair's cut (an attack move of the two-blade set) never plays quicker than this (ms)
 #define SHINOBI_PAIR_FAST_SCALE    1.2f  // a pair played this much faster (animSpeedScale) fights as a fast stance, else as a medium one
 #define SHINOBI_THRUST_MS          650   // a thrusting blade's thrust (shinobiThrust): about this long
+#define SHINOBI_THRUST_DASH        620   // its own finisher: the thrust with a dash forward, this fast
+#define SHINOBI_THRUST_DASH_PART   0.35f // ... for this much of the move
 #define SHINOBI_SWORD_IAI_MS       800
 #define SHINOBI_SWORD_FLURRY       2
 #define SHINOBI_SWORD_FLURRY_MS    120
