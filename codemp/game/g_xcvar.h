@@ -64,6 +64,9 @@ XCVAR_DEF( shinobi_autolock,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) /
 XCVAR_DEF( shinobi_randomItems,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: a picked-up item comes back as a random one of ours
 XCVAR_DEF( shinobi_botfists,			"50",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % of bot lives fought bare-handed with the combo
 XCVAR_DEF( shinobi_botguard,			"55",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % chance a bot raises its guard against a blow
+XCVAR_DEF( shinobi_maze_layout,		"-1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: maze layout number (-1 random)
+XCVAR_DEF( shinobi_maze_npcs,		"12",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Sound ninjas the maze director spawns
+XCVAR_DEF( shinobi_maze_debug,		"0",			NULL,						CVAR_NONE,										qfalse ) // JK_Shinobi: maze NPC state log
 XCVAR_DEF( shinobi_hitnumbers,			"1",			NULL,						CVAR_ARCHIVE,									qfalse )
 XCVAR_DEF( d_saberKickTweak,			"1",			NULL,						CVAR_NONE,										qtrue )
 XCVAR_DEF( d_saberSPStyleDamage,		"1",			NULL,						CVAR_ARCHIVE,									qfalse )
