@@ -1903,7 +1903,9 @@ static void CG_ShinobiDrawBladeCombo( void ) {
 			static const char * const own[SBF_COUNT] = { "lunge", "drain", "bleed", "chakra blade", "iai", "flurry" };
 			const clientInfo_t *ci = &cgs.clientinfo[ps->clientNum];
 			const int f = ci->saber[0].shinobiFinisher >= 0 && ci->saber[0].shinobiFinisher < SBF_COUNT ? ci->saber[0].shinobiFinisher : 0;
-			const char *t = va( "FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] );
+			const char *t = ( v & SHINOBI_BLADECOMBO_FRESH )
+				? va( "FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] )
+				: "FINISHER ready - let go of attack and strike";
 			const vec4_t c = { 1.0f, 0.85f, 0.35f, 0.9f };
 			CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.36f, FONT_SMALL ) * 0.5f, 274, 0.36f, (float *)c, t, 0, 0,
 				ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );

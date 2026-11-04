@@ -248,8 +248,7 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 	const playerState_t *ps = &c->ps;
 
 	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) {
-		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim
-			|| ps->torsoTimer > c->shinobi.bladeTimer + 50 ) {
+		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim ) {
 			const int kind = Shinobi_FinisherKindOfMove( ps->saberMove );
 			const int style = Shinobi_BladeStyle( c );
 			c->shinobi.bladeSwing++;
@@ -302,8 +301,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 		if ( vc->shinobi.bladeHitSwing[slot] == ac->shinobi.bladeSwing
 			&& ( !special || finisher || since < SHINOBI_BLADE_SPECIAL_MS ) )
 			return 0; // this swing cut him already (a kata again after a while)
-		if ( since < SHINOBI_BLADE_REHIT_MS && !finisher )
-			return 0; // (a swing that seemed to start over mid-cut: still one blow)
+		if ( since < shinobiSwordRehitMs[style < 0 || style > 7 ? 2 : style] && !finisher )
+			return 0; // (a cut seen as two swings: still one blow)
 	}
 	if ( slot < 0 )
 		slot = oldest;
@@ -431,8 +430,11 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 void Shinobi_SwordThink( gentity_t *ent ) {
 	gclient_t *c = ent->client;
 
-	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) )
-		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( shinobiSwordChain[Shinobi_BladeStyle( c )] & 7 ) << 3 );
+	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) ) {
+		const int need = shinobiSwordChain[Shinobi_BladeStyle( c )];
+		const int fresh = ( c->shinobi.bladeChain == need - 1 ) ? ( c->ps.stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BLADECOMBO_FRESH ) : 0;
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 ) | fresh; // (Pmove's bit kept)
+	}
 	else
 		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = 0;
 

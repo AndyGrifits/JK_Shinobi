@@ -760,6 +760,8 @@ lights), the next attack plays a finisher move picked by what you hold as you sw
 */
 #define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD and Pmove: blows landed (bits 0-2), the finisher's number (bits 3-5)
 enum { SFK_NONE, SFK_OWN, SFK_SWEEP, SFK_SPIN, SFK_RISE };
+#define SHINOBI_BLADECOMBO_FRESH   64    // STAT_SHINOBI_BLADECOMBO: attack let go since it got ready (Pmove sets it):
+                                         // the finisher takes a new press, not a held attack
 static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
 	return have > 0 && have == need - 1;
@@ -791,7 +793,10 @@ static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
 	default: return SFK_NONE;
 	}
 }
-#define SHINOBI_BLADE_REHIT_MS     250   // the same swing never hits the same one twice, nor two swings within this
+// the same swing never cuts the same one twice, nor do two swings this close together (half
+// a stance's swing time: one cut seen as two swings stays one blow)
+//                                            -   fast medium strong desann tavion dual staff
+static const int shinobiSwordRehitMs[8] = {   0,  400, 650,   1300,  1300,  400,   550, 550 };
 
 // what the cgame draws for a finisher (SHINOBI_ENT_FINISHER s.frame)
 enum { SFX_NONE, SFX_DRAIN, SFX_BLEED, SFX_IAI, SFX_FLURRY, SFX_SWEEP, SFX_SPIN, SFX_LAUNCH };
