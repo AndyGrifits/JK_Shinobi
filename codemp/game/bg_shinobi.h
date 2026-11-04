@@ -1005,6 +1005,7 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 #define SHINOBI_DIVE_DAMAGE        10
 // a blade in the air: attack = a plunge straight down, the blade into the ground where you land
 #define SHINOBI_SWORD_DIVE_SPEED   650
+#define SHINOBI_SWORD_DIVE_HEIGHT  140   // only this high (clear under the feet: two tall men); after the rising cut's Shunshin up, 56
 #define SHINOBI_SWORD_DIVE_HANG    0.35f // of the stab-down move: you hang while the blade goes up, then down
 #define SHINOBI_SWORD_DIVE_RADIUS  80
 #define SHINOBI_SWORD_DIVE_SCALE   1.25f // x the stance's blow; whoever you launched, slammed: x SHINOBI_SWORD_FINISH

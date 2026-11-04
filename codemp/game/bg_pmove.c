@@ -10381,6 +10381,8 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 	const int      level = ( ps->fd.saberAnimLevel >= SS_FAST && ps->fd.saberAnimLevel <= SS_STAFF ) ? ps->fd.saberAnimLevel : SS_MEDIUM;
 	const int      plunge = BOTH_A1_T__B_ + ( level - SS_FAST ) * SABER_ANIM_GROUP_SIZE; // the stance's own overhead cut (a standing attack)
 
+	if ( ps->groundEntityNum != ENTITYNUM_NONE && ps->velocity[2] <= 0 )
+		ps->stats[STAT_SHINOBI_COMBO] &= ~SHINOBI_COMBO_AIR; // (the Shunshin up after the rising cut: down again)
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_DIVE )
 	{ // (DIVEREQ, a blade's: the cut has played out - not again)
 		if ( ps->groundEntityNum != ENTITYNUM_NONE )
@@ -10422,7 +10424,7 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 		trace_t tr;
 		vec3_t  down;
 		VectorCopy( ps->origin, down );
-		down[2] -= 56;
+		down[2] -= ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) ? 56 : SHINOBI_SWORD_DIVE_HEIGHT;
 		pm->trace( &tr, ps->origin, pm->mins, pm->maxs, down, ps->clientNum, pm->tracemask );
 		if ( tr.fraction < 1.0f )
 			return; // too low: a stock air swing

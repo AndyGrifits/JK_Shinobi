@@ -592,6 +592,7 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 	Shinobi_TeleportClient( ent, tr.endpos );
 	VectorCopy( v->client->ps.velocity, c->ps.velocity ); // (rising with him)
 	c->ps.groundEntityNum = ENTITYNUM_NONE;
+	c->ps.stats[STAT_SHINOBI_COMBO] |= SHINOBI_COMBO_AIR; // up with him: the plunge from any height (PM_ShinobiSwordDive)
 	VectorSet( ang, 0, vectoyaw( d ), 0 );
 	SetClientViewAngle( ent, ang );
 	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );

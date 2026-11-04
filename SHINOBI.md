@@ -375,7 +375,7 @@ little out of the hand (`cg_shinobiTrail`):
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) |
 
-**The plunge.** A blade in the air (at least 56 above the floor): attack = a dive straight down
+**The plunge.** A blade high in the air (at least 140 clear under your feet - two tall men; right after the rising cut's Shunshin up, 56 is enough): attack = a dive straight down
 (the stance's own overhead cut, as when you attack standing: you hang in the air for the first 35% of it, the blade going up, then down at 650 a second); where it lands the blade goes in:
 everyone within 80 takes the stance's blow x1.25 (no falling damage for you). Whoever you
 launched with the rising cut and are still near (110) is slammed down with it: the blow x1.5,
