@@ -888,10 +888,18 @@ struct gclient_s {
 		int		copyJutsu;		// Copy Sharingan: the jutsu in the copy slot (0 = none)
 		int		mistEnd;		// inside a Hidden Mist until
 		int		eyesInfo;		// next "sinfo" update
-		int		gatesEnd;		// Inner Gates open until
-		int		gatesTiredEnd;	// exhausted until
-		int		gatesNext;		// Inner Gates cooldown end
-		int		gatesFx;		// next aura puff
+		int		gate;			// Inner Gates: the last one open (0 = closed)
+		int		gateDealt;		// damage dealt since it opened (the next one opens at SHINOBI_GATE_DAMAGE)
+		int		gateNext;		// may open again from (closed by the drain)
+		int		gateFx, gateDrain; // next aura puff; next health tick (gate 1)
+		qboolean gateReadySaid;	// "Gate N ready" said
+		qboolean weightsOff;	// the leg weights dropped (this life)
+		int		palmsStart, palmsTick, palmsEnt; // 64 Palms: held since (0 = not), next chakra tick, the field (num + 1)
+		int		lotusPhase, lotusTime, lotusVictim; // Reverse Lotus: 2 hang, 3 down; since; who (num + 1)
+		int		lotusBy;		// ... carried up by (num + 1): helpless
+		vec3_t	lotusSpot;		// ... where they hang
+		int		entryEnd;		// Dynamic Entry flying until
+		int		entryHit[2];	// ... whom it hit (bits by client num)
 		qboolean blocking;		// guard up this frame (Ctrl)
 		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)
 		int		guardSwingBy, guardSwingUntil; // a blade swing already paid for (attacker num + 1, until)

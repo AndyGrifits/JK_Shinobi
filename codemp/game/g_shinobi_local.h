@@ -25,7 +25,7 @@ typedef struct {
 	int sndLog;
 	int sndHiss, sndSplash, sndWaterCast, sndWind, sndWind2, sndIgnite, sndPrison, sndGurgle;
 	int sndFireLoop, sndCrackleLoop, sndCurse, sndShadow;
-	int fxCurse, fxGates;
+	int fxCurse, fxGates, fxGateAura[3], fxGateBurst; // (aura: yellow, green, red)
 	int sndEyes, sndGates;
 	int sndBlockSaber[3], sndBlockFist[3], sndParry, sndGuardBreak, fxBlock;
 	int fxWindEdge, fxRaiEdge, fxQuakeDust, fxFlash, fxBlood;
@@ -35,7 +35,7 @@ typedef struct {
 	int fxSteamBurst, fxWaterSplash[SHINOBI_MAX_LEVEL], fxWindGust[SHINOBI_MAX_LEVEL], fxStorm[SHINOBI_MAX_LEVEL];
 
 	int wallModels[SHINOBI_WALL_MODELS];
-	int logModel, exKunaiModel, tagModel, shurikenModel, starModel, smokeBombModel;
+	int logModel, exKunaiModel, tagModel, shurikenModel, starModel, smokeBombModel, weightModel;
 	int rockBlockModel[3], rockLedgeModel;
 } shinobiMedia_t;
 
@@ -133,6 +133,7 @@ typedef struct {
 typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
 	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage, thrustReach;
+	int gatesOpened, weightQuakes, palmsHits, lotusSlams, entryHits;
 	int kaitenBlocks, kaitenDeflects;
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
 	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
@@ -145,6 +146,11 @@ qboolean  Shinobi_AutotestControls( gentity_t *ent ); // a test drives this bot 
 void      Shinobi_AutotestDrive( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_AutotestFrame( void );
 qboolean  Shinobi_CastKaiten( gentity_t *ent );
+qboolean  Shinobi_CastPalms( gentity_t *ent );
+void      Shinobi_PalmsStop( gentity_t *ent, qboolean struck );
+qboolean  Shinobi_CastLotus( gentity_t *ent );
+qboolean  Shinobi_CastEntry( gentity_t *ent );
+void      Shinobi_TaiClear( gentity_t *ent );
 void      Shinobi_KaitenStop( gentity_t *ent );
 qboolean  Shinobi_KaitenSpinning( gentity_t *ent );            // the dome is up: nothing gets through
 qboolean  Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );

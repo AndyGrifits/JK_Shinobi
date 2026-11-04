@@ -29,7 +29,7 @@ static void CG_ShinobiPrecacheModels( void );
 static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell, windArc;
-	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell;
+	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight;
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -92,6 +92,8 @@ static int CG_ShinobiSlots( int *out ) {
 		out[n++] = b->jutsu[i];
 	if ( CG_ShinobiIsCopy( shinobiCopy ) )
 		out[n++] = shinobiCopy;
+	if ( SHINOBI_GATE_OF( &cg.predictedPlayerState ) >= 3 && !Shinobi_BuildHas( b, SJ_LOTUS ) && n < SHINOBI_BUILD_JUTSU + 1 )
+		out[n++] = SJ_LOTUS; // the third Inner Gate: Reverse Lotus
 	return n;
 }
 
@@ -206,6 +208,8 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.mistShell  = trap->R_RegisterShader( "gfx/shinobi/mistshell" );
 	shinobiShaders.sand        = trap->R_RegisterShader( "gfx/shinobi/sand" );
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
+	shinobiShaders.gateShell   = trap->R_RegisterShader( "gfx/shinobi/gateshell" );
+	shinobiShaders.legWeight   = trap->R_RegisterModel( "models/shinobi/leg_weight.md3" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.iceFloe     = trap->R_RegisterShader( "gfx/shinobi/icefloe" );
 	shinobiShaders.guardShell  = trap->R_RegisterShader( "gfx/shinobi/guardshell" );
@@ -1738,6 +1742,40 @@ static void CG_ShinobiPillarCast( centity_t *cent ) {
 	}
 }
 
+/*
+64 Palms: a glowing field on the ground growing out from the caster (the eight trigrams round
+its rim), the full circle faint ahead of it; struck: a bright flash out to the rim, fading.
+*/
+static void CG_ShinobiPalms( centity_t *cent ) {
+	const entityState_t *s = &cent->currentState;
+	const float full = s->angles2[0];
+	const float f = s->time2 > s->time ? Com_Clamp( 0, 1, (float)( cg.time - s->time ) / ( s->time2 - s->time ) ) : 1.0f;
+	vec3_t      org, p, q, c = { 0.75f, 0.9f, 1.0f };
+	int         k;
+
+	VectorCopy( cent->lerpOrigin, org );
+	org[2] += 1;
+	if ( s->frame & 1 ) { // struck
+		const float a = Com_Clamp( 0, 1, 1.0f - ( cg.time - s->time2 ) / 450.0f );
+		CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.9f * a, 1.0f * a, 1.0f * a, a );
+		CG_ShinobiGroundDecal( org, full * 0.85f, 0, shinobiShaders.glow, 0.5f * a, 0.65f * a, 0.9f * a, a );
+		return;
+	}
+	CG_ShinobiGroundDecal( org, full, 0, shinobiShaders.ring, 0.18f, 0.22f, 0.3f, 0.6f ); // where it will reach
+	CG_ShinobiGroundDecal( org, full * f, cg.time * 0.02f, shinobiShaders.ring, 0.6f, 0.8f, 1.0f, 1.0f );
+	CG_ShinobiGroundDecal( org, full * f * 0.95f, 0, shinobiShaders.glow, 0.15f, 0.22f, 0.35f, 0.8f );
+	for ( k = 0; k < 8; k++ ) { // the trigrams: short bars round the rim
+		const float ang = DEG2RAD( k * 45.0f + 22.5f ), r = full * f;
+		vec3_t      side;
+		VectorSet( side, -sinf( ang ), cosf( ang ), 0 );
+		VectorSet( p, org[0] + cosf( ang ) * r * 0.82f, org[1] + sinf( ang ) * r * 0.82f, org[2] + 1 );
+		VectorMA( p, -r * 0.08f, side, q );
+		VectorMA( p, r * 0.08f, side, p );
+		trap->FX_AddLine( p, q, 1.6f, 1.0f, 0.0f, 0.9f, 0.0f, 0.0f, c, c, 0.0f, 1, shinobiShaders.glow, FX_SIZE_LINEAR | FX_ALPHA_LINEAR );
+	}
+	trap->R_AddLightToScene( org, 60 + 180 * f, 0.5f, 0.7f, 1.0f );
+}
+
 qboolean CG_ShinobiEntity( centity_t *cent ) {
 	entityState_t *s = &cent->currentState;
 	const float    t = cg.time * 0.001f;
@@ -1805,6 +1843,10 @@ qboolean CG_ShinobiEntity( centity_t *cent ) {
 	}
 	if ( s->generic1 == SHINOBI_ENT_FINISHER ) {
 		CG_ShinobiFinisher( cent );
+		return qtrue;
+	}
+	if ( s->generic1 == SHINOBI_ENT_PALMS ) {
+		CG_ShinobiPalms( cent );
 		return qtrue;
 	}
 	if ( s->generic1 == SHINOBI_ENT_QUAKE ) {
@@ -1950,6 +1992,48 @@ static void CG_ShinobiDrawCharges( void ) {
 			x += 11;
 		}
 		x += 28;
+	}
+}
+
+/*
+Inner Gates: the gate open and the way to the next (a bar filling with the damage dealt);
+ready: "Gate of ... ready - C", pulsing.
+*/
+static void CG_ShinobiDrawGates( void ) {
+	const playerState_t *ps = &cg.predictedPlayerState;
+	const int   gate = SHINOBI_GATE_OF( ps );
+	const int   prog = ( ps->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_PROG_SHIFT ) & 15;
+	const qboolean ready = ( ps->stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BC_GATE_READY ) != 0;
+	const float scale = 0.38f, y = 406, w = 160;
+	vec4_t      c, back = { 0, 0, 0, 0.55f }, fill;
+	const char *t;
+	float       x;
+
+	if ( gate <= 0 || gate > SHINOBI_GATE_MAX || ps->stats[STAT_HEALTH] <= 0 || ps->pm_type == PM_SPECTATOR )
+		return;
+	if ( gate >= 5 )
+		VectorSet4( c, 1.0f, 0.3f, 0.25f, 0.95f );
+	else if ( gate >= 4 )
+		VectorSet4( c, 0.35f, 0.85f, 0.4f, 0.95f );
+	else if ( gate >= 2 )
+		VectorSet4( c, 1.0f, 0.85f, 0.35f, 0.95f );
+	else
+		VectorSet4( c, 0.6f, 1.0f, 0.65f, 0.95f );
+	t = va( "Gate %i: %s", gate, shinobiGateNames[gate] );
+	x = SCREEN_WIDTH * 0.5f - w * 0.5f;
+	CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, scale, FONT_MEDIUM ) * 0.5f, y - 15, scale, c, t, 0, 0,
+		ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
+	if ( gate >= SHINOBI_GATE_MAX )
+		return;
+	CG_FillRect( x, y, w, 6, back );
+	VectorCopy4( c, fill );
+	if ( ready )
+		fill[3] = 0.6f + 0.4f * sinf( cg.time * 0.012f );
+	CG_FillRect( x + 1, y + 1, ( w - 2 ) * ( ready ? 1.0f : prog / 15.0f ), 4, fill );
+	if ( ready ) {
+		t = va( "%s ready - C", shinobiGateNames[gate + 1] );
+		CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.34f, FONT_MEDIUM ) * 0.5f, y + 8, 0.34f, fill, t, 0, 0,
+			ITEM_TEXTSTYLE_SHADOWED, FONT_MEDIUM );
 	}
 }
 
@@ -2313,6 +2397,73 @@ void CG_ShinobiEyeShell( centity_t *cent, refEntity_t *body ) {
 	trap->R_AddRefEntityToScene( &shell );
 }
 
+// Inner Gates: the third gate on, the body glows crimson (a player's s.frame: the gate open)
+static void CG_ShinobiGateShell( centity_t *cent, refEntity_t *body ) {
+	refEntity_t shell;
+	const int   gate = cent->currentState.frame & SHINOBI_PFRAME_GATE_MASK;
+	float       pulse;
+
+	if ( cent->currentState.eType != ET_PLAYER || gate < 3 || ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW | SHINOBI_EF_RAIDASH ) )
+		|| !shinobiShaders.gateShell )
+		return;
+	pulse = 0.75f + 0.25f * sinf( cg.time * 0.008f );
+	shell = *body;
+	shell.customShader = shinobiShaders.gateShell;
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA );
+	shell.shaderRGBA[0] = (byte)( 200 * pulse );
+	shell.shaderRGBA[1] = (byte)( 18 * pulse );
+	shell.shaderRGBA[2] = (byte)( 30 * pulse );
+	shell.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
+// Inner Gates: the weights on the shins (until the first gate drops them) - at each foot bolt,
+// along the shin (towards the lower back), a little above the foot
+static void CG_ShinobiLegWeights( centity_t *cent ) {
+	static const char * const feet[2] = { "*r_leg_foot", "*l_leg_foot" };
+	mdxaBone_t m;
+	vec3_t     lumbar, yaw, fwd;
+	int        k, bolt;
+
+	if ( cent->currentState.eType != ET_PLAYER || !( cent->currentState.frame & SHINOBI_PFRAME_WEIGHTS )
+		|| ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW | SHINOBI_EF_RAIDASH ) ) || !cent->ghoul2 || !shinobiShaders.legWeight )
+		return;
+	bolt = trap->G2API_AddBolt( cent->ghoul2, 0, "lower_lumbar" );
+	if ( bolt < 0 || !trap->G2API_GetBoltMatrix( cent->ghoul2, 0, bolt, &m, cent->turAngles, cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale ) )
+		return;
+	lumbar[0] = m.matrix[0][3]; lumbar[1] = m.matrix[1][3]; lumbar[2] = m.matrix[2][3];
+	VectorSet( yaw, 0, cent->lerpAngles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	for ( k = 0; k < 2; k++ ) {
+		refEntity_t ent;
+		vec3_t      foot, shin;
+		bolt = trap->G2API_AddBolt( cent->ghoul2, 0, feet[k] );
+		if ( bolt < 0 || !trap->G2API_GetBoltMatrix( cent->ghoul2, 0, bolt, &m, cent->turAngles, cent->lerpOrigin, cg.time, cgs.gameModels, cent->modelScale ) )
+			continue;
+		foot[0] = m.matrix[0][3]; foot[1] = m.matrix[1][3]; foot[2] = m.matrix[2][3];
+		VectorSubtract( lumbar, foot, shin );
+		if ( VectorNormalize( shin ) < 1.0f )
+			VectorSet( shin, 0, 0, 1 );
+		memset( &ent, 0, sizeof( ent ) );
+		ent.hModel = shinobiShaders.legWeight;
+		VectorMA( foot, 7.0f * cent->modelScale[2], shin, ent.origin ); // (the ankle, just above the foot)
+		VectorCopy( shin, ent.axis[2] );
+		CrossProduct( ent.axis[2], fwd, ent.axis[1] );
+		if ( VectorNormalize( ent.axis[1] ) < 0.01f )
+			VectorSet( ent.axis[1], 0, 1, 0 );
+		CrossProduct( ent.axis[1], ent.axis[2], ent.axis[0] );
+		VectorScale( ent.axis[0], cent->modelScale[0], ent.axis[0] );
+		VectorScale( ent.axis[1], cent->modelScale[1], ent.axis[1] );
+		VectorScale( ent.axis[2], cent->modelScale[2], ent.axis[2] );
+		ent.nonNormalizedAxes = qtrue;
+		VectorCopy( ent.origin, ent.oldorigin );
+		VectorCopy( cent->lerpOrigin, ent.lightingOrigin );
+		ent.renderfx = RF_LIGHTING_ORIGIN | ( cent->currentState.number == cg.snap->ps.clientNum && !cg.renderingThirdPerson ? RF_THIRD_PERSON : 0 );
+		ent.shaderRGBA[0] = ent.shaderRGBA[1] = ent.shaderRGBA[2] = ent.shaderRGBA[3] = 255;
+		trap->R_AddRefEntityToScene( &ent );
+	}
+}
+
 // Stone Skin / Earth Clone: the body turned to rough stone
 void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body ) {
 	refEntity_t shell;
@@ -2325,6 +2476,12 @@ void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body ) {
 	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA | RF_MINLIGHT );
 	shell.shaderRGBA[0] = shell.shaderRGBA[1] = shell.shaderRGBA[2] = shell.shaderRGBA[3] = 255;
 	trap->R_AddRefEntityToScene( &shell );
+}
+
+// the Inner Gates' look on a player: the weights, the crimson glow (from CG_Player, after the body)
+void CG_ShinobiGatesLook( centity_t *cent, refEntity_t *body ) {
+	CG_ShinobiGateShell( cent, body );
+	CG_ShinobiLegWeights( cent );
 }
 
 /*
@@ -2880,18 +3037,14 @@ void CG_ShinobiDrawHUD( void ) {
 	CG_ShinobiDrawBladeCombo();
 	CG_ShinobiDrawJutsuList();
 	CG_ShinobiDrawCharges();
+	CG_ShinobiDrawGates();
 
 
 	if ( shinobiCharge.jutsu && !SHINOBI_JUTSU_HOLD( shinobiCharge.jutsu ) ) {
 		CG_ShinobiDrawChargeBars();
 	}
 
-	if ( ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_GATES ) && !( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND ) ) {
-		text = "Inner Gates open - strike now!";
-		VectorSet( color, 0.4f, 1.0f, 0.5f );
-		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.012f );
-	}
-	else if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP ) {
+	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP ) {
 		text = "Shadow Trap! Held in place - any hit frees you, Kawarimi (X) to escape";
 		VectorSet( color, 0.7f, 0.7f, 0.75f );
 		color[3] = 0.7f + 0.3f * sinf( cg.time * 0.01f );

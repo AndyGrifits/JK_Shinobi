@@ -1,0 +1,64 @@
+repeatDelay				0
+
+// Inner Gates (4th): dark green chakra flaming off the body.
+
+Particle
+{
+	name				flames
+	count				3 4
+	life				350 600
+	rotation			-20 20
+	spawnFlags			orgOnSphere
+	radius				8 18
+	vel					-10 -10 40 10 10 100
+	size
+	{
+		start			10 16
+		end				3 5
+	}
+	rgb
+	{
+		start			0.15 0.55 0.2
+		end				0.03 0.2 0.05
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/wisp
+		gfx/shinobi/fire
+	]
+}
+
+Particle
+{
+	name				smoke
+	flags				useAlpha
+	count				1 2
+	life				600 900
+	rotation			0 360
+	spawnFlags			orgOnSphere
+	radius				6 16
+	vel					-8 -8 30 8 8 60
+	size
+	{
+		start			10 16
+		end				26 34
+	}
+	rgb
+	{
+		start			0.75 0.8 0.75
+	}
+	alpha
+	{
+		start			0.5
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

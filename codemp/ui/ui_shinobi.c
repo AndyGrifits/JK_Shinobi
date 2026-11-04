@@ -292,8 +292,9 @@ static void SB_ToggleJutsu( int j ) {
 			return;
 		}
 	}
-	if ( sb.edit.numJutsu >= SHINOBI_BUILD_JUTSU ) {
-		SB_Message( qtrue, va( "At most %i techniques - remove one first (right column)", SHINOBI_BUILD_JUTSU ) );
+	if ( sb.edit.numJutsu >= Shinobi_JutsuCap( &sb.edit ) ) {
+		SB_Message( qtrue, Shinobi_JutsuCap( &sb.edit ) == 1 ? "The Inner Gates leave room for one technique - remove it first (right column)"
+			: va( "At most %i techniques - remove one first (right column)", SHINOBI_BUILD_JUTSU ) );
 		return;
 	}
 	test = sb.edit;
@@ -415,7 +416,7 @@ void UI_ShinobiMenuDraw( void ) {
 	// --- your techniques -----------------------------------------------------
 	x = 396;
 	y = 72;
-	SB_Text( x, y, 0.5f, white, va( "YOUR TECHNIQUES %i/%i", sb.edit.numJutsu, SHINOBI_BUILD_JUTSU ) );
+	SB_Text( x, y, 0.5f, white, va( "YOUR TECHNIQUES %i/%i", sb.edit.numJutsu, Shinobi_JutsuCap( &sb.edit ) ) );
 	SB_Text( x + 170, y + 3, 0.4f, dim, va( "schools %i/%i", schoolsUsed, SHINOBI_BUILD_SCHOOLS ) );
 	y += 20;
 	for ( i = 0; i < SHINOBI_BUILD_JUTSU; i++ ) {
@@ -481,10 +482,13 @@ void UI_ShinobiMenuDraw( void ) {
 			i == SP_NONE ? "7 max" : va( "-%i", shinobiPerkCost[i] ) );
 		if ( SB_Clicked( x, y, 224, 15 ) ) {
 			if ( ready && sb.edit.perk != i ) {
-				const int before = Shinobi_BuildPoints( &sb.edit );
+				const int before = Shinobi_BuildPoints( &sb.edit ), jutsuBefore = sb.edit.numJutsu;
 				sb.edit.perk = i;
 				Shinobi_BuildFix( &sb.edit ); // the new price / caps: points come back off the end
-				if ( Shinobi_BuildPoints( &sb.edit ) < before )
+				if ( sb.edit.numJutsu < jutsuBefore )
+					SB_Message( qtrue, va( "%s leaves room for %i technique%s: the rest taken off", shinobiPerkTitles[i],
+						Shinobi_JutsuCap( &sb.edit ), Shinobi_JutsuCap( &sb.edit ) == 1 ? "" : "s" ) );
+				else if ( Shinobi_BuildPoints( &sb.edit ) < before )
 					SB_Message( qtrue, va( "%s costs %i stat points: %i taken back", shinobiPerkTitles[i], shinobiPerkCost[i],
 						before - Shinobi_BuildPoints( &sb.edit ) ) );
 			}

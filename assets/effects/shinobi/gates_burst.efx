@@ -1,0 +1,64 @@
+repeatDelay				0
+
+// Inner Gates, the 2nd opens: a burst of yellow flame round the body.
+
+Particle
+{
+	name				flames
+	count				24 30
+	life				500 900
+	rotation			-20 20
+	spawnFlags			orgOnSphere
+	radius				10 34
+	vel					-60 -60 60 60 60 220
+	size
+	{
+		start			24 34
+		end				6 10
+	}
+	rgb
+	{
+		start			1.0 0.9 0.4
+		end				0.8 0.45 0.05
+	}
+	alpha
+	{
+		start			1
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/wisp
+		gfx/shinobi/fire
+	]
+}
+
+Particle
+{
+	name				smoke
+	flags				useAlpha
+	count				1 2
+	life				600 900
+	rotation			0 360
+	spawnFlags			orgOnSphere
+	radius				6 16
+	vel					-8 -8 30 8 8 60
+	size
+	{
+		start			10 16
+		end				26 34
+	}
+	rgb
+	{
+		start			0.75 0.8 0.75
+	}
+	alpha
+	{
+		start			0.5
+		end				0
+	}
+	shaders
+	[
+		gfx/shinobi/smoke
+	]
+}

@@ -11104,6 +11104,7 @@ stillDoSaber:
 
 	CG_ShinobiEyeShell( cent, &legs ); // JK_Shinobi: Byakugan sees through walls
 	CG_ShinobiStoneShell( cent, &legs ); // JK_Shinobi: Stone Skin / Earth Clone
+	CG_ShinobiGatesLook( cent, &legs ); // JK_Shinobi: Inner Gates - the leg weights, the crimson body
 	CG_ShinobiOutline( cent, &legs ); // JK_Shinobi: cg_shinobiOutline - an anime outline
 	CG_ShinobiAccessory( cent, ci, &legs ); // JK_Shinobi: hat / mask / headband on the head
 	CG_ShinobiGuardBubble( cent ); // JK_Shinobi: guard up - a bubble around him (blue / yellow / red)

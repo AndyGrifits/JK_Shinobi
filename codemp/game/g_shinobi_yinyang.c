@@ -612,10 +612,13 @@ static void Shinobi_RaiDashThink( gentity_t *ent ) {
 	}
 }
 
+void Shinobi_TaiThink( gentity_t *ent, usercmd_t *ucmd );
+
 // every client frame, before Pmove
 void Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd ) {
 	gclient_t *client = ent->client;
 
+	Shinobi_TaiThink( ent, ucmd ); // 64 Palms, Reverse Lotus, Dynamic Entry
 	Shinobi_RaiDashThink( ent );
 	Shinobi_HealThink( ent, ucmd );
 	Shinobi_KaitenThink( ent, ucmd );
@@ -649,4 +652,443 @@ void Shinobi_YinYangThink( gentity_t *ent, usercmd_t *ucmd ) {
 		ent->r.contents = 0;
 		trap->LinkEntity( (sharedEntity_t *)ent );
 	}
+}
+
+/*
+===========================================================================
+Taijutsu of the Leaf and the Hyuga (Yin / Yang)
+===========================================================================
+*/
+// someone a technique may strike: alive, not on our side, not ourselves (players and clones)
+static qboolean Shinobi_TaiTarget( gentity_t *ent, gentity_t *v ) {
+	extern qboolean Shinobi_ComboTarget( gentity_t *ent, gentity_t *v );
+	return Shinobi_ComboTarget( ent, v ) && v->client ? qtrue : qfalse;
+}
+
+// is v guarding a blow that comes from src?
+static qboolean Shinobi_GuardsFrom( gentity_t *v, const vec3_t src ) {
+	vec3_t d, fwd, yaw;
+	if ( !v->client || v->s.number >= MAX_CLIENTS || !v->client->shinobi.blocking )
+		return qfalse;
+	VectorSubtract( src, v->client->ps.origin, d );
+	d[2] = 0;
+	if ( VectorNormalize( d ) < 1.0f )
+		return qtrue;
+	VectorSet( yaw, 0, v->client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	return DotProduct( d, fwd ) >= SHINOBI_BLOCK_ARC;
+}
+
+/*
+---------------------------------------------------------------------------
+64 Palms (held): rooted, the field grows; full, the air palm strikes all in it.
+---------------------------------------------------------------------------
+*/
+qboolean Shinobi_CastPalms( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	gentity_t *f;
+	vec3_t     floor, pos;
+
+	if ( ent->s.number >= MAX_CLIENTS || client->shinobi.palmsStart || SHINOBI_HAND_ANY( &client->ps )
+		|| ( client->ps.stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH ) )
+		return qfalse;
+	VectorCopy( client->ps.origin, pos );
+	if ( !Shinobi_FloorBelow( pos, 128, floor ) ) {
+		VectorCopy( pos, floor );
+		floor[2] += ent->r.mins[2];
+	}
+	f = G_Spawn();
+	if ( !f )
+		return qfalse;
+	client->shinobi.blocking = qfalse;
+	client->shinobi.palmsStart = level.time;
+	client->shinobi.palmsTick = level.time + SHINOBI_PALMS_DRAIN_MS;
+	f->classname = "shinobi_palms";
+	f->s.eType = ET_GENERAL;
+	f->s.generic1 = SHINOBI_ENT_PALMS;
+	f->r.ownerNum = ent->s.number;
+	f->s.owner = ent->s.number;
+	f->r.contents = 0;
+	f->r.svFlags |= SVF_BROADCAST;
+	G_SetOrigin( f, floor );
+	f->s.time = level.time;
+	f->s.time2 = level.time + SHINOBI_PALMS_GROW_MS;
+	f->s.angles2[0] = SHINOBI_PALMS_RADIUS;
+	trap->LinkEntity( (sharedEntity_t *)f );
+	client->shinobi.palmsEnt = f->s.number + 1;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndJutsuCharge );
+	return qtrue;
+}
+
+void Shinobi_PalmsStop( gentity_t *ent, qboolean struck ) {
+	gclient_t *client = ent->client;
+
+	if ( !client || !client->shinobi.palmsStart )
+		return;
+	client->shinobi.palmsStart = 0;
+	if ( client->shinobi.chargeJutsu == SJ_PALMS )
+		client->shinobi.chargeJutsu = SJ_NONE;
+	if ( client->shinobi.palmsEnt ) {
+		gentity_t *f = &g_entities[client->shinobi.palmsEnt - 1];
+		client->shinobi.palmsEnt = 0;
+		if ( f->inuse && f->classname && !strcmp( f->classname, "shinobi_palms" ) ) {
+			if ( struck ) { // the strike: the field flashes and fades
+				f->s.frame = 1;
+				f->s.time2 = level.time;
+				f->think = G_FreeEntity;
+				f->nextthink = level.time + 500;
+			}
+			else
+				G_FreeEntity( f );
+		}
+	}
+}
+
+static void Shinobi_PalmsStrike( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     eye, up = { 0, 0, 1 };
+	int        i, hits = 0;
+
+	VectorCopy( client->ps.origin, eye );
+	eye[2] += client->ps.viewheight - 8;
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d, at;
+		trace_t    tr;
+		float      dist;
+		if ( !Shinobi_TaiTarget( ent, v ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, client->ps.origin, d );
+		if ( fabs( d[2] ) > 96 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_PALMS_RADIUS )
+			continue;
+		VectorCopy( v->r.currentOrigin, at );
+		trap->Trace( &tr, eye, NULL, NULL, at, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f )
+			continue; // a wall between
+		shinobiJutsuDamage = 1;
+		G_Damage( v, ent, ent, d, at, SHINOBI_PALMS_DAMAGE, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_ARMOR, MOD_FORCE_DARK ); // (no guard holds it)
+		shinobiJutsuDamage = 0;
+		if ( v->inuse && v->client && v->health > 0 && !Shinobi_CCImmune( v ) ) {
+			VectorScale( d, SHINOBI_PALMS_PUSH, v->client->ps.velocity );
+			v->client->ps.velocity[2] = SHINOBI_PALMS_UP;
+			v->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			Shinobi_CCGrant( v, level.time + 800 );
+		}
+		Shinobi_EffectDir( shinobiMedia.fxWindGust[0], at, d );
+		hits++;
+	}
+	shinobiTest.palmsHits += hits;
+	client->ps.forceHandExtend = HANDEXTEND_FORCEPUSH; // the palm out
+	client->ps.forceHandExtendTime = level.time + 450;
+	G_PlayEffectID( shinobiMedia.fxGates, client->ps.origin, up );
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+}
+
+static void Shinobi_PalmsThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+
+	if ( !client->shinobi.palmsStart )
+		return;
+	if ( ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR || !Shinobi_CanAct( ent )
+		|| client->shinobi.chargeJutsu != SJ_PALMS ) {
+		Shinobi_PalmsStop( ent, qfalse ); // let go early: lost
+		return;
+	}
+	client->ps.fd.forcePowerRegenDebounceTime = level.time + 500;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	while ( client->shinobi.palmsTick <= level.time ) {
+		client->shinobi.palmsTick += SHINOBI_PALMS_DRAIN_MS;
+		if ( client->ps.fd.forcePower < 1 ) {
+			trap->SendServerCommand( ent - g_entities, "cp \"Out of chakra\"" );
+			Shinobi_PalmsStop( ent, qfalse );
+			return;
+		}
+		client->ps.fd.forcePower--;
+	}
+	if ( level.time >= client->shinobi.palmsStart + SHINOBI_PALMS_GROW_MS ) {
+		Shinobi_PalmsStrike( ent );
+		Shinobi_PalmsStop( ent, qtrue );
+	}
+}
+
+/*
+---------------------------------------------------------------------------
+Reverse Lotus: the blink with a kick up; caught, both go up, hang spinning,
+come down hard (Shinobi_LotusThink on the attacker, Shinobi_LotusHeld on him).
+---------------------------------------------------------------------------
+*/
+static void Shinobi_LotusEnd( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	if ( client->shinobi.lotusVictim ) {
+		gentity_t *v = &g_entities[client->shinobi.lotusVictim - 1];
+		if ( v->inuse && v->client && v->client->shinobi.lotusBy == ent->s.number + 1 )
+			v->client->shinobi.lotusBy = 0;
+	}
+	client->shinobi.lotusPhase = client->shinobi.lotusVictim = 0;
+}
+
+qboolean Shinobi_CastLotus( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     yaw, fwd, end, eye, up = { 0, 0, 1 };
+	trace_t    tr;
+	gentity_t *best = NULL;
+	float      bestDist = SHINOBI_LOTUS_REACH + 1;
+	int        i;
+
+	if ( ent->s.number >= MAX_CLIENTS || client->shinobi.lotusPhase || SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	// the blink in: as far as SHINOBI_LOTUS_BLINK, or up to someone standing closer
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+		if ( !Shinobi_TaiTarget( ent, v ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, client->ps.origin, d );
+		if ( fabs( d[2] ) > 64 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > SHINOBI_LOTUS_BLINK + SHINOBI_LOTUS_REACH || DotProduct( d, fwd ) < 0.7f )
+			continue;
+		if ( !best || dist < bestDist ) {
+			best = v;
+			bestDist = dist;
+		}
+	}
+	{
+		const float go = best ? ( bestDist - 40 > 0 ? ( bestDist - 40 < SHINOBI_LOTUS_BLINK ? bestDist - 40 : SHINOBI_LOTUS_BLINK ) : 0 )
+			: SHINOBI_LOTUS_BLINK;
+		VectorMA( client->ps.origin, go, fwd, end );
+		trap->Trace( &tr, client->ps.origin, ent->r.mins, ent->r.maxs, end, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		if ( !tr.startsolid && !tr.allsolid && go > 8 ) {
+			Shinobi_EffectDir( shinobiMedia.fxShunshin, client->ps.origin, fwd );
+			Shinobi_TeleportClient( ent, tr.endpos );
+			SetClientViewAngle( ent, yaw );
+		}
+	}
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT; // the kick up
+	client->ps.forceDodgeAnim = BOTH_A7_KICK_F;
+	client->ps.forceHandExtendTime = level.time + 500;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+
+	if ( !best || Distance( best->r.currentOrigin, client->ps.origin ) > SHINOBI_LOTUS_REACH + 8 )
+		return qtrue; // the kick goes into the air
+	VectorCopy( client->ps.origin, eye );
+	if ( Shinobi_GuardsFrom( best, eye ) || Shinobi_CCImmune( best ) || best->client->shinobi.lotusBy ) {
+		G_Damage( best, ent, ent, fwd, best->r.currentOrigin, 12, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // (the guard takes it)
+		return qtrue;
+	}
+	// caught: up into the air, both of you
+	{
+		vec3_t spot, top, side;
+		VectorCopy( best->r.currentOrigin, spot );
+		VectorCopy( spot, top );
+		top[2] += SHINOBI_LOTUS_HEIGHT;
+		trap->Trace( &tr, spot, best->r.mins, best->r.maxs, top, best->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		VectorCopy( tr.endpos, spot );
+		spot[2] -= 8;
+		VectorCopy( spot, client->shinobi.lotusSpot );
+		Shinobi_EffectDir( shinobiMedia.fxShunshin, best->r.currentOrigin, up );
+		Shinobi_TeleportClient( best, spot );
+		VectorMA( spot, -44, fwd, side );
+		trap->Trace( &tr, spot, ent->r.mins, ent->r.maxs, side, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		Shinobi_TeleportClient( ent, tr.endpos );
+		SetClientViewAngle( ent, yaw );
+		Shinobi_EffectDir( shinobiMedia.fxShunshin, spot, up );
+	}
+	G_Sound( best, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
+	Shinobi_HitText( best, STX_LAUNCH, 0 );
+	best->client->shinobi.lotusBy = ent->s.number + 1;
+	best->client->shinobi.flinchEnd = 0;
+	client->shinobi.lotusVictim = best->s.number + 1;
+	client->shinobi.lotusPhase = 2; // hanging up there
+	client->shinobi.lotusTime = level.time;
+	Shinobi_CCGrant( best, level.time + SHINOBI_LOTUS_MAX_MS + 1500 );
+	return qtrue;
+}
+
+// the spin up there: front flips, over and over
+static void Shinobi_LotusSpinAnim( gentity_t *e, int anim ) {
+	gclient_t *c = e->client;
+	if ( c->ps.legsAnim != anim || c->ps.legsTimer <= 50 ) {
+		c->ps.legsAnim = c->ps.torsoAnim = anim;
+		c->ps.legsTimer = c->ps.torsoTimer = BG_AnimLength( e->localAnimIndex, (animNumber_t)anim );
+	}
+}
+
+static void Shinobi_LotusSlam( gentity_t *ent, gentity_t *v ) {
+	vec3_t up = { 0, 0, 1 }, down = { 0, 0, -1 }, feet;
+	VectorCopy( v->r.currentOrigin, feet );
+	feet[2] += v->r.mins[2] + 2;
+	G_PlayEffectID( shinobiMedia.fxQuakeDust, feet, up );
+	G_PlayEffectID( shinobiMedia.fxRockLg, feet, up );
+	G_Sound( v, CHAN_AUTO, shinobiMedia.sndWallBreak );
+	G_ScreenShake( feet, NULL, 4.0f, 500, qfalse );
+	v->client->shinobi.slamNoFall = level.time + 2000;
+	ent->client->shinobi.slamNoFall = level.time + 2000;
+	shinobiTest.lotusSlams++;
+	G_Damage( v, ent, ent, down, v->r.currentOrigin, SHINOBI_LOTUS_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	if ( v->inuse && v->client && v->health > 0 ) {
+		VectorClear( v->client->ps.velocity );
+		G_Knockdown( v );
+	}
+}
+
+// the attacker's side, every frame
+static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	gentity_t *v;
+
+	if ( !client->shinobi.lotusPhase )
+		return;
+	v = &g_entities[client->shinobi.lotusVictim - 1];
+	if ( ent->health <= 0 || !v->inuse || !v->client || v->health <= 0 || v->client->shinobi.lotusBy != ent->s.number + 1
+		|| SHINOBI_UNSEEN( &v->client->ps ) || level.time - client->shinobi.lotusTime > SHINOBI_LOTUS_MAX_MS ) {
+		Shinobi_LotusEnd( ent );
+		return;
+	}
+	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	if ( client->shinobi.lotusPhase == 2 ) { // hanging, spinning head down
+		client->ps.gravity = 0;
+		VectorClear( client->ps.velocity );
+		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_F );
+		if ( level.time - client->shinobi.lotusTime >= SHINOBI_LOTUS_HANG_MS ) {
+			client->shinobi.lotusPhase = 3; // down
+			client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
+		}
+		return;
+	}
+	// coming down with him
+	Shinobi_LotusSpinAnim( ent, BOTH_FLIP_F );
+	if ( client->ps.velocity[2] > -SHINOBI_LOTUS_FALL )
+		client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
+	if ( v->client->ps.groundEntityNum != ENTITYNUM_NONE ) {
+		Shinobi_LotusSlam( ent, v );
+		Shinobi_LotusEnd( ent );
+	}
+}
+
+// his side, every frame: helpless, held up there, then driven down
+static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	gentity_t *a;
+
+	if ( !client->shinobi.lotusBy )
+		return;
+	a = &g_entities[client->shinobi.lotusBy - 1];
+	if ( !a->inuse || !a->client || a->client->shinobi.lotusVictim != ent->s.number + 1 || !a->client->shinobi.lotusPhase ) {
+		client->shinobi.lotusBy = 0;
+		return;
+	}
+	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
+	client->shinobi.blocking = qfalse;
+	if ( a->client->shinobi.lotusPhase == 2 ) {
+		client->ps.gravity = 0;
+		VectorClear( client->ps.velocity );
+		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_B );
+	}
+	else {
+		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_B );
+		if ( client->ps.velocity[2] > -SHINOBI_LOTUS_FALL )
+			client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
+	}
+}
+
+/*
+---------------------------------------------------------------------------
+Dynamic Entry: the flying kick (Pmove flies it: SHINOBI_BC_ENTRY); whoever it
+meets is hurt, thrown along and knocked down.
+---------------------------------------------------------------------------
+*/
+qboolean Shinobi_CastEntry( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     yaw, fwd;
+
+	if ( ent->s.number >= MAX_CLIENTS || client->shinobi.entryEnd || SHINOBI_HAND_ANY( &client->ps ) )
+		return qfalse;
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	client->shinobi.entryEnd = level.time + SHINOBI_ENTRY_MS;
+	client->shinobi.entryHit[0] = client->shinobi.entryHit[1] = 0;
+	client->ps.stats[STAT_SHINOBI_BLADECOMBO] |= SHINOBI_BC_ENTRY;
+	VectorScale( fwd, SHINOBI_ENTRY_SPEED, client->ps.velocity );
+	client->ps.velocity[2] = SHINOBI_ENTRY_LIFT;
+	client->ps.groundEntityNum = ENTITYNUM_NONE;
+	client->ps.weaponTime = SHINOBI_ENTRY_MS;
+	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
+	return qtrue;
+}
+
+static void Shinobi_EntryThink( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	vec3_t     yaw, fwd;
+	int        i;
+
+	if ( !client->shinobi.entryEnd ) {
+		client->ps.stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_ENTRY;
+		return;
+	}
+	if ( level.time >= client->shinobi.entryEnd || ent->health <= 0 || client->sess.sessionTeam == TEAM_SPECTATOR ) {
+		client->shinobi.entryEnd = 0;
+		client->ps.stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_ENTRY;
+		return;
+	}
+	client->ps.stats[STAT_SHINOBI_BLADECOMBO] |= SHINOBI_BC_ENTRY;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		int       *seen;
+		if ( !Shinobi_TaiTarget( ent, v ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, client->ps.origin, d );
+		if ( fabs( d[2] ) > 56 || VectorLength( d ) > SHINOBI_ENTRY_RADIUS + 16 )
+			continue;
+		seen = &client->shinobi.entryHit[i < 32 ? 0 : 1];
+		if ( i < 64 && ( *seen & ( 1 << ( i & 31 ) ) ) )
+			continue;
+		if ( i < 64 )
+			*seen |= 1 << ( i & 31 );
+		shinobiTest.entryHits++;
+		G_Damage( v, ent, ent, fwd, v->r.currentOrigin, SHINOBI_ENTRY_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		G_Sound( v, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
+		if ( v->inuse && v->client && v->health > 0 && shinobiBlockResult != SBR_BLOCKED && shinobiBlockResult != SBR_PARRIED
+			&& !Shinobi_CCImmune( v ) ) {
+			VectorScale( fwd, SHINOBI_ENTRY_PUSH, v->client->ps.velocity );
+			v->client->ps.velocity[2] = 220;
+			v->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			G_Knockdown( v );
+			Shinobi_CCGrant( v, level.time + 1500 );
+		}
+	}
+}
+
+// every client frame (from Shinobi_YinYangThink)
+void Shinobi_TaiThink( gentity_t *ent, usercmd_t *ucmd ) {
+	Shinobi_PalmsThink( ent, ucmd );
+	Shinobi_LotusThink( ent, ucmd );
+	Shinobi_LotusHeld( ent, ucmd );
+	Shinobi_EntryThink( ent, ucmd );
+}
+
+void Shinobi_TaiClear( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	if ( client->shinobi.palmsStart )
+		Shinobi_PalmsStop( ent, qfalse );
+	if ( client->shinobi.lotusPhase )
+		Shinobi_LotusEnd( ent );
+	client->shinobi.lotusBy = 0;
+	client->shinobi.entryEnd = 0;
+	client->ps.stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_ENTRY;
 }

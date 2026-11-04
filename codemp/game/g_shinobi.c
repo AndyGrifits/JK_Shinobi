@@ -46,6 +46,7 @@ void Shinobi_Init( void ) {
 	m->shurikenModel = G_ModelIndex( "models/shinobi/shuriken.md3" );
 	m->starModel     = G_ModelIndex( "models/shinobi/star.md3" );
 	m->smokeBombModel = G_ModelIndex( "models/shinobi/smoke_bomb.md3" );
+	m->weightModel    = G_ModelIndex( "models/shinobi/leg_weight.md3" );
 
 	for ( lvl = 1; lvl <= SHINOBI_MAX_LEVEL; lvl++ ) {
 		m->fxRasenganHit[lvl - 1] = Shinobi_LevelEffect( SHINOBI_FX_RASENGAN_HIT, lvl );
@@ -516,6 +517,9 @@ qboolean Shinobi_Cast( gentity_t *ent, int jutsu, int wanted ) {
 	case SJ_SHADOWHIDE: cast = Shinobi_CastShadowHide( ent ); break;
 	case SJ_FLASH:    cast = Shinobi_CastFlash( ent ); break;
 	case SJ_HEAL:     cast = Shinobi_CastHeal( ent, lvl ); break;
+	case SJ_PALMS:    cast = Shinobi_CastPalms( ent ); break;
+	case SJ_LOTUS:    cast = Shinobi_CastLotus( ent ); break;
+	case SJ_ENTRY:    cast = Shinobi_CastEntry( ent ); break;
 	case SJ_SKYSTEP:  trap->SendServerCommand( ent - g_entities, "cp \"Sky Step is passive\"" ); break;
 	case SJ_SHADOW:   cast = Shinobi_CastShadow( ent ); break;
 	case SJ_WATERCLONE: cast = Shinobi_CastWaterClone( ent ); break;
@@ -645,7 +649,8 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 		if ( ( jutsu == SJ_SUIRO && client->shinobi.prisonTarget ) || ( jutsu == SJ_FLAME && client->shinobi.flameEnt )
 			|| ( jutsu == SJ_SHADOW && client->shinobi.shadowEnt ) || ( jutsu == SJ_BURROW && client->shinobi.burrowEnd )
 			|| ( jutsu == SJ_SHADOWHIDE && client->shinobi.shadowHideEnd ) || ( jutsu == SJ_RAIDASH && client->shinobi.raiDashEnd )
-			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) || ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart ) )
+			|| ( jutsu == SJ_HEAL && client->shinobi.healing ) || ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart )
+			|| ( jutsu == SJ_PALMS && client->shinobi.palmsStart ) )
 			client->shinobi.chargeJutsu = jutsu;
 		return;
 	}
@@ -683,6 +688,8 @@ void Cmd_JutsuRelease_f( gentity_t *ent ) {
 			Shinobi_HealStop( ent );
 		else if ( jutsu == SJ_KAITEN && client->shinobi.kaitenStart )
 			Shinobi_KaitenStop( ent );
+		else if ( jutsu == SJ_PALMS && client->shinobi.palmsStart )
+			Shinobi_PalmsStop( ent, qfalse ); // let go before the field is full: lost
 		return;
 	}
 	if ( level.time - client->shinobi.chargeStart
@@ -837,7 +844,7 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 	trace_t      tr;
 	float        dist;
 
-	if ( !Shinobi_ChargesReady( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES ) ) {
+	if ( client->shinobi.gate < 4 && !Shinobi_ChargesReady( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES ) ) { // (the fourth Inner Gate: no charges)
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
 		trap->SendServerCommand( ent - g_entities, va( "cp \"Shunshin ready in %.1f s\"",
 			Shinobi_ChargeWait( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES ) / 1000.0f ) );
@@ -867,7 +874,8 @@ static qboolean Shinobi_CastShunshin( gentity_t *ent, int lvl, qboolean back ) {
 		return qfalse;
 	}
 
-	Shinobi_ChargeTake( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES, SHINOBI_SHUNSHIN_RECHARGE );
+	if ( client->shinobi.gate < 4 ) // (the fourth Inner Gate: the blink is free)
+		Shinobi_ChargeTake( client->shinobi.shunshinReady, SHINOBI_SHUNSHIN_CHARGES, SHINOBI_SHUNSHIN_RECHARGE );
 	Shinobi_StopCharging( client );
 
 	// smoke and leaves where we were, and where we land

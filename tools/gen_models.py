@@ -493,6 +493,50 @@ def build_sphere(radius=5.0, rings=6, segs=10):
     return verts, uvs, normals, tris
 
 
+WEIGHT_SHADER = "models/shinobi/leg_weight"
+
+
+def build_leg_weight(segments=8, inner=3.4, outer=5.2, height=7.0):
+    """Rock Lee's leg weights: a thick cuff of padded blocks round the shin, its axis +Z
+    (the cgame lays it along the shin). Texture: u round it (one block per 1/segments),
+    v over its height (straps at the top and bottom)."""
+    verts, uvs, tris = [], [], []
+    rings = []
+    for side in (0, 1):  # 0 = outside (padded), 1 = inside
+        for z in (-height / 2, height / 2):
+            row = []
+            for k in range(segments * 2 + 1):
+                a = 2 * math.pi * k / (segments * 2)
+                # the outside bulges in the middle of each block
+                r = inner if side else outer * (1.0 if k % 2 else 0.9)
+                row.append(len(verts))
+                verts.append((math.cos(a) * r, math.sin(a) * r, z))
+                uvs.append((k / (segments * 2.0), 0.0 if z > 0 else 1.0))
+            rings.append(row)
+    o0, o1, i0, i1 = rings
+    n = segments * 2
+    for k in range(n):
+        tris += [(o0[k], o0[k + 1], o1[k]), (o1[k], o0[k + 1], o1[k + 1])]   # outside
+        tris += [(i0[k], i1[k], i0[k + 1]), (i1[k], i1[k + 1], i0[k + 1])]   # inside
+        tris += [(o1[k], o1[k + 1], i1[k]), (i1[k], o1[k + 1], i1[k + 1])]   # top
+        tris += [(o0[k], i0[k], o0[k + 1]), (i0[k], i0[k + 1], o0[k + 1])]   # bottom
+    def outward(c):
+        r = math.hypot(c[0], c[1])
+        mid = (inner + outer) / 2
+        if abs(c[2]) > height / 2 - 0.01:
+            return (0, 0, 1 if c[2] > 0 else -1)
+        return (c[0], c[1], 0) if r > mid else (-c[0], -c[1], 0)
+    normals, tris = finish(verts, tris, outward)
+    return verts, uvs, normals, tris
+
+
+def write_leg_weight(out_dir):
+    verts, uvs, normals, tris = build_leg_weight()
+    write_md3(os.path.join(out_dir, "leg_weight.md3"), "models/shinobi/leg_weight.md3", verts, uvs, normals, tris,
+              shader=WEIGHT_SHADER)
+    print("models/shinobi/leg_weight.md3", len(verts), "verts", len(tris), "tris")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     # kunai, explosive kunai, tag, pills and shuriken come from the artist's models now
@@ -507,6 +551,7 @@ def main():
                        ("rock_ledge", build_rockbox(54, 54, -16, 16, 302, grid=4, bump=2.5))):
         write_md3(os.path.join(OUT, name + ".md3"), "models/shinobi/" + name + ".md3", *mesh)
         print("models/shinobi/" + name + ".md3", len(mesh[0]), "verts", len(mesh[3]), "tris")
+    write_leg_weight(OUT)
     for i in range(1, 4):
         verts, uvs, normals, tris = build_pillar(seed=100 + i, sides=6 + i % 3)
         name = "models/shinobi/earth_pillar%d.md3" % i

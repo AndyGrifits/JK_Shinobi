@@ -8435,10 +8435,6 @@ void BG_AdjustClientSpeed(playerState_t *ps, usercmd_t *cmd, int svTime)
 	{ // JK_Shinobi: Inner Gates open
 		ps->speed *= SHINOBI_GATES_SPEED;
 	}
-	else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_TIRED )
-	{ // exhausted after the Gates
-		ps->speed *= SHINOBI_GATES_TIRED_SPEED;
-	}
 
 	if (pm->ps->weapon == WP_DISRUPTOR &&
 		pm->ps->zoomMode == 1 && pm->ps->zoomLockTime < pm->cmd.serverTime)
@@ -10457,6 +10453,24 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 	pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 }
 
+// Dynamic Entry (the server sets SHINOBI_BC_ENTRY for its length): foot first along the look, fast
+static void PM_ShinobiEntry( void )
+{
+	playerState_t *ps = pm->ps;
+	vec3_t         fwd, ang;
+
+	if ( !( ps->stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BC_ENTRY ) || ps->stats[STAT_HEALTH] <= 0 )
+		return;
+	VectorSet( ang, 0, ps->viewangles[YAW], 0 );
+	AngleVectors( ang, fwd, NULL, NULL );
+	ps->velocity[0] = fwd[0] * SHINOBI_ENTRY_SPEED;
+	ps->velocity[1] = fwd[1] * SHINOBI_ENTRY_SPEED;
+	if ( ps->legsAnim != BOTH_A7_KICK_F_AIR )
+		PM_SetAnim( SETANIM_BOTH, BOTH_A7_KICK_F_AIR, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
+	pm->cmd.forwardmove = pm->cmd.rightmove = pm->cmd.upmove = 0;
+	pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
+}
+
 static void PM_ShinobiComboPre( void )
 {
 	playerState_t *ps = pm->ps;
@@ -11095,6 +11109,7 @@ void PmoveSingle (pmove_t *pmove) {
 
 	BG_ShinobiBlockAttack( pm->ps, &pm->cmd ); // JK_Shinobi: block + attack = special attack
 	PM_ShinobiComboPre(); // JK_Shinobi: taijutsu combo timers, finishers on block, the diving kick
+	PM_ShinobiEntry(); // JK_Shinobi: Dynamic Entry - the flying kick
 
 	if (pm->cmd.buttons & BUTTON_ATTACK && pm->cmd.buttons & BUTTON_USE_HOLDABLE)
 	{

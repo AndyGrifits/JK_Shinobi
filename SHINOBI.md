@@ -449,8 +449,8 @@ nothing else (bots still get their pseudo powers for the AI).
 - **Stats**: 10 points, at most 5 in one: chakra pool (+20 per point), health (+15),
   taijutsu (+10% fist/kick/blade damage), casting speed (bars 8% faster), chakra regen
   (12% faster).
-- **Training or a gift**: the special is paid for with stat points - Inner Gates 3,
-  Sharingan 4, Curse Seal 4, Byakugan 5. No special = all 10 points, and chakra pool,
+- **Training or a gift**: the special is paid for with stat points - Inner Gates 5
+  (and leaves room for one jutsu only), Sharingan 4, Curse Seal 4, Byakugan 5. No special = all 10 points, and chakra pool,
   health and taijutsu go up to 7 (casting speed and regen stay at 5: they scale steeply).
   Picking a dearer special takes the extra points back off the end of the list.
 - **Special**: one ability. Ready:
@@ -465,8 +465,16 @@ nothing else (bots still get their pseudo powers for the AI).
   - **Byakugan** (`C` on/off, 5 chakra + 8/s, no natural regen while open; also the Gentle Fist: bare-handed hits burn the target's chakra and burn guards twice as fast): chakra bars and glowing shells of every
     ninja within 1400 u, through walls; clones are hollow grey shells marked "clone".
     Switching it on is heard map-wide. Pale eyes.
-  - **Inner Gates** (`C`): 10 s at 1.35x speed and +50% taijutsu, then 15 s exhausted
-    (0.75x speed, -30% taijutsu, no chakra regen). Once a minute. Green aura.
+  - **Inner Gates** (`C`, 5 stat points, one jutsu at most): you fight in leg weights. `C` opens
+    the gates one by one, until you die:
+    1. Gate of Opening - the weights fall off and each shakes the ground where it lands (12 damage
+       within 90 u); 1.35x speed with Force Speed's after-images; 1 health every 0.4 s - at 10 health
+       the gates close and stay shut for 10 s.
+    2. Healing - a burst of yellow flame, +70 health, the drain stops; yellow glow.
+    3. Life - a crimson body; Reverse Lotus is yours.
+    4. Pain - green glow; Shunshin costs no charge.
+    5. Limit - red glow; +20% to every close-combat blow.
+    Each next gate needs 70 damage dealt with the gates open (HUD bar; "ready - C" when it is).
 
 Saving stores the build in the `shinobi_build` cvar; it takes effect when you respawn.
 With cheats on (devmap) every jutsu can be cast from the console anyway (self-test).
@@ -631,6 +639,9 @@ Shift no longer walks: it is the chakra modifier (more Shift combos later).
 | Hiraishin | Yin/Yang. Teleport to your newest marked kunai; if it is on an enemy, you land behind him facing him. 8 s cooldown | 25 |
 | Lightning Trap | Raiton. Needs two or three marked kunai in place (one: it fizzles): a lightning net between them for 8 s - a line or a triangle, each side lit while its ends are within 500 u with nothing solid between. Whoever touches a line - you too (not your clones or team): 20 damage and a 1 s stun (rooted, no attacks; then the usual CC immunity), the same man once per 1.5 s. A kunai in an enemy is a node that moves with him (he is shocked once as the net comes on, never by his own lines). The kunai are used up when the net ends | 20 |
 | Shadow Trap | `kagewana`, Yin/Yang. From each of your two newest marked kunai a shadow reaches along the floor (1500 u/s) to the nearest enemy within 420 u (or the one the kunai sits in) and holds him in place: no moving, jumping, attacks, guard or jutsu but Kawarimi. Up to 15 s, ~7 chakra/s per caught enemy; any damage to him (yours too) breaks it, and so does running dry. The kunai is used up | 20 |
+| 64 Palms | `hakke`, Yin/Yang, hold F: rooted in the stance, a ring of trigrams (260 u) grows on the ground for 2 s; full, an air palm strikes everyone inside it in plain sight: 30 damage, thrown out. Let go early - lost | 10 + 15/s |
+| Reverse Lotus | `urarenge`, Yin/Yang (and the 3rd Inner Gate): a blink of up to 130 u forward with a rising kick; an enemy ahead within 210 u is caught: both go up 220 u, hang spinning for 0.65 s and fall - he is driven into the ground: 55 damage, knocked down. A guard (or CC immunity) takes a 12 damage kick instead | 35 |
+| Dynamic Entry | `dynamicentry`, Yin/Yang: a flying kick feet first (950 u/s, 0.48 s); whoever it meets: 25 damage, thrown away and knocked down (a guard holds) | 20 |
 | Kaiten | `kaiten`, Yin/Yang, hold F: 0.5 s winding up on the spot (a hit breaks it), then you spin inside a dome of chakra for as long as the key is held and the chakra lasts. No damage gets through (falls, lava, drowning aside), no knockdown, stagger, flinch, bind or prison takes; kunai, shuriken, fire- and waterballs glance off the dome (and become yours); whoever comes within ~96 u is thrown away and knocked down every 0.1 s. Rooted, no attacks, no guard. Bots use it to defend | 10 + 30/s |
 
 ### Elements

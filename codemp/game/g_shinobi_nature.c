@@ -53,6 +53,10 @@ void Shinobi_NatureInit( void ) {
 	m->sndShadow      = G_SoundIndex( "sound/weapons/force/grip.mp3" );
 	m->fxCurse        = G_EffectIndex( SHINOBI_FX_CURSE );
 	m->fxGates        = G_EffectIndex( SHINOBI_FX_GATES );
+	m->fxGateAura[0]  = G_EffectIndex( "shinobi/gates_yellow" );
+	m->fxGateAura[1]  = G_EffectIndex( "shinobi/gates_green" );
+	m->fxGateAura[2]  = G_EffectIndex( "shinobi/gates_red" );
+	m->fxGateBurst    = G_EffectIndex( "shinobi/gates_burst" );
 	m->sndEyes        = G_SoundIndex( "sound/weapons/force/see.wav" );
 	m->sndGates       = G_SoundIndex( "sound/weapons/force/speed.wav" );
 	for ( i = 0; i < 3; i++ ) {
@@ -324,6 +328,7 @@ void Shinobi_StatusClear( gentity_t *ent ) {
 		Shinobi_HealStop( ent );
 	if ( client->shinobi.kaitenStart )
 		Shinobi_KaitenStop( ent );
+	Shinobi_TaiClear( ent ); // 64 Palms, Reverse Lotus, Dynamic Entry
 	Shinobi_SetRawBit( &client->ps.userVec1[0], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[1], 0 );
 	Shinobi_SetRawBit( &client->ps.userVec1[2], 0 );

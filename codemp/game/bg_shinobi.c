@@ -65,8 +65,8 @@ qboolean Shinobi_BuildValid( const shinobiBuild_t *b, char *why, int whySize ) {
 
 	if ( why && whySize )
 		why[0] = 0;
-	if ( b->numJutsu > SHINOBI_BUILD_JUTSU ) {
-		if ( why ) Com_sprintf( why, whySize, "at most %i techniques", SHINOBI_BUILD_JUTSU );
+	if ( b->numJutsu > Shinobi_JutsuCap( b ) ) {
+		if ( why ) Com_sprintf( why, whySize, "at most %i technique%s", Shinobi_JutsuCap( b ), Shinobi_JutsuCap( b ) == 1 ? " with the Inner Gates" : "s" );
 		return qfalse;
 	}
 	if ( Shinobi_BuildSchools( b, NULL ) > SHINOBI_BUILD_SCHOOLS ) {
@@ -95,14 +95,14 @@ void Shinobi_BuildFix( shinobiBuild_t *b ) {
 	int            i;
 
 	memset( &fixed, 0, sizeof( fixed ) );
+	// the special first: it sets the budget and the caps (the Inner Gates: one technique)
+	fixed.perk = ( b->perk > SP_NONE && b->perk < SP_COUNT && shinobiPerkReady[b->perk] ) ? b->perk : SP_NONE;
 	// techniques: keep them in order while they fit
-	for ( i = 0; i < b->numJutsu && fixed.numJutsu < SHINOBI_BUILD_JUTSU; i++ ) {
+	for ( i = 0; i < b->numJutsu && fixed.numJutsu < Shinobi_JutsuCap( &fixed ); i++ ) {
 		fixed.jutsu[fixed.numJutsu++] = b->jutsu[i];
 		if ( Shinobi_BuildSchools( &fixed, NULL ) > SHINOBI_BUILD_SCHOOLS )
 			fixed.numJutsu--;
 	}
-	// the special first: it sets the budget and the caps
-	fixed.perk = ( b->perk > SP_NONE && b->perk < SP_COUNT && shinobiPerkReady[b->perk] ) ? b->perk : SP_NONE;
 	// stats: clamp, then take points back from the end while over budget
 	for ( i = 0; i < SST_COUNT; i++ ) {
 		const int cap = Shinobi_StatCap( &fixed, i );

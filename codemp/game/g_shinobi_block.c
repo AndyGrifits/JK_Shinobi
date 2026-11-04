@@ -89,8 +89,8 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
 	else
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_FLINCH;
-	if ( client->shinobi.chargeJutsu == SJ_QUAKE && ent->health > 0 )
-		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ROOTED; // the Earthquake charges standing still
+	if ( ( client->shinobi.chargeJutsu == SJ_QUAKE || client->shinobi.palmsStart ) && ent->health > 0 )
+		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ROOTED; // the Earthquake charges standing still (and the 64 Palms' field grows)
 	else
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_ROOTED;
 
@@ -713,10 +713,11 @@ void Shinobi_SwordThink( gentity_t *ent ) {
 
 	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) ) {
 		const int need = shinobiSwordChain[Shinobi_BladeStyle( c )];
-		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 );
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->ps.stats[STAT_SHINOBI_BLADECOMBO] & ~SHINOBI_BC_LOW )
+			| ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 ); // (the upper bits: the Gates, Dynamic Entry)
 	}
 	else
-		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = 0;
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_LOW;
 
 	if ( c->shinobi.flurryLeft > 0 && c->shinobi.flurryNext <= level.time ) {
 		gentity_t *v = &g_entities[c->shinobi.flurryVictim - 1];
@@ -797,8 +798,8 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		}
 		if ( attacker->s.number < MAX_CLIENTS ) { // taijutsu stat, Gates
 			float f = 1.0f + 0.1f * attacker->client->pers.shinobiBuild.stats[SST_TAIJUTSU];
-			if ( attacker->client->shinobi.gatesEnd > level.time )
-				f *= SHINOBI_GATES_TAIJUTSU;
+			if ( attacker->client->shinobi.gate >= 5 )
+				f *= SHINOBI_GATE5_TAIJUTSU;
 			dmg = (int)( dmg * f + 0.5f );
 		}
 	}

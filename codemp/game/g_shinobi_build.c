@@ -82,6 +82,8 @@ qboolean Shinobi_HasJutsu( gentity_t *ent, int jutsu ) {
 		return qtrue;
 	if ( jutsu > SJ_NONE && ent->client->shinobi.copyJutsu == jutsu )
 		return qtrue; // in the Copy Sharingan's slot
+	if ( jutsu == SJ_LOTUS && ent->client->shinobi.gate >= 3 )
+		return qtrue; // the third Inner Gate
 	return Shinobi_BuildHas( &ent->client->pers.shinobiBuild, jutsu );
 }
 
@@ -110,10 +112,8 @@ int Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int m
 	// Taijutsu: fists, kicks and blades hit harder (Inner Gates: much harder, then weaker)
 	{
 		float f = 1.0f + 0.1f * ac->pers.shinobiBuild.stats[SST_TAIJUTSU];
-		if ( ac->shinobi.gatesEnd > level.time )
-			f *= SHINOBI_GATES_TAIJUTSU;
-		else if ( ac->shinobi.gatesTiredEnd > level.time )
-			f *= SHINOBI_GATES_TIRED_TAIJUTSU;
+		if ( ac->shinobi.gate >= 5 )
+			f *= SHINOBI_GATE5_TAIJUTSU; // the Gate of Limit
 		damage = (int)( damage * f + 0.5f );
 	}
 	// Lightning Edge: the hit jolts harder (3x through stone)
@@ -142,8 +142,6 @@ float Shinobi_RegenScale( gentity_t *ent ) {
 		f *= 0.2f;
 	if ( ent->client->ps.fd.forcePower * 100 > ent->client->ps.fd.forcePowerMax * SHINOBI_REGEN_FULL_UPTO )
 		f *= SHINOBI_REGEN_SLOW_ABOVE; // above 30%: slow - the rest is earned fighting
-	if ( ent->client->shinobi.gatesTiredEnd > level.time && ent->client->shinobi.gatesEnd <= level.time )
-		f = 1000.0f; // exhausted after the Gates: no chakra comes back
 	return f;
 }
 
@@ -305,27 +303,211 @@ static void Shinobi_EyesOn( gentity_t *ent, int perk ) {
 	}
 }
 
+/*
+Inner Gates (see bg_shinobi.h): the weights, the gates one by one.
+*/
+// a dropped leg weight: falls, and where it lands the ground shakes a little
+static void Shinobi_WeightThink( gentity_t *w ) {
+	vec3_t  newPos, mins = { -4, -4, -3 }, maxs = { 4, 4, 3 }, up = { 0, 0, 1 };
+	trace_t tr;
+
+	if ( level.time >= w->genericValue1 ) {
+		G_FreeEntity( w );
+		return;
+	}
+	if ( w->s.pos.trType == TR_STATIONARY ) {
+		w->nextthink = level.time + 200;
+		return;
+	}
+	BG_EvaluateTrajectory( &w->s.pos, level.time, newPos );
+	trap->Trace( &tr, w->r.currentOrigin, mins, maxs, newPos, w->r.ownerNum, MASK_SOLID, qfalse, 0, 0 );
+	if ( tr.startsolid || tr.fraction < 1.0f ) { // down: a small quake
+		gentity_t *owner = &g_entities[w->r.ownerNum];
+		int        i;
+		G_SetOrigin( w, tr.endpos );
+		w->s.apos.trType = TR_STATIONARY;
+		BG_EvaluateTrajectory( &w->s.apos, level.time, w->s.apos.trBase );
+		w->genericValue1 = level.time + 10000; // (lies there a while)
+		G_PlayEffectID( shinobiMedia.fxQuakeDust, tr.endpos, up );
+		G_PlayEffectID( shinobiMedia.fxRockMed, tr.endpos, up );
+		G_Sound( w, CHAN_AUTO, shinobiMedia.sndWallBreak );
+		G_ScreenShake( tr.endpos, NULL, 2.0f, 250, qfalse );
+		shinobiTest.weightQuakes++;
+		for ( i = 0; i < MAX_CLIENTS; i++ ) {
+			gentity_t *v = &g_entities[i];
+			if ( !v->inuse || !v->client || v->health <= 0 || v == owner || v->client->sess.sessionTeam == TEAM_SPECTATOR )
+				continue;
+			if ( Distance( v->r.currentOrigin, tr.endpos ) > SHINOBI_GATE_WEIGHT_RADIUS )
+				continue;
+			G_Damage( v, w, owner->inuse ? owner : w, up, tr.endpos, SHINOBI_GATE_WEIGHT_DAMAGE, DAMAGE_NO_KNOCKBACK, MOD_CRUSH );
+		}
+		trap->LinkEntity( (sharedEntity_t *)w );
+		w->nextthink = level.time + 200;
+		return;
+	}
+	VectorCopy( newPos, w->r.currentOrigin );
+	trap->LinkEntity( (sharedEntity_t *)w );
+	w->nextthink = level.time + FRAMETIME;
+}
+
+static void Shinobi_DropWeights( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	vec3_t     yaw, fwd, right;
+	int        k;
+
+	if ( client->shinobi.weightsOff )
+		return;
+	client->shinobi.weightsOff = qtrue;
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, right, NULL );
+	for ( k = 0; k < 2; k++ ) {
+		gentity_t *w = G_Spawn();
+		vec3_t     p;
+		if ( !w )
+			return;
+		VectorMA( client->ps.origin, k ? 7 : -7, right, p );
+		p[2] += ent->r.mins[2] + 10;
+		w->classname = "shinobi_weight";
+		w->s.eType = ET_GENERAL;
+		w->s.modelindex = shinobiMedia.weightModel;
+		w->r.ownerNum = ent->s.number;
+		w->r.contents = 0;
+		w->genericValue1 = level.time + 6000;
+		w->s.pos.trType = TR_GRAVITY;
+		w->s.pos.trTime = level.time;
+		VectorCopy( p, w->s.pos.trBase );
+		VectorScale( right, k ? 60 : -60, w->s.pos.trDelta );
+		VectorMA( w->s.pos.trDelta, -30, fwd, w->s.pos.trDelta );
+		w->s.pos.trDelta[2] = 90;
+		VectorCopy( p, w->r.currentOrigin );
+		w->s.apos.trType = TR_LINEAR;
+		w->s.apos.trTime = level.time;
+		VectorSet( w->s.apos.trBase, 0, client->ps.viewangles[YAW], 0 );
+		VectorSet( w->s.apos.trDelta, k ? 220 : -220, 90, 0 );
+		w->think = Shinobi_WeightThink;
+		w->nextthink = level.time + FRAMETIME;
+		trap->LinkEntity( (sharedEntity_t *)w );
+	}
+}
+
+// from Shinobi_DpsLog: the damage that opens the next gate
+static void Shinobi_GateDamage( gentity_t *attacker, int take ) {
+	gclient_t *c = attacker->client;
+	if ( c->shinobi.gate < 1 || c->shinobi.gate >= SHINOBI_GATE_MAX )
+		return;
+	c->shinobi.gateDealt += take;
+}
+
 static void Shinobi_OpenGates( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+	const int  gate = client->shinobi.gate;
 	vec3_t     up = { 0, 0, 1 };
 
-	if ( client->shinobi.gatesEnd > level.time ) {
-		trap->SendServerCommand( ent - g_entities, "cp \"The Gates are already open\"" );
+	if ( gate >= SHINOBI_GATE_MAX ) {
+		trap->SendServerCommand( ent - g_entities, "cp \"All five gates are open\"" );
 		return;
 	}
-	if ( client->shinobi.gatesNext > level.time ) {
+	if ( gate == 0 && client->shinobi.gateNext > level.time ) {
 		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
-		trap->SendServerCommand( ent - g_entities, va( "cp \"Inner Gates ready in %i s\"",
-			( client->shinobi.gatesNext - level.time + 999 ) / 1000 ) );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"The gates open again in %i s\"",
+			( client->shinobi.gateNext - level.time + 999 ) / 1000 ) );
 		return;
 	}
-	client->shinobi.gatesEnd = level.time + SHINOBI_GATES_MS;
-	client->shinobi.gatesTiredEnd = client->shinobi.gatesEnd + SHINOBI_GATES_TIRED_MS;
-	client->shinobi.gatesNext = level.time + SHINOBI_GATES_COOLDOWN;
-	client->shinobi.gatesFx = level.time;
+	if ( gate > 0 && client->shinobi.gateDealt < SHINOBI_GATE_DAMAGE ) {
+		G_Sound( ent, CHAN_AUTO, shinobiMedia.sndFizzle );
+		trap->SendServerCommand( ent - g_entities, va( "cp \"%s: deal %i more damage\"", shinobiGateNames[gate + 1],
+			SHINOBI_GATE_DAMAGE - client->shinobi.gateDealt ) );
+		return;
+	}
+	client->shinobi.gate = gate + 1;
+	client->shinobi.gateDealt = 0;
+	client->shinobi.gateReadySaid = qfalse;
+	client->shinobi.gateFx = level.time;
+	client->shinobi.gateDrain = level.time + SHINOBI_GATE_DRAIN_MS;
+	shinobiTest.gatesOpened++;
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGates );
 	G_PlayEffectID( shinobiMedia.fxGates, ent->r.currentOrigin, up );
-	trap->SendServerCommand( ent - g_entities, "cp \"^2Inner Gates open!\"" );
+	switch ( client->shinobi.gate ) {
+	case 1: // the weights come off
+		Shinobi_DropWeights( ent );
+		break;
+	case 2: // a burst of yellow flame: the body mends
+		G_PlayEffectID( shinobiMedia.fxGateBurst, ent->r.currentOrigin, up );
+		ent->health += SHINOBI_GATE2_HEAL;
+		if ( ent->health > client->ps.stats[STAT_MAX_HEALTH] )
+			ent->health = client->ps.stats[STAT_MAX_HEALTH];
+		client->ps.stats[STAT_HEALTH] = ent->health;
+		break;
+	default:
+		G_PlayEffectID( shinobiMedia.fxGateBurst, ent->r.currentOrigin, up );
+		break;
+	}
+	{
+		static const char * const what[SHINOBI_GATE_MAX + 1] = { "", "the weights fall - speed, but it eats your health",
+			"+70 health, the drain stops", "a crimson body - Reverse Lotus is yours", "Shunshin costs no charge",
+			"+20% to every close-combat blow" };
+		trap->SendServerCommand( ent - g_entities, va( "cp \"^%c%s open!\n^7%s\"", client->shinobi.gate >= 5 ? '1' : client->shinobi.gate >= 4 ? '2' : '3',
+			shinobiGateNames[client->shinobi.gate], what[client->shinobi.gate] ) );
+	}
+}
+
+static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
+	gclient_t *client = ent->client;
+	vec3_t     up = { 0, 0, 1 };
+	int        bits = 0, frame = 0;
+
+	if ( !alive || perk != SP_GATES ) {
+		client->shinobi.gate = client->shinobi.gateDealt = 0;
+		if ( !alive )
+			client->shinobi.weightsOff = qfalse; // (the next life starts with the weights on)
+	}
+	client->ps.stats[STAT_SHINOBI] &= ~( SHINOBI_STAT_GATES | SHINOBI_STAT_TIRED );
+	if ( client->shinobi.gate > 0 ) {
+		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_GATES; // (Pmove: faster)
+		client->ps.powerups[PW_SPEED] = level.time + 100;      // (the cgame: Force Speed's after-images)
+		if ( client->shinobi.gate == 1 && client->shinobi.gateDrain <= level.time ) { // the first gate eats the body
+			client->shinobi.gateDrain = level.time + SHINOBI_GATE_DRAIN_MS;
+			if ( ent->health > SHINOBI_GATE_CLOSE_HP ) {
+				ent->health--;
+				client->ps.stats[STAT_HEALTH] = ent->health;
+			}
+			if ( ent->health <= SHINOBI_GATE_CLOSE_HP ) {
+				client->shinobi.gate = client->shinobi.gateDealt = 0;
+				client->shinobi.gateNext = level.time + SHINOBI_GATE_REOPEN_MS;
+				client->ps.stats[STAT_SHINOBI] &= ~SHINOBI_STAT_GATES;
+				client->ps.powerups[PW_SPEED] = 0;
+				trap->SendServerCommand( ent - g_entities, "cp \"^3The gates close - your body gives out\"" );
+			}
+		}
+		if ( client->shinobi.gate >= 2 && client->shinobi.gateFx <= level.time ) { // the glow: yellow, then green, then red
+			client->shinobi.gateFx = level.time + 250;
+			G_PlayEffectID( shinobiMedia.fxGateAura[client->shinobi.gate >= 5 ? 2 : client->shinobi.gate >= 4 ? 1 : 0],
+				ent->r.currentOrigin, up );
+		}
+		else if ( client->shinobi.gate == 1 && client->shinobi.gateFx <= level.time ) {
+			client->shinobi.gateFx = level.time + 400;
+			G_PlayEffectID( shinobiMedia.fxGates, ent->r.currentOrigin, up );
+		}
+		if ( client->shinobi.gate > 0 && client->shinobi.gate < SHINOBI_GATE_MAX ) {
+			const int prog = client->shinobi.gateDealt * 15 / SHINOBI_GATE_DAMAGE;
+			if ( client->shinobi.gateDealt >= SHINOBI_GATE_DAMAGE ) {
+				bits |= SHINOBI_BC_GATE_READY;
+				if ( !client->shinobi.gateReadySaid ) {
+					client->shinobi.gateReadySaid = qtrue;
+					G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGates );
+					trap->SendServerCommand( ent - g_entities, va( "cp \"^3%s ready - C to open it\"", shinobiGateNames[client->shinobi.gate + 1] ) );
+				}
+			}
+			bits |= ( prog > 15 ? 15 : prog ) << SHINOBI_BC_PROG_SHIFT;
+		}
+	}
+	bits |= ( client->shinobi.gate & 7 ) << SHINOBI_BC_GATE_SHIFT;
+	client->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( client->ps.stats[STAT_SHINOBI_BLADECOMBO]
+		& ~( ( 7 << SHINOBI_BC_GATE_SHIFT ) | SHINOBI_BC_GATE_READY | ( 15 << SHINOBI_BC_PROG_SHIFT ) ) ) | bits;
+	frame = client->shinobi.gate & SHINOBI_PFRAME_GATE_MASK;
+	if ( alive && perk == SP_GATES && !client->shinobi.weightsOff )
+		frame |= SHINOBI_PFRAME_WEIGHTS;
+	ent->s.frame = frame;
 }
 
 void Cmd_Perk_f( gentity_t *ent ) {
@@ -497,7 +679,6 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	const int  perk = client->pers.shinobiBuild.perk;
 	const qboolean alive = ent->health > 0 && client->sess.sessionTeam != TEAM_SPECTATOR;
-	vec3_t     up = { 0, 0, 1 };
 
 	Shinobi_CurseThink( ent );
 
@@ -532,23 +713,7 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 		client->ps.eFlags2 |= SHINOBI_EF2_BYAKUGAN;
 
 	// --- Inner Gates ---
-	if ( !alive || perk != SP_GATES )
-		client->shinobi.gatesEnd = client->shinobi.gatesTiredEnd = 0;
-	client->ps.stats[STAT_SHINOBI] &= ~( SHINOBI_STAT_GATES | SHINOBI_STAT_TIRED );
-	if ( client->shinobi.gatesEnd > level.time ) {
-		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_GATES;
-		if ( client->shinobi.gatesFx <= level.time ) {
-			client->shinobi.gatesFx = level.time + 250;
-			G_PlayEffectID( shinobiMedia.fxGates, ent->r.currentOrigin, up );
-		}
-	}
-	else if ( client->shinobi.gatesTiredEnd > level.time ) {
-		if ( client->shinobi.gatesTiredEnd - level.time > SHINOBI_GATES_TIRED_MS - 100 && client->shinobi.gatesFx < client->shinobi.gatesEnd + 250 ) {
-			client->shinobi.gatesFx = client->shinobi.gatesEnd + 250;
-			trap->SendServerCommand( ent - g_entities, "cp \"^3The Gates close - you are exhausted\"" );
-		}
-		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_TIRED;
-	}
+	Shinobi_GatesThink( ent, alive, perk );
 }
 
 /*
@@ -633,6 +798,8 @@ void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	}
 
 	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker ) {
+		if ( attacker->s.number < MAX_CLIENTS )
+			Shinobi_GateDamage( attacker, take ); // (the Inner Gates: the way to the next)
 		Shinobi_HitText( targ, STX_DAMAGE, take ); // the damage number over him
 		// the fight feeds chakra: to the one hitting, and a little to the one hit
 		Shinobi_GainChakra( attacker, take * ( ( ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )

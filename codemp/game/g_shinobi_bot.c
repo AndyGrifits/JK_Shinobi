@@ -52,11 +52,11 @@ static void Shinobi_BotRandomBuild( shinobiBuild_t *b ) {
 		pool[i] = pool[r];
 		pool[r] = t;
 	}
-	for ( i = 0; i < n && b->numJutsu < SHINOBI_BUILD_JUTSU; i++ )
-		b->jutsu[b->numJutsu++] = pool[i];
-	do { // the special first: it decides how many points are left
+	do { // the special first: it decides how many points (and techniques) are left
 		b->perk = Q_irand( SP_NONE, SP_COUNT - 1 );
 	} while ( !shinobiPerkReady[b->perk] );
+	for ( i = 0; i < n && b->numJutsu < Shinobi_JutsuCap( b ); i++ )
+		b->jutsu[b->numJutsu++] = pool[i];
 	for ( points = 0; points < Shinobi_StatBudget( b ); ) {
 		k = Q_irand( 0, SST_COUNT - 1 );
 		if ( b->stats[k] < Shinobi_StatCap( b, k ) ) {
@@ -236,7 +236,8 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 	case FP_LIGHTNING: list = botLightning; break;
 	case FP_DRAIN:     list = botDrain; break;
 	case FP_RAGE:
-		if ( client->pers.shinobiBuild.perk == SP_GATES && client->shinobi.gatesNext <= level.time ) {
+		if ( client->pers.shinobiBuild.perk == SP_GATES && client->shinobi.gate < SHINOBI_GATE_MAX
+			&& ( client->shinobi.gate ? client->shinobi.gateDealt >= SHINOBI_GATE_DAMAGE : client->shinobi.gateNext <= level.time ) ) {
 			Cmd_Perk_f( ent );
 			client->shinobi.botJutsuNext = level.time + 1000;
 			return qtrue;

@@ -73,6 +73,9 @@ typedef enum {
 	SJ_HEAL,      // healing: chakra into health
 	SJ_SHADOWTRAP,// shadow trap: shadows reach out from your marked kunai and hold whoever they catch
 	SJ_KAITEN,    // kaiten (held): spin inside a dome of chakra - nothing gets through, the close ones are thrown off
+	SJ_PALMS,     // eight trigrams sixty-four palms (held): a field grows round you; full, an air palm strikes all in it
+	SJ_LOTUS,     // reverse lotus: a blink in with a kick up; caught, he is carried up, spun and driven into the ground
+	SJ_ENTRY,     // dynamic entry: a flying kick, foot first, scattering whoever it hits
 	SJ_COUNT
 } shinobiJutsu_t;
 
@@ -84,19 +87,19 @@ typedef enum {
 // console command names (also the "+name"/"-name" hold commands on the client)
 static const char * const shinobiJutsuNames[SJ_COUNT] = {
 	"", "rasengan", "chidori", "katon", "doton", "kagebunshin", "shunshin", "kawarimi",
-	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen", "kagewana", "kaiten"
+	"suiton", "futon", "suiro", "wave", "windblade", "flame", "ash", "kagemane", "mizubunshin", "hiraishin", "raitrap", "kirigakure", "jishin", "kazekabe", "tenpo", "kazeyaiba", "raiyaiba", "moguragakure", "ganchu", "tsuchiyoroi", "tsuchibunshin", "raibunshin", "raido", "kagegakure", "senko", "shosen", "kagewana", "kaiten", "hakke", "urarenge", "dynamicentry"
 };
 
 // names shown in the HUD
 static const char * const shinobiJutsuTitles[SJ_COUNT] = {
 	"", "Rasengan", "Chidori", "Katon", "Doton", "Kage Bunshin", "Shunshin", "Kawarimi",
-	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap", "Kaiten"
+	"Water Bullets", "Storm Wind", "Water Prison", "Water Wave", "Wind Blade", "Fire Breath", "Ash Cloud", "Shadow Bind", "Water Clone", "Hiraishin", "Lightning Trap", "Hidden Mist", "Earthquake", "Wind Wall", "Sky Step", "Wind Edge", "Lightning Edge", "Burrow", "Rock Pillar", "Stone Skin", "Earth Clone", "Lightning Clone", "Lightning Dash", "Shadow Hide", "Flash", "Healing", "Shadow Trap", "Kaiten", "64 Palms", "Reverse Lotus", "Dynamic Entry"
 };
 
 // the jutsu the selection keys cycle through (Shunshin and Kawarimi have their own keys)
 static const int shinobiJutsuCycle[] = {
 	SJ_KATON, SJ_FLAME, SJ_ASH, SJ_SUITON, SJ_WAVE, SJ_SUIRO, SJ_WATERCLONE, SJ_MIST, SJ_FUTON, SJ_BLADE, SJ_WINDWALL, SJ_WINDEDGE, SJ_SKYSTEP, SJ_DOTON, SJ_QUAKE, SJ_PILLAR, SJ_BURROW, SJ_ARMOR, SJ_EARTHCLONE, SJ_CHIDORI, SJ_RAIEDGE, SJ_RAIDASH, SJ_RAICLONE,
-	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_SHADOWTRAP, SJ_HIRAISHIN, SJ_SHADOWHIDE, SJ_FLASH, SJ_HEAL, SJ_KAITEN
+	SJ_RAITRAP, SJ_RASENGAN, SJ_BUNSHIN, SJ_SHADOW, SJ_SHADOWTRAP, SJ_HIRAISHIN, SJ_SHADOWHIDE, SJ_FLASH, SJ_HEAL, SJ_KAITEN, SJ_PALMS, SJ_LOTUS, SJ_ENTRY
 };
 #define SHINOBI_CYCLE_COUNT ( (int)( sizeof( shinobiJutsuCycle ) / sizeof( shinobiJutsuCycle[0] ) ) )
 
@@ -138,15 +141,19 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 	{  5,  5,  5 }, // Healing (to start; then held, chakra into health one for one)
 	{ 20, 20, 20 }, // Shadow Trap (to start; then each caught enemy drains it)
 	{ 10, 10, 10 }, // Kaiten (to start; then it burns chakra fast while held)
+	{ 10, 10, 10 }, // 64 Palms (to start; the field burns chakra while it grows)
+	{ 35, 35, 35 }, // Reverse Lotus
+	{ 20, 20, 20 }, // Dynamic Entry
 };
 
 // jutsu that cast on key press, without charging
 #define SHINOBI_JUTSU_INSTANT(j)   ( (j) == SJ_KAWARIMI || (j) == SJ_WATERCLONE || (j) == SJ_HIRAISHIN || (j) == SJ_RAITRAP || (j) == SJ_SHADOWTRAP \
-	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE || (j) == SJ_ARMOR || (j) == SJ_EARTHCLONE || (j) == SJ_RAICLONE || (j) == SJ_FLASH )
+	|| (j) == SJ_WINDEDGE || (j) == SJ_RAIEDGE || (j) == SJ_ARMOR || (j) == SJ_EARTHCLONE || (j) == SJ_RAICLONE || (j) == SJ_FLASH \
+	|| (j) == SJ_LOTUS || (j) == SJ_ENTRY )
 // passive techniques: in the build, never cast (skipped by the selection keys)
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
-#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL || (j) == SJ_KAITEN )
+#define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL || (j) == SJ_KAITEN || (j) == SJ_PALMS )
 // the lowest level a jutsu can be cast at (the great fireball needs a long charge)
 #define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
 
@@ -954,6 +961,51 @@ static const char * const shinobiHitTextNames[STX_COUNT] = {
 };
 #define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
 #define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
+/*
+64 Palms (Yin / Yang, held): rooted, a field grows round you from nothing to
+SHINOBI_PALMS_RADIUS over SHINOBI_PALMS_GROW_MS, burning chakra; the moment it is
+full an air palm strikes everyone in it (a clear line from you), however far in it
+they stand - then it is over. Let go before: nothing (the chakra is gone).
+*/
+#define SHINOBI_PALMS_RADIUS       260
+#define SHINOBI_PALMS_GROW_MS      2000
+#define SHINOBI_PALMS_DRAIN_MS     67    // 1 chakra this often (15 a second)
+#define SHINOBI_PALMS_DAMAGE       30
+#define SHINOBI_PALMS_PUSH         460
+#define SHINOBI_PALMS_UP           160
+#define SHINOBI_ENT_PALMS          240   // the field; s.time = start, s.time2 = full, s.angles2[0] = radius; s.frame = 1: struck
+/*
+Reverse Lotus (Yin / Yang; later from the third Inner Gate): a blink of
+SHINOBI_LOTUS_BLINK ahead with a kick up. Someone within SHINOBI_LOTUS_REACH in
+front, not guarding it: both go up SHINOBI_LOTUS_HEIGHT (smoke), hang spinning head
+down for SHINOBI_LOTUS_HANG_MS, then come down hard; where he lands: the damage,
+knocked down, a crater of dust.
+*/
+#define SHINOBI_LOTUS_BLINK        130
+#define SHINOBI_LOTUS_REACH        80
+#define SHINOBI_LOTUS_HEIGHT       220
+#define SHINOBI_LOTUS_HANG_MS      650
+#define SHINOBI_LOTUS_FALL         1300  // down this fast
+#define SHINOBI_LOTUS_DAMAGE       55
+#define SHINOBI_LOTUS_MAX_MS       2600  // the whole thing at most
+/*
+Dynamic Entry (Yin / Yang): a flying kick along the look (Pmove drives it:
+STAT_SHINOBI_BLADECOMBO's SHINOBI_BC_ENTRY bit), SHINOBI_ENTRY_SPEED for
+SHINOBI_ENTRY_MS; everyone it meets is hurt, thrown along and knocked down (each once).
+*/
+#define SHINOBI_ENTRY_SPEED        950
+#define SHINOBI_ENTRY_LIFT         170
+#define SHINOBI_ENTRY_MS           480
+#define SHINOBI_ENTRY_DAMAGE       25
+#define SHINOBI_ENTRY_PUSH         520
+#define SHINOBI_ENTRY_RADIUS       44
+// STAT_SHINOBI_BLADECOMBO's upper bits (the blade combo is bits 0-5)
+#define SHINOBI_BC_GATE_SHIFT      6     // bits 6-8: the Inner Gate open (0-5)
+#define SHINOBI_BC_GATE_READY      ( 1 << 9 )  // the next gate is ready (C opens it)
+#define SHINOBI_BC_PROG_SHIFT      10    // bits 10-13: the way to the next gate (0-15)
+#define SHINOBI_BC_ENTRY           ( 1 << 14 ) // Dynamic Entry: flying
+#define SHINOBI_BC_LOW             63    // (the blade combo's own bits)
+#define SHINOBI_GATE_OF(ps)        ( ( (ps)->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_GATE_SHIFT ) & 7 )
 #define SHINOBI_STAT2_KAITEN       32768 // winding up / spinning a Kaiten: rooted, no attacks, no jumps
 #define SHINOBI_STAT2_KAWA_SHIFT   9     // bits 9-10: Kawarimi charges ready (0-3)
 #define SHINOBI_STAT2_SHUN_SHIFT   11    // bits 11-12: Shunshin charges ready (0-3)
@@ -1096,13 +1148,36 @@ Perks (perk command, key C):
 #define SHINOBI_SHARINGAN_HIDDEN_RANGE 1500
 #define SHINOBI_BYAKUGAN_RANGE         1400
 #define SHINOBI_PERK_INFO_MS           200     // sinfo updates to the eye user
-#define SHINOBI_GATES_MS               10000
-#define SHINOBI_GATES_TIRED_MS         15000
-#define SHINOBI_GATES_COOLDOWN         60000
+/*
+Inner Gates (the special, C): weights on the legs until the first gate.
+  1 - the weights drop (two small quakes where they land), you run fast (Force
+      Speed's look) - and it eats your health; down to SHINOBI_GATE_CLOSE_HP the
+      gates close (open again after SHINOBI_GATE_REOPEN_MS)
+  each next gate needs SHINOBI_GATE_DAMAGE of damage dealt since the last one;
+  then "Gate N ready": C opens it
+  2 - a burst of yellow flame: +SHINOBI_GATE2_HEAL health, the drain stops; the yellow glow stays
+  3 - a crimson body; Reverse Lotus is yours to cast
+  4 - the glow turns dark green; Shunshin costs no charge
+  5 - the glow turns red; +20% to every close-combat blow. The last.
+Open until death (or closed at gate 1 by the drain).
+*/
 #define SHINOBI_GATES_SPEED            1.35f
-#define SHINOBI_GATES_TIRED_SPEED      0.75f
-#define SHINOBI_GATES_TAIJUTSU         1.5f
-#define SHINOBI_GATES_TIRED_TAIJUTSU   0.7f
+#define SHINOBI_GATE_MAX               5
+#define SHINOBI_GATE_DAMAGE            70
+#define SHINOBI_GATE_DRAIN_MS          400   // gate 1: 1 health this often
+#define SHINOBI_GATE_CLOSE_HP          10
+#define SHINOBI_GATE_REOPEN_MS         10000
+#define SHINOBI_GATE2_HEAL             70
+#define SHINOBI_GATE5_TAIJUTSU         1.2f
+#define SHINOBI_GATE_WEIGHT_DAMAGE     12    // the weights' quakes (each)
+#define SHINOBI_GATE_WEIGHT_RADIUS     90
+#define SHINOBI_GATE_JUTSU             1     // the Gates leave room for one technique
+// a player's s.frame (unused by the base game for players): the gate open, the weights still on
+#define SHINOBI_PFRAME_GATE_MASK       7
+#define SHINOBI_PFRAME_WEIGHTS         8
+static const char * const shinobiGateNames[SHINOBI_GATE_MAX + 1] = {
+	"", "Gate of Opening", "Gate of Healing", "Gate of Life", "Gate of Pain", "Gate of Limit"
+};
 
 // "sinfo" entry flags
 #define SHINOBI_SEEN_HEALTH   1
@@ -1261,6 +1336,9 @@ static const int shinobiJutsuSchool[SJ_COUNT] = {
 	SS_YINYANG, // Healing
 	SS_YINYANG, // Shadow Trap
 	SS_YINYANG, // Kaiten
+	SS_YINYANG, // 64 Palms
+	SS_YINYANG, // Reverse Lotus (for now: later only from the third Inner Gate)
+	SS_YINYANG, // Dynamic Entry
 };
 
 // the fixed stock force levels of every player (after "rank-side-"): heal lev
@@ -1314,7 +1392,7 @@ static const char * const shinobiPerkInfo[SP_COUNT] = {
 	"costs 4 stat points. Awakens at 0 chakra and won't sleep until your health is down to 10: chakra returns 5x faster (2x from fighting), your mind clouds; C: on/off",
 	"costs 4 stat points. C: toggle (3 chakra/s, no regen): see health, Kawarimi-hidden enemies and the jutsu being charged; red eyes",
 	"costs 5 stat points. C: toggle (8 chakra/s, no regen): see chakra and everyone nearby through walls and mist, clones look hollow; Gentle Fist: your fists burn chakra and guards; loud",
-	"costs 3 stat points. C: 10 s faster and +50% taijutsu, then 15 s exhausted (slow, no chakra regen); once a minute",
+	"costs 5 stat points and leaves room for only one technique. Weights on your legs; C opens the gates one by one - 1: the weights drop, you run fast but it eats your health; deal damage to ready the next: 2 heals 70 and stops the drain, 3 a crimson body and Reverse Lotus, 4 Shunshin without charges, 5 +20% close-combat damage",
 	"costs 4 stat points. C: toggle (6 chakra/s, no regen): no health, rims or aim - you read the jutsu being charged, and the last jutsu you see cast goes into an extra slot of your list (Lv2 at most, 25% dearer) until you copy another or die; close the eye to keep it. Yin / Yang can't be copied"
 };
 // one line per jutsu for the build screen
@@ -1354,13 +1432,16 @@ static const char * const shinobiJutsuInfo[SJ_COUNT] = {
 	"a burst of light: whoever looks at you is blinded; flushes out the hidden around you",
 	"hold F: chakra turns into health, one for one (20 a second); you walk slowly",
 	"shadows reach out from your two newest marked kunai (Shift+Z) to the nearest enemy and hold him in place (up to 15 s, drains chakra); any hit frees him",
-	"hold F: half a second to wind up, then you spin inside a dome of chakra (30 chakra a second): blades, fists and jutsu don't get through, missiles glance off, whoever is close is thrown away and knocked down; rooted, no attacks"
+	"hold F: half a second to wind up, then you spin inside a dome of chakra (30 chakra a second): blades, fists and jutsu don't get through, missiles glance off, whoever is close is thrown away and knocked down; rooted, no attacks",
+	"hold F: rooted, a glowing field grows round you (radius 260 in 2 s, 15 chakra a second); full, a palm of compressed air strikes everyone in it - wherever they stand in it - and throws them out; let go early and it's lost",
+	"blink a few metres in with a kick up: caught (not guarding), he is carried high up with you, spun head down and driven into the ground - big damage, knocked down",
+	"a flying kick, foot first, fast and far: whoever it hits is hurt and scattered, knocked down"
 };
 
 static const qboolean shinobiPerkReady[SP_COUNT] = { qtrue, qtrue, qtrue, qtrue, qtrue, qtrue };
 // a gift is paid for with training: stat points the special takes from the 10
 //                                           none  curse  sharingan  byakugan  gates  copyeye
-static const int shinobiPerkCost[SP_COUNT] = { 0,    4,     4,         5,        3,     4 };
+static const int shinobiPerkCost[SP_COUNT] = { 0,    4,     4,         5,        5,     4 };
 
 /*
 Copy Sharingan: a jutsu cast by someone else within SHINOBI_COPY_RANGE, in front of the
@@ -1401,6 +1482,10 @@ qboolean Shinobi_BuildHas( const shinobiBuild_t *b, int jutsu );
 int      Shinobi_BuildSchools( const shinobiBuild_t *b, int *schools ); // distinct schools used
 int      Shinobi_BuildPoints( const shinobiBuild_t *b );
 
+// techniques this build may take (the Inner Gates leave room for only one)
+static QINLINE int Shinobi_JutsuCap( const shinobiBuild_t *b ) {
+	return b->perk == SP_GATES ? SHINOBI_GATE_JUTSU : SHINOBI_BUILD_JUTSU;
+}
 // stat points this build may spend (10 minus its special's price)
 static QINLINE int Shinobi_StatBudget( const shinobiBuild_t *b ) {
 	const int perk = ( b->perk > SP_NONE && b->perk < SP_COUNT ) ? b->perk : SP_NONE;
