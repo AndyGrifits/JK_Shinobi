@@ -324,7 +324,12 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_CacheMapname( &mapname );
 	trap->Cvar_Register( &ckSum, "sv_mapChecksum", "", CVAR_ROM );
 
-	navCalculatePaths	= ( trap->Nav_Load( mapname.string, ckSum.integer ) == qfalse );
+	// JK_Shinobi: a maze map is assembled differently every load, so its nav graph is always rebuilt (loading a
+	// file that does not exist frees the previous map's graph)
+	if ( Shinobi_MazeMapName( mapname.string ) )
+		navCalculatePaths = ( trap->Nav_Load( "shinobi_maze_nonav", 0 ) == qfalse );
+	else
+		navCalculatePaths	= ( trap->Nav_Load( mapname.string, ckSum.integer ) == qfalse );
 
 	// parse the key/value pairs and spawn gentities
 	G_SpawnEntitiesFromString(qfalse);
@@ -2886,11 +2891,12 @@ void NAV_CheckCalcPaths( void )
 		}
 		else
 #endif
-		if ( trap->Nav_Save( mapname.string, ckSum.integer ) == qfalse )
+		if ( !Shinobi_MazeActive() && trap->Nav_Save( mapname.string, ckSum.integer ) == qfalse ) // JK_Shinobi: no .nav for a maze
 		{
 			Com_Printf("Unable to save navigations data for map \"%s\" (checksum:%d)\n", mapname.string, ckSum.integer );
 		}
 		navCalcPathTime = 0;
+		Shinobi_MazeNavReady(); // JK_Shinobi: the maze director spawns its NPCs once the paths exist
 	}
 }
 
@@ -3446,6 +3452,7 @@ void G_RunFrame( int levelTime ) {
 #endif
 
 	Shinobi_RunFrame(); // JK_Shinobi: shadow clone supervision
+	Shinobi_MazeFrame(); // JK_Shinobi: maze NPC director / AI
 
 	g_LastFrameTime = level.time;
 }

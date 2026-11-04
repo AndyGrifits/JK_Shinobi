@@ -40,3 +40,85 @@ shinobi_clone
 	dismemberProbWaist	0
 	dismemberProbLegs	0
 }
+
+// Sound ninja (Oto) of the procedural Orochimaru maze (codemp/game/g_shinobi_maze.c spawns them into the
+// layout's NPC slots and drives patrol / guard / ambush, spotting and alerts on top of the stock reborn AI).
+oto_ninja
+{
+	playerModel	reborn
+	customSkin	default
+	weapon		WP_SABER
+	saber		Kyle
+	saberColor	purple
+	saberStyle	1
+	class		CLASS_REBORN
+	rank		crewman
+	playerTeam	NPCTEAM_ENEMY
+	enemyTeam	NPCTEAM_PLAYER
+	health		80
+	reactions	3
+	aim			3
+	move		4
+	aggression	3
+	evasion		2
+	intelligence	3
+	hfov		140
+	vfov		100
+	visrange	1400
+	earshot		700
+	vigilance	0.6
+	walkSpeed	60
+	runSpeed	220
+	yawSpeed	110
+	FP_LEVITATION	2
+	FP_SABER_OFFENSE	1
+	FP_SABER_DEFENSE	1
+	forcePowerMax	100
+	dismemberProbHead	0
+	dismemberProbArms	0
+	dismemberProbHands	0
+	dismemberProbWaist	0
+	dismemberProbLegs	0
+}
+
+// the chamber's keeper (boss slot)
+oto_jonin
+{
+	playerModel	reborn
+	customSkin	default
+	scale		115
+	weapon		WP_SABER
+	saber		Kyle
+	saberColor	red
+	saberStyle	2
+	class		CLASS_REBORN
+	rank		lt
+	playerTeam	NPCTEAM_ENEMY
+	enemyTeam	NPCTEAM_PLAYER
+	health		300
+	reactions	5
+	aim			5
+	move		5
+	aggression	5
+	evasion		4
+	intelligence	5
+	hfov		160
+	vfov		120
+	visrange	1600
+	earshot		1000
+	vigilance	0.9
+	walkSpeed	60
+	runSpeed	240
+	yawSpeed	150
+	FP_LEVITATION	3
+	FP_SPEED	1
+	FP_PUSH		1
+	FP_SABER_OFFENSE	2
+	FP_SABER_DEFENSE	2
+	forcePowerMax	100
+	dismemberProbHead	0
+	dismemberProbArms	0
+	dismemberProbHands	0
+	dismemberProbWaist	0
+	dismemberProbLegs	0
+}

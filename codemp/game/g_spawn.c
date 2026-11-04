@@ -1626,6 +1626,7 @@ void G_SpawnEntitiesFromString( qboolean inSubBSP ) {
 
 	if (!inSubBSP)
 	{
+		Shinobi_MazeSpawn(); // JK_Shinobi: a maze map assembles its blocks, waypoints, spawns and items here
 		level.spawning = qfalse;			// any future calls to G_Spawn*() will be errors
 	}
 
