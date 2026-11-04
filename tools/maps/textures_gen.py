@@ -44,7 +44,9 @@ def col(*c):
 
 def make(kind, path, n=None):
     rng = np.random.default_rng({"concrete": 11, "rock": 23, "bark": 37, "wood": 41, "adobe": 53, "sandrock": 59,
-                                 "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83}[kind])
+                                 "dark": 61, "crate": 67, "pooltile": 71, "water": 73, "dust": 79, "paper": 83,
+                                 "grass": 89, "dirt": 97, "mud": 101, "stone": 103, "redwood": 107, "cloth": 109, "tatami": 113,
+                                 "roof": 127, "plaster": 131, "noren": 137}[kind])
     alpha = None
     if kind == "concrete":
         n = n or 1024
@@ -144,6 +146,64 @@ def make(kind, path, n=None):
         prof = np.clip(1 - v, 0, 1) ** 1.1
         alpha = np.clip(prof * (0.45 + 0.9 * streak), 0, 1) * 245
         img = col(214, 178, 128) + (streak - 0.5)[..., None] * col(40, 34, 26)
+    elif kind == "grass":                                             # anime lawn: soft painted greens
+        n = n or 512
+        big = fbm(n, 3, rng, 4); mid = fbm(n, 10, rng, 3); fine = fbm(n, 64, rng, 2)
+        img = col(108, 160, 66) + (big - 0.5)[..., None] * col(40, 46, 22) + (mid - 0.5)[..., None] * col(22, 26, 12)
+        img += (fine - 0.5)[..., None] * col(26, 30, 14)
+        img = np.round(img / 6) * 6
+        img += ((fbm(n, 90, rng, 2) > 0.7) * 14)[..., None] * col(1, 1, 0.4)          # light blades
+    elif kind == "dirt":                                              # packed sandy path
+        n = n or 512
+        big = fbm(n, 3, rng, 4); mid = fbm(n, 12, rng, 3)
+        img = col(196, 164, 112) + (big - 0.5)[..., None] * col(36, 30, 22) + (mid - 0.5)[..., None] * col(20, 16, 12)
+        img += (fbm(n, 80, rng, 2) - 0.5)[..., None] * 18
+        img -= ((fbm(n, 30, rng, 2) > 0.72) * 22)[..., None] * col(1, 0.9, 0.8)       # pebbles / shade
+        img = np.round(img / 5) * 5
+    elif kind == "mud":                                               # canal bed under the water
+        n = n or 256
+        img = col(78, 84, 66) + (fbm(n, 4, rng, 4) - 0.5)[..., None] * col(30, 30, 24) + (fbm(n, 40, rng, 2) - 0.5)[..., None] * 14
+    elif kind == "stone":                                             # cut stone blocks (canal walls, paving)
+        n = n or 512
+        x = np.linspace(0, 1, n, endpoint=False)
+        row = np.floor(x * 4); off = (row % 2) * 0.5
+        u = (x[None, :] * 3 + off[:, None]) % 1; v = (x * 4) % 1
+        joint = (np.abs(u - 0.5) > 0.47) | (np.abs(v - 0.5) > 0.45)[:, None]
+        tint = (np.sin(np.floor(x[None, :] * 3 + off[:, None]) * 12.9 + row[:, None] * 7.7) * 0.5 + 0.5)
+        img = col(176, 172, 160) + (tint - 0.5)[..., None] * 26 + (fbm(n, 8, rng, 3) - 0.5)[..., None] * col(26, 26, 24)
+        img += (fbm(n, 60, rng, 2) - 0.5)[..., None] * 14
+        img = np.where(joint[..., None], img * 0.62, img)
+    elif kind == "redwood":                                           # lacquered red timber (bridge, torii)
+        n = n or 256
+        grain = np.sin((fbm(n, 4, rng, 3, aspect=(1, 6)) * 20 + np.linspace(0, 24 * np.pi, n)[None, :]))
+        img = col(176, 46, 34) + grain[..., None] * col(12, 4, 3) + (fbm(n, 6, rng, 3) - 0.5)[..., None] * col(30, 10, 8)
+    elif kind == "cloth":                                             # striped awning cloth
+        n = n or 256
+        x = np.linspace(0, 1, n, endpoint=False)
+        stripe = ((x * 6) % 1 < 0.5)[None, :]
+        img = np.where(stripe[..., None], col(196, 52, 44), col(236, 226, 206)) + (fbm(n, 6, rng, 3) - 0.5)[..., None] * 18
+        img = np.broadcast_to(img, (n, n, 3)).copy()
+    elif kind == "tatami":                                            # straw mats with dark borders
+        n = n or 256
+        x = np.linspace(0, 1, n, endpoint=False)
+        weave = np.sin(x * n * np.pi / 2)[None, :] * 0.5 + 0.5
+        img = col(190, 180, 120) + (weave * 14)[..., None] + (fbm(n, 6, rng, 3) - 0.5)[..., None] * col(20, 18, 10)
+        border = ((x < 0.05) | (x > 0.95))
+        img = np.where((border[:, None] | np.zeros((1, n), bool))[..., None], col(52, 60, 44), img)
+    elif kind == "roof":                                              # dark blue-grey kawara tiles (rows along u)
+        n = n or 256
+        x = np.linspace(0, 1, n, endpoint=False)
+        ridge = np.abs(((x * 8) % 1) - 0.5)[None, :] * 2                 # rounded tile columns
+        rows = ((x * 6) % 1)[:, None]
+        img = col(70, 82, 100) + (ridge * 26)[..., None] - (rows * 22)[..., None] + (fbm(n, 8, rng, 3) - 0.5)[..., None] * 14
+    elif kind == "plaster":                                           # white plaster wall, faint wear
+        n = n or 256
+        img = col(232, 226, 210) + (fbm(n, 3, rng, 4) - 0.5)[..., None] * col(20, 20, 18) + (fbm(n, 40, rng, 2) - 0.5)[..., None] * 8
+    elif kind == "noren":                                             # indigo shop curtain
+        n = n or 128
+        img = col(40, 52, 110) + (fbm(n, 4, rng, 3) - 0.5)[..., None] * 18
+        x = np.linspace(0, 1, n, endpoint=False)
+        img = np.where((np.abs(((x * 3) % 1) - 0.5) > 0.48)[None, :, None], col(20, 26, 60), img)     # slits
     else:
         raise SystemExit(f"unknown kind {kind}")
     im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))

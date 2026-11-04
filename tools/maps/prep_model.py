@@ -79,6 +79,10 @@ if mdl.get("shader_names") == "basename":   # e.g. SM_DaoJu_Tex_01_b.png -> sm_d
     import re
     shader_for_tex = {t: f"textures/{shader_dir}/" + re.sub(r"[^a-z0-9]+", "_", os.path.splitext(t)[0].lower()).strip("_")
                       for t in tex_names}
+    for k_, v_ in list(shader_for_tex.items()):          # "shader_rename": {basename: short}
+        b_ = os.path.basename(v_)
+        if b_ in mdl.get("shader_rename", {}):
+            shader_for_tex[k_] = f"textures/{shader_dir}/" + mdl["shader_rename"][b_]
 else:                                       # digits: ntxr0201.png -> t201
     shader_for_tex = {t: f"textures/{shader_dir}/t{int(''.join(c for c in t if c.isdigit())):02d}" for t in tex_names}
 merged = {}
@@ -90,6 +94,82 @@ for o in meshes:
         t = tex_of(slot.material) if slot.material else None
         if t:
             slot.material = merged[t]
+
+tex_path_of = {sh: os.path.join(texdir, t) for t, sh in shader_for_tex.items()}
+def _slot(o, full):
+    """material slot index of shader `full` on object o (added if missing)"""
+    for i_, sl in enumerate(o.material_slots):
+        if sl.material and sl.material.name == full:
+            return i_
+    m_ = bpy.data.materials.get(full) or bpy.data.materials.new(full)
+    o.data.materials.append(m_)
+    return len(o.material_slots) - 1
+
+# atlas faces that sample cut-out texels (foliage cards) -> their own alpha-tested shader, so the rest of
+# the atlas stays an opaque JPG (map.json "model": {"uv_alpha_split": [{"shader": s, "alpha_shader": a}]})
+for us in mdl.get("uv_alpha_split", []):
+    import bmesh, numpy as np
+    full = f"textures/{shader_dir}/{us['shader']}"
+    A = np.asarray(Image.open(tex_path_of[full]).convert("RGBA"))[..., 3]; Hh, Ww = A.shape
+    moved = 0
+    for o in meshes:
+        if not any(sl.material and sl.material.name == full for sl in o.material_slots): continue
+        si = _slot(o, full); ai = _slot(o, f"textures/{shader_dir}/{us['alpha_shader']}")
+        bm = bmesh.new(); bm.from_mesh(o.data); uvl = bm.loops.layers.uv.active
+        for f in bm.faces:
+            if f.material_index != si: continue
+            uvs = [l[uvl].uv.copy() for l in f.loops]; c = sum(uvs, mathutils.Vector((0, 0))) / len(uvs)
+            smp = [c] + [c * 0.35 + u * 0.65 for u in uvs]
+            a = min(A[min(Hh - 1, int((1 - (q.y % 1.0)) * Hh)), min(Ww - 1, int((q.x % 1.0) * Ww))] for q in smp)
+            if a < 128:
+                f.material_index = ai; moved += 1
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+    print(f"UV_ALPHA {moved} faces -> {us['alpha_shader']}")
+
+# terrain textured with a blurry overview image (map.json "model": {"uv_terrain": [{"shader": s, "uv_box":
+# [u0, v0, u1, v1], "region": [x0, y0, x1, y1], "step": u, "classes": {short: [r, g, b]}, "tile": {short: u}}]}):
+# faces whose UVs lie in uv_box are sliced into a step grid inside region, each piece gets the class whose
+# colour is nearest to the overview texel under it, and world-planar UVs for that class's tiled texture
+for ut in mdl.get("uv_terrain", []):
+    import bmesh, numpy as np
+    full = f"textures/{shader_dir}/{ut['shader']}"
+    IMG = np.asarray(Image.open(tex_path_of[full]).convert("RGB")).astype(float); Hh, Ww = IMG.shape[:2]
+    u0, v0, u1, v1 = ut["uv_box"]; R = ut["region"]; step = ut.get("step", 128)
+    names_ = list(ut["classes"]); ref = []; ref_cls = []     # a class may list several reference colours
+    for k_, n_ in enumerate(names_):
+        cl = ut["classes"][n_]; cl = cl if isinstance(cl[0], list) else [cl]
+        ref += cl; ref_cls += [k_] * len(cl)
+    cols = np.array(ref, float)
+    for o in meshes:
+        if not any(sl.material and sl.material.name == full for sl in o.material_slots): continue
+        si = _slot(o, full); ci = [_slot(o, f"textures/{shader_dir}/{n_}") for n_ in names_]
+        bm = bmesh.new(); bm.from_mesh(o.data); uvl = bm.loops.layers.uv.active
+        def terr():
+            out_ = []
+            for f in bm.faces:
+                if f.material_index != si: continue
+                xs_ = [v.co.x for v in f.verts]; ys_ = [v.co.y for v in f.verts]
+                if max(xs_) < R[0] or min(xs_) > R[2] or max(ys_) < R[1] or min(ys_) > R[3]: continue
+                c = sum((l[uvl].uv for l in f.loops), mathutils.Vector((0, 0))) / len(f.loops)
+                if u0 <= c.x <= u1 and v0 <= c.y <= v1:
+                    out_.append(f)
+            return out_
+        for axis in (0, 1):
+            for k_ in range(int((R[2 + axis] - R[axis]) / step) + 1):
+                cc = R[axis] + k_ * step; fs = terr()
+                geom = fs + list({e for f in fs for e in f.edges}) + list({v for f in fs for v in f.verts})
+                bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(cc, 0, 0) if axis == 0 else (0, cc, 0),
+                                       plane_no=(1, 0, 0) if axis == 0 else (0, 1, 0))
+        fs = terr(); cnt = [0] * len(names_)
+        for f in fs:
+            c = sum((l[uvl].uv for l in f.loops), mathutils.Vector((0, 0))) / len(f.loops)
+            px = IMG[min(Hh - 1, int((1 - c.y % 1.0) * Hh)), min(Ww - 1, int((c.x % 1.0) * Ww))]
+            k_ = ref_cls[int(np.argmin(((cols - px) ** 2).sum(1)))]; cnt[k_] += 1
+            f.material_index = ci[k_]; tl = ut.get("tile", {}).get(names_[k_], 256)
+            for l in f.loops:
+                l[uvl].uv = (l.vert.co.x / tl, l.vert.co.y / tl)
+        bm.to_mesh(o.data); bm.free(); o.data.update()
+        print(f"UV_TERRAIN {len(fs)} pieces: " + ", ".join(f"{n_} {c_}" for n_, c_ in zip(names_, cnt)))
 
 # props that keep their own size when the hall is scaled (map.json "rescale"):
 # scale the objects of those shaders by "factor" about an anchor on their joint bbox
@@ -251,6 +331,24 @@ obj.name = cfg["name"]
 mod = obj.modifiers.new("tri", 'TRIANGULATE')
 bpy.ops.object.modifier_apply(modifier=mod.name)
 
+# everything outside the play area is backdrop (map.json "far": {"superellipse": [cx, cy, a, b, n], "margin": u,
+# "exclude": [shaders]}): its faces move to "<shader>_far" (no collision, vertex lit: gen_map)
+if cfg.get("far"):
+    fc = cfg["far"]; cx_, cy_, A_, B_, N_ = fc["superellipse"]; mg = fc.get("margin", 0)
+    excl = {f"textures/{shader_dir}/{x}" for x in fc.get("exclude", [])}
+    me = obj.data; names_ = [sl.material.name for sl in obj.material_slots]; far_idx = {}; n_far = 0
+    for poly in me.polygons:
+        nm = names_[poly.material_index]
+        if nm in excl or nm.endswith("_far"): continue
+        c = poly.center
+        if abs((c.x - cx_) / (A_ + mg)) ** N_ + abs((c.y - cy_) / (B_ + mg)) ** N_ > 1:
+            if nm not in far_idx:
+                m_ = bpy.data.materials.get(nm + "_far") or bpy.data.materials.new(nm + "_far")
+                me.materials.append(m_); far_idx[nm] = len(me.materials) - 1
+            poly.material_index = far_idx[nm]; n_far += 1
+    me.update()
+    print(f"FAR {n_far} faces -> backdrop shaders {sorted(os.path.basename(k) + '_far' for k in far_idx)}")
+
 # small / thin loose parts of a shader (lamps, wires, signs, barrels on a building atlas) go to a copy of
 # the shader "<name>_d" that has no collision: map.json "model": {"split_details": {"shaders": [...],
 # "max_dim": u, "thin": u, "ribbon": u}} - a part is detail if its largest size < max_dim, or if it is
@@ -346,10 +444,30 @@ for t, sh in shader_for_tex.items():
     short = os.path.basename(sh)
     sources[sh] = (textures_gen.make(override[short], os.path.join(gen_dir, short + ".jpg")), f"gen:{override[short]}") \
         if short in override else (os.path.join(texdir, t), t)
-for sl in obj.material_slots:               # "<shader>_d" detail copies use their parent's texture
+def _parent(n):                              # "<shader>_d", "<shader>_far", "<shader>_d_far" -> "<shader>"
+    for suf in ("_far", "_d"):
+        if n.endswith(suf): n = n[:-len(suf)]
+    return n
+for short, kind in cfg.get("gen_textures", {}).items():     # generated textures for model shaders (terrain)
+    ext = ".png" if kind in textures_gen.ALPHA else ".jpg"
+    sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ext)), f"gen:{kind}")
+for short, spec in cfg.get("import_textures", {}).items():  # other images: {"path": p, "crop": [x0, y0, x1, y1]}
+    spec = {"path": spec} if isinstance(spec, str) else spec
+    im_ = Image.open(spec["path"])
+    if "crop" in spec:
+        im_ = im_.crop(tuple(spec["crop"]))
+    if "resize" in spec:
+        im_ = im_.resize(tuple(spec["resize"]), Image.LANCZOS)
+    p_ = os.path.join(gen_dir, short + ".png"); im_.save(p_)
+    sources[f"textures/{shader_dir}/{short}"] = (p_, spec["path"])
+for short, parent in cfg.get("texture_copy", {}).items():   # (also done below: before the suffix copies here)
+    full = f"textures/{shader_dir}/{short}"; pf = f"textures/{shader_dir}/{parent}"
+    if pf in sources:
+        sources[full] = sources[pf]
+for sl in obj.material_slots:               # detail / backdrop copies use their parent's texture
     n = sl.material.name
-    if n.endswith("_d") and n[:-2] in sources:
-        sources[n] = sources[n[:-2]]
+    if n != _parent(n) and _parent(n) in sources:
+        sources[n] = sources[_parent(n)]
 for short, kind in gen_tex.items():
     ext = ".png" if kind in textures_gen.ALPHA else ".jpg"     # dust etc. keep their alpha -> TGA
     sources[f"textures/{shader_dir}/{short}"] = (textures_gen.make(kind, os.path.join(gen_dir, short + ext)), f"gen:{kind}")
@@ -359,6 +477,9 @@ for short, parent in cfg.get("texture_copy", {}).items():   # a generated shader
         sources[full] = sources[pf]
 recolor = cfg.get("texture_recolor", {})                  # short -> [[dark rgb], [light rgb]] (keeps alpha)
 for sh, (src, t) in sources.items():
+    pfull = f"textures/{shader_dir}/{_parent(os.path.basename(sh))}"
+    if pfull != sh and pfull in info:                     # detail / backdrop copies share the parent's file
+        info[sh] = dict(info[pfull], tris=tri_count.get(sh, 0)); continue
     im = Image.open(src)
     if os.path.basename(sh) in recolor:
         import numpy as np
@@ -370,6 +491,11 @@ for sh, (src, t) in sources.items():
         im = Image.fromarray(np.concatenate([rgb, a_[..., 3:]], 2).clip(0, 255).astype(np.uint8), "RGBA")
     alpha = im.mode in ('RGBA', 'LA', 'P') and im.convert('RGBA').getchannel('A').getextrema()[0] < 128
     base = os.path.basename(sh)
+    if _parent(base) in cfg.get("texture_opaque", []):
+        alpha = False                                     # atlas: cut-out texels went to their own shader
+    tsz = cfg.get("texture_size", {}).get(base) or cfg.get("texture_size", {}).get(_parent(base))
+    if tsz and im.size != (tsz, tsz):
+        im = im.convert("RGBA").resize((tsz, tsz), Image.LANCZOS)
     if alpha:
         fn = base + ".tga"
         im.convert('RGBA').save(os.path.join(tdir, fn))

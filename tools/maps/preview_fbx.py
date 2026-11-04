@@ -1,4 +1,4 @@
-"""Flat-lit preview renders of a raw FBX or .blend (before prep): top ortho + 3 perspectives + per-object labels.
+"""Flat-lit preview renders of a raw FBX, OBJ or .blend (before prep): top ortho + 3 perspectives + per-object labels.
     python3 tools/maps/preview_fbx.py <model.fbx> <texture dir> <out dir> [cam json]"""
 import bpy, sys, os, json, math, mathutils
 args = sys.argv[1:]
@@ -16,7 +16,10 @@ if fbx.lower().endswith(".blend"):
         if o.name in skip: bpy.data.objects.remove(o, do_unlink=True)
 else:
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.import_scene.fbx(filepath=fbx)
+    if fbx.lower().endswith(".obj"):
+        bpy.ops.wm.obj_import(filepath=fbx)
+    else:
+        bpy.ops.import_scene.fbx(filepath=fbx)
 for mat in bpy.data.materials:
     if not mat.node_tree: continue
     nt = mat.node_tree; img = None
