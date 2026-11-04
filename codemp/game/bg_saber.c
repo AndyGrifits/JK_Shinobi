@@ -2781,8 +2781,6 @@ qboolean BG_SuperBreakLoseAnim( int anim );
 qboolean BG_SuperBreakWinAnim( int anim );
 void PM_WeaponLightsaber(void)
 {
-	if ( Shinobi_BladeFinisherReady( pm->ps ) && !( pm->cmd.buttons & BUTTON_ATTACK ) )
-		pm->ps->stats[STAT_SHINOBI_BLADECOMBO] |= SHINOBI_BLADECOMBO_FRESH; // JK_Shinobi: let go - the next press finishes
 	int			addTime;
 	qboolean	delayed_fire = qfalse;
 	int			anim=-1, curmove, newmove=LS_NONE;
@@ -3718,8 +3716,7 @@ weapChecks:
 			}
 
 			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
-				&& Shinobi_BladeFinisherReady( pm->ps ) && ( pm->ps->stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BLADECOMBO_FRESH )
-				&& pm->ps->groundEntityNum != ENTITYNUM_NONE )
+				&& Shinobi_BladeFinisherReady( pm->ps ) && pm->ps->groundEntityNum != ENTITYNUM_NONE )
 			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher
 				newmove = Shinobi_FinisherMove( Shinobi_FinisherKindFor( &pm->cmd ),
 					pm->ps->fd.saberAnimLevel == SS_DUAL ? qtrue : qfalse );

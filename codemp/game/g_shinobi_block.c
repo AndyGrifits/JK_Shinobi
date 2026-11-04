@@ -317,6 +317,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 		dmg *= ac->saber[0].damageScale;
 
 	if ( finisher ) { // the finisher swing: each one it cuts
+		Shinobi_Debug( "blade %i -> %i: FINISHER kind %i (swing %i)", attacker->s.number, victim->s.number,
+			ac->shinobi.finisherKind, ac->shinobi.bladeSwing );
 		dmg *= SHINOBI_SWORD_FINISH;
 		Shinobi_BladeFinisher( attacker, victim, ac->shinobi.finisherKind, &dmg );
 		return dmg;
@@ -335,6 +337,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 		ac->shinobi.bladeChain = shinobiSwordChain[style] - 1; // (ready: the next swing is the finisher)
 	ac->shinobi.bladeChainVictim = victim->s.number + 1;
 	ac->shinobi.bladeChainTime = level.time;
+	Shinobi_Debug( "blade %i -> %i: blow %i of %i (swing %i, move %i, anim %i)", attacker->s.number, victim->s.number,
+		ac->shinobi.bladeChain, shinobiSwordChain[style], ac->shinobi.bladeSwing, move, ac->ps.torsoAnim );
 	if ( attacker->s.number < MAX_CLIENTS ) { // held until the next blow can land, as with fists
 		int ms = ac->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
 		if ( ms < SHINOBI_COMBO_FLINCH_MIN )
@@ -432,8 +436,7 @@ void Shinobi_SwordThink( gentity_t *ent ) {
 
 	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) ) {
 		const int need = shinobiSwordChain[Shinobi_BladeStyle( c )];
-		const int fresh = ( c->shinobi.bladeChain == need - 1 ) ? ( c->ps.stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BLADECOMBO_FRESH ) : 0;
-		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 ) | fresh; // (Pmove's bit kept)
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 );
 	}
 	else
 		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = 0;

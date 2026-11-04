@@ -760,8 +760,6 @@ lights), the next attack plays a finisher move picked by what you hold as you sw
 */
 #define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD and Pmove: blows landed (bits 0-2), the finisher's number (bits 3-5)
 enum { SFK_NONE, SFK_OWN, SFK_SWEEP, SFK_SPIN, SFK_RISE };
-#define SHINOBI_BLADECOMBO_FRESH   64    // STAT_SHINOBI_BLADECOMBO: attack let go since it got ready (Pmove sets it):
-                                         // the finisher takes a new press, not a held attack
 static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
 	return have > 0 && have == need - 1;

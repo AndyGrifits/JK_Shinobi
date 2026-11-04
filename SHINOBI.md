@@ -334,7 +334,7 @@ for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, 
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
-a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `saber_dps`, `blade_combo`)
+a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `blade_clicks`, `blade_combo`, `saber_dps`)
 measures every blade on a still target and tries every finisher.
 
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
@@ -342,8 +342,8 @@ measures every blade on a still target and tries every finisher.
 one blow (never two for one cut: two blows on the same one come at least half a stance's swing
 time apart). Under the crosshair a white pip lights for each blow and a
 gold one waits at the end; when the combo stands one short (3 blows fast and dual, 2 medium,
-1 strong) the gold pip lights up and pulses and a hint shows: **now the next press of attack is the
-finisher** (let go of attack first - a held attack goes on swinging normally) - a move of its own, picked by what you hold as you swing, its blow x1.5:
+1 strong) the gold pip lights up and pulses and a hint shows: **now the next swing is the finisher**
+(held attack: the one after at once; clicks: your next click) - a move of its own, picked by what you hold as you swing, its blow x1.5:
 **back** - a low turning cut that knocks him down (`LS_A_BACK_CR`); **left / right** - a full
 spin (Alora's spin slash, the dual spin with two blades) cutting everyone round you;
 **jump** - an upward heave that throws him up (`LS_PULL_ATTACK_SWING`); **nothing or

@@ -956,6 +956,68 @@ next:
 	return ATR_RUN;
 }
 
+/*
+blade_clicks: the combo with single clicks (a press every 0.7 s) and with attack held, on a
+still target: every blow counted, the finisher's swing and which click started it, written
+down as it happens - no finisher may start without a new press after the combo got ready.
+*/
+static struct { int stage, start, clicks, lastChain, readyAt, readyClick, finAt, finClick, held, moveWas, bad; } bk;
+static void T_BladeClicks_Setup( void ) {
+	vec3_t p;
+	memset( &bk, 0, sizeof( bk ) );
+	AT_Spot( 44, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	G_SetSaber( A, 0, "shinobi_katana", qfalse );
+	G_SetSaber( A, 1, "none", qfalse );
+	G_SaberModelSetup( A );
+	AT_Weapon( 0, WP_SABER );
+	A->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( A );
+	bk.start = level.time;
+}
+static atResult_t T_BladeClicks( int t ) {
+	gclient_t *ac = A->client, *bcl = B->client;
+	const int  v = ac->ps.stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
+	const int  phase = t < 9000 ? 0 : 1; // clicks, then held
+	int        buttons = 0;
+
+	if ( B->health < 200 )
+		B->health = bcl->ps.stats[STAT_HEALTH] = 500;
+	bcl->ps.eFlags &= ~EF_INVULNERABLE;
+	if ( phase == 0 ) {
+		const int ph = ( t % 700 );
+		buttons = ph < 80 ? BUTTON_ATTACK : 0;
+		if ( ph < FRAMETIME && t > 100 )
+			bk.clicks++;
+	}
+	else
+		buttons = t < 17000 ? BUTTON_ATTACK : 0;
+	AT_Drive( 0, 0, 0, 0, buttons );
+	if ( have != bk.lastChain ) {
+		AT_Print( "[autotest]     %5i ms %s: blows %i of %i%s\n", t, phase ? "held " : va( "click %i", bk.clicks ), have, need,
+			Shinobi_BladeFinisherReady( &ac->ps ) ? " - READY" : "" );
+		if ( Shinobi_BladeFinisherReady( &ac->ps ) ) {
+			bk.readyAt = t;
+			bk.readyClick = bk.clicks;
+		}
+		bk.lastChain = have;
+	}
+	if ( ac->ps.saberMove != bk.moveWas && Shinobi_FinisherKindOfMove( ac->ps.saberMove ) ) {
+		AT_Print( "[autotest]     %5i ms %s: FINISHER swing starts (move %i)%s\n", t, phase ? "held " : va( "click %i", bk.clicks ),
+			ac->ps.saberMove, ( phase == 0 && bk.clicks == bk.readyClick ) ? " - WITHOUT A NEW CLICK" : "" );
+		if ( phase == 0 && bk.clicks == bk.readyClick )
+			bk.bad++;
+		bk.finAt = t;
+	}
+	bk.moveWas = ac->ps.saberMove;
+	if ( t >= 17800 ) {
+		AT_Msg( "%i finisher swing(s) started without a new click", bk.bad );
+		return bk.bad ? ATR_FAIL : ATR_PASS;
+	}
+	return ATR_RUN;
+}
+
 // natural regen: normal up to 30%, slower above
 static void T_Regen_Setup( void ) {
 	A->client->ps.fd.forcePower = 5;
@@ -1452,6 +1514,7 @@ static atTest_t atTests[] = {
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * 5 + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own and sweep / spin / rising cut", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
+	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },

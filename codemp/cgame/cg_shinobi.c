@@ -1891,28 +1891,35 @@ static void CG_ShinobiDrawBladeCombo( void ) {
 
 	if ( !have || need < 2 || cg.snap->ps.pm_type == PM_SPECTATOR )
 		return;
-	x = SCREEN_WIDTH * 0.5f - ( need * 12 - 4 ) * 0.5f;
-	for ( k = 0; k < need - 1; k++ )
-		CG_FillRect( x + k * 12, 262, 8, 8, (float *)( k < have ? on : off ) );
-	x += ( need - 1 ) * 12;
-	if ( ready ) { // now
+	x = SCREEN_WIDTH * 0.5f - ( need * 14 - 4 ) * 0.5f;
+	for ( k = 0; k < need - 1; k++ ) { // white: lit for each blow landed, empty (a dark box with a white rim) for those to come
+		if ( k < have )
+			CG_FillRect( x + k * 14, 262, 10, 10, (float *)on );
+		else {
+			const vec4_t rim = { 0.85f, 0.9f, 1.0f, 0.7f };
+			CG_FillRect( x + k * 14, 262, 10, 10, (float *)off );
+			CG_DrawRect( x + k * 14, 262, 10, 10, 1, (float *)rim );
+		}
+	}
+	x += ( need - 1 ) * 14;
+	if ( ready ) { // now: the gold one lit and pulsing
 		const float p = 0.5f + 0.5f * sinf( cg.time * 0.02f );
 		gold[3] = 0.6f + 0.4f * p;
-		CG_FillRect( x - 1, 261, 10, 10, gold );
+		CG_FillRect( x - 1, 261, 12, 12, gold );
 		{
 			static const char * const own[SBF_COUNT] = { "lunge", "drain", "bleed", "chakra blade", "iai", "flurry" };
 			const clientInfo_t *ci = &cgs.clientinfo[ps->clientNum];
 			const int f = ci->saber[0].shinobiFinisher >= 0 && ci->saber[0].shinobiFinisher < SBF_COUNT ? ci->saber[0].shinobiFinisher : 0;
-			const char *t = ( v & SHINOBI_BLADECOMBO_FRESH )
-				? va( "FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] )
-				: "FINISHER ready - let go of attack and strike";
+			const char *t = va( "NEXT SWING - FINISHER:  %s  |  back: sweep  |  side: spin  |  jump: rise", own[f] );
 			const vec4_t c = { 1.0f, 0.85f, 0.35f, 0.9f };
-			CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.36f, FONT_SMALL ) * 0.5f, 274, 0.36f, (float *)c, t, 0, 0,
+			CG_Text_Paint( SCREEN_WIDTH * 0.5f - CG_Text_Width( t, 0.36f, FONT_SMALL ) * 0.5f, 276, 0.36f, (float *)c, t, 0, 0,
 				ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
 		}
 	}
-	else
-		CG_DrawRect( x, 262, 8, 8, 1, gold );
+	else { // empty: a dark box with a gold rim
+		CG_FillRect( x, 262, 10, 10, (float *)off );
+		CG_DrawRect( x, 262, 10, 10, 1, gold );
+	}
 }
 
 // lock-on (T): red brackets round the target, turning slowly
