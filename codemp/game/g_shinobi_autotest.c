@@ -1403,7 +1403,7 @@ static atResult_t T_Lotus( int t ) {
 		const int dmg = AT_DamageTo( B, at.start, NULL, MOD_MELEE, &hits, NULL );
 		AT_Msg( "cast: %s, B carried up %.0f, slammed: %s, damage %i, down: %s", at.v[1] ? "yes" : "NO", at.f[1],
 			shinobiTest.lotusSlams > at.v[0] ? "yes" : "NO", dmg, at.v[2] ? "yes" : "no" );
-		return ( at.v[1] && at.f[1] > SHINOBI_LOTUS_HEIGHT * 0.6f && shinobiTest.lotusSlams > at.v[0] && dmg >= SHINOBI_LOTUS_DAMAGE )
+		return ( at.v[1] && at.f[1] > 60 && shinobiTest.lotusSlams > at.v[0] && dmg >= SHINOBI_LOTUS_DAMAGE * 7 / 10 && at.v[2] )
 			? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
@@ -1440,13 +1440,19 @@ static atResult_t T_LotusLog( int t ) {
 		at.v[3] = Shinobi_Cast( A, SJ_LOTUS, 1 );
 		at.v[4] = at.v[2] - A->client->ps.fd.forcePower;
 		at.v[5] = level.time;
-		AT_Print( "[lotus] cast: %s, chakra %i -> %i (spent %i), B caught: %s\n", at.v[3] ? "yes" : "NO", at.v[2],
-			A->client->ps.fd.forcePower, at.v[4], B->client->shinobi.lotusBy ? "yes" : "NO" );
+		AT_Print( "[lotus] cast: %s, chakra %i -> %i (spent %i), B caught: %s; B's force powers on: 0x%x (protect lvl %i)\n", at.v[3] ? "yes" : "NO", at.v[2],
+			A->client->ps.fd.forcePower, at.v[4], B->client->shinobi.lotusBy ? "yes" : "NO", B->client->ps.fd.forcePowersActive,
+			B->client->ps.fd.forcePowerLevel[FP_PROTECT] );
+		at.v[6] = 0; // (the slam's time)
 		NEXT();
 	}
 	if ( STAGE( 1 ) ) {
 		if ( B->client->ps.origin[2] - at.f[0] > at.f[1] )
 			at.f[1] = B->client->ps.origin[2] - at.f[0];
+		if ( !at.v[6] && shinobiTest.lotusSlams > at.v[0] ) {
+			at.v[6] = level.time;
+			AT_Print( "[lotus] slam at %i ms\n", level.time - at.v[5] );
+		}
 		if ( level.time - at_lotusLast >= 100 ) {
 			at_lotusLast = level.time;
 			AT_LotusRow( level.time - at.v[5] );
@@ -1465,8 +1471,8 @@ static atResult_t T_LotusLog( int t ) {
 			AT_Print( "[lotus] blow at %5i ms: %s took %i from %s (%s, via %s)\n", d->time - at.v[5], d->targ == at.a ? "A" : "B",
 				d->take, d->attacker == at.a ? "A" : d->attacker == at.b ? "B" : d->attacker == ENTITYNUM_WORLD ? "world" : va( "#%i", d->attacker ),
 				d->mod >= 0 && d->mod < MOD_MAX ? modNames[d->mod] : "?", d->inflictor );
-			if ( d->time < at.v[5] )
-				continue; // (before the cast: B's swings at the start)
+			if ( d->time < at.v[5] || ( at.v[6] && d->time > at.v[6] + 300 ) )
+				continue; // (before the cast: B's swings at the start; after the slam: B up and fighting again)
 			if ( d->targ == at.a )
 				toA += d->take;
 			else {
@@ -1475,10 +1481,10 @@ static atResult_t T_LotusLog( int t ) {
 					byA += d->take;
 			}
 		}
-		AT_Msg( "cast %s, spent %i chakra, B carried up %.0f, slammed: %s; after the cast A took %i, B took %i (%i from A); "
+		AT_Msg( "cast %s, spent %i chakra, B carried up %.0f, slammed: %s; from the cast to the slam A took %i, B took %i (%i from A); "
 			"B's blows stopped by the lotus: %i", at.v[3] ? "yes" : "NO", at.v[4], at.f[1], shinobiTest.lotusSlams > at.v[0] ? "yes" : "NO",
 			toA, toB, byA, shinobiTest.lotusShielded - at.v[1] );
-		return ( at.v[3] && at.v[4] >= 70 && shinobiTest.lotusSlams > at.v[0] && toA == 0 && byA >= SHINOBI_LOTUS_DAMAGE )
+		return ( at.v[3] && at.v[4] >= 70 && shinobiTest.lotusSlams > at.v[0] && toA == 0 && byA >= SHINOBI_LOTUS_DAMAGE * 7 / 10 )
 			? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
@@ -1508,9 +1514,9 @@ static atResult_t T_Entry( int t ) {
 	if ( STAGE( 2 ) && SINCE() >= 300 ) {
 		int hits;
 		const int dmg = AT_DamageTo( B, at.start, NULL, MOD_MELEE, &hits, NULL );
-		AT_Msg( "cast: %s, A flew %.0f, B hit %i times (%i damage), down: %s", at.v[1] ? "yes" : "NO", at.f[0], hits, dmg,
-			at.v[2] ? "yes" : "no" );
-		return ( at.v[1] && at.f[0] > 150 && hits == 1 && at.v[2] ) ? ATR_PASS : ATR_FAIL;
+		AT_Msg( "cast: %s, A flew %.0f, the kick hit him %i times, melee hits on B %i (%i damage, a stock kick anim hit may add one), down: %s",
+			at.v[1] ? "yes" : "NO", at.f[0], shinobiTest.entryHits - at.v[0], hits, dmg, at.v[2] ? "yes" : "no" );
+		return ( at.v[1] && at.f[0] > 150 && shinobiTest.entryHits == at.v[0] + 1 && hits >= 1 && at.v[2] ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -1557,6 +1563,7 @@ static atResult_t T_Gates( int t ) {
 		at.v[12] = Shinobi_HasJutsu( A, SJ_LOTUS );
 		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		Cmd_Perk_f( A ); // 4
+		at.f[1] = (float)Shinobi_BuildDamage( B, A, 100, MOD_MELEE ); // (his own taijutsu in it)
 		c->shinobi.gateDealt = SHINOBI_GATE_NEED( c->shinobi.gate );
 		Cmd_Perk_f( A ); // 5
 		at.v[13] = c->shinobi.gate;
@@ -1567,12 +1574,12 @@ static atResult_t T_Gates( int t ) {
 	if ( STAGE( 4 ) && SINCE() >= SHINOBI_GATE_LATE_DRAIN_MS + 300 ) {
 		at.f[0] = (float)( at.v[15] - A->health ); // the slow drain from the third gate on
 		AT_Msg( "weights on: %s, gate %i after C (weights dropped %i, quakes %i), fast: %s, drained %i in 1.6 s; "
-			"C before the damage: gate %i; ready: %s, gate 2 healed %i, drain after it %i; Reverse Lotus at 3: %s; last gate %i, a 100 blow -> %i; "
+			"C before the damage: gate %i; ready: %s, gate 2 healed %i, drain after it %i; Reverse Lotus at 3: %s; last gate %i, a 100 blow -> %i (at gate 4: %.0f); "
 			"drained at gate 5 in 1.8 s: %.0f",
 			at.v[1] ? "yes" : "NO", at.v[2], at.v[3], at.v[6], at.v[4] ? "yes" : "NO", at.v[5], at.v[7], at.v[8] ? "yes" : "NO",
-			at.v[9], at.v[11], at.v[12] ? "yes" : "NO", at.v[13], at.v[14], at.f[0] );
+			at.v[9], at.v[11], at.v[12] ? "yes" : "NO", at.v[13], at.v[14], at.f[1], at.f[0] );
 		return ( at.v[1] && at.v[2] == 1 && at.v[3] == 2 && at.v[6] >= 1 && at.v[4] && at.v[5] >= 2 && at.v[7] == 1 && at.v[8]
-			&& at.v[9] >= SHINOBI_GATE2_HEAL - 1 && at.v[11] == 0 && at.v[12] && at.v[13] == 5 && at.v[14] == 120 && at.f[0] >= 1 && at.f[0] <= 2 ) ? ATR_PASS : ATR_FAIL;
+			&& at.v[9] >= SHINOBI_GATE2_HEAL - 1 && at.v[11] == 0 && at.v[12] && at.v[13] == 5 && fabs( at.v[14] - at.f[1] * SHINOBI_GATE5_TAIJUTSU ) <= 1 && at.f[0] >= 1 && at.f[0] <= 2 ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }

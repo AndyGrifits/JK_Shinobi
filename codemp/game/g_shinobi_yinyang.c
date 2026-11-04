@@ -1014,7 +1014,7 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	if ( client->shinobi.lotusPhase == 2 ) { // hanging, spinning head down
-		client->ps.gravity = 0;
+		client->ps.gravity = 1; // (0 would set off Pmove's zero-g jump code: it sank them at ~300 a second)
 		VectorClear( client->ps.velocity );
 		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_F );
 		if ( level.time - client->shinobi.lotusTime >= SHINOBI_LOTUS_HANG_MS ) {
@@ -1030,7 +1030,10 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( v->client->ps.groundEntityNum != ENTITYNUM_NONE ) {
 		Shinobi_LotusSlam( ent, v );
 		Shinobi_LotusEnd( ent );
+		VectorClear( client->ps.velocity ); // (the 1300 down left on him bounced him 150 up off the floor)
 	}
+	else if ( client->ps.groundEntityNum != ENTITYNUM_NONE )
+		client->ps.velocity[2] = 0; // down first: wait for him on the floor
 }
 
 // from G_Damage: while he is held in your lotus, he can't hurt you (his blade, a swing already going)
@@ -1062,7 +1065,7 @@ static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
 	client->shinobi.blocking = qfalse;
 	if ( a->client->shinobi.lotusPhase == 2 ) {
-		client->ps.gravity = 0;
+		client->ps.gravity = 1;
 		VectorClear( client->ps.velocity );
 		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_B );
 	}
