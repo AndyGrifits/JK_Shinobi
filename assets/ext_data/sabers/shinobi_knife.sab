@@ -8,7 +8,7 @@ shinobi_knife
 	saberLength		40
 	saberColor		blue
 	shinobiTrail		6
-	saberStyle		dual
+	saberStyle		fast
 	shinobiUse		two
 	shinobiFinisher	reach
 	noBlade			1

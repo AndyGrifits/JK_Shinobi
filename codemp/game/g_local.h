@@ -841,6 +841,7 @@ struct gclient_s {
 		int		bladeChain, bladeChainVictim, bladeChainTime; // the blade combo: hits landed, on whom (+1), when
 		int		bladeReachSwing;	// the swing a "reach" finisher was thrown with (its own blow doesn't count)
 		int		finisherSwing, finisherKind; // the finisher swing (bladeSwing) and which (SFK_*)
+		int		bladeAirUntil, bladeAirVictim, bladeAirJumpWas; // after the rising cut: jump to Shunshin up to him
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts
 		int		bleedEnd, bleedNext, bleedBy; // a wound: bleeding until, next tick, who opened it (+1)
 		int		lockSeen;		// lock-on: the target was last in sight then

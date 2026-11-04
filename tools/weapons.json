@@ -1,5 +1,5 @@
 {
-  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). Blade lengths (the damage line from its start): the katana keeps the stock saber's 40; a longer or shorter weapon reaches that much farther or shorter than the katana's tip (about 14 past its own tip), but never less than the fists (the knife: 40, i.e. ~44 from the hand). Speed / damage are the stock ones of the style unless an entry sets damage, speed, knockback, move (scales) or radius. Sounds are game paths (the stock sword / tusken staff ones are in every Jedi Academy). Each weapon is held one way (use: one / two - a pair, the right one plus its _l copy) and fights in one stance (stance: fast / medium / strong; a pair: dual). finisher: the weapon's own combo finisher (drain / bleed / reach / iai / flurry).",
+  "_comment": "JK_Shinobi weapons: tools/weapon2glm.py tools/weapons.json --src <models> --out assets. Units: game units (a player is ~64 tall). Blade lengths (the damage line from its start): the katana keeps the stock saber's 40; a longer or shorter weapon reaches that much farther or shorter than the katana's tip (about 14 past its own tip), but never less than the fists (the knife: 40, i.e. ~44 from the hand). Speed / damage are the stock ones of the style unless an entry sets damage, speed, knockback, move (scales) or radius. Sounds are game paths (the stock sword / tusken staff ones are in every Jedi Academy). Each weapon is held one way (use: one / two - a pair, the right one plus its _l copy) and fights in one stance (stance: fast / medium / strong / dual). finisher: the weapon's own combo finisher (drain / bleed / reach / iai / flurry).",
   "katana": {
     "title": "ANBU Katana",
     "source": "Itachi's Anbu Blade/Itachi's Anbu Blade.obj",
@@ -82,7 +82,7 @@
         "sound/effects/metal_bounce2.mp3"
       ]
     },
-    "stance": "dual",
+    "stance": "fast",
     "use": "two",
     "finisher": "reach"
   },
@@ -150,7 +150,7 @@
         -0.133
       ]
     ],
-    "stance": "dual",
+    "stance": "fast",
     "use": "two",
     "finisher": "reach"
   },

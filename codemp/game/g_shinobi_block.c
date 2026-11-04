@@ -380,6 +380,9 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		Shinobi_HitText( victim, STX_LAUNCH, 0 );
 		Shinobi_CCGrant( victim, level.time + 1100 );
 		Shinobi_FinisherFx( attacker, victim, SFX_LAUNCH );
+		ac->shinobi.bladeAirUntil = level.time + SHINOBI_SWORD_AIR_MS; // jump now: Shunshin up after him
+		ac->shinobi.bladeAirVictim = victim->s.number + 1;
+		ac->shinobi.bladeAirJumpWas = ac->pers.cmd.upmove > 0;
 		return;
 	}
 	if ( kind == SFK_SWEEP ) { // low, at the legs: down
@@ -400,11 +403,16 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 
 	shinobiTest.bladeFinishers[ac->saber[0].shinobiFinisher]++;
 	switch ( ac->saber[0].shinobiFinisher ) {
-	case SBF_DRAIN: { // Samehada eats his chakra
+	case SBF_DRAIN: { // Samehada eats his chakra, and throws him back
 		const int take = vc->ps.fd.forcePower < SHINOBI_SWORD_DRAIN ? vc->ps.fd.forcePower : SHINOBI_SWORD_DRAIN;
 		vc->ps.fd.forcePower -= take;
 		if ( take > 0 )
 			Shinobi_GainChakra( attacker, (float)take, qtrue );
+		if ( !Shinobi_CCImmune( victim ) ) {
+			VectorScale( dir, SHINOBI_SWORD_DRAIN_PUSH, vc->ps.velocity );
+			vc->ps.velocity[2] = 160;
+			vc->ps.groundEntityNum = ENTITYNUM_NONE;
+		}
 		Shinobi_FinisherFx( attacker, victim, SFX_DRAIN );
 		break;
 	}
@@ -430,9 +438,52 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 	}
 }
 
+// after the rising cut: a new jump press Shunshins you up to him (smoke where you were and where you appear)
+static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	const qboolean jump = c->pers.cmd.upmove > 0;
+	gentity_t *v;
+	vec3_t     d, spot, ang;
+	trace_t    tr;
+
+	if ( !c->shinobi.bladeAirUntil )
+		return;
+	if ( level.time > c->shinobi.bladeAirUntil || ent->health <= 0 ) {
+		c->shinobi.bladeAirUntil = 0;
+		return;
+	}
+	if ( !jump || c->shinobi.bladeAirJumpWas ) {
+		c->shinobi.bladeAirJumpWas = jump;
+		return;
+	}
+	c->shinobi.bladeAirUntil = 0;
+	v = &g_entities[c->shinobi.bladeAirVictim - 1];
+	if ( !v->inuse || !v->client || v->health <= 0 )
+		return;
+	VectorSubtract( v->r.currentOrigin, c->ps.origin, d );
+	d[2] = 0;
+	if ( VectorNormalize( d ) < 1 )
+		VectorSet( d, 1, 0, 0 );
+	VectorMA( v->r.currentOrigin, -SHINOBI_SWORD_AIR_BEHIND, d, spot );
+	trap->Trace( &tr, v->r.currentOrigin, ent->r.mins, ent->r.maxs, spot, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	if ( tr.allsolid )
+		return;
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );
+	G_SoundAtLoc( c->ps.origin, CHAN_AUTO, shinobiMedia.sndPoof );
+	Shinobi_TeleportClient( ent, tr.endpos );
+	VectorCopy( v->client->ps.velocity, c->ps.velocity ); // (rising with him)
+	c->ps.groundEntityNum = ENTITYNUM_NONE;
+	VectorSet( ang, 0, vectoyaw( d ), 0 );
+	SetClientViewAngle( ent, ang );
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );
+	shinobiTest.bladeFinishers[7]++;
+}
+
 // every client frame: the combo for the HUD; Kurosawa's extra cuts (his), a bleeding wound (on him)
 void Shinobi_SwordThink( gentity_t *ent ) {
 	gclient_t *c = ent->client;
+
+	Shinobi_BladeAirShunshin( ent );
 
 	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) ) {
 		const int need = shinobiSwordChain[Shinobi_BladeStyle( c )];

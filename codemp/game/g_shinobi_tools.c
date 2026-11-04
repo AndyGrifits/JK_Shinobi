@@ -683,15 +683,13 @@ void Shinobi_BladeStance( gentity_t *ent ) {
 		|| Q_stricmpn( c->saber[0].name, SHINOBI_WEAPON_PREFIX, strlen( SHINOBI_WEAPON_PREFIX ) ) )
 		return;
 	learned = c->saber[0].stylesLearned;
-	if ( c->saber[1].model[0] )
-		style = SS_DUAL;
-	else {
-		for ( style = SS_FAST; style < SS_NUM_SABER_STYLES; style++ )
-			if ( learned & ( 1 << style ) )
-				break;
-		if ( style >= SS_NUM_SABER_STYLES || style == SS_DUAL || style == SS_STAFF )
-			return; // (no stance of its own)
-	}
+	for ( style = SS_FAST; style < SS_NUM_SABER_STYLES; style++ )
+		if ( learned & ( 1 << style ) )
+			break;
+	if ( style >= SS_NUM_SABER_STYLES || style == SS_STAFF || ( style == SS_DUAL && !c->saber[1].model[0] ) )
+		style = c->saber[1].model[0] ? SS_DUAL : -1; // (no stance of its own: a pair fights dual)
+	if ( style < 0 )
+		return;
 	c->ps.fd.saberAnimLevel = c->ps.fd.saberAnimLevelBase = c->ps.fd.saberDrawAnimLevel = style;
 	c->saberCycleQueue = 0;
 }

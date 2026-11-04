@@ -369,6 +369,9 @@ qboolean WP_SaberStyleValidForSaber( saberInfo_t *saber1, saberInfo_t *saber2, i
 			if ( (saber2->stylesForbidden & (1<<saberAnimLevel)) )
 				return qfalse;
 		}
+		// JK_Shinobi: a pair of ours fights in its own stance (its saberStyle, e.g. the fast one)
+		if ( saber1 && !Q_stricmpn( saber1->name, "shinobi_", 8 ) && ( saber1->stylesLearned & ( 1 << saberAnimLevel ) ) )
+			return qtrue;
 		//now: if using dual sabers, only dual and tavion (if given with this saber) are allowed
 		if ( saberAnimLevel != SS_DUAL ) {
 			if ( saberAnimLevel != SS_TAVION )

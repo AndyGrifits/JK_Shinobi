@@ -753,6 +753,9 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_SWORD_FLURRY_SCALE 0.6f
 #define SHINOBI_SWORD_SPIN_RADIUS  100
 #define SHINOBI_SWORD_LAUNCH_UP    480
+#define SHINOBI_SWORD_AIR_MS       800   // after the rising cut: jump within this - Shunshin up to him
+#define SHINOBI_SWORD_AIR_BEHIND   40    // ... arriving this far short of him, facing him
+#define SHINOBI_SWORD_DRAIN_PUSH   420   // Samehada's finisher also throws him back (and up a little)
 /*
 The finisher is a swing of its own: once the combo stands one blow short (the HUD's gold pip
 lights), the next attack plays a finisher move picked by what you hold as you swing
@@ -773,17 +776,6 @@ static QINLINE int Shinobi_FinisherKindFor( const usercmd_t *cmd ) {
 	if ( cmd->rightmove )
 		return SFK_SPIN;
 	return SFK_OWN;
-}
-// the finisher moves play slower in the slower stances, to match their own swings
-static QINLINE float Shinobi_FinisherAnimSpeed( int anim, int saberAnimLevel ) {
-	if ( anim != BOTH_LUNGE2_B__T_ && anim != BOTH_CROUCHATTACKBACK1 && anim != BOTH_ALORA_SPIN_SLASH
-		&& anim != BOTH_SPINATTACK6 && anim != BOTH_PULL_IMPALE_SWING )
-		return 1.0f;
-	if ( saberAnimLevel == SS_STRONG || saberAnimLevel == SS_DESANN )
-		return 0.6f;
-	if ( saberAnimLevel == SS_MEDIUM )
-		return 0.8f;
-	return 1.0f;
 }
 // the stock moves the finishers play
 static QINLINE int Shinobi_FinisherMove( int kind, qboolean dual ) {

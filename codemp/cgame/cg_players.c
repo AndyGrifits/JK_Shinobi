@@ -6057,6 +6057,7 @@ void CG_AddSaberBlade( centity_t *cent, centity_t *scent, refEntity_t *saber, in
 	clientInfo_t *client;
 	centity_t *saberEnt;
 	saberTrail_t *saberTrail;
+	vec3_t shTrailBase, shTrailTip; // JK_Shinobi: this frame's glow edge (see below)
 	mdxaBone_t	boltMatrix;
 	vec3_t futureAngles;
 	effectTrailArgStruct_t fx;
@@ -6329,6 +6330,19 @@ CheckTrail:
 
 	// if we happen to be timescaled or running in a high framerate situation, we don't want to flood
 	//	the system with very small trail slices...but perhaps doing it by distance would yield better results?
+	{ // JK_Shinobi: a cold weapon's glow runs along part of the steel you see (cg_shinobiTrail), not its whole
+	  // reach - both edges of the trail quad (the new one here, the old one stored below)
+		const float vis = bladeNum ? client->saber[saberNum].shinobiTrail2 : client->saber[saberNum].shinobiTrail;
+		if ( vis > 0 ) {
+			const float len = ( vis < saberLen ? vis : saberLen ) * Com_Clamp( 0.1f, 1.0f, cg_shinobiTrail.value );
+			VectorMA( org_, len * 0.25f, axis_[0], shTrailBase ); // (not over the hand)
+			VectorMA( org_, len, axis_[0], shTrailTip );
+		}
+		else {
+			VectorCopy( org_, shTrailBase );
+			VectorMA( end, 3.0f, axis_[0], shTrailTip );
+		}
+	}
 	if ( cg.time > saberTrail->lastTime + 2 || cg_saberTrail.integer == 2 ) // 2ms
 	{
 		if (!dontDraw)
@@ -6416,8 +6430,8 @@ CheckTrail:
 
 					// Go from new muzzle to new end...then to old end...back down to old muzzle...finally
 					//	connect back to the new muzzle...this is our trail quad
-					VectorCopy( org_, fx.mVerts[0].origin );
-					VectorMA( end, 3.0f, axis_[0], fx.mVerts[1].origin );
+					VectorCopy( shTrailBase, fx.mVerts[0].origin ); // JK_Shinobi: (the new edge as short as the old)
+					VectorCopy( shTrailTip, fx.mVerts[1].origin );
 
 					VectorCopy( saberTrail->tip, fx.mVerts[2].origin );
 					VectorCopy( saberTrail->base, fx.mVerts[3].origin );
@@ -6519,18 +6533,8 @@ CheckTrail:
 		}
 
 		// we must always do this, even if we aren't active..otherwise we won't know where to pick up from
-		{ // JK_Shinobi: a cold weapon's glow runs along part of the steel you see (cg_shinobiTrail), not its whole reach
-			const float vis = bladeNum ? client->saber[saberNum].shinobiTrail2 : client->saber[saberNum].shinobiTrail;
-			if ( vis > 0 ) {
-				const float len = ( vis < saberLen ? vis : saberLen ) * Com_Clamp( 0.1f, 1.0f, cg_shinobiTrail.value );
-				VectorMA( org_, len * 0.25f, axis_[0], saberTrail->base ); // (not over the hand)
-				VectorMA( org_, len, axis_[0], saberTrail->tip );
-			}
-			else {
-				VectorCopy( org_, saberTrail->base );
-				VectorMA( end, 3.0f, axis_[0], saberTrail->tip );
-			}
-		}
+		VectorCopy( shTrailBase, saberTrail->base );
+		VectorCopy( shTrailTip, saberTrail->tip );
 		saberTrail->lastTime = cg.time;
 	}
 
