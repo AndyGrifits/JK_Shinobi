@@ -988,8 +988,9 @@ static atResult_t T_BladeClicks( int t ) {
 	if ( phase == 0 ) {
 		const int ph = ( t % 700 );
 		buttons = ph < 80 ? BUTTON_ATTACK : 0;
-		if ( ph < FRAMETIME && t > 100 )
-			bk.clicks++;
+		if ( buttons && !bk.held )
+			bk.clicks++; // (a click: the press, counted once)
+		bk.held = buttons;
 	}
 	else
 		buttons = t < 17000 ? BUTTON_ATTACK : 0;
