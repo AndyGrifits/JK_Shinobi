@@ -719,9 +719,10 @@ Special moves and katas: SHINOBI_BLADE_SPECIAL times as much, again every
 SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 */
 // (the saber_dps autotest, attack held: fast swings 1.25 a second, medium 0.75, strong 0.375,
-// dual 0.875 - so fast, medium and dual do ~35 a second; strong ~30, in rare heavy blows)
+// dual 0.875 - so fast, medium and dual do ~10 a second, strong ~9 in rare heavier blows;
+// cut to 30% after a play test - half the health a blow was too much)
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordDamage[8] = {   0,  28,  45,    80,    80,    30,    40,  40 };
+static const int shinobiSwordDamage[8] = {   0,  8,   14,    24,    24,    9,     12,  12 };
 /*
 Blade combo: swings that land on the same one, each soon after the last (shinobiSwordWindow),
 hold him flinching like the fist combo; the shinobiSwordChain-th is the finisher (x1.5),
@@ -742,7 +743,7 @@ static const int shinobiSwordWindow[8] = {   0, 1300, 1900, 3200,  3200, 1300, 1
 enum { SBF_NONE, SBF_DRAIN, SBF_BLEED, SBF_REACH, SBF_IAI, SBF_FLURRY, SBF_COUNT };
 static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drain", "bleed", "reach", "iai", "flurry" };
 #define SHINOBI_SWORD_DRAIN        25
-#define SHINOBI_SWORD_BLEED_DMG    5
+#define SHINOBI_SWORD_BLEED_DMG    2
 #define SHINOBI_SWORD_BLEED_TICK   500
 #define SHINOBI_SWORD_BLEED_MS     4000
 #define SHINOBI_SWORD_REACH        220
@@ -832,10 +833,10 @@ Earthquake doesn't reach anyone standing on water.
 #define SHINOBI_STAT2_SHADOWTRAP   64    // held in place by a Shadow Trap
 // floating combat text over a target ("stx <ent> <kind> <value>", shinobi_hitnumbers 1)
 enum { STX_DAMAGE, STX_FLINCH, STX_STAGGER, STX_KNOCKDOWN, STX_LAUNCH, STX_STUN, STX_TRAPPED, STX_BOUND,
-	STX_BLOCK, STX_PARRY, STX_GUARDBREAK, STX_IMPRISONED, STX_INTERRUPT, STX_CHAKRA, STX_COUNT };
+	STX_BLOCK, STX_PARRY, STX_GUARDBREAK, STX_IMPRISONED, STX_INTERRUPT, STX_CHAKRA, STX_FINISHER, STX_COUNT };
 static const char * const shinobiHitTextNames[STX_COUNT] = {
 	"", "Flinch", "Stagger", "Knockdown", "Launch", "Stunned", "Shadow Trap", "Shadow Bind",
-	"Block", "Parry!", "Guard break!", "Water Prison", "Interrupted", "chakra"
+	"Block", "Parry!", "Guard break!", "Water Prison", "Interrupted", "chakra", "Finisher!"
 };
 #define SHINOBI_STAT2_FLINCH       128   // caught in a combo: rooted, no attacks / jutsu (the guard still works)
 #define SHINOBI_STAT2_ROOTED       256   // charging an Earthquake: standing still
@@ -864,12 +865,15 @@ in plain sight within SHINOBI_LOCK_RANGE, is locked on by itself (shinobi_autolo
 it to the next one close by. Pmove turns the view after him - only sideways (the mouse keeps
 the pitch: the floor for a tag, the air for a throw), at most SHINOBI_LOCK_TURN a second, so
 a quick step round him, a Shunshin behind him or a jump over him slips it for a moment.
-It lets go past SHINOBI_LOCK_KEEP, out of sight, with a tool in hand, and the moment he
-hides (Kawarimi, under the ground, in his shadow) - then nothing is locked for a moment.
+It lets go past SHINOBI_LOCK_KEEP, out of sight, with a tool in hand, the moment he hides
+(Kawarimi, under the ground, in his shadow) - then nothing is locked for a moment - and
+while your own sight is spoiled: blinded by a Flash, inside a Hidden Mist or an Ash Cloud
+(the Byakugan sees through mist and ash).
 */
 #define STAT_SHINOBI_LOCK          11    // the target's entity number + 1 (0 = free)
-#define SHINOBI_LOCK_RANGE         500   // locks on within this
-#define SHINOBI_LOCK_KEEP          700   // lets go past this
+#define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD: blows landed (bits 0-2), the finisher's number (bits 3-5)
+#define SHINOBI_LOCK_RANGE         250   // locks on within this (halved after a play test)
+#define SHINOBI_LOCK_KEEP          350   // lets go past this
 #define SHINOBI_LOCK_LOST_MS       1000  // ... or out of sight this long
 #define SHINOBI_LOCK_HIDE_MS       1200  // after he hid: no new lock this long
 #define SHINOBI_LOCK_FOV           0.34f // cos of the half angle it picks from (70 degrees; within 150: anywhere)

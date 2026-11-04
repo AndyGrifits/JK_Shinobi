@@ -1874,6 +1874,25 @@ static void CG_ShinobiDrawCharges( void ) {
 	}
 }
 
+// the blade combo: a pip for each blow landed, the finisher's one gold when it is next
+static void CG_ShinobiDrawBladeCombo( void ) {
+	const int v = cg.predictedPlayerState.stats[STAT_SHINOBI_BLADECOMBO];
+	const int have = v & 7, need = ( v >> 3 ) & 7;
+	const vec4_t on = { 0.9f, 0.95f, 1.0f, 0.95f }, off = { 0.2f, 0.22f, 0.26f, 0.7f };
+	const vec4_t gold = { 1.0f, 0.8f, 0.25f, 0.95f };
+	float x;
+	int   k;
+
+	if ( !have || need < 2 || cg.snap->ps.pm_type == PM_SPECTATOR )
+		return;
+	x = SCREEN_WIDTH * 0.5f - ( need * 12 - 4 ) * 0.5f;
+	for ( k = 0; k < need; k++ ) {
+		const qboolean last = ( k == need - 1 );
+		CG_FillRect( x + k * 12, 262, 8, 8,
+			(float *)( k < have ? on : ( last && have == need - 1 ? gold : off ) ) );
+	}
+}
+
 // lock-on (T): red brackets round the target, turning slowly
 static void CG_ShinobiDrawLock( void ) {
 	const int n = cg.predictedPlayerState.stats[STAT_SHINOBI_LOCK] - 1;
@@ -2711,10 +2730,11 @@ void CG_ShinobiDrawHUD( void ) {
 		}
 	}
 
-	if ( ( CG_ShinobiMyEyes() == SP_SHARINGAN || CG_ShinobiMyEyes() == SP_COPYEYE ) && shinobiShaders.vignette ) { // the eyes are open: a red rim, the eye in the corner
-		vec4_t c = { 1, 1, 1, 0.85f };
+	if ( ( CG_ShinobiMyEyes() == SP_SHARINGAN || CG_ShinobiMyEyes() == SP_COPYEYE ) && shinobiShaders.vignette ) { // the eyes are open: a dark rim (red read as low health), the eye in the corner
+		vec4_t c = { 0, 0, 0, 0.8f };
 		trap->R_SetColor( c );
 		CG_DrawPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, shinobiShaders.vignette );
+		c[0] = c[1] = c[2] = 1.0f; // (the tomoe in its own colours)
 		c[3] = 0.7f;
 		trap->R_SetColor( c );
 		if ( shinobiShaders.tomoe )
@@ -2760,6 +2780,7 @@ void CG_ShinobiDrawHUD( void ) {
 		CG_ShinobiDrawEyeInfo();
 
 	CG_ShinobiDrawLock();
+	CG_ShinobiDrawBladeCombo();
 	CG_ShinobiDrawJutsuList();
 	CG_ShinobiDrawCharges();
 

@@ -461,6 +461,7 @@ static void Shinobi_ZoneThink( gentity_t *z ) {
 			p->client->shinobi.burnEnd = 0;
 			break;
 		case SZ_ASH:
+			p->client->shinobi.ashEnd = level.time + SHINOBI_ZONE_TICK_MS + 150; // (no lock-on through it)
 			if ( p->s.number + 1 != ZONE_OWNER( z ) ) { // the caster breathes through it
 				shinobiHitElement = SE_NONE;
 				G_Damage( p, z, ZONE_OWNER( z ) ? &g_entities[ZONE_OWNER( z ) - 1] : p, NULL, NULL,

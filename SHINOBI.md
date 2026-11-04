@@ -322,8 +322,8 @@ A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`).
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
 style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
-for a set amount by stance (`shinobiSwordDamage`: fast 28, medium 45, strong 80, dual 40 -
-about 35 a second (strong ~30, in rare heavy blows) at their swing rates; no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
+for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 12 -
+about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
 a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `saber_dps`, `blade_combo`)
@@ -332,14 +332,14 @@ measures every blade on a still target and tries every finisher.
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
 1.9 s medium, 3.2 s strong, 1.7 s dual), hold him flinching like the fist combo; the 4th
 (fast, dual), 3rd (medium) or 2nd (strong) is the finisher, x1.5. What you hold as it lands
-picks it - **back**: a sweep that knocks him down; **left / right**: a spin that cuts
+picks it (pips under the crosshair count the blows, the finisher's one turns gold when it is next; "Finisher!" over him) - **back**: a sweep that knocks him down; **left / right**: a spin that cuts
 everyone around you too (100 u); **jump**: a rising cut that throws him up; **nothing or
 forward**: the weapon's own (`shinobiFinisher` in its .sab), each with its own look:
 
 | weapon | its finisher |
 |---|---|
 | Samehada | **drain**: eats up to 25 of his chakra and gives it to you (blue motes flow to you) |
-| Kubikiribocho | **bleed**: a wound, 5 damage every 0.5 s for 4 s (blood on each tick) |
+| Kubikiribocho | **bleed**: a wound, 2 damage every 0.5 s for 4 s (blood on each tick) |
 | Trench Knives | **reach**: the finishing swing throws a chakra blade out to 220 - it lands even when he got out of reach |
 | Katana | **iai**: a clean draw-cut (a white cross) that staggers him 0.8 s |
 | Kurosawa | **flurry**: two more quick cuts right after, 60% each (three slash lines) | The reach follows the visible blade: the katana keeps
@@ -519,7 +519,7 @@ level you can pay for. Costs and numbers: `codemp/game/bg_shinobi.h`.
 | **Shift + S + Space** | Shunshin the opposite way |
 | **X** | Kawarimi (substitution; not in the Q/E list) |
 | **Z** | throw a kunai (10 damage, sticks in walls) |
-| **T** | lock-on, for close combat: with fists or a blade in hand the nearest enemy in front within 500 (anywhere within 150) is locked on by itself (`shinobi_autolock 0` turns that off); **T moves it to the next one close by** (to the right). Red brackets on him; the view and camera turn sideways after him (300 degrees a second - a quick step round him, a Shunshin behind or a jump over slips it; the mouse keeps the pitch and adds to the turn). Lets go past 700, out of sight 1 s, with a tool in hand, and the moment he hides (Kawarimi, burrow, shadow) - then no lock for 1.2 s. Bots don't lock. Team chat moved to U |
+| **T** | lock-on, for close combat: with fists or a blade in hand the nearest enemy in front within 250 (anywhere within 150) is locked on by itself (`shinobi_autolock 0` turns that off); **T moves it to the next one close by** (to the right). Red brackets on him; the view and camera turn sideways after him (300 degrees a second - a quick step round him, a Shunshin behind or a jump over slips it; the mouse keeps the pitch and adds to the turn). Lets go past 350, out of sight 1 s, with a tool in hand, while you are blinded or in a mist / ash cloud (the Byakugan sees through those), and the moment he hides (Kawarimi, burrow, shadow) - then no lock for 1.2 s. Bots don't lock. Team chat moved to U |
 | **Shift + Z** | throw a marked kunai (Hiraishin seal, 10 chakra, max 3 - a fourth replaces the oldest): stays 30 s; an enemy it hits carries the mark 12 s |
 | **2** | fists / your weapon (nothing with Fists only) |
 | **B** | ninja build screen |

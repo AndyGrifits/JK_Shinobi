@@ -255,7 +255,8 @@ static void Shinobi_ReachFinisher( gentity_t *ent ) {
 	c->shinobi.bladeChain = 0;
 	v = Shinobi_BladeSlash( ent, (int)( shinobiSwordDamage[style] * SHINOBI_SWORD_FINISH ), SHINOBI_SWORD_REACH, qtrue );
 	shinobiTest.bladeFinishers[SBF_REACH]++;
-	(void)v;
+	if ( v && v->client )
+		Shinobi_HitText( v, STX_FINISHER, 0 );
 }
 
 // a new swing: a new attack move, another anim, or the same one started over
@@ -361,6 +362,7 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, float *dmg )
 	vc->ps.otherKillerDebounceTime = level.time + 100;
 	vc->shinobi.flinchEnd = 0; // (the finisher lets go)
 	Shinobi_GainChakra( attacker, SHINOBI_GAIN_COMBO, qtrue );
+	Shinobi_HitText( victim, STX_FINISHER, 0 );
 
 	if ( cmd->upmove > 0 ) { // up he goes
 		shinobiTest.bladeFinishers[0]++;
@@ -440,9 +442,14 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, float *dmg )
 	}
 }
 
-// every client frame: Kurosawa's extra cuts (his), a bleeding wound (on him)
+// every client frame: the combo for the HUD; Kurosawa's extra cuts (his), a bleeding wound (on him)
 void Shinobi_SwordThink( gentity_t *ent ) {
 	gclient_t *c = ent->client;
+
+	if ( c->ps.weapon == WP_SABER && Shinobi_BladeChainLive( c ) )
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->shinobi.bladeChain & 7 ) | ( ( shinobiSwordChain[Shinobi_BladeStyle( c )] & 7 ) << 3 );
+	else
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = 0;
 
 	if ( c->shinobi.flurryLeft > 0 && c->shinobi.flurryNext <= level.time ) {
 		gentity_t *v = &g_entities[c->shinobi.flurryVictim - 1];

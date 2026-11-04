@@ -1239,10 +1239,18 @@ static qboolean Shinobi_LockSees( gentity_t *ent, gentity_t *t ) {
 	return tr.fraction >= 1.0f;
 }
 
-// close combat: fists or a blade in hand (with a tool you aim yourself)
+// close combat: fists or a blade in hand (with a tool you aim yourself), and eyes that see:
+// not blinded, not in a mist or an ash cloud (the Byakugan sees through those)
 static qboolean Shinobi_LockHands( gentity_t *ent ) {
-	const int w = ent->client->ps.weapon;
-	return ( w == WP_MELEE || w == WP_SABER ) && ent->client->ps.pm_type == PM_NORMAL;
+	gclient_t *c = ent->client;
+	const int  w = c->ps.weapon;
+	if ( !( w == WP_MELEE || w == WP_SABER ) || c->ps.pm_type != PM_NORMAL )
+		return qfalse;
+	if ( c->shinobi.blindEnd > level.time )
+		return qfalse;
+	if ( ( c->shinobi.mistEnd > level.time || c->shinobi.ashEnd > level.time ) && c->shinobi.eyes != SP_BYAKUGAN )
+		return qfalse;
+	return qtrue;
 }
 
 /*
@@ -1294,6 +1302,10 @@ void Cmd_LockOn_f( gentity_t *ent ) {
 	const int  cur = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
 	int        i, n;
 
+	if ( !Shinobi_LockHands( ent ) ) {
+		trap->SendServerCommand( ent - g_entities, "cp \"You can't lock on now\"" );
+		return;
+	}
 	n = Shinobi_LockCandidates( ent, list, yaw, MAX_CLIENTS );
 	for ( i = 0; i < n; i++ )
 		if ( list[i]->s.number == cur )
