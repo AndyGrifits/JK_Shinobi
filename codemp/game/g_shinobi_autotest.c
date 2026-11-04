@@ -228,6 +228,8 @@ static void AT_Place( gentity_t *e, const vec3_t org, float yaw ) {
 	Shinobi_TeleportClient( e, (float *)org );
 	VectorClear( e->client->ps.velocity );
 	SetClientViewAngle( e, ang );
+	if ( e->s.number == at.a || e->s.number == at.b ) // (the drive sends its own angles every frame: face that way too)
+		at.drive[e->s.number == at.a ? 0 : 1].angles[YAW] = yaw;
 }
 
 // a point along the test line: 'ahead' units forward from the base, 'side' to the right
@@ -1381,6 +1383,7 @@ static void T_Lotus_Setup( void ) {
 	at.v[0] = shinobiTest.lotusSlams;
 	at.f[0] = B->client->ps.origin[2];
 	at.f[1] = -99999;
+	at.drive[0].aimAt = qtrue;
 }
 static atResult_t T_Lotus( int t ) {
 	if ( STAGE( 0 ) && t >= 200 ) {
@@ -1415,7 +1418,7 @@ static void T_LotusLog_Setup( void ) {
 	AT_Weapon( 1, WP_SABER );
 	AT_Spot( 110, 0, p );
 	AT_Place( B, p, at.baseYaw + 180 );
-	at.drive[1].aimAt = qtrue;
+	at.drive[0].aimAt = at.drive[1].aimAt = qtrue;
 	AT_Drive( 1, 0, 0, 0, BUTTON_ATTACK ); // B swings the whole time
 	at.v[0] = shinobiTest.lotusSlams;
 	at.v[1] = shinobiTest.lotusShielded;
@@ -1489,6 +1492,7 @@ static void T_Entry_Setup( void ) {
 	AT_Spot( 260, 0, p );
 	AT_Place( B, p, at.baseYaw + 180 );
 	at.v[0] = shinobiTest.entryHits;
+	at.drive[0].aimAt = qtrue;
 }
 static atResult_t T_Entry( int t ) {
 	if ( STAGE( 0 ) && t >= 200 ) {
@@ -1964,7 +1968,12 @@ static void AT_ChooseBase( void ) {
 		ang[YAW] = at.baseYaw;
 		AngleVectors( ang, at.fwd, at.right, NULL );
 		VectorCopy( org, at.base );
-		AT_Print( "[autotest] test spot %.0f %.0f %.0f facing %.0f, %.0f u of room ahead\n", org[0], org[1], org[2], at.baseYaw, bestLen );
+		vec3_t top;
+		VectorCopy( org, top );
+		top[2] += 600;
+		trap->Trace( &tr, org, mins, maxs, top, at.a, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		AT_Print( "[autotest] test spot %.0f %.0f %.0f facing %.0f, %.0f u of room ahead, %.0f u up to the ceiling\n", org[0], org[1], org[2],
+			at.baseYaw, bestLen, tr.fraction * 600 );
 	}
 	at.haveBase = qtrue;
 }
