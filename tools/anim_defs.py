@@ -87,12 +87,40 @@ STRAIGHT = {
     "head": (0.0, 0.0),
 }
 
+# Hand seals (charging a jutsu): both hands together before the chest, cycling four seals of the
+# twelve - tiger (palms together, index + middle up), snake (hands clasped, fingers interlaced),
+# dog (left palm flat on the right fist), ram (index + middle up, the hands crossed a little).
+# The skeleton has two finger pairs a hand (index + middle, ring + little): curl = (pair 1, pair 2).
+# Hands from their shoulders; the chest's middle ~ (-1.3, -9, 21) in the stand.
+def _seal(lhand, rhand, lpalm, rpalm, lcurl, rcurl, lelbow=(11.0, 5.0, -9.0), relbow=(-11.0, 5.0, -9.0)):
+    return {"head": (0.0, 10.0), "spine_bend": 4.0,
+            "lhand": lhand, "rhand": rhand, "lelbow": lelbow, "relbow": relbow,
+            "lpalm": lpalm, "rpalm": rpalm, "lcurl": lcurl, "rcurl": rcurl}
+
+SEAL_TIGER = _seal((-5.0, -6.5, -5.0), (5.4, -6.5, -5.7),
+                   ((0.0, -0.15, 1.0), (-1.0, 0.0, 0.0)), ((0.0, -0.15, 1.0), (1.0, 0.0, 0.0)),
+                   (0.0, 1.0), (0.0, 1.0))
+SEAL_SNAKE = _seal((-5.0, -7.0, -6.5), (5.4, -7.0, -7.2),
+                   ((0.0, -0.75, 0.65), (-1.0, 0.0, 0.0)), ((0.0, -0.75, 0.65), (1.0, 0.0, 0.0)),
+                   (0.75, 0.85), (0.75, 0.85))
+SEAL_DOG = _seal((-6.7, -7.5, -6.6), (6.0, -7.0, -10.0),
+                 ((-0.35, -1.0, 0.0), (0.0, 0.0, -1.0)), ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
+                 (0.0, 0.0), (1.0, 1.0))
+SEAL_RAM = _seal((-4.6, -7.5, -4.0), (5.8, -6.0, -6.0),
+                 ((-0.25, -0.4, 1.0), (-0.9, -0.3, 0.0)), ((0.25, -0.2, 1.0), (0.9, -0.3, 0.0)),
+                 (0.0, 1.0), (0.2, 1.0))
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
     # 0.8 s at 30 fps: down, a coil (the knee drawn up, the hand going back, the turn starting),
     # the kick snapping up past its line and settling; the head leads, the left arm and the
     # kicking leg trail the body a frame or two; the right foot stays planted
+    # 1.6 s, looping while a jutsu is charged: each seal held a little, snapped to the next
+    "BOTH_SHINOBI_SEALS": dict(ref=STAND, frames=33, fps=20, loop=0,
+                               keys=[(0.0, SEAL_TIGER), (0.15, SEAL_TIGER), (0.25, SEAL_SNAKE, "fast"),
+                                     (0.4, SEAL_SNAKE), (0.5, SEAL_DOG, "fast"), (0.65, SEAL_DOG),
+                                     (0.75, SEAL_RAM, "fast"), (0.9, SEAL_RAM), (1.0, SEAL_TIGER, "fast")]),
     "BOTH_SHINOBI_STRAIGHT": dict(ref=STAND, frames=2, fps=20, loop=-1,
                                   keys=[(0.0, STRAIGHT), (1.0, STRAIGHT)]),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,

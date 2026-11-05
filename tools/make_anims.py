@@ -228,15 +228,32 @@ def set_hand(pose, side, finger_dir, palm_dir):
 
 
 def flatten_hand(pose, side, curl=0.0):
-    """Fingers straight (0) or curled (1) relative to the hand."""
+    """The fingers: straight along the hand (0) .. a fist (1); curl = one number or
+    (index + middle, ring + little) - the skeleton has those two pairs, two joints each, and a
+    thumb. (Each finger bone hangs off the forearm, not off the one before it: the knuckle's
+    turn carries the second joint along by hand.)"""
     s = side
+    idx = pose.s.index
     f, palm = hand_frame(pose, s)
-    for a, b in (("_d2_j1", "_d2_j2"), ("_d4_j1", "_d4_j2")):
-        j1 = pose.pos(s + a)
-        seg = pose.pos(s + b) - j1
-        want = f * np.cos(np.radians(80 * curl)) - palm * np.sin(np.radians(80 * curl))
-        R = rot_between(seg, want)
-        pose.turn([pose.s.index[s + b]], R, j1)
+    lat = np.cross(f, palm)                   # the knuckles' hinge
+    curls = curl if isinstance(curl, (tuple, list, np.ndarray)) else (curl, curl)
+    for (a, b), c in zip((("_d2_j1", "_d2_j2"), ("_d4_j1", "_d4_j2")), curls):
+        c = float(c)
+        j1, j2 = idx[s + a], idx[s + b]
+        # straight first: the finger along the hand
+        p1 = pose.pos(s + a)
+        R = rot_between(pose.pos(s + b) - p1, f)
+        pose.turn([j1, j2], R, p1)
+        # then bent towards the palm: at the knuckle, then at the middle joint
+        ang1, ang2 = 70.0 * c, 80.0 * c
+        R1 = rot(lat, ang1)
+        if np.dot(R1 @ f, palm) < np.dot(f, palm):   # (the hinge's sign: towards the palm)
+            R1 = rot(lat, -ang1)
+            sign = -1
+        else:
+            sign = 1
+        pose.turn([j1, j2], R1, p1)
+        pose.turn([j2], rot(lat, sign * ang2), pose.pos(s + b))
 
 
 # ------------------------------------------------------------------ the key poses

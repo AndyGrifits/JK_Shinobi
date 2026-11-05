@@ -742,10 +742,8 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
 	if ( client->shinobi.chargeJutsu != SJ_NONE && client->shinobi.chargeJutsu != SJ_SHUNSHIN
 		&& !SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) ) {
-		static const int seals[] = { BOTH_FORCEHEAL_QUICK, BOTH_MINDTRICK2, BOTH_FORCEPULL, BOTH_MINDTRICK1 };
-		const int step = ( level.time - client->shinobi.chargeStart ) / SHINOBI_SEAL_MS;
-		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
-		client->ps.forceDodgeAnim = seals[step % ARRAY_LEN( seals )];
+		client->ps.forceHandExtend = HANDEXTEND_TAUNT; // our own: tiger, snake, dog, ram, over and over
+		client->ps.forceDodgeAnim = BOTH_SHINOBI_SEALS;
 		client->ps.forceHandExtendTime = level.time + 150;
 	}
 

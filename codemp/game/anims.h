@@ -1811,6 +1811,7 @@ typedef enum //# animNumber_e
 	BOTH_SHINOBI_STANCE_HYUGA,	//# 64 Seals: Neji's Gentle Fist stance (eases in, holds)
 	BOTH_SHINOBI_KICK_UP,		//# Reverse Lotus: down onto a hand, the leg shoots straight up
 	BOTH_SHINOBI_STRAIGHT,		//# straight as a string: feet together, arms down (Reverse Lotus in the air)
+	BOTH_SHINOBI_SEALS,			//# hand seals while a jutsu is charged (loops: tiger, snake, dog, ram)
 
 	//# #eol
 	MAX_ANIMATIONS,
