@@ -985,6 +985,7 @@ front, not guarding it: both go up SHINOBI_LOTUS_HEIGHT (smoke), hang spinning h
 down for SHINOBI_LOTUS_HANG_MS, then come down hard; where he lands: the damage,
 knocked down, a crater of dust.
 */
+#define SHINOBI_LOTUS_KICK_MS      500   // the kick comes up (BOTH_SHINOBI_KICK_UP), then you both go up
 #define SHINOBI_LOTUS_BLINK        130
 #define SHINOBI_LOTUS_REACH        80
 #define SHINOBI_LOTUS_HEIGHT       220

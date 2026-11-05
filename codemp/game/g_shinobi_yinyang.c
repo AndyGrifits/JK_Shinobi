@@ -887,7 +887,7 @@ static void Shinobi_LotusEnd( gentity_t *ent ) {
 
 qboolean Shinobi_CastLotus( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	vec3_t     yaw, fwd, end, eye, up = { 0, 0, 1 };
+	vec3_t     yaw, fwd, end, eye;
 	trace_t    tr;
 	gentity_t *best = NULL;
 	float      bestDist = SHINOBI_LOTUS_REACH + 1;
@@ -927,9 +927,10 @@ qboolean Shinobi_CastLotus( gentity_t *ent ) {
 			SetClientViewAngle( ent, yaw );
 		}
 	}
-	client->ps.forceHandExtend = HANDEXTEND_TAUNT; // the kick up
-	client->ps.forceDodgeAnim = BOTH_A7_KICK_F;
-	client->ps.forceHandExtendTime = level.time + 500;
+	client->ps.forceHandExtend = HANDEXTEND_TAUNT; // the kick up (our own: down onto a hand, the leg straight up)
+	client->ps.forceDodgeAnim = BOTH_SHINOBI_KICK_UP;
+	client->ps.forceHandExtendTime = level.time + SHINOBI_LOTUS_KICK_MS + 300;
+	VectorClear( client->ps.velocity );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWind2 );
 
 	if ( !best || Distance( best->r.currentOrigin, client->ps.origin ) > SHINOBI_LOTUS_REACH + 8 )
@@ -939,36 +940,47 @@ qboolean Shinobi_CastLotus( gentity_t *ent ) {
 		G_Damage( best, ent, ent, fwd, best->r.currentOrigin, 12, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // (the guard takes it)
 		return qtrue;
 	}
-	// caught: up into the air, both of you
-	{
-		vec3_t spot, top, side;
-		VectorCopy( best->r.currentOrigin, spot );
-		VectorCopy( spot, top );
-		top[2] += SHINOBI_LOTUS_HEIGHT;
-		trap->Trace( &tr, spot, best->r.mins, best->r.maxs, top, best->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
-		VectorCopy( tr.endpos, spot );
-		spot[2] -= 8;
-		VectorCopy( spot, client->shinobi.lotusSpot );
-		Shinobi_EffectDir( shinobiMedia.fxShunshin, best->r.currentOrigin, up );
-		Shinobi_TeleportClient( best, spot );
-		VectorMA( spot, -44, fwd, side );
-		trap->Trace( &tr, spot, ent->r.mins, ent->r.maxs, side, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
-		Shinobi_TeleportClient( ent, tr.endpos );
-		SetClientViewAngle( ent, yaw );
-		Shinobi_EffectDir( shinobiMedia.fxShunshin, spot, up );
-	}
-	G_Sound( best, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
-	Shinobi_HitText( best, STX_LAUNCH, 0 );
+	// caught: he stands stunned while the kick comes up (Shinobi_LotusThink launches you both)
 	best->client->shinobi.lotusBy = ent->s.number + 1;
 	best->client->shinobi.flinchEnd = 0;
 	best->client->ps.weaponTime = 0; // (whatever he was swinging is gone)
 	// neither of you is hurt by the floor (the slam is the damage), from now to well after the landing
-	best->client->shinobi.slamNoFall = client->shinobi.slamNoFall = level.time + SHINOBI_LOTUS_MAX_MS + 2000;
+	best->client->shinobi.slamNoFall = client->shinobi.slamNoFall = level.time + SHINOBI_LOTUS_KICK_MS + SHINOBI_LOTUS_MAX_MS + 2000;
 	client->shinobi.lotusVictim = best->s.number + 1;
+	client->shinobi.lotusPhase = 1; // the kick
+	client->shinobi.lotusTime = level.time;
+	Shinobi_CCGrant( best, level.time + SHINOBI_LOTUS_KICK_MS + SHINOBI_LOTUS_MAX_MS + 1500 );
+	return qtrue;
+}
+
+// the kick lands: up into the air, both of you
+static void Shinobi_LotusLaunch( gentity_t *ent, gentity_t *best ) {
+	gclient_t *client = ent->client;
+	vec3_t     spot, top, side, yaw, fwd, up = { 0, 0, 1 };
+	trace_t    tr;
+
+	VectorSet( yaw, 0, client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	VectorCopy( best->r.currentOrigin, spot );
+	VectorCopy( spot, top );
+	top[2] += SHINOBI_LOTUS_HEIGHT;
+	trap->Trace( &tr, spot, best->r.mins, best->r.maxs, top, best->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	VectorCopy( tr.endpos, spot );
+	spot[2] -= 8;
+	VectorCopy( spot, client->shinobi.lotusSpot );
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, best->r.currentOrigin, up );
+	Shinobi_TeleportClient( best, spot );
+	VectorMA( spot, -44, fwd, side );
+	trap->Trace( &tr, spot, ent->r.mins, ent->r.maxs, side, ent->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	Shinobi_TeleportClient( ent, tr.endpos );
+	SetClientViewAngle( ent, yaw );
+	Shinobi_EffectDir( shinobiMedia.fxShunshin, spot, up );
+	G_Sound( best, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
+	Shinobi_HitText( best, STX_LAUNCH, 0 );
+	if ( client->ps.forceHandExtend == HANDEXTEND_TAUNT )
+		client->ps.forceHandExtend = HANDEXTEND_NONE; // (out of the kick: the spin takes over)
 	client->shinobi.lotusPhase = 2; // hanging up there
 	client->shinobi.lotusTime = level.time;
-	Shinobi_CCGrant( best, level.time + SHINOBI_LOTUS_MAX_MS + 1500 );
-	return qtrue;
 }
 
 // the spin up there: front flips, over and over
@@ -1013,6 +1025,21 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	if ( client->shinobi.lotusPhase == 1 ) { // the kick coming up (its anim, on the spot)
+		client->ps.velocity[0] = client->ps.velocity[1] = 0;
+		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+		client->ps.forceDodgeAnim = BOTH_SHINOBI_KICK_UP;
+		if ( client->ps.forceHandExtendTime < level.time + 150 )
+			client->ps.forceHandExtendTime = level.time + 150;
+		if ( level.time - client->shinobi.lotusTime >= SHINOBI_LOTUS_KICK_MS ) {
+			if ( Distance( v->r.currentOrigin, client->ps.origin ) > SHINOBI_LOTUS_REACH + 40 ) {
+				Shinobi_LotusEnd( ent ); // he got away (pushed off, Kawarimi...)
+				return;
+			}
+			Shinobi_LotusLaunch( ent, v );
+		}
+		return;
+	}
 	if ( client->shinobi.lotusPhase == 2 ) { // hanging, spinning head down
 		client->ps.gravity = 1; // (0 would set off Pmove's zero-g jump code: it sank them at ~300 a second)
 		VectorClear( client->ps.velocity );
@@ -1065,6 +1092,10 @@ static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
 	ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
 	client->shinobi.blocking = qfalse;
+	if ( a->client->shinobi.lotusPhase == 1 ) { // stunned on his feet while the kick comes up
+		client->ps.velocity[0] = client->ps.velocity[1] = 0;
+		return;
+	}
 	if ( a->client->shinobi.lotusPhase == 2 ) {
 		client->ps.gravity = 1;
 		VectorClear( client->ps.velocity );

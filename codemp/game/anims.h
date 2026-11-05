@@ -1809,6 +1809,7 @@ typedef enum //# animNumber_e
 
 	//# JK_Shinobi: our own (tools/make_anims.py appends them to the skeletons)
 	BOTH_SHINOBI_STANCE_HYUGA,	//# 64 Seals: Neji's Gentle Fist stance (eases in, holds)
+	BOTH_SHINOBI_KICK_UP,		//# Reverse Lotus: down onto a hand, the leg shoots straight up
 
 	//# #eol
 	MAX_ANIMATIONS,

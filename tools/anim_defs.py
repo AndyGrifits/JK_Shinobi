@@ -3,13 +3,19 @@
 Each: ref = (stock animation, frame in it) the poses are built on; frames, fps, loop
 (as animation.cfg: -1 = plays once - held on its last frame while the game keeps it on;
 0 = loops);
-keys = [(time 0..1, pose)]. An empty pose = the reference frame as it is.
+keys = [(time 0..1, pose[, ease])]. An empty pose = the reference frame as it is. Each key
+is solved to a full pose; between keys every joint turns (slerp) - ease = how the motion into
+that key goes: smooth (default), linear, fast (snaps, settles: a strike), slow.
 
 Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   body_yaw      deg, the whole body about the pelvis (+ turns the chest to its left)
   pelvis        (x, y, z) moved
   spine_bend    deg forward over the three spine joints; spine_side; spine_twist (about up)
   head          (yaw, pitch down)
+  body_pitch    deg, the whole body about the pelvis, forward (+: head down); body_roll
+  lleg/rleg     (direction, reach 0..1) the foot from the hip, lknee/rknee a pole from the hip;
+                ltoes/rtoes where the toes point
+  lhand_at/rhand_at  (x, y, z) the wrist, absolute (a hand planted on the floor ~-22)
   lfoot/rfoot   (x, y, z) from where that foot is in the reference frame; lknee/rknee the
                 knee's pole direction; lfoot_yaw/rfoot_yaw deg (+ = toes to the model's left)
   larm/rarm     (direction, reach 0..1 of the arm's length - 1 = straight), from the shoulder
@@ -27,8 +33,8 @@ STAND = ("BOTH_STAND1", 0)
 HYUGA = {
     "body_yaw": -50.0,
     "pelvis": (3.8, -4.6, -17.0),
-    "spine_bend": 6.0, "spine_side": -24.0,
-    "head": (40.0, -14.0),
+    "spine_bend": 0.0, "spine_side": -24.0,
+    "head": (40.0, 14.0),
     "lfoot": (6.8, -11.3, 0.0), "lknee": (14.0, -16.0, 0.0), "lfoot_yaw": 20.0,
     "rfoot": (-12.2, 14.6, 0.0), "rknee": (-16.0, -8.0, 0.0), "rfoot_yaw": -70.0,
     "larm": ((0.15, -0.65, -0.74), 0.995),
@@ -37,7 +43,28 @@ HYUGA = {
     "rpalm": ((-0.28, 0.57, 0.77), (-0.6, -0.7, 0.2)), "rcurl": 0.0,
 }
 
+# Reverse Lotus, the kick up (Sasuke's from below): down into a crouch, a hand to the floor,
+# the body tips forward over it and the right leg shoots straight up under his chin; held
+CROUCH = {
+    "pelvis": (0.0, 0.0, -13.0), "spine_bend": 38.0, "head": (0.0, -25.0),
+    "lfoot": (0.0, 0.0, 0.0), "lknee": (6.0, -20.0, 0.0),
+    "rfoot": (0.0, 0.0, 0.0), "rknee": (-6.0, -20.0, 0.0),
+    "rhand_at": (-6.0, -14.0, -21.0), "relbow": (-12.0, 0.0, -10.0),
+    "rpalm": ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
+    "lhand": (3.0, -8.0, -10.0), "lelbow": (14.0, 4.0, -6.0),
+}
+KICK_UP = {
+    "body_pitch": 122.0, "pelvis": (0.0, 2.0, -12.0), "head": (0.0, -55.0),
+    "rleg": ((0.0, 0.12, 1.0), 1.0), "rknee": (0.0, -20.0, 0.0), "rtoes": (0.0, -0.3, 1.0),
+    "lleg": ((0.25, -0.35, -1.0), 0.6), "lknee": (6.0, -20.0, 4.0),
+    "rhand_at": (-6.0, -13.0, -21.0), "relbow": (-14.0, 4.0, -4.0),
+    "rpalm": ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
+    "lhand": (4.0, -4.0, 2.0), "lelbow": (14.0, 0.0, -4.0),
+}
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
+    "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=17, fps=20, loop=-1,
+                                 keys=[(0.0, {}), (0.35, CROUCH), (0.65, KICK_UP, "fast"), (1.0, KICK_UP)]),
 }

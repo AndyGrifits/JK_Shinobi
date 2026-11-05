@@ -249,6 +249,10 @@ def build_pose(skel, G0, k, ref):
     # the whole body: lowered / shifted, turned about the pelvis
     if "body_yaw" in k:
         p.turn(list(range(skel.nb)), rot(UP, k["body_yaw"]), pelvis)
+    if "body_pitch" in k:  # forward (+): the head goes down, the hips stay
+        p.turn(list(range(skel.nb)), rot(rot(UP, k.get("body_yaw", 0)) @ LEFT, k["body_pitch"]), pelvis)
+    if "body_roll" in k:   # (+): the left shoulder goes down
+        p.turn(list(range(skel.nb)), rot(rot(UP, k.get("body_yaw", 0)) @ FWD, -k["body_roll"]), pelvis)
     if "pelvis" in k:
         p.move_all(np.asarray(k["pelvis"], float))
     # the spine: bend forward (+) / sideways, twist, spread over three joints
@@ -256,16 +260,28 @@ def build_pose(skel, G0, k, ref):
         if "spine_twist" in k:
             p.turn_bone(nm, rot(UP, k["spine_twist"] * share))
         if "spine_bend" in k:
-            p.turn_bone(nm, rot(rot(UP, k.get("body_yaw", 0)) @ LEFT, -k["spine_bend"] * share))
+            p.turn_bone(nm, rot(rot(UP, k.get("body_yaw", 0)) @ LEFT, k["spine_bend"] * share))
         if "spine_side" in k:
             p.turn_bone(nm, rot(rot(UP, k.get("body_yaw", 0)) @ FWD, k["spine_side"] * share))
     if "head" in k:  # yaw, pitch (down +)
         yaw, pitch = k["head"]
         p.turn_bone("cervical", rot(UP, yaw))
-        p.turn_bone("cervical", rot(rot(UP, yaw + k.get("body_yaw", 0)) @ LEFT, -pitch))
-    # legs: feet where asked (relative to the reference feet), the knees towards their poles
+        p.turn_bone("cervical", rot(rot(UP, yaw + k.get("body_yaw", 0)) @ LEFT, pitch))  # (about +X: + tips -Y forward down)
+    # legs: feet where asked (relative to the reference feet), the knees towards their poles;
+    # or (lleg / rleg) the foot along a direction from the hip, the knee pole from the hip
     for s in "lr":
-        if s + "foot" in k:
+        if s + "leg" in k:
+            hip = p.pos(s + "femurYZ")
+            d, reach = k[s + "leg"]
+            d = np.asarray(d, float) / np.linalg.norm(d)
+            length = np.linalg.norm(p.pos(s + "tibia") - hip) + np.linalg.norm(p.pos(s + "talus") - p.pos(s + "tibia"))
+            pole = hip + np.asarray(k.get(s + "knee", FWD * 20), float)
+            p.two_bone(s + "femurYZ", s + "tibia", s + "talus", hip + d * length * reach, pole)
+            if s + "toes" in k:   # the foot: its (bind) forward towards this
+                ti = skel.index[s + "talus"]
+                fwd_now = p.G[ti, :3, :3] @ np.linalg.inv(G0[ti, :3, :3]) @ FWD
+                p.turn_bone(s + "talus", rot_between(fwd_now, np.asarray(k[s + "toes"], float)))
+        elif s + "foot" in k:
             tgt = ref[s + "talus"] + np.asarray(k[s + "foot"], float)
             pole = tgt + np.asarray(k.get(s + "knee", FWD * 20), float) + UP * 15
             p.two_bone(s + "femurYZ", s + "tibia", s + "talus", tgt, pole)
@@ -277,9 +293,11 @@ def build_pose(skel, G0, k, ref):
     # arms: hands where asked (from the shoulder as it is now, model axes), elbows towards
     # their poles (also from the shoulder)
     for s in "lr":
-        if s + "hand" in k or s + "arm" in k:
+        if s + "hand" in k or s + "arm" in k or s + "hand_at" in k:
             sh = p.pos(s + "humerus")
-            if s + "arm" in k:   # (direction, reach 0..1 of the arm's length): 1 = straight
+            if s + "hand_at" in k:  # absolute (a hand on the floor)
+                tgt = np.asarray(k[s + "hand_at"], float)
+            elif s + "arm" in k:   # (direction, reach 0..1 of the arm's length): 1 = straight
                 d, reach = k[s + "arm"]
                 d = np.asarray(d, float) / np.linalg.norm(d)
                 length = np.linalg.norm(p.pos(s + "radius") - sh) + np.linalg.norm(p.pos(s + "hand") - p.pos(s + "radius"))
@@ -317,16 +335,81 @@ def interp_keys(keys, t):
     return dict(keys[-1][1])
 
 
+def quat_mat(q):
+    """(N, 4) w x y z -> (N, 3, 3)."""
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    m = np.empty((len(q), 3, 3))
+    m[:, 0, 0] = 1 - 2 * (y * y + z * z)
+    m[:, 0, 1] = 2 * (x * y - z * w)
+    m[:, 0, 2] = 2 * (x * z + y * w)
+    m[:, 1, 0] = 2 * (x * y + z * w)
+    m[:, 1, 1] = 1 - 2 * (x * x + z * z)
+    m[:, 1, 2] = 2 * (y * z - x * w)
+    m[:, 2, 0] = 2 * (x * z - y * w)
+    m[:, 2, 1] = 2 * (y * z + x * w)
+    m[:, 2, 2] = 1 - 2 * (x * x + y * y)
+    return m
+
+
+def blend_rel(a, b, u, bind_pos):
+    """Two poses' relative matrices (nb, 4, 4) -> between them: every joint's rotation
+    slerped, the joint itself (its bind position carried by the matrix) lerped - so a bone
+    turns about its own joint, the pelvis too (limbs swing in arcs, whatever the keys were
+    made of)."""
+    from make_skeleton import quat_from
+    qa, qb = quat_from(a[:, :3, :3]), quat_from(b[:, :3, :3])
+    dot = np.sum(qa * qb, axis=1)
+    qb[dot < 0] *= -1
+    dot = np.abs(dot)
+    th = np.arccos(np.clip(dot, -1, 1))
+    sn = np.sin(th)
+    small = sn < 1e-6
+    wa = np.where(small, 1 - u, np.sin((1 - u) * th) / np.where(small, 1, sn))
+    wb = np.where(small, u, np.sin(u * th) / np.where(small, 1, sn))
+    q = qa * wa[:, None] + qb * wb[:, None]
+    q /= np.linalg.norm(q, axis=1, keepdims=True)
+    out = np.tile(np.eye(4), (len(a), 1, 1))
+    R = quat_mat(q)
+    ja = np.einsum("nij,nj->ni", a[:, :3, :3], bind_pos) + a[:, :3, 3]
+    jb = np.einsum("nij,nj->ni", b[:, :3, :3], bind_pos) + b[:, :3, 3]
+    j = ja * (1 - u) + jb * u
+    out[:, :3, :3] = R
+    out[:, :3, 3] = j - np.einsum("nij,nj->ni", R, bind_pos)
+    return out
+
+
+EASES = {
+    "smooth": lambda t: t * t * (3 - 2 * t),
+    "linear": lambda t: t,
+    "fast": lambda t: 1 - (1 - t) ** 3,      # snaps out, settles (a strike)
+    "slow": lambda t: t ** 3,                # winds up slowly, ends fast
+}
+
+
 def make_frames(skel, anim, ref_frame):
+    """Each key -> a full pose; the frames between are blended joint by joint. A key is
+    (time, pose) or (time, pose, ease): how the motion INTO that key goes."""
     G0 = skel.posed(ref_frame)
     ref = {skel.name[i]: G0[i, :3, 3].copy() for i in range(skel.nb)}
+    keys = []
+    for key in anim["keys"]:
+        t, pose = key[0], key[1]
+        ease_name = key[2] if len(key) > 2 else "smooth"
+        keys.append((t, skel.to_rel(build_pose(skel, G0, pose, ref)), EASES[ease_name]))
     n = anim["frames"]
     out = []
     for f in range(n):
         t = f / (n - 1) if n > 1 else 1.0
-        k = interp_keys(anim["keys"], t)
-        G = build_pose(skel, G0, k, ref)
-        out.append(skel.to_rel(G))
+        if t <= keys[0][0]:
+            out.append(keys[0][1].copy())
+            continue
+        for (t0, a, _), (t1, b, ez) in zip(keys, keys[1:]):
+            if t <= t1 + 1e-9:
+                u = ez((t - t0) / (t1 - t0)) if t1 > t0 else 1.0
+                out.append(blend_rel(a, b, u, skel.base[:, :3, 3]))
+                break
+        else:
+            out.append(keys[-1][1].copy())
     return out
 
 
