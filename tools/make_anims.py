@@ -277,9 +277,15 @@ def build_pose(skel, G0, k, ref):
     # arms: hands where asked (from the shoulder as it is now, model axes), elbows towards
     # their poles (also from the shoulder)
     for s in "lr":
-        if s + "hand" in k:
+        if s + "hand" in k or s + "arm" in k:
             sh = p.pos(s + "humerus")
-            tgt = sh + np.asarray(k[s + "hand"], float)
+            if s + "arm" in k:   # (direction, reach 0..1 of the arm's length): 1 = straight
+                d, reach = k[s + "arm"]
+                d = np.asarray(d, float) / np.linalg.norm(d)
+                length = np.linalg.norm(p.pos(s + "radius") - sh) + np.linalg.norm(p.pos(s + "hand") - p.pos(s + "radius"))
+                tgt = sh + d * length * reach
+            else:
+                tgt = sh + np.asarray(k[s + "hand"], float)
             pole = sh + np.asarray(k.get(s + "elbow", [(1 if s == "l" else -1) * 20, 10, -10]), float)
             p.two_bone(s + "humerus", s + "radius", s + "hand", tgt, pole)
         if s + "palm" in k:

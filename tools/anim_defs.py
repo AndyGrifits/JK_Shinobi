@@ -12,6 +12,7 @@ Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   head          (yaw, pitch down)
   lfoot/rfoot   (x, y, z) from where that foot is in the reference frame; lknee/rknee the
                 knee's pole direction; lfoot_yaw/rfoot_yaw deg (+ = toes to the model's left)
+  larm/rarm     (direction, reach 0..1 of the arm's length - 1 = straight), from the shoulder
   lhand/rhand   (x, y, z) the wrist, from the shoulder (as the body / spine left it);
                 lelbow/relbow a point the elbow bends towards, also from the shoulder
   (the reference stand: pelvis z ~9, shoulders ~27, head top ~37, feet ~-20, floor ~-24)
@@ -20,19 +21,20 @@ Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
 
 STAND = ("BOTH_STAND1", 0)
 
-# Neji's Gentle Fist stance (64 Seals): side-on, the left foot and the left palm forward,
-# the right hand raised by the head, knees bent; eases in from the stand in 0.5 s and holds
+# Neji's Eight Trigrams stance (64 Seals): a deep side-on lunge, the body leaning in, both
+# arms straight in one line through the shoulders - the front one down towards the floor,
+# the back one up and behind - palms open; eases in from the stand in 0.5 s and holds
 HYUGA = {
-    "body_yaw": -40.0,
-    "pelvis": (0.0, 0.0, -7.0),
-    "spine_bend": 8.0,
-    "head": (38.0, 4.0),
-    "lfoot": (4.0, -13.0, 0.0), "lknee": (8.0, -20.0, 0.0), "lfoot_yaw": 10.0,
-    "rfoot": (-5.0, 10.0, 0.0), "rknee": (-20.0, -6.0, 0.0), "rfoot_yaw": -65.0,
-    "lhand": (1.0, -19.0, -4.0), "lelbow": (10.0, -4.0, -12.0),
-    "lpalm": ((0.0, -0.35, 1.0), (0.0, -1.0, 0.15)), "lcurl": 0.0,
-    "rhand": (-4.0, -6.0, 9.0), "relbow": (-16.0, 4.0, -4.0),
-    "rpalm": ((0.2, -0.2, 1.0), (0.1, -1.0, 0.0)), "rcurl": 0.0,
+    "body_yaw": -50.0,
+    "pelvis": (3.8, -4.6, -17.0),
+    "spine_bend": 34.0, "spine_side": -28.0,
+    "head": (40.0, -14.0),
+    "lfoot": (6.8, -11.3, 0.0), "lknee": (14.0, -16.0, 0.0), "lfoot_yaw": 20.0,
+    "rfoot": (-12.2, 14.6, 0.0), "rknee": (-16.0, -8.0, 0.0), "rfoot_yaw": -70.0,
+    "larm": ((0.15, -0.65, -0.74), 0.995),
+    "lpalm": ((0.15, -0.65, -0.74), (0.2, -0.5, 0.8)), "lcurl": 0.0,
+    "rarm": ((-0.28, 0.57, 0.77), 0.995),
+    "rpalm": ((-0.28, 0.57, 0.77), (-0.6, -0.7, 0.2)), "rcurl": 0.0,
 }
 
 ANIMS = {
