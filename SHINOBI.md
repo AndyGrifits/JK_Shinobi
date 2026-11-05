@@ -720,6 +720,10 @@ poses are the cvars `shinobi_kaitenAnim1` (wind-up) / `shinobi_kaitenAnim2` (spi
    (127.0.0.1:29170). The host is found by Steam rich presence (`jks` = `host`, set only while
    the server answers `getinfo`). `tools/steamlink/build.sh` builds it (MinGW, the Steamworks
    headers and `steam_api64.dll` from Steamworks.NET, pinned).
+   Plain Jedi Academy (no mod) the same way: `JA_SteamHost.bat` / `JA_SteamJoin.bat` (Mac:
+   `JA_Host.command` / `JA_Join.command`) - `JK_Shinobi_Steam host|join base` starts the game
+   without `fs_game shinobi` and advertises `jks` = `host_base`, so each side only finds hosts
+   of its own kind.
    Directly instead: the host starts `JK_Shinobi_Host.bat` - full screen (a borderless window
    at the desktop resolution) straight on the stock Create Game screen (game type, map, bots;
    our maps are listed by their `.arena` files); its console window lists his addresses. The

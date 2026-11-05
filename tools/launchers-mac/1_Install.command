@@ -34,6 +34,7 @@ if [ $ok = 1 ]; then
   echo "Готово. Дальше:"
   echo "  Join_Friend.command  - подключиться к другу через Steam (он хостит)"
   echo "  Host_Game.command    - захостить самому через Steam"
+  echo "  JA_Join.command / JA_Host.command - то же, но обычный Jedi Academy без мода"
   echo "  Solo.command         - просто запустить игру (проверка)"
 else
   echo "Установка не закончена - см. сообщения выше."

@@ -16,5 +16,8 @@ JK_Shinobi - наруто-мод для Jedi Academy, версия для Mac (A
   он сам найдёт его и подключит. Или наоборот: Host_Game.command.
 - Окно Терминала не закрывай, пока играешь: через него идёт связь.
 
+Обычный Jedi Academy без мода, тоже через Steam: JA_Host.command / JA_Join.command
+(на Windows: JA_SteamHost.bat / JA_SteamJoin.bat). Оба должны запустить именно JA-версию.
+
 Solo.command - просто запустить игру, проверить что всё работает.
 Лог игры: ~/Library/Application Support/OpenJK/shinobi/qconsole.log

@@ -65,7 +65,12 @@ static void Sleep( int ms ) { usleep( ms * 1000 ); }
 #include "steam/steam_api_flat.h"
 
 static const uint32 kAppId = 480;              // Valve's Spacewar test app
-static const char  *kPresenceKey = "jks";      // our rich presence: "host" while hosting
+static const char  *kPresenceKey = "jks";      // our rich presence: "host" ("host_base" for plain JA) while hosting
+
+// "base" as the second argument: plain Jedi Academy (OpenJK's base game, no mod) instead of JK_Shinobi
+static bool         g_vanilla;
+static const char  *Title( void ) { return g_vanilla ? "Jedi Academy" : "JK_Shinobi"; }
+static const char  *HostTag( void ) { return g_vanilla ? "host_base" : "host"; }
 static const int    kGamePort = 29070;         // the game's server (net_port)
 static const int    kJoinPort = 29170;         // what a joining game connects to (this program)
 static const int    kChannel = 0;
@@ -105,8 +110,8 @@ static bool StartGame( const char *extra ) {
 	char cmd[2048];
 	STARTUPINFOA si;
 	snprintf( cmd, sizeof( cmd ),
-		"\"%s\\" GAME_EXE "\" +set fs_game shinobi +set logfile 2 +set r_fullscreen 0 +set r_mode -2 +set r_noborder 1 "
-		"+exec shinobi_binds.cfg %s", g_dir, extra );
+		"\"%s\\" GAME_EXE "\" %s+set logfile 2 +set r_fullscreen 0 +set r_mode -2 +set r_noborder 1 %s%s", g_dir,
+		g_vanilla ? "" : "+set fs_game shinobi ", g_vanilla ? "" : "+exec shinobi_binds.cfg ", extra );
 	memset( &si, 0, sizeof( si ) );
 	si.cb = sizeof( si );
 	if ( !CreateProcessA( NULL, cmd, NULL, NULL, FALSE, 0, NULL, g_dir, &si, &g_game ) ) {
@@ -124,10 +129,12 @@ static bool StartGame( const char *extra ) { // extra: "+cmd arg arg +cmd ..." s
 	static char  words[2048];
 	char        *argv[96], *w;
 	int          argc = 0, rc;
-	const char  *fixed[] = { GAME_EXE, "+set", "fs_game", "shinobi", "+set", "logfile", "2", "+set", "r_fullscreen", "1",
-	                         "+set", "r_mode", "-2", "+exec", "shinobi_binds.cfg" };
+	const char  *fixed[] = { GAME_EXE, "+set", "logfile", "2", "+set", "r_fullscreen", "1", "+set", "r_mode", "-2" };
+	const char  *mod[] = { "+set", "fs_game", "shinobi", "+exec", "shinobi_binds.cfg" };
 	for ( size_t k = 0; k < sizeof( fixed ) / sizeof( fixed[0] ); k++ )
 		argv[argc++] = (char *)fixed[k];
+	for ( size_t k = 0; !g_vanilla && k < sizeof( mod ) / sizeof( mod[0] ); k++ )
+		argv[argc++] = (char *)mod[k];
 	snprintf( words, sizeof( words ), "%s", extra );
 	for ( w = strtok( words, " " ); w && argc < 95; w = strtok( NULL, " " ) )
 		argv[argc++] = w;
@@ -291,14 +298,14 @@ static void ProbeServer( const sockaddr_in &server ) {
 		g_serverUp = answered;
 		if ( answered ) {
 			char status[128];
-			snprintf( status, sizeof( status ), "JK_Shinobi - hosting %s", g_mapName );
-			SteamAPI_ISteamFriends_SetRichPresence( g_friends, kPresenceKey, "host" );
+			snprintf( status, sizeof( status ), "%s - hosting %s", Title(), g_mapName );
+			SteamAPI_ISteamFriends_SetRichPresence( g_friends, kPresenceKey, HostTag() );
 			SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", status );
-			Log( "Your game is up (%s) - friends can join now with JK_Shinobi_SteamJoin.", g_mapName );
+			Log( "Your game is up (%s) - friends can join now (their Join launcher).", g_mapName );
 		}
 		else {
 			SteamAPI_ISteamFriends_SetRichPresence( g_friends, kPresenceKey, "" );
-			SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", "JK_Shinobi - setting up a game" );
+			SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", g_vanilla ? "Jedi Academy - setting up a game" : "JK_Shinobi - setting up a game" );
 			Log( "No game running (pick a map and press Start)." );
 		}
 	}
@@ -309,10 +316,10 @@ static int RunHost( void ) {
 	const sockaddr_in server = Loopback( kGamePort );
 	DWORD             nextInfo = 0, nextProbe = 0;
 	g_probe = UdpSocket( 0 );
-	SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", "JK_Shinobi - setting up a game" );
+	SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", g_vanilla ? "Jedi Academy - setting up a game" : "JK_Shinobi - setting up a game" );
 	if ( !StartGame( "+set g_forcePowerDisable 0 +set g_maxForceRank 7 +set bot_minplayers 0 +set sv_maxclients 8 +wait 30 +ui_openmenu createserver" ) )
 		return 1;
-	Log( "Hosting. Pick the map in the game and press Start - then your Steam friends join with JK_Shinobi_SteamJoin." );
+	Log( "Hosting. Pick the map in the game and press Start - then your Steam friends join (their Join launcher)." );
 	Log( "Keep this window open while you play (it closes with the game)." );
 	while ( GameRunning() ) {
 		if ( GetTickCount() >= nextProbe ) {
@@ -391,7 +398,7 @@ static int FindHosts( uint64 *out, int max ) {
 	}
 	for ( i = 0; i < np && nh < max; i++ ) {
 		const char *v = SteamAPI_ISteamFriends_GetFriendRichPresence( g_friends, playing[i], kPresenceKey );
-		if ( v && !strcmp( v, "host" ) )
+		if ( v && !strcmp( v, HostTag() ) )
 			out[nh++] = playing[i];
 	}
 	return nh;
@@ -406,13 +413,13 @@ static int RunJoin( void ) {
 	DWORD       started;
 	char        connect[64];
 
-	SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", "JK_Shinobi - joining" );
+	SteamAPI_ISteamFriends_SetRichPresence( g_friends, "status", g_vanilla ? "Jedi Academy - joining" : "JK_Shinobi - joining" );
 	Log( "Looking for a Steam friend who is hosting..." );
 	for ( ;; ) {
 		n = FindHosts( hosts, 16 );
 		if ( n > 0 )
 			break;
-		Log( "Nobody is hosting yet (your friend starts JK_Shinobi_SteamHost) - looking again..." );
+		Log( "Nobody is hosting yet (your friend starts his Host launcher) - looking again..." );
 	}
 	if ( n == 1 )
 		g_hostId = hosts[0];
@@ -505,7 +512,9 @@ int main( int argc, char **argv ) {
 		mode = 1;
 	else if ( argc > 1 && !_stricmp( argv[1], "join" ) )
 		mode = 2;
-	else {
+	if ( argc > 2 && !_stricmp( argv[2], "base" ) )
+		g_vanilla = true;
+	if ( mode == 0 ) {
 		char line[16];
 		printf( "JK_Shinobi over Steam\n  1. Host a game\n  2. Join a friend's game\nChoose 1 or 2: " );
 		fflush( stdout );
@@ -542,6 +551,8 @@ int main( int argc, char **argv ) {
 	WSAStartup( MAKEWORD( 2, 2 ), &wsa );
 #endif
 	Log( "Steam: logged in as %s", SteamAPI_ISteamFriends_GetPersonaName( g_friends ) );
+	if ( g_vanilla )
+		Log( "Plain Jedi Academy (no mod) - the other side must start the plain JA launcher too." );
 
 	rc = mode == 1 ? RunHost() : RunJoin();
 
