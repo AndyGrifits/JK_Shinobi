@@ -45,6 +45,7 @@ static const char *mzStateNames[] = { "idle", "fight", "search" };
 typedef struct { int role; vec3_t org; float yaw; int depth; } mzSlot_t;
 typedef struct {
 	int		ent, role, state;
+	qboolean	ready;			// NPC_Begin has run (health set): the maze AI takes over
 	int		lastSeen, searchUntil, nextThink, spawnTime;
 	vec3_t	home, lastPos;
 	float	moved;					// distance walked since the last summary (shinobi_maze_debug)
@@ -284,7 +285,7 @@ static void MZ_Director( void ) {
 				memset( m, 0, sizeof( *m ) );
 				m->ent = npc->s.number; m->role = MZR_BOSS; m->spawnTime = level.time;
 				VectorCopy( npc->r.currentOrigin, m->home ); VectorCopy( npc->r.currentOrigin, m->lastPos );
-				MZ_Idle( m, npc ); byRole[MZR_BOSS]++;
+				byRole[MZR_BOSS]++;
 			}
 		}
 	}
@@ -313,7 +314,7 @@ static void MZ_Director( void ) {
 				memset( m, 0, sizeof( *m ) );
 				m->ent = npc->s.number; m->role = mz.slots[pick].role; m->spawnTime = level.time;
 				VectorCopy( npc->r.currentOrigin, m->home ); VectorCopy( npc->r.currentOrigin, m->lastPos );
-				MZ_Idle( m, npc ); byRole[m->role]++;
+				byRole[m->role]++;
 			}
 		}
 	}
@@ -377,6 +378,23 @@ void Shinobi_MazeFrame( void ) {
 		gentity_t *npc = &g_entities[m->ent];
 		if ( m->ent < 0 )
 			continue;
+		if ( !m->ready ) {		// a freshly spawned NPC has no health until its NPC_Begin think
+			if ( !npc->inuse ) { m->ent = -1; continue; }
+			if ( level.time < m->spawnTime + 600 || !npc->client || !npc->NPC || npc->health <= 0 ) {
+				if ( level.time > m->spawnTime + 5000 && npc->health <= 0 ) {
+					Com_Printf( S_COLOR_YELLOW "[maze] npc %d (%s) never came alive\n", m->ent, mzRoleNames[m->role] );
+					m->ent = -1;
+				}
+				continue;
+			}
+			m->ready = qtrue;
+			npc->client->playerTeam = npc->s.teamowner = NPCTEAM_ENEMY;
+			npc->client->enemyTeam = NPCTEAM_PLAYER;
+			VectorCopy( npc->r.currentOrigin, m->home ); VectorCopy( npc->r.currentOrigin, m->lastPos );
+			MZ_Idle( m, npc );
+			if ( shinobi_maze_debug.integer )
+				Com_Printf( "[maze] npc %d (%s) ready at %s, %d hp\n", m->ent, mzRoleNames[m->role], vtos( npc->r.currentOrigin ), npc->health );
+		}
 		if ( !npc->inuse || !npc->client || !npc->NPC || npc->health <= 0 ) {
 			if ( shinobi_maze_debug.integer )
 				Com_Printf( "[maze] npc %d (%s) down\n", m->ent, mzRoleNames[m->role] );
