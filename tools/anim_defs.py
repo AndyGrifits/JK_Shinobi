@@ -20,6 +20,8 @@ Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   lleg/rleg     (direction, reach 0..1) the foot from the hip, lknee/rknee a pole from the hip;
                 ltoes/rtoes where the toes point
   lhand_at/rhand_at  (x, y, z) the wrist, absolute (a hand planted on the floor ~-22)
+  lgrip/rgrip   (blade direction, palm direction): a held weapon's blade along the first (the
+                fist's axis = the hand tag's +Z, where the game puts the blade)
   (an animation's plant=("r",): that foot stays on the floor through the blends between keys)
   lfoot/rfoot   (x, y, z) from where that foot is in the reference frame; lknee/rknee the
                 knee's pole direction; lfoot_yaw/rfoot_yaw deg (+ = toes to the model's left)
@@ -92,7 +94,7 @@ STRAIGHT = {
 # dog (left palm flat on the right fist), ram (index + middle up, the hands crossed a little).
 # The skeleton has two finger pairs a hand (index + middle, ring + little): curl = (pair 1, pair 2).
 # Hands from their shoulders; the chest's middle ~ (-1.3, -9, 21) in the stand.
-def _seal(lhand, rhand, lpalm, rpalm, lcurl, rcurl, lelbow=(11.0, 5.0, -9.0), relbow=(-11.0, 5.0, -9.0)):
+def _seal(lhand, rhand, lpalm, rpalm, lcurl, rcurl, lelbow=(17.0, 3.0, -5.0), relbow=(-17.0, 3.0, -5.0)):
     return {"head": (0.0, 10.0), "spine_bend": 4.0,
             "lhand": lhand, "rhand": rhand, "lelbow": lelbow, "relbow": relbow,
             "lpalm": lpalm, "rpalm": rpalm, "lcurl": lcurl, "rcurl": rcurl}
@@ -110,6 +112,32 @@ SEAL_RAM = _seal((-4.6, -7.5, -4.0), (5.8, -6.0, -6.0),
                  ((-0.25, -0.4, 1.0), (-0.9, -0.3, 0.0)), ((0.25, -0.2, 1.0), (0.9, -0.3, 0.0)),
                  (0.0, 1.0), (0.2, 1.0))
 
+# One-handed seals (a single blade in the right hand): the left hand alone before the chin, like
+# Haku's - index + middle up (palm to the side), the palm out flat, then the fist with the two
+# fingers up again turned; the right arm and its blade stay in the medium stance.
+STAND_BLADE = ("BOTH_STAND2", 0)
+def _seal1(lhand, lpalm, lcurl):
+    return {"head": (0.0, 6.0), "lhand": lhand, "lelbow": (16.0, 2.0, -6.0), "lpalm": lpalm, "lcurl": lcurl}
+
+SEAL1_TWO = _seal1((-4.5, -11.0, -0.5), ((0.0, -0.1, 1.0), (-1.0, 0.0, 0.0)), (0.0, 1.0))
+SEAL1_FLAT = _seal1((-4.0, -12.0, -1.5), ((0.0, 0.0, 1.0), (0.0, -1.0, 0.0)), (0.0, 0.0))
+SEAL1_TURN = _seal1((-5.0, -11.5, -2.5), ((-0.45, -0.2, 0.85), (-0.6, -0.75, 0.0)), (0.1, 1.0))
+
+# The heavy single blade at rest: across the shoulders behind the head, the right hand on the
+# grip by the right ear (elbow up and out), the blade lying left along the shoulders; the left
+# arm hangs loose. Breathes (a slow dip of the body) while it lasts.
+SHOULDER_REST = {
+    "pelvis": (0.0, 0.0, -0.5),
+    "lfoot": (2.0, 0.0, 0.0), "lknee": (8.0, -20.0, 0.0), "lfoot_yaw": 8.0,
+    "rfoot": (-2.0, 0.0, 0.0), "rknee": (-8.0, -20.0, 0.0), "rfoot_yaw": -8.0,
+    "spine_bend": 3.0, "head": (0.0, 2.0),
+    "rhand": (-1.0, 4.5, 3.5), "relbow": (-16.0, -6.0, 6.0),
+    "rgrip": ((0.96, 0.25, -0.08), (0.0, -0.6, 0.8)), "rcurl": 1.0,
+    "larm": ((0.25, 0.05, -1.0), 0.94), "lelbow": (8.0, 6.0, -10.0),
+    "lpalm": ((0.1, 0.0, -1.0), (-1.0, 0.0, 0.0)), "lcurl": (0.25, 0.35),
+}
+SHOULDER_REST_IN = dict(SHOULDER_REST, pelvis=(0.0, 0.0, -1.2), spine_bend=5.0, head=(0.0, 4.0))
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
@@ -121,6 +149,14 @@ ANIMS = {
                                keys=[(0.0, SEAL_TIGER), (0.15, SEAL_TIGER), (0.25, SEAL_SNAKE, "fast"),
                                      (0.4, SEAL_SNAKE), (0.5, SEAL_DOG, "fast"), (0.65, SEAL_DOG),
                                      (0.75, SEAL_RAM, "fast"), (0.9, SEAL_RAM), (1.0, SEAL_TIGER, "fast")]),
+    # 1.2 s, looping: the free left hand's seals (a single blade held in the right)
+    "BOTH_SHINOBI_SEALS_1H": dict(ref=STAND_BLADE, frames=25, fps=20, loop=0,
+                                  keys=[(0.0, SEAL1_TWO), (0.2, SEAL1_TWO), (0.33, SEAL1_FLAT, "fast"),
+                                        (0.53, SEAL1_FLAT), (0.66, SEAL1_TURN, "fast"), (0.86, SEAL1_TURN),
+                                        (1.0, SEAL1_TWO, "fast")]),
+    # 2 s, looping: the heavy single blade's idle - on the shoulders behind the head
+    "BOTH_SHINOBI_SHOULDER_REST": dict(ref=STAND, frames=41, fps=20, loop=0,
+                                       keys=[(0.0, SHOULDER_REST), (0.5, SHOULDER_REST_IN), (1.0, SHOULDER_REST)]),
     "BOTH_SHINOBI_STRAIGHT": dict(ref=STAND, frames=2, fps=20, loop=-1,
                                   keys=[(0.0, STRAIGHT), (1.0, STRAIGHT)]),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,

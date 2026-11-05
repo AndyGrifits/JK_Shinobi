@@ -323,6 +323,10 @@ int PM_GetSaberStance(void)
 		break;
 	case SS_STRONG:
 		anim = BOTH_SABERSLOW_STANCE;
+		if ( saber1 && !saber2 && saber1->numBlades <= 1 )
+		{ // JK_Shinobi: a heavy single blade rests on the shoulders behind the head
+			anim = BOTH_SHINOBI_SHOULDER_REST;
+		}
 		break;
 	case SS_NONE:
 	case SS_MEDIUM:
@@ -4903,6 +4907,7 @@ qboolean PM_AdjustStandAnimForSlope( void )
 	case BOTH_STAND2:
 	case BOTH_SABERFAST_STANCE:
 	case BOTH_SABERSLOW_STANCE:
+	case BOTH_SHINOBI_SHOULDER_REST:
 	case BOTH_CROUCH1IDLE:
 	case BOTH_CROUCH1:
 	case LEGS_LEFTUP1:			//# On a slope with left foot 4 higher than right
@@ -5038,6 +5043,7 @@ qboolean PM_AdjustStandAnimForSlope( void )
 		case BOTH_STAND2:
 		case BOTH_SABERFAST_STANCE:
 		case BOTH_SABERSLOW_STANCE:
+		case BOTH_SHINOBI_SHOULDER_REST:
 		case BOTH_CROUCH1IDLE:
 			if ( destAnim >= LEGS_LEFTUP1 && destAnim <= LEGS_LEFTUP5 )
 			{//going into left side up
@@ -5208,6 +5214,7 @@ static void PM_Footsteps( void ) {
 		|| (pm->ps->legsAnim) == BOTH_STAND2
 		|| (pm->ps->legsAnim) == BOTH_SABERFAST_STANCE
 		|| (pm->ps->legsAnim) == BOTH_SABERSLOW_STANCE
+		|| (pm->ps->legsAnim) == BOTH_SHINOBI_SHOULDER_REST
 		|| (pm->ps->legsAnim) == BOTH_BUTTON_HOLD
 		|| (pm->ps->legsAnim) == BOTH_BUTTON_RELEASE
 		|| PM_LandingAnim( (pm->ps->legsAnim) )

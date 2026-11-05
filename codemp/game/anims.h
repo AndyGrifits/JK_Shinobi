@@ -1812,6 +1812,8 @@ typedef enum //# animNumber_e
 	BOTH_SHINOBI_KICK_UP,		//# Reverse Lotus: down onto a hand, the leg shoots straight up
 	BOTH_SHINOBI_STRAIGHT,		//# straight as a string: feet together, arms down (Reverse Lotus in the air)
 	BOTH_SHINOBI_SEALS,			//# hand seals while a jutsu is charged (loops: tiger, snake, dog, ram)
+	BOTH_SHINOBI_SEALS_1H,		//# ... with the left hand alone (a single blade in the right)
+	BOTH_SHINOBI_SHOULDER_REST,	//# a heavy single blade at rest: on the shoulders behind the head
 
 	//# #eol
 	MAX_ANIMATIONS,

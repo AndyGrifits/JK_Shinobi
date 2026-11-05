@@ -227,6 +227,27 @@ def set_hand(pose, side, finger_dir, palm_dir):
     pose.aim_axes(side + "hand", f, np.asarray(finger_dir, float), palm, np.asarray(palm_dir, float))
 
 
+_TAG_LOCAL = {}
+
+
+def tag_axis(skel, G, side, model="neji"):
+    """The hand tag's +Z (a held weapon's blade) in the pose: the tag triangle of a player model
+    (every one of ours has the stock tags, on the hang_tag bones) taken into its bone's frame
+    once, from the bind pose."""
+    key = (id(skel), side)
+    if key not in _TAG_LOCAL:
+        from glmpreview import bolt_matrix
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "models", "players")
+        _, surfs = g2file.read_glm(os.path.join(root, model, "model.glm"))
+        tri = [np.array(v, float) for v in next(x for x in surfs if x.name == "*%s_hand" % side).verts]
+        z = bolt_matrix(tri)[:, 2]                      # bind pose: the verts as they are
+        bi = skel.index[side + "hang_tag_bone"]
+        _TAG_LOCAL[key] = (bi, np.linalg.inv(skel.base[bi, :3, :3]) @ z)
+    bi, zl = _TAG_LOCAL[key]
+    v = G[bi, :3, :3] @ zl
+    return v / np.linalg.norm(v)
+
+
 def flatten_hand(pose, side, curl=0.0):
     """The fingers: straight along the hand (0) .. a fist (1); curl = one number or
     (index + middle, ring + little) - the skeleton has those two pairs, two joints each, and a
@@ -333,6 +354,11 @@ def build_pose(skel, G0, k, ref):
         if s + "palm" in k:
             fdir, pdir = k[s + "palm"]
             set_hand(p, s, fdir, pdir)
+        if s + "grip" in k:   # (blade, palm): a held weapon's blade (the hand tag's +Z, where the
+            bdir, pdir = k[s + "grip"]   # game puts it) along blade, the palm turned towards palm
+            axis = tag_axis(skel, p.G, s)
+            _, palm = hand_frame(p, s)
+            p.aim_axes(s + "hand", axis, np.asarray(bdir, float), palm, np.asarray(pdir, float))
         if s + "curl" in k:
             flatten_hand(p, s, k[s + "curl"])
     if "turn" in k:   # the finished pose, turned whole about the pelvis (deg, + = to the model's left)

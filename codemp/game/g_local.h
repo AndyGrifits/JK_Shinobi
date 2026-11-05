@@ -902,6 +902,7 @@ struct gclient_s {
 		vec3_t	lotusSpot;		// ... where they hang
 		int		entryEnd;		// Dynamic Entry flying until
 		int		entryNext;		// ... ready again from
+		int		sealSnd, sealStart; // hand seals: the snaps heard so far, for the charge begun at
 		int		entryHit[2];	// ... whom it hit (bits by client num)
 		qboolean blocking;		// guard up this frame (Ctrl)
 		int		blockPress, blockPrevPress; // when block was pressed (perfect parry window)

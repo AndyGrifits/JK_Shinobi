@@ -62,6 +62,9 @@ void Shinobi_Init( void ) {
 	m->sndChargeStart  = G_SoundIndex( "sound/weapons/force/jumpbuild.wav" );
 	m->sndJutsuCharge  = G_SoundIndex( "sound/weapons/force/jumpbuild.wav" );
 	m->sndFizzle       = G_SoundIndex( "sound/weapons/force/noforce.wav" );
+	m->sndSeal[0]      = G_SoundIndex( "sound/shinobi/seal1.wav" );
+	m->sndSeal[1]      = G_SoundIndex( "sound/shinobi/seal2.wav" );
+	m->sndSeal[2]      = G_SoundIndex( "sound/shinobi/seal3.wav" );
 	m->sndPoof         = G_SoundIndex( "sound/weapons/force/distract.wav" );
 	m->sndRasenganForm = G_SoundIndex( "sound/weapons/force/drain.wav" );
 	m->sndRasenganDash = G_SoundIndex( "sound/weapons/force/speed.wav" );
@@ -742,9 +745,30 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	// forming hand seals while a jutsu key is held (not for the quick Shunshin)
 	if ( client->shinobi.chargeJutsu != SJ_NONE && client->shinobi.chargeJutsu != SJ_SHUNSHIN
 		&& !SHINOBI_JUTSU_HOLD( client->shinobi.chargeJutsu ) ) {
-		client->ps.forceHandExtend = HANDEXTEND_TAUNT; // our own: tiger, snake, dog, ram, over and over
-		client->ps.forceDodgeAnim = BOTH_SHINOBI_SEALS;
+		// our own: both hands - tiger, snake, dog, ram, over and over; a single blade in the right
+		// hand - the left alone (like Haku). Each seal snaps in with a "fwip" (at the anim's snaps)
+		static const int snaps2[] = { 250, 650, 1050, 1450 }, snaps1[] = { 250, 650, 1040 };
+		const qboolean   oneHand = client->ps.weapon == WP_SABER && client->saber[0].model[0] && !client->saber[1].model[0]
+			&& client->saber[0].numBlades <= 1;
+		const int       *snaps = oneHand ? snaps1 : snaps2;
+		const int        count = oneHand ? ARRAY_LEN( snaps1 ) : ARRAY_LEN( snaps2 );
+		const int        period = oneHand ? 1250 : 1650; // (the anims' length: frames x 50 ms)
+		const int        el = level.time - client->shinobi.chargeStart;
+		int              heard, k;
+		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
+		client->ps.forceDodgeAnim = oneHand ? BOTH_SHINOBI_SEALS_1H : BOTH_SHINOBI_SEALS;
 		client->ps.forceHandExtendTime = level.time + 150;
+		if ( client->shinobi.sealStart != client->shinobi.chargeStart ) {
+			client->shinobi.sealStart = client->shinobi.chargeStart;
+			client->shinobi.sealSnd = 0;
+		}
+		heard = ( el / period ) * count;
+		for ( k = 0; k < count; k++ )
+			heard += ( el % period ) >= snaps[k];
+		if ( heard > client->shinobi.sealSnd ) {
+			client->shinobi.sealSnd = heard;
+			G_Sound( ent, CHAN_AUTO, shinobiMedia.sndSeal[heard % 3] );
+		}
 	}
 
 	attackPressed = ( ucmd->buttons & BUTTON_ATTACK ) && !( client->buttons & BUTTON_ATTACK );
