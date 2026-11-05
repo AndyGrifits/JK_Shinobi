@@ -16,6 +16,9 @@ OUT="$ROOT/dist/JK_Shinobi-mac-kit.tar"
 rm -rf "$STAGE" "$OUT"
 mkdir -p "$G/shinobi"
 tar xzf "$ROOT/tools/openjk-macos-arm64/OpenJK-macos-arm64.tar.gz" -C "$G" openjk.arm64.app
+# the bundled libSDL2 is sdl2-compat: it loads SDL3 at run time, which the official build leaves
+# out ("Failed loading SDL3 library" on a Mac without Homebrew's SDL3) - it looks next to itself
+cp "$ROOT/tools/openjk-macos-arm64/libSDL3.dylib" "$G/openjk.arm64.app/Contents/Frameworks/"
 cp "$ROOT"/dist/shinobi-mac/*.dylib "$ROOT/dist/shinobi/zz_shinobi.pk3" "$G/shinobi/"
 if ls "$ROOT"/dist/maps/shinobi_map_*.pk3 >/dev/null 2>&1; then
   cp "$ROOT"/dist/maps/shinobi_map_*.pk3 "$G/shinobi/"

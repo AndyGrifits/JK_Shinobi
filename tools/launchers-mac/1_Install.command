@@ -16,6 +16,10 @@ chmod +x ./*.command JK_Shinobi_Steam openjk.arm64.app/Contents/MacOS/openjk.arm
 # re-sign: inner libraries first, then the app (the bundled SDL2's own signature is broken)
 find openjk.arm64.app -name "*.dylib" -exec codesign --force --sign - {} \; 2>/dev/null
 codesign --force --sign - openjk.arm64.app/Contents/MacOS/openjk.arm64 2>/dev/null
+if [ ! -f openjk.arm64.app/Contents/Frameworks/libSDL3.dylib ]; then
+  echo "!! Нет openjk.arm64.app/Contents/Frameworks/libSDL3.dylib - без неё игра не запустится."
+  ok=0
+fi
 codesign --force --sign - openjk.arm64.app 2>/dev/null
 codesign --force --sign - shinobi/*.dylib JK_Shinobi_Steam 2>/dev/null
 if ! codesign --verify openjk.arm64.app/Contents/Frameworks/libSDL2-2.0.0.dylib 2>/dev/null; then
