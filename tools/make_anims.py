@@ -88,6 +88,13 @@ class Skel:
         """(nb, 4, 4) bone matrices in model space (axes + the joint position)."""
         return self.finals(frame) @ self.base
 
+    def rel_to_posed(self, rel):
+        fin = np.zeros_like(rel)
+        for i in self.order:
+            p = self.parent[i]
+            fin[i] = rel[i] if p < 0 else fin[p] @ rel[i]
+        return fin @ self.base
+
     def to_rel(self, G):
         fin = G @ self.base_inv
         rel = np.zeros_like(fin)
@@ -395,7 +402,9 @@ def make_frames(skel, anim, ref_frame):
     for key in anim["keys"]:
         t, pose = key[0], key[1]
         ease_name = key[2] if len(key) > 2 else "smooth"
-        keys.append((t, skel.to_rel(build_pose(skel, G0, pose, ref)), EASES[ease_name]))
+        G = build_pose(skel, G0, pose, ref)
+        keys.append((t, skel.to_rel(G), EASES[ease_name], G))
+    plant = anim.get("plant", ())   # feet that stay put on the floor through the blends ("l", "r")
     n = anim["frames"]
     out = []
     for f in range(n):
@@ -403,10 +412,22 @@ def make_frames(skel, anim, ref_frame):
         if t <= keys[0][0]:
             out.append(keys[0][1].copy())
             continue
-        for (t0, a, _), (t1, b, ez) in zip(keys, keys[1:]):
+        for (t0, a, _, Ga), (t1, b, ez, Gb) in zip(keys, keys[1:]):
             if t <= t1 + 1e-9:
                 u = ez((t - t0) / (t1 - t0)) if t1 > t0 else 1.0
-                out.append(blend_rel(a, b, u, skel.base[:, :3, 3]))
+                rel = blend_rel(a, b, u, skel.base[:, :3, 3])
+                if plant:   # the blend lifts a planted foot: put it back (IK, the knee where it is)
+                    P = Pose(skel, skel.rel_to_posed(rel))
+                    for sd in plant:
+                        ti = skel.index[sd + "talus"]
+                        want = Ga[ti, :3, 3] * (1 - u) + Gb[ti, :3, 3] * u
+                        R_was = P.G[ti, :3, :3].copy()
+                        knee = P.pos(sd + "tibia")
+                        P.two_bone(sd + "femurYZ", sd + "tibia", sd + "talus", want, knee + (knee - P.pos(sd + "femurYZ")) * 0.0)
+                        R_now = P.G[ti, :3, :3]
+                        P.turn_bone(sd + "talus", R_was @ np.linalg.inv(R_now))  # the foot keeps its turn
+                    rel = skel.to_rel(P.G)
+                out.append(rel)
                 break
         else:
             out.append(keys[-1][1].copy())

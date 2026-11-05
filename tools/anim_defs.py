@@ -16,6 +16,7 @@ Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   lleg/rleg     (direction, reach 0..1) the foot from the hip, lknee/rknee a pole from the hip;
                 ltoes/rtoes where the toes point
   lhand_at/rhand_at  (x, y, z) the wrist, absolute (a hand planted on the floor ~-22)
+  (an animation's plant=("r",): that foot stays on the floor through the blends between keys)
   lfoot/rfoot   (x, y, z) from where that foot is in the reference frame; lknee/rknee the
                 knee's pole direction; lfoot_yaw/rfoot_yaw deg (+ = toes to the model's left)
   larm/rarm     (direction, reach 0..1 of the arm's length - 1 = straight), from the shoulder
@@ -43,28 +44,29 @@ HYUGA = {
     "rpalm": ((-0.28, 0.57, 0.77), (-0.6, -0.7, 0.2)), "rcurl": 0.0,
 }
 
-# Reverse Lotus, the kick up (Sasuke's from below): down into a crouch, a hand to the floor,
-# the body tips forward over it and the right leg shoots straight up under his chin; held
+# Reverse Lotus, the kick up: down into a crouch, the right hand back to the floor behind, the
+# body leans back onto it (the weight on that hand and the right foot) and the left leg goes
+# straight up in front - under his chin; held
 CROUCH = {
-    "pelvis": (0.0, 0.0, -13.0), "spine_bend": 38.0, "head": (0.0, -25.0),
+    "pelvis": (0.0, 3.0, -15.0), "spine_bend": 24.0, "head": (0.0, 8.0),
     "lfoot": (0.0, 0.0, 0.0), "lknee": (6.0, -20.0, 0.0),
     "rfoot": (0.0, 0.0, 0.0), "rknee": (-6.0, -20.0, 0.0),
-    "rhand_at": (-6.0, -14.0, -21.0), "relbow": (-12.0, 0.0, -10.0),
-    "rpalm": ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
-    "lhand": (3.0, -8.0, -10.0), "lelbow": (14.0, 4.0, -6.0),
+    "rarm": ((-0.3, 0.7, -0.65), 0.95), "relbow": (-10.0, 10.0, 0.0),
+    "larm": ((0.4, -0.6, -0.7), 0.8), "lelbow": (12.0, 0.0, -6.0),
 }
 KICK_UP = {
-    "body_pitch": 122.0, "pelvis": (0.0, 2.0, -12.0), "head": (0.0, -55.0),
-    "rleg": ((0.0, 0.12, 1.0), 1.0), "rknee": (0.0, -20.0, 0.0), "rtoes": (0.0, -0.3, 1.0),
-    "lleg": ((0.25, -0.35, -1.0), 0.6), "lknee": (6.0, -20.0, 4.0),
-    "rhand_at": (-6.0, -13.0, -21.0), "relbow": (-14.0, 4.0, -4.0),
-    "rpalm": ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
-    "lhand": (4.0, -4.0, 2.0), "lelbow": (14.0, 0.0, -4.0),
+    "body_pitch": -62.0, "pelvis": (0.0, 5.0, -19.0), "spine_bend": 14.0, "head": (0.0, 48.0),
+    "rfoot": (-1.0, -7.0, 0.0), "rknee": (-8.0, -20.0, 10.0),
+    "lleg": ((0.05, -0.22, 1.0), 1.0), "lknee": (0.0, -20.0, 0.0),
+    "rhand_at": (-9.0, 21.0, -21.0), "relbow": (-14.0, 6.0, 0.0),
+    "rpalm": ((0.0, 1.0, 0.0), (0.0, 0.0, -1.0)),
+    "larm": ((0.75, -0.55, -0.2), 0.9), "lelbow": (12.0, 4.0, -8.0),
 }
 
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=17, fps=20, loop=-1,
-                                 keys=[(0.0, {}), (0.35, CROUCH), (0.65, KICK_UP, "fast"), (1.0, KICK_UP)]),
+                                 keys=[(0.0, {}), (0.35, CROUCH), (0.65, KICK_UP, "fast"), (1.0, KICK_UP)],
+                                 plant=("r",)),
 }
