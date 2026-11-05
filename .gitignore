@@ -195,6 +195,7 @@ compile_commands.json
 [Bb]uild*/
 cmake-build-*
 /build-win64/
+/build-macos-arm64/
 /dist/
 /cmake.log
 build-win64-engine/

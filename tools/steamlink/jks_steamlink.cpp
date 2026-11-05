@@ -14,13 +14,48 @@
 // PC it is the "server" the game connects to (127.0.0.1:29170), and every packet in either
 // direction is carried over Steam.
 //
-// Built with MinGW from tools/steamlink/build.sh against the Steamworks SDK headers and
-// steam_api64.dll (only the flat C API is used).
+// Built from tools/steamlink/build.sh against the Steamworks SDK headers (only the flat C API is
+// used): Windows with MinGW (steam_api64.dll), macOS arm64 with zig (libsteam_api.dylib).
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+typedef int socklen_t;
+#define GAME_EXE "openjk.x86_64.exe"
+#else
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <mach-o/dyld.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <spawn.h>
+#include <strings.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+extern char **environ;
+typedef int SOCKET;
+typedef unsigned long DWORD;
+typedef unsigned long u_long;
+typedef unsigned short u_short;
+#define INVALID_SOCKET  ( -1 )
+#define MAX_PATH        PATH_MAX
+#define closesocket     close
+#define _stricmp        strcasecmp
+#define GAME_EXE "openjk.arm64.app/Contents/MacOS/openjk.arm64"
+static DWORD GetTickCount( void ) {
+	struct timespec ts;
+	clock_gettime( CLOCK_MONOTONIC, &ts );
+	return (DWORD)( ts.tv_sec * 1000 + ts.tv_nsec / 1000000 );
+}
+static void Sleep( int ms ) { usleep( ms * 1000 ); }
+#endif
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +74,11 @@ static const int    kSendFlags = k_nSteamNetworkingSend_UnreliableNoNagle | k_nS
 static ISteamNetworkingMessages *g_msgs;
 static ISteamFriends            *g_friends;
 static HSteamPipe                g_pipe;
+#ifdef _WIN32
 static PROCESS_INFORMATION       g_game;
+#else
+static pid_t                     g_game;
+#endif
 static char                      g_dir[MAX_PATH];
 
 static void Log( const char *fmt, ... ) {
@@ -61,16 +100,17 @@ static void Identity( SteamNetworkingIdentity *id, uint64 steamId ) {
 
 // ---------------------------------------------------------------- the game process
 
+#ifdef _WIN32
 static bool StartGame( const char *extra ) {
 	char cmd[2048];
 	STARTUPINFOA si;
 	snprintf( cmd, sizeof( cmd ),
-		"\"%s\\openjk.x86_64.exe\" +set fs_game shinobi +set logfile 2 +set r_fullscreen 0 +set r_mode -2 +set r_noborder 1 "
+		"\"%s\\" GAME_EXE "\" +set fs_game shinobi +set logfile 2 +set r_fullscreen 0 +set r_mode -2 +set r_noborder 1 "
 		"+exec shinobi_binds.cfg %s", g_dir, extra );
 	memset( &si, 0, sizeof( si ) );
 	si.cb = sizeof( si );
 	if ( !CreateProcessA( NULL, cmd, NULL, NULL, FALSE, 0, NULL, g_dir, &si, &g_game ) ) {
-		Log( "Could not start the game (openjk.x86_64.exe next to this program?) - error %lu", GetLastError() );
+		Log( "Could not start the game (" GAME_EXE " next to this program?) - error %lu", GetLastError() );
 		return false;
 	}
 	return true;
@@ -79,6 +119,39 @@ static bool StartGame( const char *extra ) {
 static bool GameRunning( void ) {
 	return g_game.hProcess && WaitForSingleObject( g_game.hProcess, 0 ) == WAIT_TIMEOUT;
 }
+#else
+static bool StartGame( const char *extra ) { // extra: "+cmd arg arg +cmd ..." split on spaces
+	static char  words[2048];
+	char        *argv[96], *w;
+	int          argc = 0, rc;
+	const char  *fixed[] = { GAME_EXE, "+set", "fs_game", "shinobi", "+set", "logfile", "2", "+set", "r_fullscreen", "1",
+	                         "+set", "r_mode", "-2", "+exec", "shinobi_binds.cfg" };
+	for ( size_t k = 0; k < sizeof( fixed ) / sizeof( fixed[0] ); k++ )
+		argv[argc++] = (char *)fixed[k];
+	snprintf( words, sizeof( words ), "%s", extra );
+	for ( w = strtok( words, " " ); w && argc < 95; w = strtok( NULL, " " ) )
+		argv[argc++] = w;
+	argv[argc] = NULL;
+	// the game's own console output stays out of this window (it is in qconsole.log)
+	posix_spawn_file_actions_t fa;
+	posix_spawn_file_actions_init( &fa );
+	posix_spawn_file_actions_addopen( &fa, 1, "/dev/null", O_WRONLY, 0 );
+	posix_spawn_file_actions_addopen( &fa, 2, "/dev/null", O_WRONLY, 0 );
+	rc = posix_spawn( &g_game, GAME_EXE, &fa, NULL, argv, environ );
+	posix_spawn_file_actions_destroy( &fa );
+	if ( rc != 0 ) {
+		Log( "Could not start the game (%s next to this program?) - %s", GAME_EXE, strerror( rc ) );
+		g_game = 0;
+		return false;
+	}
+	return true;
+}
+
+static bool GameRunning( void ) {
+	int st;
+	return g_game > 0 && waitpid( g_game, &st, WNOHANG ) == 0;
+}
+#endif
 
 // ---------------------------------------------------------------- Steam callbacks
 
@@ -129,7 +202,12 @@ static SOCKET UdpSocket( int port ) { // bound to 127.0.0.1 (port 0: any), non-b
 		closesocket( s );
 		return INVALID_SOCKET;
 	}
+#ifdef _WIN32
 	ioctlsocket( s, FIONBIO, &nb );
+#else
+	(void)nb;
+	fcntl( s, F_SETFL, fcntl( s, F_GETFL, 0 ) | O_NONBLOCK );
+#endif
 	return s;
 }
 
@@ -190,7 +268,8 @@ static void ProbeServer( const sockaddr_in &server ) {
 	static const char ask[] = "\xff\xff\xff\xffgetinfo jks";
 	char              buf[4096];
 	sockaddr_in       from;
-	int               fl = sizeof( from ), len;
+	socklen_t         fl = sizeof( from );
+	int               len;
 	bool              answered = false;
 	while ( ( len = recvfrom( g_probe, buf, sizeof( buf ) - 1, 0, (sockaddr *)&from, &fl ) ) > 0 ) {
 		buf[len] = 0;
@@ -258,7 +337,8 @@ static int RunHost( void ) {
 		// the game's server -> friends
 		for ( i = 0; i < g_numPeers; i++ ) {
 			sockaddr_in from;
-			int         fl = sizeof( from ), len;
+			socklen_t   fl = sizeof( from );
+			int         len;
 			while ( ( len = recvfrom( g_peers[i].sock, buf, sizeof( buf ), 0, (sockaddr *)&from, &fl ) ) > 0 ) {
 				SteamNetworkingIdentity id;
 				Identity( &id, g_peers[i].steamId );
@@ -360,7 +440,8 @@ static int RunJoin( void ) {
 	while ( GameRunning() ) {
 		SteamNetworkingMessage_t *in[64];
 		char                      buf[16384];
-		int                       len, fl;
+		int                       len;
+		socklen_t                 fl;
 		sockaddr_in               from;
 		PumpCallbacks( JoinAccept );
 		// the game -> the host
@@ -396,15 +477,29 @@ static int RunJoin( void ) {
 
 int main( int argc, char **argv ) {
 	SteamErrMsg err;
-	WSADATA     wsa;
 	char       *slash;
 	int         mode = 0, rc;
 
+#ifdef _WIN32
+	WSADATA wsa;
 	GetModuleFileNameA( NULL, g_dir, sizeof( g_dir ) );
 	if ( ( slash = strrchr( g_dir, '\\' ) ) != NULL )
 		*slash = 0;
 	SetCurrentDirectoryA( g_dir );
 	SetConsoleTitleA( "JK_Shinobi - Steam link" );
+#else
+	{
+		char     exe[PATH_MAX];
+		uint32_t sz = sizeof( exe );
+		if ( _NSGetExecutablePath( exe, &sz ) != 0 || !realpath( exe, g_dir ) )
+			snprintf( g_dir, sizeof( g_dir ), "%s", argv[0] );
+		if ( ( slash = strrchr( g_dir, '/' ) ) != NULL )
+			*slash = 0;
+		if ( chdir( g_dir ) != 0 )
+			Log( "Could not enter %s", g_dir );
+		signal( SIGPIPE, SIG_IGN );
+	}
+#endif
 
 	if ( argc > 1 && !_stricmp( argv[1], "host" ) )
 		mode = 1;
@@ -423,8 +518,13 @@ int main( int argc, char **argv ) {
 			fprintf( f, "%u", kAppId );
 			fclose( f );
 		}
+#ifdef _WIN32
 		SetEnvironmentVariableA( "SteamAppId", "480" );
 		SetEnvironmentVariableA( "SteamGameId", "480" );
+#else
+		setenv( "SteamAppId", "480", 1 );
+		setenv( "SteamGameId", "480", 1 );
+#endif
 	}
 	if ( SteamAPI_InitFlat( &err ) != k_ESteamAPIInitResult_OK ) {
 		Log( "Steam is not available: %s", err );
@@ -438,12 +538,16 @@ int main( int argc, char **argv ) {
 	g_msgs = SteamAPI_SteamNetworkingMessages_SteamAPI_v002();
 	g_friends = SteamAPI_SteamFriends_v018();
 	SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess( SteamAPI_SteamNetworkingUtils_SteamAPI_v004() );
+#ifdef _WIN32
 	WSAStartup( MAKEWORD( 2, 2 ), &wsa );
+#endif
 	Log( "Steam: logged in as %s", SteamAPI_ISteamFriends_GetPersonaName( g_friends ) );
 
 	rc = mode == 1 ? RunHost() : RunJoin();
 
 	SteamAPI_Shutdown();
+#ifdef _WIN32
 	WSACleanup();
+#endif
 	return rc;
 }

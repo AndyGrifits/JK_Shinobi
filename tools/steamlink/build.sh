@@ -22,3 +22,13 @@ x86_64-w64-mingw32-g++ -O2 -std=c++17 -Wall -Wno-unknown-pragmas -I"$INC" -I"$IN
   -static -static-libgcc -static-libstdc++ -lws2_32
 cp "$DLL" "$OUT/"
 echo "$OUT/JK_Shinobi_Steam.exe"
+
+# macOS arm64 (Apple Silicon): zig as the cross compiler (pip install ziglang), against Valve's
+# libsteam_api.dylib (universal) - the program finds it next to itself.
+DYLIB="$SDK/com.rlabrecque.steamworks.net/Plugins/steam_api.bundle/Contents/MacOS/libsteam_api.dylib"
+MOUT="$ROOT/dist/steamlink-mac"
+mkdir -p "$MOUT"
+cp "$DYLIB" "$MOUT/"
+python3 -m ziglang c++ -target aarch64-macos.11.0 -O2 -std=c++17 -Wall -Wno-unknown-pragmas -I"$INC" -I"$INC/steam" \
+  "$HERE/jks_steamlink.cpp" -L"$MOUT" -lsteam_api -Wl,-rpath,@executable_path -o "$MOUT/JK_Shinobi_Steam"
+echo "$MOUT/JK_Shinobi_Steam"

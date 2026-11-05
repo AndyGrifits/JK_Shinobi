@@ -734,7 +734,30 @@ poses are the cvars `shinobi_kaitenAnim1` (wind-up) / `shinobi_kaitenAnim2` (spi
 6. `JK_Shinobi_SelfTest.bat` casts every jutsu by script, saves screenshots to
    `Documents/My Games/OpenJK/shinobi/screenshots/st*.jpg` and quits.
 
+## Install / run (Mac, Apple Silicon)
+
+`tools/package-mac.sh` -> `dist/JK_Shinobi-mac-kit.tar`: the official OpenJK app
+(`tools/openjk-macos-arm64`, pinned), the mod's arm64 modules (`tools/build-macos-arm64.sh`),
+`zz_shinobi.pk3`, the maps, the Steam link built for the Mac (`JK_Shinobi_Steam` +
+`libsteam_api.dylib`) and the launchers (`tools/launchers-mac`), with Unix permissions, all
+under `JK_Shinobi/`. The game's own files can't come from here: on the Windows PC with the game,
+`JK_Shinobi_MakeMacKit.bat` in `GameData` (next to the tar) adds `base/assets0-3.pk3` with
+Windows' own `tar.exe` (which keeps the permissions of the tar's entries - a zip made in Explorer
+loses them) and writes `JK_Shinobi-mac.zip` (~1.3 GB) to send.
+
+On the Mac: unpack, `1_Install.command` once - macOS blocks it at first (unsigned): System
+Settings > Privacy & Security > Open Anyway (or `bash <drag the file>` in Terminal). It removes
+the quarantine flag from the folder and signs everything ad hoc (`codesign --sign -`): the
+official build's bundled `libSDL2` has a broken signature (install name rewritten after linking),
+which kills the app at launch on Apple Silicon - the JKHub guide does the same by hand. Then
+`Join_Friend.command` / `Host_Game.command` (the Steam link) or `Solo.command`. The game finds
+`base/` and `shinobi/` next to `openjk.arm64.app`; settings and the log are in
+`~/Library/Application Support/OpenJK/`.
+
 ## Build
+
+Mac modules: `pip install ziglang`, then `tools/build-macos-arm64.sh` (zig as the cross
+compiler, `cmake/Toolchains/macos-arm64-zig.cmake`) -> `dist/shinobi-mac/*arm64.dylib`.
 
 Cross-compiles the game modules on Linux with MinGW-w64:
 
