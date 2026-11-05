@@ -14,13 +14,21 @@ import glob, struct, sys
 m = 0
 for p in glob.glob(sys.argv[1] + "/maps/mz/*.bsp"):
     d = open(p, "rb").read(); off, ln = struct.unpack_from("<ii", d, 16); m = max(m, ln // 72)
-    if b"LEAKED" in open(p[:-4] + ".map.bsp.log", "rb").read() and 0: pass
 print(m)
 EOF
 )"
-echo "BLOCK BSPS $(ls "$B"/maps/mz/*.bsp | wc -l), max $NSH shaders in a block"
+# The vanilla renderer reads one lightmap too many from a BSP that has exactly one (tr_bsp.cpp R_LoadLightmaps,
+# the "maps with only one lightmap turn up fullbright" hack): 48 KB past the lump, past the end of a small
+# block's file - the game crashed loading the blocks. Pad every block with one lightmap's worth of zero bytes.
+python3 -c "
+import glob, sys
+for p in glob.glob(sys.argv[1] + '/maps/mz/*.bsp'): open(p, 'ab').write(bytes(128 * 128 * 3))
+" "$B"
+echo "BLOCK BSPS $(ls "$B"/maps/mz/*.bsp | wc -l), max $NSH shaders in a block, padded"
+python3 "$ROOT/tools/maze/navcheck.py" "$B"
 python3 "$ROOT/tools/maze/main_map.py" "$B" "$NAME" "$G" "$NSH"
 python3 "$ROOT/tools/maze/layout.py" "$B/mz_blocks.json" "$B/maps/mz/layouts" "$N" 6
+python3 "$ROOT/tools/maze/navcheck.py" "$B" "$B"/maps/mz/layouts/00[0-2].txt | grep -E "^LAYOUT|solid|blocked"
 Q=("$Q3MAP2" -game ja -fs_basepath "$BUILD" -fs_homepath "$BUILD")
 M="$B/maps/$NAME.map"
 "${Q[@]}" -bsp -meta "$M" > "$BUILD/main_bsp.log" 2>&1

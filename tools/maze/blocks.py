@@ -220,12 +220,13 @@ def room_cell(name):
     room_fill(b)
     for y in range(-210, 211, 28):                              # bars along x = 60, gap at y -40..40
         if abs(y) > 50: b.box(56, y - 4, 0, 64, y + 4, 320, "metal")
-    b.box(56, -224, 300, 64, 224, 320, "metal"); b.box(56, -224, 0, 64, 224, 8, "metal")
+    b.box(56, -224, 300, 64, 224, 320, "metal")
+    b.box(56, -224, 0, 64, -66, 8, "metal"); b.box(56, 66, 0, 64, 224, 8, "metal")      # sill, open in the gap
     b.box(150, -200, 0, 222, -60, 36, "trim"); b.box(150, 60, 0, 222, 200, 36, "trim")          # stone beds
     b.torch(-120, 224, 160, 0, -1, 300); b.torch(-120, -224, 160, 0, 1, 260)
     room_nodes(b, 224)
     b.edge("d0", "c"); b.node("in", 140, 0); b.edge("c", "in")
-    b.slots += [[150, 120, 24, 180, "guard"], [-80, -140, 260, 90, "ambush"]]
+    b.slots += [[110, -20, 24, 180, "guard"], [-80, -140, 260, 90, "ambush"]]
     return b
 
 def room_start(name):
@@ -252,10 +253,10 @@ def hall_fill(b, val=520, z=380, color="0.85 0.75 0.9"):
         for y in (-280, 280): b.fill(x, y, z, val, color)
     b.fill(0, 0, z, val, color)
 
-def hall_nodes(b, skip=()):
+def hall_nodes(b, skip=(), xs=(-320, 0, 320), ys=(-320, 0, 320)):
     g = {}
-    for i, x in enumerate((-320, 0, 320)):
-        for j, y in enumerate((-320, 0, 320)):
+    for i, x in enumerate(xs):
+        for j, y in enumerate(ys):
             if (i, j) in skip: continue
             g[(i, j)] = f"g{i}{j}"; b.node(f"g{i}{j}", x, y)
     for (i, j), n in g.items():
@@ -264,7 +265,7 @@ def hall_nodes(b, skip=()):
     for k, (sx, sy, d) in enumerate(b.sockets):
         nx, ny = round(math.cos(math.radians(d))), round(math.sin(math.radians(d)))
         b.node(f"s{k}", sx, sy); b.node(f"d{k}", sx - nx * 120, sy - ny * 120); b.edge(f"s{k}", f"d{k}")
-        gi = min(g, key=lambda ij: (ij[0] * 320 - 320 - (sx - nx * 120)) ** 2 + (ij[1] * 320 - 320 - (sy - ny * 120)) ** 2)
+        gi = min(g, key=lambda ij: (xs[ij[0]] - (sx - nx * 120)) ** 2 + (ys[ij[1]] - (sy - ny * 120)) ** 2)
         b.edge(f"d{k}", g[gi])
 
 def hall_pillars(name):
@@ -308,15 +309,15 @@ def hall_flooded(name):
     tmp = Block(name, 2, SOCK8); tmp.used = b.used; shell(tmp, 480, HT, SOCK8)
     b.brushes += tmp.brushes[2:]
     b.box(-P + 8, -P + 8, -D, P - 8, -40, -16, "mz_water"); b.box(-P + 8, 40, -D, P - 8, P - 8, -16, "mz_water")
-    for x in (-P - 40, P + 40):
-        for y in (-P - 40, P + 40):
+    for x in (-420, 420):                                       # corner pillars, torches facing the pool
+        for y in (-420, 420):
             b.box(x - 40, y - 40, 0, x + 40, y + 40, HT, "trim")
-            b.torch(x + (40 if x > 0 else -40), y, 170, 1 if x > 0 else -1, 0, 340)
+            b.torch(x - (40 if x > 0 else -40), y, 170, -1 if x > 0 else 1, 0, 340)
     b.light(0, 0, 200, 1200, "0.45 0.7 0.75")
     hall_fill(b, color="0.6 0.8 0.85")
     hall_nodes(b, skip={(1, 0), (1, 2)})                         # the pool: only the bridge row crosses it
-    b.slots += [[-400, 400, 24, 315, "guard"], [400, -400, 24, 135, "patrol"], [0, 0, 24, 90, "patrol"]]
-    b.items.append(["item_medpac", 400, 400, 30])
+    b.slots += [[-390, 200, 24, 315, "guard"], [390, -200, 24, 135, "patrol"], [0, 0, 24, 90, "patrol"]]
+    b.items.append(["item_medpac", 390, 250, 30])
     return b
 
 def hall_lab(name):
@@ -329,7 +330,7 @@ def hall_lab(name):
         b.prism(x, y, 44, 8, 28, 300, "mz_liquid", rot=math.pi / 8)
         b.prism(x, y, 58, 8, 300, 330, "metal", rot=math.pi / 8)
         b.box(x - 6, y - 6, 330, x + 6, y + 6, HT, "metal")
-    for x, y in [(0, -330), (0, 330)]:
+    for x, y in [(0, -400), (0, 400)]:
         b.box(x - 120, y - 40, 36, x + 120, y + 40, 44, "metal")
         for lx in (-110, 110):
             for ly in (-30, 30): b.box(x + lx - 4, y + ly - 4, 0, x + lx + 4, y + ly + 4, 36, "metal")
@@ -338,7 +339,7 @@ def hall_lab(name):
     hall_fill(b, color="0.6 0.95 0.65")
     hall_nodes(b, skip={(0, 1), (2, 1)})
     b.slots += [[0, -200, 24, 90, "guard"], [0, 200, 24, 270, "patrol"], [-300, 0, HT - 90, 0, "ambush"]]
-    b.items.append(["ammo_force", 0, -330, 60])
+    b.items.append(["ammo_force", 0, -400, 60])
     return b
 
 def hall_goal(name):
@@ -347,8 +348,8 @@ def hall_goal(name):
     b = Block(name, 2, [[-2 * H, H, 180], [-2 * H, -H, 180]], minlight=38)
     HT = 448
     shell(b, 480, HT, b.sockets)
-    b.box(240, -300, 0, 480, 300, 24, "trim"); b.box(300, -260, 24, 480, 260, 48, "trim")        # dais, 2 steps
-    b.box(400, -60, 48, 460, 60, 140, "wood"); b.box(440, -60, 140, 460, 60, 260, "wood")         # throne
+    b.box(240, -300, 0, 480, 300, 16, "trim"); b.box(300, -260, 16, 480, 260, 32, "trim")        # dais, 2 steps
+    b.box(400, -60, 32, 460, 60, 124, "wood"); b.box(440, -60, 124, 460, 60, 244, "wood")         # throne
     for y in (-200, 200):                                         # rope across the ceiling, pillars along the hall
         b.box(-480, y - 10, HT - 60, 480, y + 10, HT - 40, "rope")
     for x in (-300, -60, 180):
@@ -357,8 +358,9 @@ def hall_goal(name):
         for y in (-340, 340): b.torch(x, y - 40 if y > 0 else y + 40, 180, 0, -1 if y > 0 else 1, 330)
     b.light(380, 0, 300, 1500, "0.7 0.45 1")
     hall_fill(b, color="0.8 0.6 1")
-    hall_nodes(b)
-    b.slots += [[360, 0, 72, 180, "boss"], [100, -160, 24, 180, "guard"], [100, 160, 24, 180, "guard"]]
+    hall_nodes(b, xs=(-380, -160, 60), ys=(-200, 0, 200))
+    b.node("dais", 330, 0, 56); b.edge("g21", "dais")
+    b.slots += [[360, 0, 56, 180, "boss"], [100, -160, 24, 180, "guard"], [100, 160, 24, 180, "guard"]]
     return b
 
 def cap(name):
