@@ -691,8 +691,8 @@ static int Shinobi_StanceAnim( void ) {
 		mod = shinobi_stanceAnim.modificationCount;
 		anim = GetIDForString( animTable, shinobi_stanceAnim.string );
 		if ( anim < 0 || anim >= MAX_ANIMATIONS ) {
-			Com_Printf( "^3shinobi_stanceAnim: no animation \"%s\" - using BOTH_FORCE_ABSORB_START\n", shinobi_stanceAnim.string );
-			anim = BOTH_FORCE_ABSORB_START;
+			Com_Printf( "^3shinobi_stanceAnim: no animation \"%s\" - using BOTH_SHINOBI_STANCE_HYUGA\n", shinobi_stanceAnim.string );
+			anim = BOTH_SHINOBI_STANCE_HYUGA;
 		}
 	}
 	return anim;

@@ -261,6 +261,30 @@ that folder; its animation.cfg is shared), so it goes into `zz_shinobi.pk3` with
 The server still traces sabers on the stock skeleton, so a blade reaches ~1.5 units
 further than the shorter arm draws it.
 
+## Our own animations
+
+`tools/make_anims.py` writes animations of our own straight into the skeletons - no
+motion capture, no retargeting: `tools/anim_defs.py` describes each one as a few key poses
+on top of a stock frame (pelvis moved / turned, spine bent and twisted, hands and feet put
+in place by two-bone IK with a pole for the elbow / knee, hands turned and opened, head
+turned), eased in between. The frames go after the stock ones in both skeletons
+(`_humanoid.gla` - the stock one, needed for the stock models - and `_humanoid_ninja.gla`, at
+the same frame numbers) and the names into `animation.cfg`; all three live in
+`assets/models/players/_humanoid/` and override the base files. Each name also needs an
+entry at the end of `anims.h` and `cgame/animtable.h`. Re-running replaces the earlier set
+(the frames past the stock 21376 are dropped first):
+
+    python3 tools/make_anims.py \
+      --gla assets/models/players/_humanoid/_humanoid.gla assets/models/players/_humanoid/_humanoid_ninja.gla \
+      --out-gla assets/models/players/_humanoid/_humanoid.gla assets/models/players/_humanoid/_humanoid_ninja.gla \
+      --cfg assets/models/players/_humanoid/animation.cfg --out-cfg assets/models/players/_humanoid/animation.cfg
+
+`tools/anim_preview.py` renders a model in any frames (textured, front / side / 3/4 views,
+a GIF) to check them without the game. The stock `_humanoid.gla` / `animation.cfg` came
+out of `base/assets1.pk3` (`JK_Shinobi_ExtractSkeleton.bat` copies them to
+`shinobi\src\`). Now: `BOTH_SHINOBI_STANCE_HYUGA` (the 64 Seals stance,
+`shinobi_stanceAnim`).
+
 ## Package for friends
 
 `tools/package-win64.sh` builds everything and writes `dist/JK_Shinobi-win64.zip`: unpack

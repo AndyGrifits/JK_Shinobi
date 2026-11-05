@@ -1807,6 +1807,9 @@ typedef enum //# animNumber_e
 	BOTH_CIN_49,		//# Level specific cinematic
 	BOTH_CIN_50,		//# Level specific cinematic
 
+	//# JK_Shinobi: our own (tools/make_anims.py appends them to the skeletons)
+	BOTH_SHINOBI_STANCE_HYUGA,	//# 64 Seals: Neji's Gentle Fist stance (eases in, holds)
+
 	//# #eol
 	MAX_ANIMATIONS,
 	MAX_TOTALANIMATIONS,

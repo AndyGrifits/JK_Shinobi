@@ -266,7 +266,7 @@ models/players/visor/animation.cfg, etc
 
 ======================
 */
-static char UIPAFtext[60000];
+static char UIPAFtext[120000]; // JK_Shinobi: room for our own animations (was 60000)
 int UI_ParseAnimationFile(const char *filename, animation_t *animset, qboolean isHumanoid)
 {
 	char		*text_p;

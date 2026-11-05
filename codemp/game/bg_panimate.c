@@ -2310,7 +2310,7 @@ int BG_ParseAnimationFile(const char *filename, animation_t *animset, qboolean i
 	int			nextIndex = bgNumAllAnims;
 	qboolean	dynAlloc = qfalse;
 	///qboolean	wasLoaded = qfalse;
-	static char BGPAFtext[60000];
+	static char BGPAFtext[120000]; // JK_Shinobi: room for our own animations (was 60000; the stock file is ~50 KB)
 	fileHandle_t	f;
 	int				animNum;
 
