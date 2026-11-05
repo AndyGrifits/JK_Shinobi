@@ -21,6 +21,8 @@ else
   echo "warning: no maps in dist/maps/ (shinobi_map_*.pk3) - the package has only the stock ones" >&2
 fi
 cp "$ROOT"/tools/launchers/*.bat "$ROOT"/tools/launchers/*.ps1 "$PKG/GameData/"
+"$ROOT/tools/steamlink/build.sh" >/dev/null
+cp "$ROOT"/dist/steamlink/JK_Shinobi_Steam.exe "$ROOT"/dist/steamlink/steam_api64.dll "$PKG/GameData/"
 cat > "$PKG/GameData/JK_Shinobi_README.txt" <<'TXT'
 JK_Shinobi - Naruto mod for Jedi Academy (multiplayer)
 
@@ -30,7 +32,12 @@ JK_Shinobi - Naruto mod for Jedi Academy (multiplayer)
    (it adds OpenJK, the base modules and the shinobi folder; nothing of the game is replaced
    except the stock modules in base, by OpenJK's).
 3. Start JK_Shinobi.bat to play alone (with bots: JK_Shinobi_Test.bat).
-4. Together: the host starts JK_Shinobi_Host.bat - full screen, the Create Game screen
+4. Together over Steam (easiest - nothing to set up): both run Steam and are Steam friends.
+   The host starts JK_Shinobi_SteamHost.bat (the game opens on Create Game: pick a map,
+   Start); the other starts JK_Shinobi_SteamJoin.bat - it finds the host and connects.
+   Keep the black windows open while playing. Your Steam status shows "Spacewar"
+   (Valve's test app the link runs under).
+5. Or directly: the host starts JK_Shinobi_Host.bat - full screen, the Create Game screen
    (choose the map, Start); its black window shows his addresses. The others start
    JK_Shinobi_Join.bat and type the host's address (or nothing: the server list).
    Over the internet both need the same VPN (Radmin VPN / ZeroTier / Tailscale - use the

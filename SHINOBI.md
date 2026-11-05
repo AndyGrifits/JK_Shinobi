@@ -710,7 +710,17 @@ poses are the cvars `shinobi_kaitenAnim1` (wind-up) / `shinobi_kaitenAnim2` (spi
 2. Copy `dist/shinobi/` to `GameData/shinobi/` and `dist/*.bat` to `GameData/`.
 3. `JK_Shinobi_Test.bat` starts a local FFA with bots; `JK_Shinobi.bat` starts the game with the mod
    (borderless window at desktop resolution; the console goes to `qconsole.log`).
-4. Playing together: the host starts `JK_Shinobi_Host.bat` - full screen (a borderless window
+4. Playing together over Steam (nothing to set up, works behind DS-Lite / carrier NAT): both run
+   Steam and are Steam friends; the host starts `JK_Shinobi_SteamHost.bat` (the game opens on
+   Create Game), the other `JK_Shinobi_SteamJoin.bat` once the host's map is up. The black
+   windows (`JK_Shinobi_Steam.exe`, `tools/steamlink/`) carry the game's packets over Steam's P2P
+   messages (direct, or through Valve's relays) under Valve's test app 480 ("Spacewar" in the
+   Steam status): on the host it stands in for each friend as a local UDP socket towards the
+   server (127.0.0.1:29070), on a joining PC it is the server the game connects to
+   (127.0.0.1:29170). The host is found by Steam rich presence (`jks` = `host`, set only while
+   the server answers `getinfo`). `tools/steamlink/build.sh` builds it (MinGW, the Steamworks
+   headers and `steam_api64.dll` from Steamworks.NET, pinned).
+   Directly instead: the host starts `JK_Shinobi_Host.bat` - full screen (a borderless window
    at the desktop resolution) straight on the stock Create Game screen (game type, map, bots;
    our maps are listed by their `.arena` files); its console window lists his addresses. The
    others start `JK_Shinobi_Join.bat` and type one of them (or nothing: the server list), or
