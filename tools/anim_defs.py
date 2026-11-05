@@ -27,7 +27,7 @@ STAND = ("BOTH_STAND1", 0)
 HYUGA = {
     "body_yaw": -50.0,
     "pelvis": (3.8, -4.6, -17.0),
-    "spine_bend": 34.0, "spine_side": -28.0,
+    "spine_bend": 6.0, "spine_side": -24.0,
     "head": (40.0, -14.0),
     "lfoot": (6.8, -11.3, 0.0), "lknee": (14.0, -16.0, 0.0), "lfoot_yaw": 20.0,
     "rfoot": (-12.2, 14.6, 0.0), "rknee": (-16.0, -8.0, 0.0), "rfoot_yaw": -70.0,
