@@ -1550,6 +1550,7 @@ qboolean Shinobi_MazeActive( void );
 void Shinobi_MazeSpawn( void );
 void Shinobi_MazeNavReady( void );
 void Shinobi_MazeFrame( void );
+void Cmd_MazeGoto_f( gentity_t *ent );
 void Cmd_ShinobiAutotest_f( gentity_t *ent );
 qboolean Shinobi_BotModel( gentity_t *ent, char *userinfo, int size );
 void Cmd_ShinobiOpenSpot_f( gentity_t *ent );

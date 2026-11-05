@@ -3448,6 +3448,7 @@ command_t commands[] = {
 	{ "levelshot",			Cmd_LevelShot_f,			CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "lockon",				Cmd_LockOn_f,				CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "maplist",			Cmd_MapList_f,				CMD_NOINTERMISSION },
+	{ "maze_goto",			Cmd_MazeGoto_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION }, // JK_Shinobi: g_shinobi_maze.c
 	{ "mizubunshin",		Cmd_MizuBunshin_f,			CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "noclip",				Cmd_Noclip_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
 	{ "notarget",			Cmd_Notarget_f,				CMD_CHEAT|CMD_ALIVE|CMD_NOINTERMISSION },
