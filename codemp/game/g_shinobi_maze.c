@@ -475,3 +475,45 @@ void Shinobi_MazeFrame( void ) {
 	}
 	(void)mzStateNames;
 }
+
+/* cheat "maze_goto [role|n]": put the player ~220 u from a living maze NPC (the n-th, or the first of that
+   role), on clear floor, facing it - for the auto-test and for looking at the AI */
+void Cmd_MazeGoto_f( gentity_t *ent ) {
+	char arg[32];
+	int i, n = 0, want = 0, role = -1, d;
+	vec3_t mins = { -15, -15, -24 }, maxs = { 15, 15, 40 };
+	if ( !mz.active ) {
+		trap->SendServerCommand( ent - g_entities, "print \"not a maze map\n\"" );
+		return;
+	}
+	trap->Argv( 1, arg, sizeof( arg ) );
+	if ( arg[0] >= '0' && arg[0] <= '9' ) want = atoi( arg );
+	else if ( arg[0] ) role = MZ_Role( arg );
+	for ( i = 0; i < mz.numNpcs; i++ ) {
+		mzNpc_t *m = &mz.npcs[i];
+		gentity_t *npc = m->ent >= 0 ? &g_entities[m->ent] : NULL;
+		if ( !npc || !m->ready || !npc->inuse || npc->health <= 0 || ( role >= 0 && m->role != role ) )
+			continue;
+		if ( n++ < want )
+			continue;
+		for ( d = 0; d < 8; d++ ) {
+			vec3_t spot, down, ang, dir;
+			trace_t tr;
+			float a = DEG2RAD( d * 45 );
+			VectorSet( spot, npc->r.currentOrigin[0] + cos( a ) * 220, npc->r.currentOrigin[1] + sin( a ) * 220, npc->r.currentOrigin[2] + 8 );
+			trap->Trace( &tr, npc->r.currentOrigin, mins, maxs, spot, npc->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+			if ( tr.fraction < 1.0f || tr.startsolid )
+				continue;
+			VectorCopy( spot, down ); down[2] -= 128;
+			trap->Trace( &tr, spot, mins, maxs, down, ENTITYNUM_NONE, MASK_PLAYERSOLID, qfalse, 0, 0 );
+			if ( tr.fraction >= 1.0f || tr.startsolid )
+				continue;
+			VectorSubtract( npc->r.currentOrigin, spot, dir );
+			vectoangles( dir, ang ); ang[PITCH] = 0; ang[ROLL] = 0;
+			TeleportPlayer( ent, tr.endpos, ang );
+			Com_Printf( "[maze] goto npc %d (%s, %s) from %s\n", m->ent, mzRoleNames[m->role], mzStateNames[m->state], vtos( tr.endpos ) );
+			return;
+		}
+	}
+	trap->SendServerCommand( ent - g_entities, "print \"no such maze NPC with room around it\n\"" );
+}
