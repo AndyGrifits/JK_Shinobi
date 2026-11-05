@@ -48,8 +48,7 @@ oto_ninja
 	playerModel	reborn
 	customSkin	default
 	weapon		WP_SABER
-	saber		Kyle
-	saberColor	purple
+	saber		shinobi_kurosawa
 	saberStyle	1
 	class		CLASS_REBORN
 	rank		crewman
@@ -88,8 +87,7 @@ oto_jonin
 	customSkin	default
 	scale		115
 	weapon		WP_SABER
-	saber		Kyle
-	saberColor	red
+	saber		shinobi_katana
 	saberStyle	2
 	class		CLASS_REBORN
 	rank		lt
