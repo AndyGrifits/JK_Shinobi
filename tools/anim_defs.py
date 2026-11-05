@@ -76,12 +76,25 @@ KICK_UP = {
     "larm": ((0.45, -0.55, 0.7), 0.9), "lelbow": (12.0, 4.0, -8.0),
 }
 
+# Straight as a string: feet together, arms down along the body (Reverse Lotus up in the air)
+STRAIGHT = {
+    "lfoot": (-3.5, 1.5, 0.0), "lknee": (0.0, -20.0, 0.0),
+    "rfoot": (3.0, -1.5, 0.0), "rknee": (0.0, -20.0, 0.0),
+    "larm": ((0.12, 0.02, -1.0), 1.0), "lelbow": (4.0, 10.0, -8.0),
+    "rarm": ((-0.12, 0.02, -1.0), 1.0), "relbow": (-4.0, 10.0, -8.0),
+    "lpalm": ((0.0, 0.0, -1.0), (-1.0, 0.0, 0.0)), "lcurl": 0.0,
+    "rpalm": ((0.0, 0.0, -1.0), (1.0, 0.0, 0.0)), "rcurl": 0.0,
+    "head": (0.0, 0.0),
+}
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
     # 0.8 s at 30 fps: down, a coil (the knee drawn up, the hand going back, the turn starting),
     # the kick snapping up past its line and settling; the head leads, the left arm and the
     # kicking leg trail the body a frame or two; the right foot stays planted
+    "BOTH_SHINOBI_STRAIGHT": dict(ref=STAND, frames=2, fps=20, loop=-1,
+                                  keys=[(0.0, STRAIGHT), (1.0, STRAIGHT)]),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,
                                  keys=[(0.0, {}), (0.28, CROUCH), (0.44, COIL, "slow"),
                                        (0.62, KICK_UP, "snap"), (1.0, KICK_UP)],

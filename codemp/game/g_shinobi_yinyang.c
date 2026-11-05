@@ -983,6 +983,15 @@ static void Shinobi_LotusLaunch( gentity_t *ent, gentity_t *best ) {
 	client->shinobi.lotusTime = level.time;
 }
 
+// up there and coming down: straight as a string, whatever was playing (the kick) cut off
+static void Shinobi_LotusStraight( gentity_t *e ) {
+	gclient_t *c = e->client;
+	if ( c->ps.forceHandExtend == HANDEXTEND_TAUNT )
+		c->ps.forceHandExtend = HANDEXTEND_NONE;
+	c->ps.legsAnim = c->ps.torsoAnim = BOTH_SHINOBI_STRAIGHT;
+	c->ps.legsTimer = c->ps.torsoTimer = 200;
+}
+
 static void Shinobi_LotusSlam( gentity_t *ent, gentity_t *v ) {
 	vec3_t up = { 0, 0, 1 }, down = { 0, 0, -1 }, feet;
 	VectorCopy( v->r.currentOrigin, feet );
@@ -1034,6 +1043,7 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	// up there and coming down: both head down (the cgame turns them over: SHINOBI_PFRAME_LOTUS),
 	// spinning about his axis - you held at his back, the way he faces turning with the spin
 	ent->s.frame |= SHINOBI_PFRAME_LOTUS;
+	Shinobi_LotusStraight( ent );
 	{
 		vec3_t  ang = { 0, 0, 0 }, dir, spot;
 		trace_t tr;
@@ -1107,6 +1117,7 @@ static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
 		return;
 	}
 	ent->s.frame |= SHINOBI_PFRAME_LOTUS; // head down, spinning (the cgame)
+	Shinobi_LotusStraight( ent );
 	client->ps.velocity[0] = client->ps.velocity[1] = 0;
 	if ( a->client->shinobi.lotusPhase == 2 ) {
 		client->ps.gravity = 1;

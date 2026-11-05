@@ -1806,6 +1806,7 @@ stringID_table_t animTable [MAX_ANIMATIONS+1] =
 	//# JK_Shinobi: our own (tools/make_anims.py)
 	ENUM2STRING(BOTH_SHINOBI_STANCE_HYUGA),
 	ENUM2STRING(BOTH_SHINOBI_KICK_UP),
+	ENUM2STRING(BOTH_SHINOBI_STRAIGHT),
 
 	//must be terminated
 	{NULL,-1}
