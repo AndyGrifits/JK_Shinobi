@@ -20,7 +20,7 @@ if ls "$ROOT"/dist/maps/shinobi_map_*.pk3 >/dev/null 2>&1; then
 else
   echo "warning: no maps in dist/maps/ (shinobi_map_*.pk3) - the package has only the stock ones" >&2
 fi
-cp "$ROOT"/tools/launchers/*.bat "$PKG/GameData/"
+cp "$ROOT"/tools/launchers/*.bat "$ROOT"/tools/launchers/*.ps1 "$PKG/GameData/"
 cat > "$PKG/GameData/JK_Shinobi_README.txt" <<'TXT'
 JK_Shinobi - Naruto mod for Jedi Academy (multiplayer)
 
