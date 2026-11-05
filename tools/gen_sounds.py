@@ -3,9 +3,9 @@
 
     python3 tools/gen_sounds.py        -> assets/sound/shinobi/*.wav
 
-seal1..3: the sharp "fwip" of a hand seal snapping into place (anime-style): a short burst of
-noise through a band-pass that sweeps down, a hard attack and a quick tail, a faint cloth
-snap on top. Three takes so a run of seals doesn't sound like one sample.
+charge1..3: a sharp gust of wind - a blade's swing through the air - heard (by you only) as each
+level bar of a jutsu being charged fills: noise through a band-pass that sweeps up and back
+down, a quick swell and a short tail; each level a little higher and brighter.
 """
 import os
 import struct
@@ -54,9 +54,32 @@ def write(name, x):
         w.writeframes(pcm.tobytes())
 
 
+def swing(seed, dur=0.32, f0=420.0, f1=1700.0, f2=650.0, gain=0.85):
+    """Up and back down: the air cut by something fast."""
+    rng = np.random.default_rng(seed)
+    n = int(dur * RATE)
+    t = np.arange(n) / RATE
+    noise = rng.standard_normal(n)
+    out = np.zeros(n)
+    block = 128
+    for i in range(0, n, block):
+        u = i / n
+        fc = f0 * (f1 / f0) ** (u / 0.4) if u < 0.4 else f1 * (f2 / f1) ** ((u - 0.4) / 0.6)
+        lo, hi = fc / 1.5, min(fc * 1.5, RATE / 2 - 100)
+        sos = butter(2, [lo, hi], btype="band", fs=RATE, output="sos")
+        seg = noise[max(0, i - 256):i + block]
+        y = sosfilt(sos, seg)[-min(block, n - i):]
+        out[i:i + len(y)] = y
+    peak = 0.38 * dur
+    env = np.where(t < peak, (t / peak) ** 1.6, np.exp(-(t - peak) / (0.22 * dur)))
+    out *= env
+    out /= np.max(np.abs(out)) + 1e-9
+    return out * gain
+
+
 def main():
-    for i, (seed, hi, lo) in enumerate(((11, 3400, 950), (23, 3000, 800), (37, 3700, 1050)), 1):
-        write("seal%d.wav" % i, whoosh(seed, f_hi=hi, f_lo=lo))
+    for lvl, k in ((1, 1.0), (2, 1.3), (3, 1.7)):
+        write("charge%d.wav" % lvl, swing(40 + lvl, f0=420 * k, f1=1700 * k, f2=650 * k))
     print("wrote", os.path.normpath(OUT))
 
 

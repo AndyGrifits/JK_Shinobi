@@ -30,6 +30,7 @@ static struct {
 	qhandle_t glow, swirl, bolt, fire, spark;
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell, windArc;
 	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight, hakkeSeal;
+	sfxHandle_t chargeSnd[SHINOBI_MAX_LEVEL]; // a level bar of the charge filled (your ears only)
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -210,6 +211,9 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.stoneShell  = trap->R_RegisterShader( "gfx/shinobi/stoneshell" );
 	shinobiShaders.gateShell   = trap->R_RegisterShader( "gfx/shinobi/gateshell" );
 	shinobiShaders.hakkeSeal   = trap->R_RegisterShader( "gfx/shinobi/hakke_seal" );
+	shinobiShaders.chargeSnd[0] = trap->S_RegisterSound( "sound/shinobi/charge1.wav" );
+	shinobiShaders.chargeSnd[1] = trap->S_RegisterSound( "sound/shinobi/charge2.wav" );
+	shinobiShaders.chargeSnd[2] = trap->S_RegisterSound( "sound/shinobi/charge3.wav" );
 	shinobiShaders.legWeight   = trap->R_RegisterModel( "models/shinobi/leg_weight.md3" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.iceFloe     = trap->R_RegisterShader( "gfx/shinobi/icefloe" );
@@ -1972,9 +1976,10 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	const int    held = cg.time - shinobiCharge.start;
 	const int    castLvl = CG_ShinobiBuild()->stats[SST_CAST];
 	const int    lvl = Shinobi_ChargeLevelCast( shinobiCharge.jutsu, held, castLvl );
-	int          shown = lvl, i;
+	int          shown = lvl, i, filled = 0;
 	const char  *label;
 	vec4_t       textColor = { 1, 1, 1, 1 };
+	static int   soundStart = -1, soundFilled;
 
 	while ( shown > SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) && chakra < CG_ShinobiPrice( shinobiCharge.jutsu, shown ) )
 		shown--;
@@ -1989,6 +1994,18 @@ static void CG_ShinobiDrawChargeBars( void ) {
 		if ( fill > 0 )
 			CG_FillRect( x, y, barW * fill, barH, affordable ? barColor[i] : locked );
 		CG_DrawRect( x, y, barW, barH, 1, frame );
+		if ( fill >= 1.0f && affordable && i + 1 >= SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) )
+			filled = i + 1;
+	}
+	// a level reached: a gust of wind in your ears (no need to watch the bars)
+	if ( soundStart != shinobiCharge.start ) {
+		soundStart = shinobiCharge.start;
+		soundFilled = 0;
+	}
+	if ( filled > soundFilled ) {
+		soundFilled = filled;
+		if ( shinobiShaders.chargeSnd[filled - 1] )
+			trap->S_StartLocalSound( shinobiShaders.chargeSnd[filled - 1], CHAN_LOCAL_SOUND );
 	}
 
 	if ( held < Shinobi_BarEndCast( shinobiCharge.jutsu, SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) - 1, castLvl ) ) {

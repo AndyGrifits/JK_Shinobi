@@ -17,7 +17,6 @@ typedef struct {
 	int fxFireballBoom[SHINOBI_MAX_LEVEL], fxWallRise, fxWallBreak;
 
 	int sndChargeStart, sndFizzle, sndPoof, sndJutsuCharge;
-	int sndSeal[3];          // a hand seal snapping into place (tools/gen_sounds.py)
 	int sndRasenganForm, sndRasenganDash, sndRasenganHit;
 	int sndChidoriForm, sndChidoriDash, sndChidoriHit;
 	int sndFireballCast, sndFireballBoom, sndFireballBoom2;

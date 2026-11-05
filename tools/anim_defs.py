@@ -123,16 +123,16 @@ SEAL1_TWO = _seal1((-4.5, -11.0, -0.5), ((0.0, -0.1, 1.0), (-1.0, 0.0, 0.0)), (0
 SEAL1_FLAT = _seal1((-4.0, -12.0, -1.5), ((0.0, 0.0, 1.0), (0.0, -1.0, 0.0)), (0.0, 0.0))
 SEAL1_TURN = _seal1((-5.0, -11.5, -2.5), ((-0.45, -0.2, 0.85), (-0.6, -0.75, 0.0)), (0.1, 1.0))
 
-# The heavy single blade at rest: across the shoulders behind the head, the right hand on the
-# grip by the right ear (elbow up and out), the blade lying left along the shoulders; the left
-# arm hangs loose. Breathes (a slow dip of the body) while it lasts.
+# The heavy single blade at rest: on the right shoulder, sloping up and back over it, the right
+# hand out to the side on the grip (about shoulder height, a little forward); the left arm hangs
+# loose. Breathes (a slow dip of the body) while it lasts.
 SHOULDER_REST = {
     "pelvis": (0.0, 0.0, -0.5),
     "lfoot": (2.0, 0.0, 0.0), "lknee": (8.0, -20.0, 0.0), "lfoot_yaw": 8.0,
     "rfoot": (-2.0, 0.0, 0.0), "rknee": (-8.0, -20.0, 0.0), "rfoot_yaw": -8.0,
     "spine_bend": 3.0, "head": (0.0, 2.0),
-    "rhand": (-1.0, 4.5, 3.5), "relbow": (-16.0, -6.0, 6.0),
-    "rgrip": ((0.96, 0.25, -0.08), (0.0, -0.6, 0.8)), "rcurl": 1.0,
+    "rhand": (-5.0, -7.0, -5.0), "relbow": (-15.0, 2.0, -12.0),
+    "rgrip": ((0.08, 0.68, 0.73), (0.6, -0.2, -0.7)), "rcurl": 1.0,
     "larm": ((0.25, 0.05, -1.0), 0.94), "lelbow": (8.0, 6.0, -10.0),
     "lpalm": ((0.1, 0.0, -1.0), (-1.0, 0.0, 0.0)), "lcurl": (0.25, 0.35),
 }
