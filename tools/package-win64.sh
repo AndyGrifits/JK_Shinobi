@@ -14,6 +14,12 @@ mkdir -p "$PKG/GameData/shinobi" "$PKG/GameData/base"
 cp "$ROOT"/tools/openjk-win64/*.exe "$ROOT"/tools/openjk-win64/*.dll "$PKG/GameData/"
 cp "$ROOT"/tools/openjk-win64/base/*.dll "$PKG/GameData/base/"
 cp "$ROOT"/dist/shinobi/* "$PKG/GameData/shinobi/"
+# the maps (built elsewhere: shinobi_map_*.pk3) - put them into dist/maps/ before packing
+if ls "$ROOT"/dist/maps/shinobi_map_*.pk3 >/dev/null 2>&1; then
+  cp "$ROOT"/dist/maps/shinobi_map_*.pk3 "$PKG/GameData/shinobi/"
+else
+  echo "warning: no maps in dist/maps/ (shinobi_map_*.pk3) - the package has only the stock ones" >&2
+fi
 cp "$ROOT"/tools/launchers/*.bat "$PKG/GameData/"
 cat > "$PKG/GameData/JK_Shinobi_README.txt" <<'TXT'
 JK_Shinobi - Naruto mod for Jedi Academy (multiplayer)
@@ -23,8 +29,13 @@ JK_Shinobi - Naruto mod for Jedi Academy (multiplayer)
    C:\Program Files (x86)\Steam\steamapps\common\Jedi Academy\GameData
    (it adds OpenJK, the base modules and the shinobi folder; nothing of the game is replaced
    except the stock modules in base, by OpenJK's).
-3. Start JK_Shinobi.bat. To play together: one starts JK_Shinobi_Host.bat, the others
-   connect to him (console: /connect <his address>).
+3. Start JK_Shinobi.bat to play alone (with bots: JK_Shinobi_Test.bat).
+4. Together: the host starts JK_Shinobi_Host.bat - full screen, the Create Game screen
+   (choose the map, Start); its black window shows his addresses. The others start
+   JK_Shinobi_Join.bat and type the host's address (or nothing: the server list).
+   Over the internet both need the same VPN (Radmin VPN / ZeroTier / Tailscale - use the
+   host's VPN address), or the host forwards UDP port 29070 on his router.
+   Allow OpenJK through the Windows firewall when it asks.
 
 Characters: Appearance on the build screen, or /model <name> (the folder names in
 models/players of shinobi/zz_shinobi.pk3, e.g. /model kakashi).

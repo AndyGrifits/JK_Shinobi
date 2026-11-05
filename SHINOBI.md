@@ -710,11 +710,18 @@ poses are the cvars `shinobi_kaitenAnim1` (wind-up) / `shinobi_kaitenAnim2` (spi
 2. Copy `dist/shinobi/` to `GameData/shinobi/` and `dist/*.bat` to `GameData/`.
 3. `JK_Shinobi_Test.bat` starts a local FFA with bots; `JK_Shinobi.bat` starts the game with the mod
    (borderless window at desktop resolution; the console goes to `qconsole.log`).
-4. Two players on one PC: `JK_Shinobi_Host.bat` hosts a map (no bots, no cheats) in a
-   1280x720 window, then `JK_Shinobi_Client2.bat` joins it as "Dummy" in a second window with
-   its own settings folder (`Documents/My Games/OpenJK_Dummy`). Drag the windows apart and
-   switch with Alt+Tab - only the active window gets keyboard and mouse.
-5. `JK_Shinobi_SelfTest.bat` casts every jutsu by script, saves screenshots to
+4. Playing together: the host starts `JK_Shinobi_Host.bat` - full screen (a borderless window
+   at the desktop resolution) straight on the stock Create Game screen (game type, map, bots;
+   our maps are listed by their `.arena` files); its console window lists his addresses. The
+   others start `JK_Shinobi_Join.bat` and type one of them (or nothing: the server list), or
+   `JK_Shinobi_Join.bat <address>`. Over the internet: a shared VPN (Radmin VPN, ZeroTier,
+   Tailscale...) or UDP 29070 forwarded to the host; allow OpenJK in the Windows firewall.
+5. Two players on one PC (two screens): `JK_Shinobi_Host.bat` (start the map), then
+   `JK_Shinobi_Client2.bat` joins it as "Dummy" in a 1280x720 window with its own settings
+   folder (`Documents/My Games/OpenJK_Dummy`) - drag it to the second screen; switch with
+   Alt+Tab, only the active window gets keyboard and mouse. `JK_Shinobi_HostQuick.bat` hosts
+   mp/ffa3 at once in a window, no menu.
+6. `JK_Shinobi_SelfTest.bat` casts every jutsu by script, saves screenshots to
    `Documents/My Games/OpenJK/shinobi/screenshots/st*.jpg` and quits.
 
 ## Build

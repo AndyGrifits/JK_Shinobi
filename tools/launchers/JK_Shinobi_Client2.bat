@@ -1,6 +1,7 @@
 @echo off
 rem JK_Shinobi: two-window test, part 2 - a second player "Dummy" in a 1280x720 window
-rem (drag it next to the first one) that joins the game hosted by JK_Shinobi_Host.bat.
+rem (drag it to your second screen) that joins the game hosted on this PC (JK_Shinobi_Host.bat -
+rem start the map there first - or JK_Shinobi_HostQuick.bat).
 rem It keeps its own settings and log in Documents\My Games\OpenJK_Dummy, so it
 rem never touches your binds or your build. Switch windows with Alt+Tab.
 cd /d "%~dp0"
