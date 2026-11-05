@@ -1185,6 +1185,12 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 // a player's s.frame (unused by the base game for players): the gate open, the weights still on
 #define SHINOBI_PFRAME_GATE_MASK       7
 #define SHINOBI_PFRAME_WEIGHTS         8
+#define SHINOBI_PFRAME_LOTUS           16   // Reverse Lotus up there / coming down: drawn head down, spinning
+// both spin about the held one's axis: the way they face at a time (deg) - the server puts the
+// caster SHINOBI_LOTUS_BEHIND behind him along it, the cgame turns both models to it
+#define SHINOBI_LOTUS_SPIN_MS          450  // one turn
+#define SHINOBI_LOTUS_SPIN_YAW(t)      ( 360.0f * (float)( (t) % SHINOBI_LOTUS_SPIN_MS ) / SHINOBI_LOTUS_SPIN_MS )
+#define SHINOBI_LOTUS_BEHIND           22
 static const char * const shinobiGateNames[SHINOBI_GATE_MAX + 1] = {
 	"", "Gate of Opening", "Gate of Healing", "Gate of Life", "Gate of Pain", "Gate of Limit"
 };

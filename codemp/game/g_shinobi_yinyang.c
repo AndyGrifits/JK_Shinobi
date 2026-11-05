@@ -983,15 +983,6 @@ static void Shinobi_LotusLaunch( gentity_t *ent, gentity_t *best ) {
 	client->shinobi.lotusTime = level.time;
 }
 
-// the spin up there: front flips, over and over
-static void Shinobi_LotusSpinAnim( gentity_t *e, int anim ) {
-	gclient_t *c = e->client;
-	if ( c->ps.legsAnim != anim || c->ps.legsTimer <= 50 ) {
-		c->ps.legsAnim = c->ps.torsoAnim = anim;
-		c->ps.legsTimer = c->ps.torsoTimer = BG_AnimLength( e->localAnimIndex, (animNumber_t)anim );
-	}
-}
-
 static void Shinobi_LotusSlam( gentity_t *ent, gentity_t *v ) {
 	vec3_t up = { 0, 0, 1 }, down = { 0, 0, -1 }, feet;
 	VectorCopy( v->r.currentOrigin, feet );
@@ -1040,28 +1031,47 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 		}
 		return;
 	}
-	if ( client->shinobi.lotusPhase == 2 ) { // hanging, spinning head down
+	// up there and coming down: both head down (the cgame turns them over: SHINOBI_PFRAME_LOTUS),
+	// spinning about his axis - you held at his back, the way he faces turning with the spin
+	ent->s.frame |= SHINOBI_PFRAME_LOTUS;
+	{
+		vec3_t  ang = { 0, 0, 0 }, dir, spot;
+		trace_t tr;
+		ang[YAW] = SHINOBI_LOTUS_SPIN_YAW( level.time );
+		AngleVectors( ang, dir, NULL, NULL );
+		VectorMA( v->client->ps.origin, -SHINOBI_LOTUS_BEHIND, dir, spot );
+		ent->r.contents = 0; // (you two overlap: not solid while you hold on - solidHack gives it back after)
+		client->solidHack = level.time + 150;
+		trap->Trace( &tr, v->client->ps.origin, ent->r.mins, ent->r.maxs, spot, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		VectorCopy( tr.allsolid ? client->ps.origin : tr.endpos, client->ps.origin );
+		VectorCopy( v->client->ps.velocity, client->ps.velocity );
+		client->ps.gravity = v->client->ps.gravity;
+		client->ps.groundEntityNum = ENTITYNUM_NONE;
+	}
+	if ( client->shinobi.lotusPhase == 2 ) { // hanging up there
 		client->ps.gravity = 1; // (0 would set off Pmove's zero-g jump code: it sank them at ~300 a second)
 		VectorClear( client->ps.velocity );
-		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_F );
-		if ( level.time - client->shinobi.lotusTime >= SHINOBI_LOTUS_HANG_MS ) {
-			client->shinobi.lotusPhase = 3; // down
-			client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
-		}
+		if ( level.time - client->shinobi.lotusTime >= SHINOBI_LOTUS_HANG_MS )
+			client->shinobi.lotusPhase = 3; // down (he falls: Shinobi_LotusHeld; you go with him)
 		return;
 	}
 	// coming down with him
-	Shinobi_LotusSpinAnim( ent, BOTH_FLIP_F );
-	if ( client->ps.velocity[2] > -SHINOBI_LOTUS_FALL )
-		client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
 	if ( v->client->ps.groundEntityNum != ENTITYNUM_NONE ) {
 		Shinobi_LotusSlam( ent, v );
 		Shinobi_LotusEnd( ent );
 		VectorClear( client->ps.velocity ); // (the 1300 down left on him bounced him 150 up off the floor)
-		client->ps.legsTimer = client->ps.torsoTimer = 0; // out of the spin: on his feet
+		client->ps.legsTimer = client->ps.torsoTimer = 0; // on his feet
+		{ // let go: a step back off him, so the two of you aren't stuck in each other when you're solid again
+			vec3_t  ang = { 0, 0, 0 }, dir, spot;
+			trace_t tr;
+			ang[YAW] = SHINOBI_LOTUS_SPIN_YAW( level.time );
+			AngleVectors( ang, dir, NULL, NULL );
+			VectorMA( v->client->ps.origin, -40, dir, spot );
+			trap->Trace( &tr, v->client->ps.origin, ent->r.mins, ent->r.maxs, spot, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+			if ( !tr.allsolid && tr.fraction * 40 >= 32 )
+				VectorCopy( tr.endpos, client->ps.origin );
+		}
 	}
-	else if ( client->ps.groundEntityNum != ENTITYNUM_NONE )
-		client->ps.velocity[2] = 0; // down first: wait for him on the floor
 }
 
 // from G_Damage: while he is held in your lotus, he can't hurt you (his blade, a swing already going)
@@ -1096,16 +1106,14 @@ static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.velocity[0] = client->ps.velocity[1] = 0;
 		return;
 	}
+	ent->s.frame |= SHINOBI_PFRAME_LOTUS; // head down, spinning (the cgame)
+	client->ps.velocity[0] = client->ps.velocity[1] = 0;
 	if ( a->client->shinobi.lotusPhase == 2 ) {
 		client->ps.gravity = 1;
 		VectorClear( client->ps.velocity );
-		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_B );
 	}
-	else {
-		Shinobi_LotusSpinAnim( ent, BOTH_FLIP_B );
-		if ( client->ps.velocity[2] > -SHINOBI_LOTUS_FALL )
-			client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
-	}
+	else if ( client->ps.velocity[2] > -SHINOBI_LOTUS_FALL )
+		client->ps.velocity[2] = -SHINOBI_LOTUS_FALL;
 }
 
 /*

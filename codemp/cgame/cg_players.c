@@ -9247,6 +9247,8 @@ void CG_Player( centity_t *cent ) {
 
 	CG_G2PlayerAngles( cent, legs.axis, rootAngles );
 	CG_ShinobiKaitenSpin( cent, legs.axis, rootAngles ); // JK_Shinobi: Kaiten - the body spins
+	CG_ShinobiLotusSpin( cent, legs.axis, rootAngles, legs.origin ); // JK_Shinobi: Reverse Lotus - head down, spinning
+	VectorCopy( legs.origin, legs.oldorigin );
 	CG_G2PlayerHeadAnims( cent );
 
 	if ( (cent->currentState.eFlags2&EF2_HELD_BY_MONSTER)

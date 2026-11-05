@@ -2735,6 +2735,20 @@ void CG_ShinobiKaitenSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles ) 
 	cent->turAngles[YAW] = rootAngles[YAW];
 }
 
+// Reverse Lotus up there / coming down: the body head down, turning with the spin (both the held
+// one and the caster at his back face SHINOBI_LOTUS_SPIN_YAW of the same clock as the server)
+void CG_ShinobiLotusSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles, vec3_t origin ) {
+	if ( cent->currentState.eType != ET_PLAYER || !( cent->currentState.frame & SHINOBI_PFRAME_LOTUS )
+		|| ( cent->currentState.eFlags & EF_DEAD ) )
+		return;
+	rootAngles[PITCH] = 0;
+	rootAngles[YAW] = SHINOBI_LOTUS_SPIN_YAW( cg.time );
+	rootAngles[ROLL] = 180; // (about the way he faces: over, head down)
+	AnglesToAxis( rootAngles, legs );
+	cent->turAngles[YAW] = rootAngles[YAW];
+	origin[2] += 14; // (turned over about the middle, not the feet: he stays in his box)
+}
+
 void CG_ShinobiGuardBubble( centity_t *cent ) {
 	const int lvl = SHINOBI_EF_GUARD( cent->currentState.eFlags );
 	if ( ( cent->currentState.eFlags & SHINOBI_EF_KAITEN ) && !( cent->currentState.eFlags & EF_DEAD ) )
