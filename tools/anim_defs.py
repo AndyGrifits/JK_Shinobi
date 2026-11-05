@@ -5,7 +5,10 @@ Each: ref = (stock animation, frame in it) the poses are built on; frames, fps, 
 0 = loops);
 keys = [(time 0..1, pose[, ease])]. An empty pose = the reference frame as it is. Each key
 is solved to a full pose; between keys every joint turns (slerp) - ease = how the motion into
-that key goes: smooth (default), linear, fast (snaps, settles: a strike), slow.
+that key goes: smooth (default), linear, fast (snaps, settles: a strike), slow (winds up), snap
+(past the key ~10 % and back: a blow with weight). lag = {part: frames or (frames, from time)} -
+head / larm / rarm / lleg / rleg / spine run that many frames late (+) or early (-) on the rest
+(a leg standing on the floor earlier: lag it only from when it leaves). plant = ("r",).
 
 Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   body_yaw      deg, the whole body about the pelvis (+ turns the chest to its left)
@@ -55,6 +58,14 @@ CROUCH = {
     "rarm": ((-0.3, 0.7, -0.65), 0.95), "relbow": (-10.0, 10.0, 0.0),
     "larm": ((0.4, -0.6, -0.7), 0.8), "lelbow": (12.0, 0.0, -6.0),
 }
+COIL = {
+    "turn": -35.0, "pelvis": (0.0, 4.0, -17.0), "spine_bend": 30.0, "head": (0.0, 4.0),
+    "rfoot": (0.0, 0.0, 0.0), "rknee": (-6.0, -20.0, 0.0),
+    "lleg": ((0.15, -0.55, -0.35), 0.45), "lknee": (4.0, -20.0, 10.0),
+    "rarm": ((-0.35, 0.65, -0.68), 1.0), "relbow": (-10.0, 10.0, 0.0),
+    "rpalm": ((0.0, 1.0, 0.0), (0.0, 0.0, -1.0)),
+    "larm": ((0.55, -0.45, -0.4), 0.75), "lelbow": (12.0, 0.0, -6.0),
+}
 KICK_UP = {
     "turn": -90.0,  # (built rolled onto the right side, then turned: the leg kicks forward)
     "body_roll": -62.0, "body_pitch": -12.0, "pelvis": (0.0, 3.0, -18.5), "spine_bend": 8.0, "head": (0.0, 10.0),
@@ -68,7 +79,12 @@ KICK_UP = {
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
-    "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=17, fps=20, loop=-1,
-                                 keys=[(0.0, {}), (0.35, CROUCH), (0.65, KICK_UP, "fast"), (1.0, KICK_UP)],
+    # 0.8 s at 30 fps: down, a coil (the knee drawn up, the hand going back, the turn starting),
+    # the kick snapping up past its line and settling; the head leads, the left arm and the
+    # kicking leg trail the body a frame or two; the right foot stays planted
+    "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,
+                                 keys=[(0.0, {}), (0.28, CROUCH), (0.44, COIL, "slow"),
+                                       (0.62, KICK_UP, "snap"), (1.0, KICK_UP)],
+                                 lag={"head": -1, "larm": 2, "lleg": (1.5, 0.44)},
                                  plant=("r",)),
 }

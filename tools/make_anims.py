@@ -392,7 +392,27 @@ EASES = {
     "linear": lambda t: t,
     "fast": lambda t: 1 - (1 - t) ** 3,      # snaps out, settles (a strike)
     "slow": lambda t: t ** 3,                # winds up slowly, ends fast
+    # past the key and back (~10 % over): a blow with weight behind it
+    "snap": lambda t: 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2,
 }
+
+# body parts for "lag": each a set of bones that run late (+ frames) or early (-) on the
+# rest - the head leading, a limb trailing the body and catching up
+def part_bones(skel, part):
+    s = skel
+    def sub(n):
+        return s.subtree(s.index[n])
+    side = part[0]
+    if part == "head":
+        return sub("cervical")
+    if part in ("larm", "rarm"):
+        return sub(side + "humerus") + [j for j, n in enumerate(s.name)
+                                         if n.startswith(side + "_d") or n == side + "hang_tag_bone"]
+    if part in ("lleg", "rleg"):
+        return sub(side + "femurYZ")
+    if part == "spine":
+        return [s.index[n] for n in ("lower_lumbar", "upper_lumbar", "thoracic")]
+    raise ValueError("no such part: %s" % part)
 
 
 def make_frames(skel, anim, ref_frame):
@@ -408,31 +428,47 @@ def make_frames(skel, anim, ref_frame):
         keys.append((t, skel.to_rel(G), EASES[ease_name], G))
     plant = anim.get("plant", ())   # feet that stay put on the floor through the blends ("l", "r")
     n = anim["frames"]
+
+    def at(t):
+        """The blended pose (relative matrices) at time t, and the two keys and u."""
+        if t <= keys[0][0]:
+            return keys[0][1].copy(), keys[0], keys[0], 0.0
+        for k0, k1 in zip(keys, keys[1:]):
+            t0, t1 = k0[0], k1[0]
+            if t <= t1 + 1e-9:
+                u = k1[2]((t - t0) / (t1 - t0)) if t1 > t0 else 1.0
+                return blend_rel(k0[1], k1[1], u, skel.base[:, :3, 3]), k0, k1, u
+        return keys[-1][1].copy(), keys[-1], keys[-1], 1.0
+
+    lags = []   # (bones, frames, from time): a part runs late / early - from that time on
+    for part, v in anim.get("lag", {}).items():
+        fr, t_from = (v if isinstance(v, (tuple, list)) else (v, 0.0))
+        lags.append((part_bones(skel, part), fr, t_from))
     out = []
     for f in range(n):
         t = f / (n - 1) if n > 1 else 1.0
-        if t <= keys[0][0]:
-            out.append(keys[0][1].copy())
-            continue
-        for (t0, a, _, Ga), (t1, b, ez, Gb) in zip(keys, keys[1:]):
-            if t <= t1 + 1e-9:
-                u = ez((t - t0) / (t1 - t0)) if t1 > t0 else 1.0
-                rel = blend_rel(a, b, u, skel.base[:, :3, 3])
-                if plant:   # the blend lifts a planted foot: put it back (IK, the knee where it is)
-                    P = Pose(skel, skel.rel_to_posed(rel))
-                    for sd in plant:
-                        ti = skel.index[sd + "talus"]
-                        want = Ga[ti, :3, 3] * (1 - u) + Gb[ti, :3, 3] * u
-                        R_was = P.G[ti, :3, :3].copy()
-                        knee = P.pos(sd + "tibia")
-                        P.two_bone(sd + "femurYZ", sd + "tibia", sd + "talus", want, knee + (knee - P.pos(sd + "femurYZ")) * 0.0)
-                        R_now = P.G[ti, :3, :3]
-                        P.turn_bone(sd + "talus", R_was @ np.linalg.inv(R_now))  # the foot keeps its turn
-                    rel = skel.to_rel(P.G)
-                out.append(rel)
-                break
-        else:
-            out.append(keys[-1][1].copy())
+        rel, k0, k1, u = at(t)
+        for bones, fr, t_from in lags:   # that part's own local turns, from a little earlier / later
+            if t < t_from:
+                continue
+            d = fr / (n - 1)
+            ramp = min(1.0, (t - t_from) / (2 * abs(d))) if d else 1.0   # (the lag grows in: no stall)
+            r2 = at(min(max(t - d * ramp * ramp * (3 - 2 * ramp), 0.0), 1.0))[0]
+            rel[bones] = r2[bones]
+        if plant and k0 is not k1:   # the blend lifts a planted foot: put it back (IK, the knee where it is)
+            Ga, Gb = k0[3], k1[3]
+            P = Pose(skel, skel.rel_to_posed(rel))
+            for sd in plant:
+                ti = skel.index[sd + "talus"]
+                uu = min(max(u, 0.0), 1.0)
+                want = Ga[ti, :3, 3] * (1 - uu) + Gb[ti, :3, 3] * uu
+                want[2] = max(want[2], min(Ga[ti, 2, 3], Gb[ti, 2, 3]))   # (never under the floor)
+                R_was = P.G[ti, :3, :3].copy()
+                P.two_bone(sd + "femurYZ", sd + "tibia", sd + "talus", want, P.pos(sd + "tibia"))
+                R_now = P.G[ti, :3, :3]
+                P.turn_bone(sd + "talus", R_was @ np.linalg.inv(R_now))  # the foot keeps its turn
+            rel = skel.to_rel(P.G)
+        out.append(rel)
     return out
 
 
