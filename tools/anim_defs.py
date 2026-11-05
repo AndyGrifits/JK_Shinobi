@@ -13,6 +13,7 @@ Pose keys (model space: +X the model's left, -Y forward, +Z up; units ~ inches):
   spine_bend    deg forward over the three spine joints; spine_side; spine_twist (about up)
   head          (yaw, pitch down)
   body_pitch    deg, the whole body about the pelvis, forward (+: head down); body_roll
+  turn          deg, the finished pose turned whole about the pelvis (+ = to the model's left)
   lleg/rleg     (direction, reach 0..1) the foot from the hip, lknee/rknee a pole from the hip;
                 ltoes/rtoes where the toes point
   lhand_at/rhand_at  (x, y, z) the wrist, absolute (a hand planted on the floor ~-22)
@@ -44,20 +45,21 @@ HYUGA = {
     "rpalm": ((-0.28, 0.57, 0.77), (-0.6, -0.7, 0.2)), "rcurl": 0.0,
 }
 
-# Reverse Lotus, the kick up: down into a crouch, then the body rolls onto its right side, the
-# right hand planted on the floor beside it (the weight on that hand and the right foot), and the
-# left leg goes straight up - the turned hips let it reach its highest; held
+# Reverse Lotus, the kick up: down into a crouch, the right hand back to the floor, the body
+# turns and leans back onto it on its side (the weight on that hand and the right foot), and the
+# left leg goes straight up in front - the turned hips let it reach its highest; held
 CROUCH = {
     "pelvis": (0.0, 3.0, -15.0), "spine_bend": 24.0, "head": (0.0, 8.0),
     "lfoot": (0.0, 0.0, 0.0), "lknee": (6.0, -20.0, 0.0),
     "rfoot": (0.0, 0.0, 0.0), "rknee": (-6.0, -20.0, 0.0),
-    "rarm": ((-0.65, 0.35, -0.68), 0.95), "relbow": (-12.0, 8.0, 0.0),
+    "rarm": ((-0.3, 0.7, -0.65), 0.95), "relbow": (-10.0, 10.0, 0.0),
     "larm": ((0.4, -0.6, -0.7), 0.8), "lelbow": (12.0, 0.0, -6.0),
 }
 KICK_UP = {
+    "turn": -90.0,  # (built rolled onto the right side, then turned: the leg kicks forward)
     "body_roll": -62.0, "body_pitch": -12.0, "pelvis": (0.0, 3.0, -18.5), "spine_bend": 8.0, "head": (0.0, 10.0),
     "rfoot": (-2.0, -5.0, 0.0), "rknee": (-10.0, -18.0, 8.0),
-    "lleg": ((0.12, -0.12, 1.0), 1.0), "lknee": (0.0, -20.0, 0.0),
+    "lleg": ((0.3, 0.0, 1.0), 1.0), "lknee": (0.0, -20.0, 0.0),
     "rhand_at": (-22.5, 7.0, -22.0), "relbow": (-14.0, 8.0, 0.0),
     "rpalm": ((-1.0, 0.0, 0.0), (0.0, 0.0, -1.0)),
     "larm": ((0.45, -0.55, 0.7), 0.9), "lelbow": (12.0, 4.0, -8.0),

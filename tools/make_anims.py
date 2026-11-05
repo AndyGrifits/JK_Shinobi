@@ -318,6 +318,8 @@ def build_pose(skel, G0, k, ref):
             set_hand(p, s, fdir, pdir)
         if s + "curl" in k:
             flatten_hand(p, s, k[s + "curl"])
+    if "turn" in k:   # the finished pose, turned whole about the pelvis (deg, + = to the model's left)
+        p.turn(list(range(skel.nb)), rot(UP, k["turn"]), p.pos("pelvis"))
     return p.G
 
 
