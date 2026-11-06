@@ -1903,6 +1903,217 @@ static atResult_t T_BotFists( int t ) {
 	return ATR_RUN;
 }
 
+/*
+Bot tactics (Shinobi_BotTactics; B's own AI, shinobi_botsmart): out of a Water Prison with
+Kawarimi, its own prison held (and the gasping victim hit), seals broken close by and from
+afar, fireballs stepped away from, a spinning Kaiten kept off.
+*/
+static qboolean AT_SmartOff( void ) {
+	if ( shinobi_botsmart.integer > 0 )
+		return qfalse;
+	AT_Msg( "shinobi_botsmart is 0: bots use no tactics" );
+	return qtrue;
+}
+
+// A holds B in a Water Prison four times: B must Kawarimi out (at least twice, quickly)
+static void AT_EscapeTry( void ) {
+	vec3_t p;
+	AT_Reset( B );
+	AT_Reset( A );
+	AT_Spot( 100, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	A->client->shinobi.prisonNext = 0;
+	at.v[4] = level.time;
+	at.v[5] = 0;
+}
+static void T_BotEscape_Setup( void ) {
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = shinobiTest.botEscapes;
+	at.v[1] = at.v[2] = at.v[3] = 0;
+	AT_EscapeTry();
+}
+static atResult_t T_BotEscape( int t ) {
+	if ( AT_SmartOff() )
+		return ATR_FAIL;
+	if ( !at.v[5] && level.time - at.v[4] >= 300 ) { // in the water
+		if ( Shinobi_Cast( A, SJ_SUIRO, 1 ) && A->client->shinobi.prisonTarget == at.b + 1 ) {
+			A->client->shinobi.chargeJutsu = SJ_SUIRO;
+			at.v[5] = level.time;
+			at.v[1]++;
+		}
+		else {
+			at.v[4] = level.time; // try again
+		}
+	}
+	if ( at.v[5] > 0 && !B->client->shinobi.prisonCaster ) { // out
+		const int ms = level.time - at.v[5];
+		if ( ms < 2500 ) {
+			at.v[2]++;
+			at.v[3] += ms;
+		}
+		at.v[5] = -1;
+		at.v[6] = level.time;
+	}
+	if ( ( at.v[5] > 0 && level.time - at.v[5] > 3000 ) || ( at.v[5] < 0 && level.time - at.v[6] > 600 ) ) {
+		if ( A->client->shinobi.prisonTarget )
+			Shinobi_PrisonRelease( A );
+		if ( at.v[1] >= 4 ) {
+			AT_Msg( "Water Prison x%i: Kawarimi out %i times (%i in all), %i ms on average (shinobi_botsmart %i)",
+				at.v[1], at.v[2], shinobiTest.botEscapes - at.v[0], at.v[2] ? at.v[3] / at.v[2] : 0, shinobi_botsmart.integer );
+			return at.v[2] >= 2 ? ATR_PASS : ATR_FAIL;
+		}
+		AT_EscapeTry();
+	}
+	return ATR_RUN;
+}
+
+// B catches A in its own Water Prison: held for seconds (its AI's blows don't burst it), then hits him
+static void T_BotPrison_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 100, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.v[0] = at.v[1] = at.v[2] = 0;
+}
+static atResult_t T_BotPrison( int t ) {
+	if ( AT_SmartOff() )
+		return ATR_FAIL;
+	A->client->shinobi.kawarimiReady[0] = A->client->shinobi.kawarimiReady[1] = A->client->shinobi.kawarimiReady[2] = level.time + 60000;
+	if ( STAGE( 0 ) && t >= 300 ) {
+		vec3_t d, ang;
+		VectorSubtract( A->client->ps.origin, B->client->ps.origin, d );
+		vectoangles( d, ang );
+		ang[PITCH] = 0;
+		SetClientViewAngle( B, ang );
+		B->client->shinobi.prisonNext = 0;
+		if ( Shinobi_Cast( B, SJ_SUIRO, 1 ) && B->client->shinobi.prisonTarget == at.a + 1 ) {
+			B->client->shinobi.chargeJutsu = SJ_SUIRO;
+			B->client->shinobi.botHoldEnd = level.time + 1500; // (what the force mapping would give it)
+			at.v[0] = level.time;
+			NEXT();
+		}
+		else if ( t > 2000 ) {
+			AT_Msg( "B could not cast the Water Prison on A" );
+			return ATR_FAIL;
+		}
+	}
+	if ( STAGE( 1 ) && !B->client->shinobi.prisonTarget ) {
+		at.v[1] = level.time - at.v[0];
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() > 9000 ) {
+		AT_Msg( "B held the prison over 9 s" );
+		return ATR_FAIL;
+	}
+	if ( STAGE( 2 ) && SINCE() >= 1500 ) {
+		int hits = 0, k;
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
+			if ( d->time >= at.stageTime && d->targ == at.a && d->attacker == at.b && d->mod != MOD_WATER )
+				hits++;
+		}
+		AT_Msg( "B held its Water Prison %i ms (its AI attacking around it), then %i blows on A in 1.5 s", at.v[1], hits );
+		return at.v[1] >= 3000 ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// A forms the seals of a Katon close (260) and far (560): B must break them both times
+static void AT_InterruptTry( float dist ) {
+	vec3_t p;
+	AT_Reset( A );
+	AT_Reset( B );
+	AT_Spot( dist, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	A->client->shinobi.chargeJutsu = SJ_KATON;
+	A->client->shinobi.chargeStart = level.time;
+	at.v[4] = level.time;
+}
+static void T_BotInterrupt_Setup( void ) {
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = at.v[1] = 0;
+	at.v[2] = shinobiTest.botInterrupts;
+	at.v[3] = shinobiTest.botKunaiInterrupts;
+	AT_InterruptTry( 260 );
+}
+static atResult_t T_BotInterrupt( int t ) {
+	if ( AT_SmartOff() )
+		return ATR_FAIL;
+	if ( STAGE( 0 ) || STAGE( 1 ) ) {
+		const qboolean broken = A->client->shinobi.chargeJutsu == SJ_NONE;
+		if ( broken || level.time - at.v[4] > 4000 ) {
+			at.v[at.stage] = broken ? level.time - at.v[4] : -1;
+			if ( STAGE( 0 ) )
+				AT_InterruptTry( 560 );
+			NEXT();
+		}
+	}
+	if ( STAGE( 2 ) ) {
+		A->client->shinobi.chargeJutsu = SJ_NONE;
+		AT_Msg( "seals broken at 260 u after %i ms, at 560 u after %i ms (-1: not); runs / Entries %i, kunai %i",
+			at.v[0], at.v[1], shinobiTest.botInterrupts - at.v[2], shinobiTest.botKunaiInterrupts - at.v[3] );
+		return ( at.v[0] > 0 && at.v[1] > 0 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// A throws four great fireballs at B from 480: B steps / jumps aside (or Kawarimis) - few direct hits
+static void T_BotDodge_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 480, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = shinobiTest.botDodges;
+	at.v[1] = 0;
+	at.v[2] = level.time;
+}
+static atResult_t T_BotDodge( int t ) {
+	if ( AT_SmartOff() )
+		return ATR_FAIL;
+	B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	if ( at.v[1] < 4 && t >= 600 + at.v[1] * 1800 ) {
+		A->client->shinobi.fireballNext = 0;
+		A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+		if ( Shinobi_Cast( A, SJ_KATON, 2 ) )
+			at.v[1]++;
+	}
+	if ( t >= 600 + 4 * 1800 + 500 ) {
+		int direct = 0, splash = 0;
+		AT_DamageTo( B, at.v[2], NULL, MOD_ROCKET, &direct, NULL );
+		AT_DamageTo( B, at.v[2], NULL, MOD_ROCKET_SPLASH, &splash, NULL );
+		AT_Msg( "%i fireballs: %i direct hits, %i blasts, dodges %i", at.v[1], direct, splash, shinobiTest.botDodges - at.v[0] );
+		return ( at.v[1] >= 4 && direct <= 1 && shinobiTest.botDodges - at.v[0] >= 2 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+// A spins a Kaiten 120 from B: B keeps off it instead of walking into the throw
+static void T_BotKeepOff_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 120, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.v[0] = shinobiTest.botKeptOff;
+	at.v[1] = shinobiTest.kaitenBlocks;
+}
+static atResult_t T_BotKeepOff( int t ) {
+	if ( AT_SmartOff() )
+		return ATR_FAIL;
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+	if ( STAGE( 0 ) && t >= 200 ) {
+		AT_KaitenCast();
+		NEXT();
+	}
+	if ( STAGE( 1 ) && SINCE() >= 2500 ) {
+		const float d = Distance( A->client->ps.origin, B->client->ps.origin );
+		if ( A->client->shinobi.kaitenStart )
+			Shinobi_KaitenStop( A );
+		A->client->shinobi.chargeJutsu = SJ_NONE;
+		AT_Msg( "2.5 s next to a spinning Kaiten: kept off %i times, %.0f u away at the end, blows blocked by it %i",
+			shinobiTest.botKeptOff - at.v[0], d, shinobiTest.kaitenBlocks - at.v[1] );
+		return ( shinobiTest.botKeptOff > at.v[0] && d > SHINOBI_KAITEN_RADIUS + 20 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
@@ -1935,6 +2146,11 @@ static atTest_t atTests[] = {
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
+	{ "bot_escape",   "a bot Kawarimis out of a Water Prison (tactics)",          T_BotEscape_Setup, T_BotEscape, 16000 },
+	{ "bot_prison",   "a bot holds its Water Prison, then hits the gasping victim", T_BotPrison_Setup, T_BotPrison, 12000 },
+	{ "bot_interrupt","a bot breaks seals formed close by and far off",           T_BotInterrupt_Setup, T_BotInterrupt, 9500 },
+	{ "bot_dodge",    "a bot steps away from fireballs",                          T_BotDodge_Setup, T_BotDodge, 9000 },
+	{ "bot_keepoff",  "a bot keeps off a spinning Kaiten",                        T_BotKeepOff_Setup, T_BotKeepOff, 4000 },
 };
 #define AT_COUNT ( (int)ARRAY_LEN( atTests ) )
 
@@ -2005,7 +2221,7 @@ static void AT_BeginTest( void ) {
 		AT_Spot( 300, 0, p );
 		AT_Place( B, p, at.baseYaw + 180 );
 	}
-	if ( !strcmp( t->name, "bot_defend" ) || !strcmp( t->name, "bot_fists" ) )
+	if ( !strncmp( t->name, "bot_", 4 ) )
 		at.drive[1].free = qtrue; // its own defence decides (Shinobi_BotDefend runs for it)
 	if ( t->setup )
 		t->setup();

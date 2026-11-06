@@ -135,6 +135,7 @@ typedef struct {
 	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage, thrustReach;
 	int gatesOpened, weightQuakes, palmsHits, lotusSlams, entryHits, lotusShielded;
 	int kaitenBlocks, kaitenDeflects;
+	int botEscapes, botDodges, botInterrupts, botKunaiInterrupts, botPrisonHeldMs, botKeptOff, botRolls; // bot tactics
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
 	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
 	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];

@@ -97,6 +97,20 @@ a moment (a press right before the hit is a perfect parry), drop it when it is n
 Kawarimi out of a combo after the second blow half the time (and now and then off the floor
 with someone over them), and hit whoever is reeling in front of them.
 
+Bot tactics (`shinobi_botsmart` 0-100, default 80: how often and how fast they read it; 0 =
+none of this): Kawarimi out of a Water Prison, a Shadow Bind / Trap or an air combo after a
+short reaction; roll a fire out; hold their own prison / bind / healing / burrow / shadow hide /
+fire breath / Kaiten / 64 Seals without stray keys that would end it and let go when it pays
+(the prison when the chakra runs low, someone else comes or after 3.5-6 s - then the free hit on
+the gasping victim; healing when full or someone is close; the burrow right under him; the
+shadow hide when he walks past; the breath and the Kaiten when nobody is left in them); break
+seals someone is forming (Dynamic Entry or running in with blows, a kunai from afar); step and
+jump aside from projectiles and Kawarimi away from a Rasengan / Chidori rush or a big one too
+close; keep off a spinning Kaiten and a 64 Seals field; go for whoever holds a teammate; don't
+form seals right in someone's face or fire projectiles into a Kaiten / Wind Wall; use Reverse
+Lotus, Dynamic Entry and 64 Seals where they reach and heal when hurt and alone. Autotests:
+`bot_escape`, `bot_prison`, `bot_interrupt`, `bot_dodge`, `bot_keepoff`.
+
 ## Taijutsu combo (fists)
 
 Three styles, switched with **L** (like the blade stances; shown over the jutsu list):

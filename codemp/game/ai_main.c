@@ -7673,3 +7673,20 @@ int BotAIShutdown( int restart ) {
 	}
 	return qtrue;
 }
+
+/*
+JK_Shinobi: the bot tactics (g_shinobi_bot.c) point the stock AI at someone - the one forming
+seals to interrupt, the one holding a teammate in a Water Prison - and read whom it is after.
+*/
+void Shinobi_BotFocus( int clientNum, gentity_t *enemy ) {
+	bot_state_t *bs = ( clientNum >= 0 && clientNum < MAX_CLIENTS ) ? botstates[clientNum] : NULL;
+	if ( !bs || !bs->inuse || !enemy || !enemy->client )
+		return;
+	bs->currentEnemy = enemy;
+	bs->enemySeenTime = level.time + ENEMY_FORGET_MS;
+}
+
+gentity_t *Shinobi_BotEnemyOf( int clientNum ) {
+	bot_state_t *bs = ( clientNum >= 0 && clientNum < MAX_CLIENTS ) ? botstates[clientNum] : NULL;
+	return ( bs && bs->inuse ) ? bs->currentEnemy : NULL;
+}

@@ -12,6 +12,29 @@ stock bot logic decides *when*; we only translate *what*.
 
 void Cmd_JutsuRelease_f( gentity_t *ent );
 
+// the tactics (further down) that the force-power mapping asks too
+static qboolean   BotChance( int pct );
+static int        BotSmart( void );
+static qboolean   BotIsEnemy( gentity_t *ent, gentity_t *e );
+static qboolean   BotFacesUs( gentity_t *ent, gentity_t *e, float dot );
+static gentity_t *BotNearest( gentity_t *ent, float maxDist, gentity_t *skip, float *distOut );
+gentity_t        *Shinobi_BotEnemyOf( int clientNum ); // ai_main.c
+
+// a jutsu that flies at him: a spinning Kaiten glances it off, a Wind Wall throws it back
+static qboolean BotProjectileJutsu( int j ) {
+	return j == SJ_KATON || j == SJ_SUITON || j == SJ_BLADE || j == SJ_WAVE;
+}
+static qboolean BotWindWallNear( gentity_t *foe ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *w = &g_entities[i];
+		if ( w->inuse && w->classname && w->r.ownerNum == foe->s.number && !strcmp( w->classname, "shinobi_windwall" )
+			&& Distance( w->r.currentOrigin, foe->r.currentOrigin ) < 220 )
+			return qtrue;
+	}
+	return qfalse;
+}
+
 // what each force power turns into (the first ones the build has are tried in random order)
 static const int botPush[]      = { SJ_FUTON, SJ_WAVE, SJ_BLADE, SJ_WINDWALL, SJ_QUAKE, SJ_SUITON, 0 };
 static const int botPull[]      = { SJ_SUIRO, SJ_SHADOW, SJ_PILLAR, SJ_HIRAISHIN, 0 };
@@ -272,6 +295,22 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 		client->shinobi.botJutsuNext = level.time + 400;
 		return qtrue;
 	}
+	if ( BotSmart() > 0 ) {
+		gentity_t *foe = Shinobi_BotEnemyOf( ent->s.number );
+		gentity_t *close = BotNearest( ent, 140, NULL, NULL );
+		// seals formed right in his face: the first blow breaks them - not now
+		if ( close && !SHINOBI_JUTSU_INSTANT( jutsu ) && !SHINOBI_JUTSU_HOLD( jutsu ) && jutsu != SJ_SHUNSHIN
+			&& BotFacesUs( ent, close, 0.5f ) && BotChance( 80 ) ) {
+			client->shinobi.botJutsuNext = level.time + 500;
+			return qtrue;
+		}
+		// into a spinning Kaiten / a Wind Wall it only glances off or comes back
+		if ( BotProjectileJutsu( jutsu ) && BotIsEnemy( ent, foe ) && ( Shinobi_KaitenSpinning( foe ) || BotWindWallNear( foe ) )
+			&& BotChance( 85 ) ) {
+			client->shinobi.botJutsuNext = level.time + 500;
+			return qtrue;
+		}
+	}
 	lvl = client->ps.fd.forcePower > 70 ? 3 : ( client->ps.fd.forcePower > 40 ? 2 : 1 );
 	if ( lvl > 1 && Q_irand( 0, 2 ) == 0 )
 		lvl--;
@@ -349,6 +388,666 @@ static qboolean Shinobi_BotThreat( gentity_t *ent, gentity_t *e ) {
 	return qfalse;
 }
 
+/*
+===========================================================================
+Bot tactics: reading the fight the way a player who knows the mechanics does
+(shinobi_botsmart 0-100: how often and how fast they see it; 0 = the stock AI
+and the defence below only). Every client frame, before the guard and the
+status code read the buttons:
+- caught (Water Prison, Shadow Bind, Shadow Trap, juggled in an air combo):
+  Kawarimi out after a short reaction, while a charge is ready;
+- on fire: roll the flames out;
+- holding a jutsu (prison, bind, healing, burrow, shadow hide, fire breath,
+  Kaiten, 64 Seals, lightning dash): no stray key that would end it, and let go
+  when it pays - the prison when the chakra runs low, someone else comes or it
+  has drowned him long enough (then hit him while he gasps), healing when full
+  or someone is close, the burrow right under him, the shadow hide when he
+  walks past, the fire breath and Kaiten when nobody is left in them;
+- someone forming seals: break them - any direct hit does (Dynamic Entry or
+  running in with blows close by, a kunai from afar);
+- a projectile or a Rasengan / Chidori about to hit: sidestep and jump, or
+  Kawarimi when it is too late for that;
+- an enemy spinning a Kaiten or standing in his 64 Seals field: keep off;
+- a teammate held in a prison / bind: go for the one holding him;
+- openings: Reverse Lotus and Dynamic Entry when he is where they reach,
+  64 Seals when he is close, healing when hurt and nobody is near.
+===========================================================================
+*/
+void       Shinobi_BotFocus( int clientNum, gentity_t *enemy ); // ai_main.c
+gentity_t *Shinobi_BotEnemyOf( int clientNum );
+
+static int BotSmart( void ) {
+	return shinobi_botsmart.integer < 0 ? 0 : shinobi_botsmart.integer > 100 ? 100 : shinobi_botsmart.integer;
+}
+// a chance scaled by shinobi_botsmart
+static qboolean BotChance( int pct ) {
+	return Q_irand( 0, 99 ) < pct * BotSmart() / 100;
+}
+// a reaction time: fastMs for the sharpest bot, slowMs for a dull one
+static int BotReact( int fastMs, int slowMs ) {
+	return slowMs - ( slowMs - fastMs ) * BotSmart() / 100;
+}
+
+static int BotCharges( const int *ready, int n ) {
+	int i, k = 0;
+	for ( i = 0; i < n; i++ )
+		if ( ready[i] <= level.time )
+			k++;
+	return k;
+}
+
+static qboolean BotIsEnemy( gentity_t *ent, gentity_t *e ) {
+	if ( !e || e == ent || !e->inuse || !e->client || e->s.number >= MAX_CLIENTS || e->health <= 0 )
+		return qfalse;
+	if ( e->client->sess.sessionTeam == TEAM_SPECTATOR || e->client->tempSpectate >= level.time )
+		return qfalse;
+	if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
+		return qfalse;
+	return qtrue;
+}
+
+// he can be seen: not hidden (substituted, in the shadow, under the ground) unless our eyes are on, and in plain view
+static qboolean BotSees( gentity_t *ent, gentity_t *e ) {
+	vec3_t  a, b;
+	trace_t tr;
+
+	if ( SHINOBI_UNSEEN( &e->client->ps ) && !ent->client->shinobi.eyes )
+		return qfalse;
+	VectorCopy( ent->client->ps.origin, a );
+	a[2] += ent->client->ps.viewheight;
+	VectorCopy( e->client->ps.origin, b );
+	b[2] += e->client->ps.viewheight;
+	trap->Trace( &tr, a, NULL, NULL, b, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+	return ( tr.fraction >= 1.0f || tr.entityNum == e->s.number ) ? qtrue : qfalse;
+}
+
+// the nearest enemy within maxDist (but skip), seen or not
+static gentity_t *BotNearest( gentity_t *ent, float maxDist, gentity_t *skip, float *distOut ) {
+	gentity_t *best = NULL;
+	float      bestDist = maxDist;
+	int        i;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		float      d;
+		if ( e == skip || !BotIsEnemy( ent, e ) )
+			continue;
+		d = Distance( e->client->ps.origin, ent->client->ps.origin );
+		if ( d < bestDist ) {
+			bestDist = d;
+			best = e;
+		}
+	}
+	if ( distOut )
+		*distOut = bestDist;
+	return best;
+}
+
+// he is in front of us (flat), within cosine 'dot'
+static qboolean BotAhead( gentity_t *ent, gentity_t *e, float dot ) {
+	vec3_t yaw, fwd, d;
+	VectorSet( yaw, 0, ent->client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	VectorSubtract( e->client->ps.origin, ent->client->ps.origin, d );
+	d[2] = 0;
+	VectorNormalize( d );
+	return DotProduct( d, fwd ) >= dot ? qtrue : qfalse;
+}
+
+// he faces us (flat), within cosine 'dot'
+static qboolean BotFacesUs( gentity_t *ent, gentity_t *e, float dot ) {
+	return BotAhead( e, ent, dot );
+}
+
+// turn to look at him (lift: above his feet)
+static void BotFace( gentity_t *ent, gentity_t *e, float lift ) {
+	vec3_t eye, to, dir, ang;
+	VectorCopy( ent->client->ps.origin, eye );
+	eye[2] += ent->client->ps.viewheight;
+	VectorCopy( e->client->ps.origin, to );
+	to[2] += lift;
+	VectorSubtract( to, eye, dir );
+	vectoangles( dir, ang );
+	ang[ROLL] = 0;
+	SetClientViewAngle( ent, ang );
+}
+
+// move along a world direction (flat), whichever way the bot looks
+static void BotSteer( gentity_t *ent, usercmd_t *ucmd, const vec3_t worldDir, float speed ) {
+	vec3_t yaw, fwd, right, d;
+	VectorSet( yaw, 0, ent->client->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, right, NULL );
+	VectorCopy( worldDir, d );
+	d[2] = 0;
+	if ( VectorNormalize( d ) < 0.001f )
+		return;
+	ucmd->forwardmove = (signed char)Com_Clamp( -127, 127, DotProduct( d, fwd ) * speed );
+	ucmd->rightmove = (signed char)Com_Clamp( -127, 127, DotProduct( d, right ) * speed );
+}
+
+static qboolean BotFlying( gentity_t *e ) { // a projectile still on its way
+	return e->s.pos.trType == TR_LINEAR || e->s.pos.trType == TR_GRAVITY;
+}
+
+/*
+The soonest enemy projectile that will pass close by us within 'within' seconds: its time
+to the closest point and where we are from that point (to step further that way).
+*/
+static const char *botMissiles[] = { "shinobi_fireball", "shinobi_waterball", "shinobi_windslash", "shinobi_blade",
+	"shinobi_wave", "shinobi_kunai", "shinobi_exkunai", "shinobi_shuriken", "shinobi_star", NULL };
+
+static gentity_t *BotIncoming( gentity_t *ent, float within, float *tOut, vec3_t awayOut ) {
+	gentity_t *best = NULL;
+	vec3_t     mid;
+	float      bestT = within;
+	int        i, k;
+
+	VectorCopy( ent->client->ps.origin, mid );
+	mid[2] += 8;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *m = &g_entities[i];
+		vec3_t     p, v, rel, miss;
+		float      speed2, t;
+		if ( !m->inuse || !m->classname || !BotFlying( m ) )
+			continue;
+		for ( k = 0; botMissiles[k] && strcmp( m->classname, botMissiles[k] ); k++ )
+			;
+		if ( !botMissiles[k] || m->r.ownerNum >= MAX_CLIENTS || !BotIsEnemy( ent, &g_entities[m->r.ownerNum] ) )
+			continue;
+		BG_EvaluateTrajectory( &m->s.pos, level.time, p );
+		BG_EvaluateTrajectoryDelta( &m->s.pos, level.time, v );
+		speed2 = DotProduct( v, v );
+		if ( speed2 < 150.0f * 150.0f )
+			continue;
+		VectorSubtract( mid, p, rel );
+		t = DotProduct( rel, v ) / speed2;
+		if ( t <= 0 || t >= bestT )
+			continue;
+		VectorMA( rel, -t, v, miss );
+		if ( VectorLength( miss ) > 60 )
+			continue;
+		best = m;
+		bestT = t;
+		if ( awayOut )
+			VectorCopy( miss, awayOut );
+	}
+	if ( tOut )
+		*tOut = bestT;
+	return best;
+}
+
+static qboolean BotBigMissile( gentity_t *m ) { // worth a substitution when it is too late to step aside
+	return !strcmp( m->classname, "shinobi_fireball" ) || !strcmp( m->classname, "shinobi_wave" )
+		|| !strcmp( m->classname, "shinobi_blade" ) || !strcmp( m->classname, "shinobi_exkunai" );
+}
+
+// caught in something only Kawarimi gets you out of
+static qboolean BotCaught( gclient_t *c ) {
+	return ( c->shinobi.prisonCaster || c->shinobi.shadowBy || c->shinobi.shadowTrapEnt
+		|| ( c->shinobi.juggleEnd > level.time && c->shinobi.juggleBy ) ) ? qtrue : qfalse;
+}
+
+static qboolean BotEscape( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+
+	if ( !BotCaught( c ) ) {
+		c->shinobi.botCaughtAt = c->shinobi.botEscapeAt = 0;
+		return qfalse;
+	}
+	if ( !c->shinobi.botCaughtAt ) { // just caught: will it see the way out, and when
+		c->shinobi.botCaughtAt = level.time;
+		c->shinobi.botEscapeAt = BotChance( 95 ) ? level.time + BotReact( 250, 1400 ) + Q_irand( 0, 150 ) : 0;
+	}
+	if ( c->shinobi.botEscapeAt && level.time >= c->shinobi.botEscapeAt ) {
+		c->shinobi.botEscapeAt = 0;
+		if ( BotCharges( c->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) > 0 && Shinobi_Cast( ent, SJ_KAWARIMI, 1 ) ) {
+			shinobiTest.botEscapes++;
+			Shinobi_Debug( "bot %i: Kawarimi out of a trap after %i ms", ent->s.number, level.time - c->shinobi.botCaughtAt );
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// on fire: run a step and duck - the roll smothers the flames
+static qboolean BotRollFire( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+
+	if ( c->shinobi.burnEnd > level.time && c->shinobi.botRollUntil <= level.time && c->shinobi.botTacticNext <= level.time
+		&& c->ps.groundEntityNum != ENTITYNUM_NONE && ( c->ps.weapon == WP_SABER || c->ps.weapon == WP_MELEE ) ) {
+		c->shinobi.botTacticNext = level.time + 500;
+		if ( BotChance( 80 ) ) {
+			c->shinobi.botRollUntil = level.time + 750;
+			shinobiTest.botRolls++;
+		}
+	}
+	if ( c->shinobi.botRollUntil <= level.time )
+		return qfalse;
+	if ( c->shinobi.burnEnd <= level.time && c->shinobi.botRollUntil - level.time < 450 ) {
+		c->shinobi.botRollUntil = 0; // out
+		return qfalse;
+	}
+	ucmd->forwardmove = 127;
+	ucmd->rightmove = 0;
+	ucmd->upmove = ( c->shinobi.botRollUntil - level.time < 480 ) ? -127 : 0;
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | SHINOBI_BUTTON_BLOCK );
+	return qtrue;
+}
+
+/*
+A held jutsu: keep the keys off that would end it, let go when it pays. Returns qtrue while
+it is held (nothing else this frame).
+*/
+static qboolean BotHeld( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+	gentity_t *n = NULL, *victim = NULL;
+	qboolean   let = qfalse;
+	float      d;
+	int        held = SJ_NONE, ms;
+
+	if ( c->shinobi.prisonTarget )        held = SJ_SUIRO;
+	else if ( c->shinobi.shadowEnt )      held = SJ_SHADOW;
+	else if ( c->shinobi.healing )        held = SJ_HEAL;
+	else if ( c->shinobi.burrowEnd )      held = SJ_BURROW;
+	else if ( c->shinobi.shadowHideEnd )  held = SJ_SHADOWHIDE;
+	else if ( c->shinobi.flameEnt )       held = SJ_FLAME;
+	else if ( c->shinobi.kaitenStart )    held = SJ_KAITEN;
+	else if ( c->shinobi.palmsStart )     held = SJ_PALMS;
+	else if ( c->shinobi.raiDashEnd )     held = SJ_RAIDASH;
+	if ( held == SJ_NONE ) {
+		c->shinobi.botHoldStart = 0;
+		return qfalse;
+	}
+	c->shinobi.chargeJutsu = held; // (the release goes through the key, whoever cast it)
+	if ( !c->shinobi.botHoldStart ) {
+		c->shinobi.botHoldStart = c->shinobi.botQuietSince = level.time;
+		c->shinobi.botHoldHealth = ent->health;
+	}
+	ms = level.time - c->shinobi.botHoldStart;
+
+	switch ( held ) {
+	case SJ_SUIRO: // drown him while it is safe; then the free hit while he gasps
+		victim = &g_entities[c->shinobi.prisonTarget - 1];
+		n = BotNearest( ent, 280, victim, NULL );
+		let = c->ps.fd.forcePower < 20 || n || ent->health < c->shinobi.botHoldHealth - 4 || ms > 3500 + 25 * BotSmart();
+		if ( let )
+			shinobiTest.botPrisonHeldMs += ms;
+		break;
+	case SJ_SHADOW:
+		victim = c->shinobi.shadowTarget ? &g_entities[c->shinobi.shadowTarget - 1] : NULL;
+		n = BotNearest( ent, 280, victim, NULL );
+		let = c->ps.fd.forcePower < 15 || n || ent->health < c->shinobi.botHoldHealth - 4
+			|| ( victim ? ms > 2500 + 15 * BotSmart() : ms > 1600 );
+		break;
+	case SJ_HEAL:
+		n = BotNearest( ent, 350, NULL, NULL );
+		let = ent->health >= c->ps.stats[STAT_MAX_HEALTH] || n || c->ps.fd.forcePower < 6;
+		break;
+	case SJ_BURROW: // under the ground straight to him, out right under him
+		n = BotNearest( ent, 1500, NULL, NULL );
+		if ( n ) {
+			vec3_t dir;
+			VectorSubtract( n->client->ps.origin, c->ps.origin, dir );
+			dir[2] = 0;
+			BotSteer( ent, ucmd, dir, 127 );
+			let = VectorLength( dir ) < 40;
+		}
+		else {
+			let = ms > 1500;
+		}
+		break;
+	case SJ_SHADOWHIDE: // wait in the shadow until he walks by
+		n = BotNearest( ent, 110, NULL, NULL );
+		let = n != NULL;
+		if ( let )
+			c->shinobi.botPunishUntil = level.time + 500;
+		break;
+	case SJ_FLAME:
+		n = BotNearest( ent, SHINOBI_FLAME_RANGE + 40, NULL, &d );
+		if ( n && BotAhead( ent, n, 0.75f ) )
+			c->shinobi.botQuietSince = level.time;
+		let = c->ps.fd.forcePower < 5 || ( ms > 500 && level.time - c->shinobi.botQuietSince > 400 );
+		break;
+	case SJ_KAITEN:
+		n = BotNearest( ent, SHINOBI_KAITEN_RADIUS + 80, NULL, NULL );
+		if ( n || BotIncoming( ent, 0.6f, NULL, NULL ) )
+			c->shinobi.botQuietSince = level.time;
+		let = c->ps.fd.forcePower < 5 || ( ms > SHINOBI_KAITEN_WINDUP_MS + 400 && level.time - c->shinobi.botQuietSince > 350 );
+		break;
+	case SJ_PALMS: // the field fills, strikes, then guards while someone is in it
+		n = BotNearest( ent, SHINOBI_PALMS_RADIUS, NULL, NULL );
+		if ( n )
+			c->shinobi.botQuietSince = level.time;
+		let = c->ps.fd.forcePower < 4 || level.time - c->shinobi.botQuietSince > ( c->shinobi.palmsFull ? 600 : 1000 );
+		break;
+	case SJ_RAIDASH:
+		n = BotNearest( ent, 90, NULL, NULL );
+		let = n != NULL || ms > 900;
+		break;
+	}
+
+	if ( let ) {
+		Shinobi_Debug( "bot %i: lets go of %s after %i ms", ent->s.number, shinobiJutsuTitles[held], ms );
+		Cmd_JutsuRelease_f( ent );
+		c->shinobi.botHoldStart = 0;
+		if ( victim && BotIsEnemy( ent, victim ) ) { // gasping / just let go: hit him now
+			Shinobi_BotFocus( ent->s.number, victim );
+			c->shinobi.botPunishUntil = level.time + SHINOBI_PRISON_STUN_MS + 100;
+		}
+		return qfalse;
+	}
+	c->shinobi.botHoldEnd = level.time + 200; // (Shinobi_BotThink must not let go either)
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | SHINOBI_BUTTON_BLOCK );
+	if ( ucmd->upmove > 0 )
+		ucmd->upmove = 0; // a jump ends a Water Prison
+	return qtrue;
+}
+
+/*
+Something about to hit: a projectile (step aside and jump, Kawarimi if it is a big one and
+too late), a Rasengan / Chidori rushing in (Kawarimi, or aside). The sidestep goes on for a
+moment (botDodgeUntil).
+*/
+static qboolean BotDodge( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+	gentity_t *m;
+	vec3_t     away, yaw, fwd, right;
+	float      t;
+	int        i;
+
+	if ( c->shinobi.botDodgeUntil > level.time ) {
+		ucmd->rightmove = c->shinobi.botDodgeRight > 0 ? 127 : -127;
+		ucmd->forwardmove = 0;
+		if ( c->shinobi.botDodgeUntil - level.time > 260 && c->shinobi.botDodgeRight & 2 )
+			ucmd->upmove = 127;
+		return qfalse;
+	}
+	if ( c->shinobi.botDodgeNext > level.time )
+		return qfalse;
+
+	// a hand jutsu rushing at us
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( !BotIsEnemy( ent, e ) || !SHINOBI_HAND_DASH( &e->client->ps ) )
+			continue;
+		if ( Distance( e->client->ps.origin, c->ps.origin ) > 240 || !BotFacesUs( ent, e, 0.8f ) )
+			continue;
+		c->shinobi.botDodgeNext = level.time + 600;
+		if ( !BotChance( 70 ) )
+			return qfalse;
+		if ( BotCharges( c->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) > 0 && Shinobi_Cast( ent, SJ_KAWARIMI, 1 ) ) {
+			shinobiTest.botDodges++;
+			Shinobi_Debug( "bot %i: Kawarimi from %i's %s", ent->s.number, e->s.number,
+				SHINOBI_HAND_IS_CHIDORI( &e->client->ps ) ? "Chidori" : "Rasengan" );
+			return qtrue;
+		}
+		c->shinobi.botDodgeRight = Q_irand( 0, 1 ) ? 1 : -1;
+		c->shinobi.botDodgeUntil = level.time + 400;
+		shinobiTest.botDodges++;
+		return qfalse;
+	}
+
+	m = BotIncoming( ent, 0.6f, &t, away );
+	if ( !m )
+		return qfalse;
+	c->shinobi.botDodgeNext = level.time + 450;
+	if ( t * 1000 < BotReact( 60, 300 ) || !BotChance( BotBigMissile( m ) ? 90 : 50 ) )
+		return qfalse; // didn't see it in time
+	if ( t < 0.22f && BotBigMissile( m ) && BotCharges( c->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) >= 2
+		&& Shinobi_Cast( ent, SJ_KAWARIMI, 1 ) ) { // (one charge kept for traps)
+		shinobiTest.botDodges++;
+		Shinobi_Debug( "bot %i: Kawarimi from a %s", ent->s.number, m->classname );
+		return qtrue;
+	}
+	// aside, further the way we already are from its line (or either way when it comes dead on)
+	VectorSet( yaw, 0, c->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, right, NULL );
+	away[2] = 0;
+	if ( VectorLength( away ) < 6 )
+		c->shinobi.botDodgeRight = Q_irand( 0, 1 ) ? 1 : -1;
+	else
+		c->shinobi.botDodgeRight = DotProduct( away, right ) >= 0 ? 1 : -1;
+	if ( BotBigMissile( m ) )
+		c->shinobi.botDodgeRight |= 2; // and a jump
+	c->shinobi.botDodgeUntil = level.time + 420;
+	shinobiTest.botDodges++;
+	Shinobi_Debug( "bot %i: sidestep from a %s (%.2f s off)", ent->s.number, m->classname, t );
+	return qfalse;
+}
+
+// an enemy spinning a Kaiten or standing in his 64 Seals field: keep off, don't feed it blows
+static qboolean BotKeepOff( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+	gentity_t *e;
+	vec3_t     dir;
+	int        i;
+
+	if ( c->shinobi.botAwayUntil <= level.time && c->shinobi.botTacticNext <= level.time ) {
+		for ( i = 0; i < MAX_CLIENTS; i++ ) {
+			float d;
+			e = &g_entities[i];
+			if ( !BotIsEnemy( ent, e ) )
+				continue;
+			d = Distance( e->client->ps.origin, c->ps.origin );
+			if ( ( Shinobi_KaitenSpinning( e ) && d < SHINOBI_KAITEN_RADIUS + 70 )
+				|| ( e->client->shinobi.palmsStart && d < SHINOBI_PALMS_RADIUS + 20
+					&& ( e->client->shinobi.palmsFull || level.time - e->client->shinobi.palmsStart > 800 ) ) ) {
+				c->shinobi.botTacticNext = level.time + 300;
+				if ( BotChance( 90 ) ) {
+					c->shinobi.botAwayUntil = level.time + 500;
+					c->shinobi.botAwayFrom = e->s.number + 1;
+					shinobiTest.botKeptOff++;
+				}
+				break;
+			}
+		}
+	}
+	if ( c->shinobi.botAwayUntil <= level.time || !c->shinobi.botAwayFrom )
+		return qfalse;
+	e = &g_entities[c->shinobi.botAwayFrom - 1];
+	if ( !BotIsEnemy( ent, e ) ) {
+		c->shinobi.botAwayUntil = 0;
+		return qfalse;
+	}
+	VectorSubtract( c->ps.origin, e->client->ps.origin, dir );
+	BotSteer( ent, ucmd, dir, 127 );
+	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
+	return qtrue;
+}
+
+// a teammate in a Water Prison / Shadow Bind: go for the one holding him
+static void BotTeamHelp( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	int        i;
+
+	if ( level.gametype < GT_TEAM || c->shinobi.botTacticNext > level.time )
+		return;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *mate = &g_entities[i], *holder = NULL;
+		if ( mate == ent || !mate->inuse || !mate->client || mate->health <= 0 || !OnSameTeam( ent, mate ) )
+			continue;
+		if ( mate->client->shinobi.prisonCaster )
+			holder = &g_entities[mate->client->shinobi.prisonCaster - 1];
+		else if ( mate->client->shinobi.shadowBy )
+			holder = &g_entities[mate->client->shinobi.shadowBy - 1];
+		if ( holder && BotIsEnemy( ent, holder ) && Distance( holder->client->ps.origin, c->ps.origin ) < 1200 ) {
+			c->shinobi.botTacticNext = level.time + 500;
+			if ( BotChance( 85 ) )
+				Shinobi_BotFocus( ent->s.number, holder );
+			return;
+		}
+	}
+}
+
+/*
+Someone forming seals (a charged jutsu on its way): break them - any direct hit does. Close:
+run in and hit (Dynamic Entry when it reaches); far: a kunai. Each charge is looked at once.
+*/
+static void BotInterrupt( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+	gentity_t *best = NULL;
+	float      bestDist = 900, d;
+	int        i;
+
+	if ( c->shinobi.botRushUntil > level.time ) { // going for him
+		gentity_t *t = &g_entities[c->shinobi.botRushTarget - 1];
+		int        j;
+		if ( !BotIsEnemy( ent, t ) || ( j = t->client->shinobi.chargeJutsu ) == SJ_NONE || SHINOBI_JUTSU_HOLD( j ) ) {
+			c->shinobi.botRushUntil = 0; // broken (by us or anyone) or cast
+			return;
+		}
+		Shinobi_BotFocus( ent->s.number, t );
+		{
+			vec3_t dir;
+			VectorSubtract( t->client->ps.origin, c->ps.origin, dir );
+			BotSteer( ent, ucmd, dir, 127 );
+			d = VectorLength( dir );
+		}
+		if ( d < SHINOBI_PUNCH_RANGE + 40 ) {
+			BotFace( ent, t, 10 );
+			ucmd->buttons |= BUTTON_ATTACK;
+			ucmd->buttons &= ~SHINOBI_BUTTON_BLOCK;
+		}
+		return;
+	}
+	if ( c->shinobi.botTacticNext > level.time || c->shinobi.chargeJutsu != SJ_NONE )
+		return;
+
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		gentity_t *e = &g_entities[i];
+		int        j;
+		if ( !BotIsEnemy( ent, e ) )
+			continue;
+		j = e->client->shinobi.chargeJutsu;
+		if ( j == SJ_NONE || SHINOBI_JUTSU_HOLD( j ) || SHINOBI_JUTSU_INSTANT( j ) || j == SJ_SHUNSHIN
+			|| c->shinobi.botRushSeen == e->client->shinobi.chargeStart
+			|| level.time - e->client->shinobi.chargeStart < BotReact( 120, 700 ) )
+			continue;
+		d = Distance( e->client->ps.origin, c->ps.origin );
+		if ( d < bestDist && BotSees( ent, e ) ) {
+			bestDist = d;
+			best = e;
+		}
+	}
+	if ( !best )
+		return;
+	c->shinobi.botRushSeen = best->client->shinobi.chargeStart;
+	c->shinobi.botTacticNext = level.time + 300;
+	if ( !BotChance( 85 ) )
+		return;
+
+	if ( bestDist > 160 && bestDist < 430 && Shinobi_HasJutsu( ent, SJ_ENTRY ) && c->shinobi.entryNext <= level.time
+		&& fabs( best->client->ps.origin[2] - c->ps.origin[2] ) < 64 ) {
+		BotFace( ent, best, 0 );
+		if ( Shinobi_Cast( ent, SJ_ENTRY, 1 ) ) {
+			shinobiTest.botInterrupts++;
+			Shinobi_Debug( "bot %i: Dynamic Entry into %i's seals", ent->s.number, best->s.number );
+			c->shinobi.botJutsuNext = level.time + 800;
+			return;
+		}
+	}
+	if ( bestDist < 520 ) {
+		c->shinobi.botRushTarget = best->s.number + 1;
+		c->shinobi.botRushUntil = level.time + 1800;
+		shinobiTest.botInterrupts++;
+		Shinobi_Debug( "bot %i: runs at %i forming seals (%.0f away)", ent->s.number, best->s.number, bestDist );
+		return;
+	}
+	if ( c->shinobi.kunaiNext <= level.time && !c->shinobi.blocking ) { // a kunai drops on its way: aim over him
+		const float flight = bestDist / SHINOBI_KUNAI_SPEED;
+		BotFace( ent, best, best->client->ps.viewheight * 0.6f + 0.5f * g_gravity.value * flight * flight );
+		Cmd_Kunai_f( ent );
+		if ( c->shinobi.kunaiNext > level.time ) {
+			shinobiTest.botKunaiInterrupts++;
+			Shinobi_Debug( "bot %i: kunai at %i forming seals (%.0f away)", ent->s.number, best->s.number, bestDist );
+		}
+	}
+}
+
+// openings: the techniques the force-power mapping never reaches for, cast where they work
+static void BotOpenings( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	gentity_t *e;
+	float      d, dz;
+
+	if ( c->shinobi.botTacticNext > level.time || c->shinobi.botJutsuNext > level.time || c->shinobi.chargeJutsu != SJ_NONE
+		|| c->shinobi.kawarimiEnd || SHINOBI_HAND_ANY( &c->ps ) )
+		return;
+	c->shinobi.botTacticNext = level.time + 450;
+
+	// hurt and alone: heal
+	if ( Shinobi_HasJutsu( ent, SJ_HEAL ) && ent->health * 100 < c->ps.stats[STAT_MAX_HEALTH] * 45
+		&& c->ps.fd.forcePower >= 30 && !BotNearest( ent, 550, NULL, NULL ) && BotChance( 80 ) ) {
+		if ( Shinobi_Cast( ent, SJ_HEAL, 1 ) ) {
+			c->shinobi.chargeJutsu = SJ_HEAL;
+			c->shinobi.botJutsuNext = level.time + 1500;
+			return;
+		}
+	}
+
+	e = Shinobi_BotEnemyOf( ent->s.number );
+	if ( !BotIsEnemy( ent, e ) )
+		e = BotNearest( ent, 600, NULL, NULL );
+	if ( !e || !BotSees( ent, e ) || Shinobi_KaitenSpinning( e ) || e->client->shinobi.palmsStart )
+		return;
+	d = Distance( e->client->ps.origin, c->ps.origin );
+	dz = fabs( e->client->ps.origin[2] - c->ps.origin[2] );
+
+	if ( Shinobi_HasJutsu( ent, SJ_LOTUS ) && d < SHINOBI_LOTUS_BLINK + SHINOBI_LOTUS_REACH - 10 && dz < 48
+		&& c->ps.fd.forcePower >= Shinobi_JutsuCost( SJ_LOTUS, 1 ) && !e->client->shinobi.blocking && BotChance( 45 ) ) {
+		BotFace( ent, e, 0 );
+		if ( Shinobi_Cast( ent, SJ_LOTUS, 1 ) ) {
+			c->shinobi.botJutsuNext = level.time + 2500;
+			Shinobi_Debug( "bot %i: Reverse Lotus on %i", ent->s.number, e->s.number );
+			return;
+		}
+	}
+	if ( Shinobi_HasJutsu( ent, SJ_ENTRY ) && c->shinobi.entryNext <= level.time && d > 150 && d < 430 && dz < 64
+		&& BotChance( 30 ) ) {
+		BotFace( ent, e, 0 );
+		if ( Shinobi_Cast( ent, SJ_ENTRY, 1 ) ) {
+			c->shinobi.botJutsuNext = level.time + 1200;
+			Shinobi_Debug( "bot %i: Dynamic Entry at %i", ent->s.number, e->s.number );
+			return;
+		}
+	}
+	if ( Shinobi_HasJutsu( ent, SJ_PALMS ) && d < 170 && c->ps.fd.forcePower >= 45 && BotChance( 20 ) ) {
+		if ( Shinobi_Cast( ent, SJ_PALMS, 1 ) ) {
+			c->shinobi.chargeJutsu = SJ_PALMS;
+			c->shinobi.botJutsuNext = level.time + 2500;
+			Shinobi_Debug( "bot %i: 64 Seals with %i close", ent->s.number, e->s.number );
+		}
+	}
+}
+
+// qtrue: it took this frame over (no guard / punishing / fists after it)
+static qboolean Shinobi_BotTactics( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *c = ent->client;
+
+	if ( BotSmart() <= 0 )
+		return qfalse;
+	if ( BotEscape( ent ) )
+		return qtrue;
+	if ( BotCaught( c ) )
+		return qfalse;
+	if ( BotHeld( ent, ucmd ) )
+		return qtrue;
+	if ( !Shinobi_CanAct( ent ) || c->shinobi.lotusPhase || c->shinobi.lotusBy || c->shinobi.entryEnd )
+		return qfalse;
+	if ( BotRollFire( ent, ucmd ) )
+		return qtrue;
+	if ( BotDodge( ent, ucmd ) )
+		return qtrue;
+	if ( BotKeepOff( ent, ucmd ) )
+		return qtrue;
+	if ( c->shinobi.botAirUntil > level.time )
+		return qfalse; // our own air combo goes on (Shinobi_BotFists)
+	BotTeamHelp( ent );
+	BotInterrupt( ent, ucmd );
+	BotOpenings( ent );
+	return qfalse;
+}
+
 static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd );
 
 void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
@@ -361,6 +1060,8 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 		return;
 	if ( client->shinobi.botFists && !SHINOBI_IS_TOOL_WEAPON( ucmd->weapon ) )
 		ucmd->weapon = WP_MELEE; // a bare-handed life: whatever the AI would pick (Shinobi_BotFists)
+	if ( Shinobi_BotTactics( ent, ucmd ) )
+		return; // escaped, holding a jutsu, rolling, keeping off...
 
 	// caught in a combo: after the second blow (counted in Shinobi_Flinch), maybe Kawarimi out
 	if ( client->shinobi.flinchEnd > level.time && client->shinobi.botFlinches >= 2 ) {
@@ -389,7 +1090,8 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 			threat = e;
 			break;
 		}
-		if ( e != ent && e->inuse && e->client && e->health > 0 && ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
+		if ( e != ent && e->inuse && e->client && e->health > 0
+			&& ( ( e->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) || e->client->shinobi.stunEnd > level.time )
 			&& Distance( e->r.currentOrigin, ent->r.currentOrigin ) < 120 && !( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) ) )
 			reeling = e;
 	}

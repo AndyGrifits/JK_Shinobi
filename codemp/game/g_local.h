@@ -935,6 +935,14 @@ struct gclient_s {
 		qboolean botFists;		// bots: this life fights bare-handed (our combo)
 		int		botFinisher;	// the finisher picked for the combo going on: 0 kick, 1 launch, 2 sweep, 3 spin
 		int		botAirUntil;	// launched someone: jump after him and hit until then
+		// bots: tactics (g_shinobi_bot.c, Shinobi_BotTactics)
+		int		botCaughtAt, botEscapeAt; // caught in a trap since (0: free); Kawarimi out at (0: won't)
+		int		botTacticNext;	// next tactical jutsu from
+		int		botDodgeUntil, botDodgeRight, botDodgeNext; // a sidestep (+1 right / -1 left) until; next from
+		int		botAwayUntil, botAwayFrom; // keep off someone (num + 1: a Kaiten, a 64 Seals field) until
+		int		botRushUntil, botRushTarget, botRushSeen; // going for someone forming seals (num + 1); the charge seen
+		int		botRollUntil;	// rolling the flames out
+		int		botHoldStart, botHoldHealth, botQuietSince; // a held jutsu: since, health then; nothing near since
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)

@@ -63,6 +63,7 @@ XCVAR_DEF( shinobi_dummy,			"0",			NULL,						CVAR_NONE,										qfalse ) // JK
 XCVAR_DEF( shinobi_autolock,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: close combat locks on by itself (T: the next one)
 XCVAR_DEF( shinobi_randomItems,		"1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: a picked-up item comes back as a random one of ours
 XCVAR_DEF( shinobi_botfists,			"50",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % of bot lives fought bare-handed with the combo
+XCVAR_DEF( shinobi_botsmart,			"80",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: 0-100, how well bots read the fight (escape traps, dodge, interrupt seals, hold jutsu); 0 = only the stock AI
 XCVAR_DEF( shinobi_botguard,			"55",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: % chance a bot raises its guard against a blow
 XCVAR_DEF( shinobi_maze_layout,		"-1",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: maze layout number (-1 random)
 XCVAR_DEF( shinobi_maze_npcs,		"12",			NULL,						CVAR_ARCHIVE,									qfalse ) // JK_Shinobi: Sound ninjas the maze director spawns
