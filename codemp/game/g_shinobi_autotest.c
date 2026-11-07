@@ -2643,12 +2643,56 @@ static gentity_t *AT_FindBot( const char *name ) {
 }
 
 // an open spot for the tests: from A's spawn, the direction with the most room
+// how good a spot is for the tests: room ahead (its best direction) and headroom (launches, overheads)
+static float AT_SpotScore( const vec3_t org, float *roomOut, float *ceilOut, float *yawOut ) {
+	vec3_t  end, f, top, mins = { -16, -16, -8 }, maxs = { 16, 16, 40 };
+	trace_t tr;
+	float   best = -1, yaw;
+	for ( yaw = 0; yaw < 360; yaw += 30 ) {
+		vec3_t ang = { 0, 0, 0 };
+		ang[YAW] = yaw;
+		AngleVectors( ang, f, NULL, NULL );
+		VectorMA( org, 600, f, end );
+		trap->Trace( &tr, org, mins, maxs, end, at.a, MASK_PLAYERSOLID, qfalse, 0, 0 );
+		if ( !tr.startsolid && tr.fraction * 600 > best ) {
+			best = tr.fraction * 600;
+			*yawOut = yaw;
+		}
+	}
+	VectorCopy( org, top );
+	top[2] += 600;
+	trap->Trace( &tr, org, mins, maxs, top, at.a, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	*roomOut = best;
+	*ceilOut = tr.startsolid ? 0 : tr.fraction * 600;
+	return Q_min( best, 600 ) + Q_min( *ceilOut, 320 ) * 2; // (headroom counts double: a low ceiling stops launches and overheads)
+}
+
 static void AT_ChooseBase( void ) {
 	float   bestLen = -1, yaw;
 	vec3_t  org, end, f, mins = { -16, -16, -8 }, maxs = { 16, 16, 40 };
 	trace_t tr;
 
 	VectorCopy( A->client->ps.origin, org );
+	{ // the best of the map's spawn spots (not wherever A happened to spawn: a low ceiling fails the launch tests)
+		gentity_t *sp = NULL;
+		float      bestScore = -1, room, ceil, y;
+		const char *classes[2] = { "info_player_deathmatch", "info_player_start" };
+		int        c;
+		for ( c = 0; c < 2; c++ ) {
+			sp = NULL;
+			while ( ( sp = G_Find( sp, FOFS( classname ), classes[c] ) ) != NULL ) {
+				vec3_t o;
+				float  score;
+				VectorCopy( sp->s.origin, o );
+				o[2] += 9;
+				score = AT_SpotScore( o, &room, &ceil, &y );
+				if ( score > bestScore ) {
+					bestScore = score;
+					VectorCopy( o, org );
+				}
+			}
+		}
+	}
 	for ( yaw = 0; yaw < 360; yaw += 30 ) {
 		vec3_t ang = { 0, 0, 0 };
 		ang[YAW] = yaw;

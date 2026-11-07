@@ -785,9 +785,22 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 	if ( VectorNormalize( d ) < 1 )
 		VectorSet( d, 1, 0, 0 );
 	VectorMA( v->r.currentOrigin, -SHINOBI_SWORD_AIR_BEHIND, d, spot );
-	trap->Trace( &tr, v->r.currentOrigin, ent->r.mins, ent->r.maxs, spot, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
-	if ( tr.allsolid )
-		return;
+	{ // up there with him - under a low ceiling as high as there is room, down to where you stand
+		vec3_t from;
+		int    k;
+		VectorCopy( v->r.currentOrigin, from );
+		for ( k = 0; k < 8; k++ ) {
+			trap->Trace( &tr, from, ent->r.mins, ent->r.maxs, spot, v->s.number, MASK_PLAYERSOLID, qfalse, 0, 0 );
+			if ( !tr.allsolid && !tr.startsolid )
+				break;
+			from[2] -= 16;
+			spot[2] -= 16;
+			if ( from[2] < c->ps.origin[2] )
+				break;
+		}
+		if ( tr.allsolid || tr.startsolid )
+			return;
+	}
 	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );
 	G_SoundAtLoc( c->ps.origin, CHAN_AUTO, shinobiMedia.sndPoof );
 	Shinobi_TeleportClient( ent, tr.endpos );
