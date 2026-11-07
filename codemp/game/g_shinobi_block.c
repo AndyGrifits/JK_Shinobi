@@ -933,16 +933,16 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 	if ( !Shinobi_FacingHit( targ, src ) )
 		return damage; // from the side or behind
 
-	if ( shinobiGuardBreaker ) { // a full Rasengan / Chidori goes straight through
+	taijutsu = ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage;
+	perfect = level.time - client->shinobi.blockPress <= SHINOBI_PARRY_MS
+		&& client->shinobi.blockPress - client->shinobi.blockPrevPress >= SHINOBI_PARRY_SPAM_MS;
+
+	if ( shinobiGuardBreaker && !perfect ) { // a full Rasengan / Chidori goes straight through a guard (not a perfect parry: that stops all)
 		Shinobi_GuardBreak( targ );
 		Shinobi_GainChakra( attacker, SHINOBI_GAIN_GUARDBREAK, qtrue );
 		shinobiBlockResult = SBR_BROKEN;
 		return damage;
 	}
-
-	taijutsu = ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage;
-	perfect = level.time - client->shinobi.blockPress <= SHINOBI_PARRY_MS
-		&& client->shinobi.blockPress - client->shinobi.blockPrevPress >= SHINOBI_PARRY_SPAM_MS;
 
 	*dflags |= DAMAGE_NO_KNOCKBACK;
 	if ( perfect ) {

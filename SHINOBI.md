@@ -627,8 +627,8 @@ jumping, no attacks, no jutsu (raising it lets go of fire breath / shadow bind).
 
 The guard is the shield bar (200); an empty guard breaks: 1 s stagger. A full (level 3)
 Rasengan or Chidori breaks any guard at once; lower levels are just blocked (half damage, no
-knockdown). Perfect parry: a hit within 0.2 s of pressing block does nothing (costs nothing),
-and an attacker within reach staggers for 0.8 s (spamming block gives no window). The guard
+knockdown). Perfect parry: a hit within 0.2 s of pressing block - any hit, jutsu and the full
+Rasengan / Chidori too - does nothing (costs nothing), and an attacker within reach staggers for 1.5 s (spamming block gives no window). The guard
 refills slowly, ~12/s from 1.5 s after the last blocked hit (empty to full ~16 s). With the
 Byakugan open (Gentle Fist) fists burn guard twice as fast. Burning, drowning, ash and zones
 ignore the guard. The shield no longer soaks damage on its own.
