@@ -374,8 +374,13 @@ static const char *AT_AnimName( int anim ) {
 // guard its style's price, and enough of them break it
 static void T_GuardSwing_Setup( void ) {
 	vec3_t p;
+	G_SetSaber( A, 0, "shinobi_kubikiribocho", qfalse ); // (a strong blade: each blade fights in its own stance)
+	G_SetSaber( A, 1, "none", qfalse );
+	G_SaberModelSetup( A );
 	AT_Weapon( 0, WP_SABER );
 	AT_Weapon( 1, WP_SABER );
+	A->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( A );
 	AT_SaberStyle( A, SS_STRONG );
 	AT_SaberStyle( B, SS_MEDIUM );
 	AT_Spot( 56, 0, p );
@@ -2420,6 +2425,7 @@ static void FF_Stage( int stage ) {
 	at.v[6] = shinobiTest.bladeFinishers[SHINOBI_BLADE_SHUNSHIN_STAT];
 	at.v[7] = shinobiTest.groundBlows;
 	at.v[8] = 0; // B down seen / A up in the air
+	at.f[0] = (float)shinobiTest.launches;
 	if ( stage == 3 )
 		G_Knockdown( B );
 }
@@ -2454,8 +2460,8 @@ static atResult_t T_FistFinishers( int t ) {
 	}
 	if ( stage == 2 ) {
 		const qboolean launched = at.v[5] == SCK_LAUNCH;
-		if ( !at.v[9] && launched )
-			at.v[9] = since; // when the launcher came
+		if ( !at.v[9] && shinobiTest.launches > (int)at.f[0] )
+			at.v[9] = since; // when the launcher landed
 		AT_Drive( 0, 0, 0, at.v[9] && since - at.v[9] >= 150 && since - at.v[9] < 300 ? 127 : 0,
 			at.v[9] ? 0 : BUTTON_ATTACK );
 		if ( shinobiTest.bladeFinishers[SHINOBI_BLADE_SHUNSHIN_STAT] > at.v[6] && A->client->ps.groundEntityNum == ENTITYNUM_NONE )

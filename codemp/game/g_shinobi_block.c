@@ -659,7 +659,7 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		Shinobi_FinisherFx( attacker, victim, SFX_LAUNCH );
 		ac->shinobi.bladeAirUntil = level.time + SHINOBI_SWORD_AIR_MS; // jump now: Shunshin up after him
 		ac->shinobi.bladeAirVictim = victim->s.number + 1;
-		ac->shinobi.bladeAirJumpWas = ac->pers.cmd.upmove > 0;
+		ac->shinobi.bladeAirFrom = level.time - SHINOBI_INPUT_BUFFER_MS; // (a jump pressed just before it counts too)
 		return;
 	}
 	if ( kind == SFK_SWEEP ) { // low, at the legs: down
@@ -765,16 +765,17 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 	vec3_t     d, spot, ang;
 	trace_t    tr;
 
+	if ( jump && !c->shinobi.jumpHeld )
+		c->shinobi.jumpPressAt = level.time; // (a new press of jump)
+	c->shinobi.jumpHeld = jump;
 	if ( !c->shinobi.bladeAirUntil )
 		return;
 	if ( level.time > c->shinobi.bladeAirUntil || ent->health <= 0 ) {
 		c->shinobi.bladeAirUntil = 0;
 		return;
 	}
-	if ( !jump || c->shinobi.bladeAirJumpWas ) {
-		c->shinobi.bladeAirJumpWas = jump;
-		return;
-	}
+	if ( c->shinobi.jumpPressAt < c->shinobi.bladeAirFrom )
+		return; // no jump pressed since the launch (or just before it)
 	c->shinobi.bladeAirUntil = 0;
 	v = &g_entities[c->shinobi.bladeAirVictim - 1];
 	if ( !v->inuse || !v->client || v->health <= 0 )
@@ -797,7 +798,8 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 		c->ps.stats[STAT_SHINOBI_COMBO] = SHINOBI_COMBO_AIR | ( SCK_HIT << 3 ); // hit 0 of the air part
 		c->ps.stats[STAT_SHINOBI_COMBOT] = 1500;
 		c->ps.weaponTime = 0;
-		c->ps.legsTimer = c->ps.torsoTimer = 0; // (the kick is over)
+		c->ps.legsTimer = c->ps.torsoTimer = 0; // (the kick is over: a jump pose, not the kick's legs - those
+		G_SetAnim( ent, NULL, SETANIM_BOTH, BOTH_FORCEJUMP1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, 0 ); // hold off the dive)
 		if ( c->ps.velocity[2] < 120 )
 			c->ps.velocity[2] = 120;
 	}
@@ -976,6 +978,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 
 	*dflags |= DAMAGE_NO_KNOCKBACK;
 	if ( perfect ) {
+		shinobiTest.parries++;
 		shinobiBlockResult = SBR_PARRIED;
 		Shinobi_BlockFeedback( targ, src, qtrue );
 		Shinobi_HitText( targ, STX_PARRY, 0 );

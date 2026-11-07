@@ -131,7 +131,7 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 		shinobiTest.launches++;
 		client->shinobi.bladeAirUntil = level.time + ( client->ps.legsTimer > 0 ? client->ps.legsTimer : 0 ) + SHINOBI_AIR_WINDOW;
 		client->shinobi.bladeAirVictim = v->s.number + 1;
-		client->shinobi.bladeAirJumpWas = client->pers.cmd.upmove > 0;
+		client->shinobi.bladeAirFrom = level.time - SHINOBI_INPUT_BUFFER_MS; // (a jump pressed just before it counts too)
 		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
 		v->client->shinobi.juggleStart = level.time;
 		v->client->shinobi.juggleEnd = level.time + 2500;

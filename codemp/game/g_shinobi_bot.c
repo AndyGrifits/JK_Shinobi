@@ -1194,8 +1194,9 @@ static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd ) {
 
 	// the air combo: up after the one we launched, hitting on
 	if ( client->shinobi.botAirUntil > level.time ) {
-		if ( client->ps.groundEntityNum != ENTITYNUM_NONE && level.time + 300 > client->shinobi.botAirUntil - 450 )
-			ucmd->upmove = 127; // the jump right after the launcher
+		if ( client->ps.groundEntityNum != ENTITYNUM_NONE && level.time > client->shinobi.botAirUntil - 1700
+			&& level.time < client->shinobi.botAirUntil - 1200 )
+			ucmd->upmove = 127; // the jump right after the launcher (a Shunshin up to him)
 		else
 			ucmd->upmove = 0;
 		ucmd->buttons = ( ucmd->buttons & ~( BUTTON_ATTACK | SHINOBI_BUTTON_BLOCK ) ) | ( ( level.time / 120 ) % 2 ? BUTTON_ATTACK : 0 );

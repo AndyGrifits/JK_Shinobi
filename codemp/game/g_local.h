@@ -849,7 +849,8 @@ struct gclient_s {
 		int		reachSwing, reachStart, reachDur; // a plain cut: which, when, how long (its reach by mid-swing, once)
 		int		finisherStart, finisherDur, finisherHit; // the finisher swing: when, how long; landed (or tried by reach)
 		float	bladeLenSave[2][2];	// ... their own lengths, put back after it
-		int		bladeAirUntil, bladeAirVictim, bladeAirJumpWas; // after the rising cut (or the fists' launcher): jump to Shunshin up to him
+		int		bladeAirUntil, bladeAirVictim, bladeAirFrom; // after the rising cut (or the fists' launcher): jump (pressed since From) to Shunshin up to him
+		int		jumpPressAt, jumpHeld; // the last new press of jump
 		int		groundVictim;	// fists: the one the downward blow is coming at (+1)
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts
 		int		bleedEnd, bleedNext, bleedBy; // a wound: bleeding until, next tick, who opened it (+1)
