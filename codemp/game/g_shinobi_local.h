@@ -124,6 +124,8 @@ qboolean  Shinobi_CastShadowTrap( gentity_t *ent );
 void      Shinobi_HealStop( gentity_t *ent );
 void      Shinobi_ChakraTextThink( gentity_t *ent );
 
+extern const char *shinobiDamageSource; // g_shinobi_build.c: the "sdm" event's source, where it can't be told
+
 // g_shinobi_autotest.c: what happened, counted for the automatic tests
 #define SHINOBI_TEST_DMGLOG 512
 typedef struct {
@@ -137,6 +139,7 @@ typedef struct {
 	int kaitenBlocks, kaitenDeflects;
 	int botEscapes, botDodges, botInterrupts, botKunaiInterrupts, botPrisonHeldMs, botKeptOff, botRolls; // bot tactics
 	int bladeFinisherReach;        // finisher blows landed by reach (the blade itself missed)
+	int swingReach, swingReachMissed; // plain cuts landed by reach (the blade missed); cuts that found no one in reach either
 	int bladeFinishers[16];         // blade combo finishers by kind (0 = the common ones: sweep, spin, rising cut)
 	int chakraGained[MAX_CLIENTS], chakraTexts[MAX_CLIENTS];
 	shinobiTestDamage_t dmg[SHINOBI_TEST_DMGLOG];

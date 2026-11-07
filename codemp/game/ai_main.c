@@ -4353,6 +4353,8 @@ void MeleeCombatHandling(bot_state_t *bs)
 		}
 
 		bs->meleeStrafeTime = level.time + Q_irand(500, 1800);
+		if ( Q_irand( 0, 99 ) < 60 ) // JK_Shinobi: stand and trade blows more often than circling him
+			bs->meleeStrafeDisable = bs->meleeStrafeTime;
 	}
 
 	mins[0] = -15;
@@ -4438,6 +4440,8 @@ void SaberCombatHandling(bot_state_t *bs)
 		}
 
 		bs->meleeStrafeTime = level.time + Q_irand(500, 1800);
+		if ( Q_irand( 0, 99 ) < 60 ) // JK_Shinobi: stand and trade blows more often than circling him
+			bs->meleeStrafeDisable = bs->meleeStrafeTime;
 	}
 
 	mins[0] = -15;

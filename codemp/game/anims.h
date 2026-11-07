@@ -1814,6 +1814,8 @@ typedef enum //# animNumber_e
 	BOTH_SHINOBI_SEALS,			//# hand seals while a jutsu is charged (loops: tiger, snake, dog, ram)
 	BOTH_SHINOBI_SEALS_1H,		//# ... with the left hand alone (a single blade in the right)
 	BOTH_SHINOBI_SHOULDER_REST,	//# a heavy single blade at rest: on the shoulders behind the head
+	BOTH_SHINOBI_CHIDORI_CHARGE,//# Chidori charging: a seal, then low, the left hand down forward gathering lightning
+	BOTH_SHINOBI_KATON_INHALE,	//# Katon charging: the tiger seal, the fist to the mouth, a long breath in
 
 	//# #eol
 	MAX_ANIMATIONS,

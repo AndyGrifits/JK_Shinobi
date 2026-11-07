@@ -45,10 +45,36 @@ Chidori stays).
 
 ## Quick cast: Shift + the jutsu key
 
-Shift + F (any jutsu that charges; not the held ones, not Shunshin): no charging - its first
-level comes out at once (the Great Fireball: level 2), for the price of the top level. With
-back held too it is that jutsu's alternative form (for now: Storm Wind pulls). Shift is the
-"more chakra" modifier all round.
+Shift + F (any jutsu that charges; not the held ones, not Shunshin, not Katon / Chidori): no
+charging - its first level comes out at once, for the price of the top level. With back held
+too it is that jutsu's alternative form (for now: Storm Wind pulls). Shift is the "more chakra"
+modifier all round.
+
+## Katon and Chidori: the full charge only
+
+Both only come out at full charge: one long bar (no levels), let go early and the seals fizzle,
+no Shift quick cast. Everyone sees them coming (our own animations, `BOTH_SHINOBI_CHIDORI_CHARGE`
+/ `BOTH_SHINOBI_KATON_INHALE`): Chidori charges rooted - a seal, then low with the left hand
+down and forward, the right gripping it, the lightning growing in that hand with a crackle;
+Katon at a slow walk (40 %, no jumps) - the tiger seal, the fist to the lips, a long breath in
+(heard), an ember glowing brighter at the mouth.
+
+## Reading the fight
+
+- A blow landed: the body lit white for a moment and a spark at the chest (harder: brighter,
+  longer) - for everyone ("sdm" from the server: target, attacker, damage, what it came from).
+  Our own blow: an X round the crosshair and a thump (`hit_light` / `hit_heavy`). Damage
+  numbers are off (`cg_shinobiDamageNumbers 1` brings them back).
+- The last blows taken, bottom left: how much, with what, by whom (ticks of the same thing run
+  together), fading after 7 s.
+- State signs over heads (`cg_shinobiStateIcons`): imprisoned, bound, stunned, launched, down,
+  reeling, caught in a combo, immune to control - with the time left running down under them;
+  our own under the crosshair. The server puts the state and its time left in the player's
+  `s.frame` (bits 5-15, `Shinobi_StateBits`); none over a hidden one. The floating words for
+  these went (Parry!, Guard break!, Interrupted, Finisher! stay).
+- Blade cuts land where they look like they should: a plain cut the blade's own trace missed
+  lands by mid-swing on whoever stands within its blade + 36 in front (`shinobi_bladereach`;
+  autotest `blade_reach` counts both ways). Bots circle less and trade blows more.
 
 ## Kawarimi and Shunshin charges
 

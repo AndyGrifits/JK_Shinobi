@@ -462,9 +462,13 @@ typedef struct centity_s {
 	int				vChatTime;
 
 	int				shinobiHandFxTime;	// JK_Shinobi: next time to emit hand effect
+	int				shinobiPoseAnim, shinobiPoseStart; // JK_Shinobi: the torso animation seen, since when (charging poses)
 	int				shinobiAuraFxTime;	// JK_Shinobi: next time to emit chakra aura
 	vec3_t			shinobiTrailPrev;	// JK_Shinobi: last hand position of a Chidori dash
 	int				shinobiTrailTime;	// JK_Shinobi: when shinobiTrailPrev was taken (0 = none)
+	int				shinobiFlashTime;	// JK_Shinobi: a blow landed on him then (the white flash, the spark)
+	float			shinobiFlashStr;	// ... how hard (0..1)
+	int				shinobiStateCode, shinobiStateTotal; // JK_Shinobi: the state sign shown, its whole time (ms)
 	void			*shinobiAccG2;		// JK_Shinobi: the ghoul2 instance shinobiAccBolt belongs to
 	int				shinobiAccBolt;		// JK_Shinobi: "cranium" bolt for the head accessory
 } centity_t;
@@ -1807,6 +1811,7 @@ void CG_ShinobiMenu_f( void );
 void CG_ShinobiEyeInfo_f( void );
 void CG_ShinobiCopy_f( void );
 void CG_ShinobiHitText_f( void );
+void CG_ShinobiDamage_f( void );
 void CG_ShinobiChargeCancel_f( void );
 void CG_ShinobiGuardBubble( centity_t *cent );
 void CG_ShinobiKaitenSpin( centity_t *cent, matrix3_t legs, vec3_t rootAngles );

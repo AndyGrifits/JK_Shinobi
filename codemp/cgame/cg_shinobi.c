@@ -31,6 +31,9 @@ static struct {
 	qhandle_t puddle, mud, scorch, waterSphere, ring, shadowBand, fogScreen, mistShell, windArc;
 	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight, hakkeSeal;
 	sfxHandle_t chargeSnd[SHINOBI_MAX_LEVEL]; // a level bar of the charge filled (your ears only)
+	sfxHandle_t inhaleSnd, chidoriChargeSnd;   // Katon's breath in, Chidori gathering (everyone near)
+	qhandle_t   hitFlash, stIcon[SHINOBI_PST_COUNT]; // a body lit white by a blow; the state signs over heads
+	sfxHandle_t hitSnd[2];                     // a blow of ours landed: light, heavy (our ears)
 } shinobiShaders;
 
 // standing in a Hidden Mist this frame (and the last)
@@ -214,6 +217,17 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.chargeSnd[0] = trap->S_RegisterSound( "sound/shinobi/charge1.wav" );
 	shinobiShaders.chargeSnd[1] = trap->S_RegisterSound( "sound/shinobi/charge2.wav" );
 	shinobiShaders.chargeSnd[2] = trap->S_RegisterSound( "sound/shinobi/charge3.wav" );
+	shinobiShaders.inhaleSnd = trap->S_RegisterSound( "sound/shinobi/inhale.wav" );
+	shinobiShaders.hitSnd[0] = trap->S_RegisterSound( "sound/shinobi/hit_light.wav" );
+	shinobiShaders.hitSnd[1] = trap->S_RegisterSound( "sound/shinobi/hit_heavy.wav" );
+	shinobiShaders.hitFlash = trap->R_RegisterShader( "gfx/shinobi/hitflash" );
+	{
+		static const char * const st[SHINOBI_PST_COUNT] = { NULL, "prison", "bound", "stun", "launch", "down", "stagger", "flinch", "immune" };
+		int k;
+		for ( k = 1; k < SHINOBI_PST_COUNT; k++ )
+			shinobiShaders.stIcon[k] = trap->R_RegisterShaderNoMip( va( "gfx/shinobi/st_%s", st[k] ) );
+	}
+	shinobiShaders.chidoriChargeSnd = trap->S_RegisterSound( "sound/shinobi/chidori_charge.wav" );
 	shinobiShaders.legWeight   = trap->R_RegisterModel( "models/shinobi/leg_weight.md3" );
 	shinobiShaders.ice         = trap->R_RegisterShader( "gfx/shinobi/ice" );
 	shinobiShaders.iceFloe     = trap->R_RegisterShader( "gfx/shinobi/icefloe" );
@@ -288,8 +302,8 @@ static void CG_ShinobiJutsuDown( int jutsu ) {
 		return; // hands busy
 	if ( jutsu != SJ_SHUNSHIN && !SHINOBI_JUTSU_HOLD( jutsu ) ) {
 		usercmd_t cmd;
-		if ( trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd ) ) {
-			// Shift + the key: the server casts it at once (level 1, the top price) - no bars
+		if ( !SHINOBI_JUTSU_FULL( jutsu ) && trap->GetUserCmd( trap->GetCurrentCmdNumber(), &cmd ) && SHINOBI_MODIFIER( &cmd ) ) {
+			// Shift + the key: the server casts it at once (level 1, the top price) - no bars (not Katon / Chidori)
 			trap->SendClientCommand( va( "jutsu_begin %s", shinobiJutsuNames[jutsu] ) );
 			return;
 		}
@@ -848,6 +862,50 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 
 	if ( s->eFlags & SHINOBI_EF_RAIDASH )
 		CG_ShinobiRaiDashForm( cent );
+
+	// a blow just landed on him: a spark of light at the chest
+	if ( cent->shinobiFlashTime && cg.time - cent->shinobiFlashTime < 110 ) {
+		const float k = 1.0f - ( cg.time - cent->shinobiFlashTime ) / 110.0f, st = cent->shinobiFlashStr;
+		VectorCopy( cent->lerpOrigin, org );
+		org[2] += 18;
+		CG_ShinobiSprite( org, ( 10 + 22 * st ) * k, cent->shinobiFlashTime % 360, shinobiShaders.spark ? shinobiShaders.spark : shinobiShaders.glow,
+			1.0f * k, 0.95f * k, 0.8f * k );
+		CG_ShinobiSprite( org, ( 5 + 10 * st ) * k, 0, shinobiShaders.glow, k, k, k );
+	}
+
+	// the charging poses, seen by everyone: what is coming
+	if ( s->torsoAnim != cent->shinobiPoseAnim ) {
+		cent->shinobiPoseAnim = s->torsoAnim;
+		cent->shinobiPoseStart = cg.time;
+		if ( s->torsoAnim == BOTH_SHINOBI_KATON_INHALE && shinobiShaders.inhaleSnd )
+			trap->S_StartSound( NULL, s->number, CHAN_AUTO, shinobiShaders.inhaleSnd );
+	}
+	if ( s->torsoAnim == BOTH_SHINOBI_CHIDORI_CHARGE && !SHINOBI_HAND_ANY( s ) ) {
+		// after the seal the lightning gathers in the left hand, growing to the full Chidori
+		const float p = Com_Clamp( 0.0f, 1.0f, ( cg.time - cent->shinobiPoseStart - 250 ) / 1150.0f );
+		if ( p > 0 ) {
+			const float f = 0.6f + 0.4f * flrand( 0.0f, 1.0f );
+			CG_ShinobiHandOrigin( cent, ci, org );
+			CG_ShinobiDrawChidori( org, shinobiChidoriRadius[SHINOBI_MAX_LEVEL - 1] * ( 0.3f + 0.7f * p ), p < 1.0f );
+			trap->R_AddLightToScene( org, ( 60 + 160 * p ) * f, 0.55f * f, 0.75f * f, 1.0f * f );
+			if ( shinobiShaders.chidoriChargeSnd )
+				trap->S_AddLoopingSound( s->number, org, vec3_origin, shinobiShaders.chidoriChargeSnd );
+		}
+	}
+	else if ( s->torsoAnim == BOTH_SHINOBI_KATON_INHALE ) {
+		// the fist at the lips: an ember there, glowing brighter with the breath
+		const float p = Com_Clamp( 0.0f, 1.0f, ( cg.time - cent->shinobiPoseStart - 400 ) / 1000.0f );
+		mdxaBone_t  m;
+		if ( p > 0 && cent->ghoul2 && ci->bolt_rhand
+			&& trap->G2API_GetBoltMatrix( cent->ghoul2, 0, ci->bolt_rhand, &m, cent->turAngles, cent->lerpOrigin, cg.time,
+				cgs.gameModels, cent->modelScale ) ) {
+			const float f = 0.75f + 0.25f * flrand( 0.0f, 1.0f );
+			VectorSet( org, m.matrix[0][3], m.matrix[1][3], m.matrix[2][3] );
+			CG_ShinobiSprite( org, ( 4 + 9 * p ) * f, flrand( 0, 360 ), shinobiShaders.glow, 1.0f * f, 0.45f * f, 0.1f * f );
+			CG_ShinobiSprite( org, ( 1.5f + 3 * p ) * f, 0, shinobiShaders.glow, 1.0f, 0.9f * f, 0.6f * f );
+			trap->R_AddLightToScene( org, ( 50 + 150 * p ) * f, 1.0f, 0.5f, 0.15f );
+		}
+	}
 
 	if ( SHINOBI_HAND_ANY( s ) ) {
 		const qboolean chidori = SHINOBI_HAND_IS_CHIDORI( s );
@@ -1984,6 +2042,20 @@ static void CG_ShinobiDrawChargeBars( void ) {
 	while ( shown > SHINOBI_JUTSU_MIN_LEVEL( shinobiCharge.jutsu ) && chakra < CG_ShinobiPrice( shinobiCharge.jutsu, shown ) )
 		shown--;
 
+	if ( SHINOBI_JUTSU_FULL( shinobiCharge.jutsu ) ) { // Katon / Chidori: one long bar, only the full one casts
+		const int   end = Shinobi_BarEndCast( shinobiCharge.jutsu, SHINOBI_MAX_LEVEL - 1, castLvl );
+		const float fill = Com_Clamp( 0, 1, (float)held / (float)end );
+		const float w = barW * 3 + gap * 2;
+		const qboolean affordable = chakra >= CG_ShinobiPrice( shinobiCharge.jutsu, SHINOBI_MAX_LEVEL );
+		CG_FillRect( x0, y, w, barH, back );
+		if ( fill > 0 )
+			CG_FillRect( x0, y, w * fill, barH, affordable ? barColor[SHINOBI_MAX_LEVEL - 1] : locked );
+		CG_DrawRect( x0, y, w, barH, 1, frame );
+		if ( fill >= 1.0f && affordable )
+			filled = SHINOBI_MAX_LEVEL;
+		i = SHINOBI_MAX_LEVEL; // (no segments)
+	}
+	else
 	for ( i = 0; i < SHINOBI_MAX_LEVEL; i++ ) {
 		const int   begin = i ? Shinobi_BarEndCast( shinobiCharge.jutsu, i - 1, castLvl ) : 0;
 		const float fill = Com_Clamp( 0, 1, (float)( held - begin ) / (float)( Shinobi_BarEndCast( shinobiCharge.jutsu, i, castLvl ) - begin ) );
@@ -2543,7 +2615,27 @@ void CG_ShinobiStoneShell( centity_t *cent, refEntity_t *body ) {
 }
 
 // the Inner Gates' look on a player: the weights, the crimson glow (from CG_Player, after the body)
+// a blow landed on him: the body lit white for a moment (harder: brighter, longer)
+static void CG_ShinobiHitFlash( centity_t *cent, refEntity_t *body ) {
+	refEntity_t shell;
+	const int   len = 70 + (int)( 90 * cent->shinobiFlashStr ), age = cg.time - cent->shinobiFlashTime;
+	float       a;
+
+	if ( !cent->shinobiFlashTime || age < 0 || age >= len || !shinobiShaders.hitFlash
+		|| ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW ) ) )
+		return;
+	a = ( 1.0f - (float)age / len ) * ( 0.45f + 0.55f * cent->shinobiFlashStr );
+	shell = *body;
+	shell.customShader = shinobiShaders.hitFlash;
+	shell.renderfx &= ~( RF_RGB_TINT | RF_FORCE_ENT_ALPHA );
+	shell.shaderRGBA[0] = shell.shaderRGBA[1] = (byte)( 255 * a );
+	shell.shaderRGBA[2] = (byte)( 235 * a );
+	shell.shaderRGBA[3] = 255;
+	trap->R_AddRefEntityToScene( &shell );
+}
+
 void CG_ShinobiGatesLook( centity_t *cent, refEntity_t *body ) {
+	CG_ShinobiHitFlash( cent, body );
 	CG_ShinobiGateShell( cent, body );
 	CG_ShinobiLegWeights( cent );
 }
@@ -2954,6 +3046,185 @@ static void CG_ShinobiDrawEyeInfo( void ) {
 }
 
 /*
+"sdm <target> <attacker> <damage> <source>": a blow landed (the server, for everyone). The target
+flashes white with a spark; our own blow: a hit marker and a thump in our ears; a blow on us goes in
+the log of the last blows taken (who, with what - ticks of the same thing run together).
+*/
+#define SHINOBI_DMGLOG_MAX   5
+#define SHINOBI_DMGLOG_MS    7000
+static struct {
+	int  time, attacker, total;
+	char source[32];
+} shinobiDmgLog[SHINOBI_DMGLOG_MAX];
+static int   shinobiMarkerTime;
+static float shinobiMarkerStr;
+static void CG_ShinobiHitTextAdd( int ent, int kind, int value );
+
+void CG_ShinobiDamage_f( void ) {
+	const int   targ = atoi( CG_Argv( 1 ) ), attacker = atoi( CG_Argv( 2 ) ), take = atoi( CG_Argv( 3 ) );
+	const char *src = CG_Argv( 4 );
+	const int   me = cg.snap ? cg.snap->ps.clientNum : -1;
+	const float str = Com_Clamp( 0.15f, 1.0f, take / 40.0f );
+	int         i;
+
+	if ( targ < 0 || targ >= MAX_GENTITIES || take <= 0 )
+		return;
+	// (ticks - a burn, a drowning - don't flash every time)
+	if ( take >= 4 || cg.time - cg_entities[targ].shinobiFlashTime > 400 ) {
+		cg_entities[targ].shinobiFlashTime = cg.time;
+		cg_entities[targ].shinobiFlashStr = str;
+	}
+	if ( attacker == me && targ != me && targ < MAX_CLIENTS ) {
+		if ( take >= 4 || cg.time - shinobiMarkerTime > 400 ) {
+			shinobiMarkerTime = cg.time;
+			shinobiMarkerStr = str;
+			if ( shinobiShaders.hitSnd[take >= 25 ? 1 : 0] )
+				trap->S_StartLocalSound( shinobiShaders.hitSnd[take >= 25 ? 1 : 0], CHAN_LOCAL_SOUND );
+		}
+	}
+	if ( targ == me ) {
+		int slot = -1, oldest = 0;
+		for ( i = 0; i < SHINOBI_DMGLOG_MAX; i++ ) { // the same thing again within a second: added on
+			if ( shinobiDmgLog[i].time && cg.time - shinobiDmgLog[i].time < 1200 && shinobiDmgLog[i].attacker == attacker
+				&& !Q_stricmp( shinobiDmgLog[i].source, src ) )
+				slot = i;
+			if ( shinobiDmgLog[i].time < shinobiDmgLog[oldest].time )
+				oldest = i;
+		}
+		if ( slot < 0 ) {
+			slot = oldest;
+			shinobiDmgLog[slot].total = 0;
+			shinobiDmgLog[slot].attacker = attacker;
+			Q_strncpyz( shinobiDmgLog[slot].source, src, sizeof( shinobiDmgLog[slot].source ) );
+		}
+		shinobiDmgLog[slot].total += take;
+		shinobiDmgLog[slot].time = cg.time;
+	}
+	if ( cg_shinobiDamageNumbers.integer )
+		CG_ShinobiHitTextAdd( targ, STX_DAMAGE, take );
+}
+
+// our blow landed: an X round the crosshair, bigger for a hard one
+static void CG_ShinobiDrawHitMarker( void ) {
+	const int age = cg.time - shinobiMarkerTime, len = 160 + (int)( 140 * shinobiMarkerStr );
+	vec4_t    c;
+	float     r, k;
+	int       i;
+
+	if ( !shinobiMarkerTime || age < 0 || age >= len )
+		return;
+	k = 1.0f - (float)age / len;
+	VectorSet4( c, 1.0f, 1.0f - 0.6f * shinobiMarkerStr, 1.0f - 0.7f * shinobiMarkerStr, k );
+	r = 9 + 9 * shinobiMarkerStr + 4 * ( 1.0f - k );
+	for ( i = 0; i < 4; i++ ) { // four short strokes on the diagonals
+		const float sx = ( i & 1 ) ? 1 : -1, sy = ( i & 2 ) ? 1 : -1;
+		int s;
+		for ( s = 0; s < 5; s++ ) {
+			const float d = r + s * ( 1.2f + shinobiMarkerStr );
+			CG_FillRect( 320 + sx * d - 1, 240 + sy * d * 0.75f - 1, 2.5f, 2.5f, c );
+		}
+	}
+}
+
+// the last blows taken: how much, with what, by whom - fading out
+static void CG_ShinobiDrawDamageLog( void ) {
+	const float scale = 0.42f, x = 8, lineH = 13;
+	float       y = 300;
+	int         i, order[SHINOBI_DMGLOG_MAX], n = 0, j;
+
+	for ( i = 0; i < SHINOBI_DMGLOG_MAX; i++ ) // newest first
+		if ( shinobiDmgLog[i].time && cg.time - shinobiDmgLog[i].time < SHINOBI_DMGLOG_MS )
+			order[n++] = i;
+	for ( i = 1; i < n; i++ )
+		for ( j = i; j > 0 && shinobiDmgLog[order[j]].time > shinobiDmgLog[order[j - 1]].time; j-- ) {
+			const int t = order[j];
+			order[j] = order[j - 1];
+			order[j - 1] = t;
+		}
+	for ( i = 0; i < n; i++ ) {
+		const int   k = order[i], age = cg.time - shinobiDmgLog[k].time, a = shinobiDmgLog[k].attacker;
+		const char *who = ( a >= 0 && a < MAX_CLIENTS && cgs.clientinfo[a].infoValid ) ? cgs.clientinfo[a].name : "";
+		vec4_t      c = { 1.0f, 0.55f, 0.45f, 1.0f };
+		const char *t;
+		c[3] = age < SHINOBI_DMGLOG_MS - 1500 ? 0.95f : 0.95f * ( SHINOBI_DMGLOG_MS - age ) / 1500.0f;
+		t = ( a == cg.snap->ps.clientNum || !who[0] ) ? va( "-%i  %s", shinobiDmgLog[k].total, shinobiDmgLog[k].source )
+			: va( "-%i  %s  ^7(%s^7)", shinobiDmgLog[k].total, shinobiDmgLog[k].source, who );
+		CG_Text_Paint( x, y, scale, c, t, 0, 0, ITEM_TEXTSTYLE_SHADOWED, FONT_SMALL );
+		y += lineH;
+	}
+}
+
+/*
+The state signs: over each player's head while he is imprisoned, bound, stunned, launched, down,
+reeling, caught in a combo or immune to control - a sign, and under it the time left running
+down; our own under the crosshair (first person).
+*/
+static void CG_ShinobiStateSign( int code, int left, int total, float x, float y, float size ) {
+	const vec4_t back = { 0, 0, 0, 0.6f }, bar = { 1, 1, 1, 0.9f };
+	if ( !shinobiShaders.stIcon[code] )
+		return;
+	trap->R_SetColor( NULL );
+	CG_DrawPic( x - size * 0.5f, y - size * 0.5f, size, size, shinobiShaders.stIcon[code] );
+	if ( total > 0 ) {
+		const float w = size, f = Com_Clamp( 0, 1, (float)left / total );
+		CG_FillRect( x - w * 0.5f, y + size * 0.5f + 1, w, 3, back );
+		CG_FillRect( x - w * 0.5f, y + size * 0.5f + 1, w * f, 3, bar );
+	}
+}
+
+static void CG_ShinobiDrawStates( void ) {
+	int i;
+
+	if ( !cg_shinobiStateIcons.integer || !cg.snap )
+		return;
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		centity_t  *cent = &cg_entities[i];
+		const qboolean me = i == cg.snap->ps.clientNum;
+		int         code = SHINOBI_PFRAME_STATE( cent->currentState.frame ), left = SHINOBI_PFRAME_LEFT( cent->currentState.frame );
+		vec3_t      org;
+		float       x, y;
+
+		if ( me ) { // (our own entity isn't sent to us: what the player state shows)
+			const playerState_t *ps = &cg.predictedPlayerState;
+			left = 0;
+			if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND || ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP )
+				code = SHINOBI_PST_BOUND;
+			else if ( ps->forceHandExtend == HANDEXTEND_KNOCKDOWN )
+				code = SHINOBI_PST_DOWN, left = ps->forceHandExtendTime - cg.time;
+			else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
+				code = SHINOBI_PST_STAGGER;
+			else if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
+				code = SHINOBI_PST_FLINCH;
+			else
+				code = SHINOBI_PST_NONE;
+			if ( left < 0 )
+				left = 0;
+			if ( ps->stats[STAT_HEALTH] <= 0 )
+				code = SHINOBI_PST_NONE;
+		}
+
+		if ( ( !cent->currentValid && !me ) || code <= SHINOBI_PST_NONE || code >= SHINOBI_PST_COUNT
+			|| ( !me && ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW ) ) ) ) {
+			cent->shinobiStateCode = 0;
+			continue;
+		}
+		if ( code != cent->shinobiStateCode || left > cent->shinobiStateTotal ) { // a new one (or longer): its whole time
+			cent->shinobiStateCode = code;
+			cent->shinobiStateTotal = left;
+		}
+		if ( me && !cg.renderingThirdPerson ) {
+			CG_ShinobiStateSign( code, left, cent->shinobiStateTotal, 320, 300, 22 );
+			continue;
+		}
+		VectorCopy( me ? cg.predictedPlayerState.origin : cent->lerpOrigin, org );
+		org[2] += 50;
+		if ( !CG_WorldCoordToScreenCoordFloat( org, &x, &y ) )
+			continue;
+		CG_ShinobiStateSign( code, left, cent->shinobiStateTotal, x, y - 10, 18 );
+	}
+}
+
+/*
 Floating combat text: damage numbers and what a hit did (Flinch, Knockdown...) rising
 over the target for a second ("stx <ent> <kind> <value>" from the server).
 */
@@ -2966,8 +3237,17 @@ static struct {
 static int shinobiHitTextNext;
 
 void CG_ShinobiHitText_f( void ) {
-	const int ent = atoi( CG_Argv( 1 ) ), kind = atoi( CG_Argv( 2 ) ), value = atoi( CG_Argv( 3 ) );
-	int       i, n = 0;
+	const int kind = atoi( CG_Argv( 2 ) );
+	if ( cg_shinobiStateIcons.integer && ( kind == STX_FLINCH || kind == STX_STAGGER || kind == STX_KNOCKDOWN || kind == STX_LAUNCH
+		|| kind == STX_STUN || kind == STX_TRAPPED || kind == STX_BOUND || kind == STX_IMPRISONED ) )
+		return; // (the sign over his head says it)
+	if ( kind == STX_DAMAGE && !cg_shinobiDamageNumbers.integer )
+		return;
+	CG_ShinobiHitTextAdd( atoi( CG_Argv( 1 ) ), kind, atoi( CG_Argv( 3 ) ) );
+}
+
+static void CG_ShinobiHitTextAdd( int ent, int kind, int value ) {
+	int i, n = 0;
 
 	if ( ent < 0 || ent >= MAX_GENTITIES || kind < 0 || kind >= STX_COUNT )
 		return;
@@ -3073,7 +3353,11 @@ void CG_ShinobiDrawHUD( void ) {
 			CG_DrawRotatePic2( 30, 30, 40, 40, cg.time * 0.03f, shinobiShaders.tomoe );
 		trap->R_SetColor( NULL );
 	}
-	CG_ShinobiDrawHitText(); // damage numbers and hit effects over heads
+	CG_ShinobiDrawHitText(); // what blows did (Parry!, Guard break!...) over heads
+	CG_ShinobiDrawStates(); // the state signs (stunned, bound, imprisoned...) with their time
+	CG_ShinobiDrawHitMarker();
+	if ( cg.snap && cg.snap->ps.stats[STAT_HEALTH] > 0 )
+		CG_ShinobiDrawDamageLog();
 	if ( !CG_ShinobiCanCharge() ) {
 		shinobiCharge.jutsu = SJ_NONE;
 		return;

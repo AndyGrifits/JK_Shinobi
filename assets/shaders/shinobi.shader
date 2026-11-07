@@ -603,3 +603,13 @@ gfx/shinobi/hakke_seal
 		alphaGen vertex
 	}
 }
+
+// a blow landed: the body lit white for a moment (rgbGen entity: the brightness from the cgame)
+gfx/shinobi/hitflash
+{
+	{
+		map $whiteimage
+		blendFunc GL_ONE GL_ONE
+		rgbGen entity
+	}
+}

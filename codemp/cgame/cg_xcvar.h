@@ -122,6 +122,8 @@ XCVAR_DEF( cg_scorePlums,						"1",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_stereoSeparation,					"0.4",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_shadows,							"1",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_shinobiTrail,						"0.7",					NULL,					CVAR_ARCHIVE ) // JK_Shinobi: the swing glow, this much of the visible steel (from a little out of the hand)
+XCVAR_DEF( cg_shinobiDamageNumbers,			"0",					NULL,					CVAR_ARCHIVE ) // JK_Shinobi: floating damage numbers (off: the flash, the marker and the blows log say it)
+XCVAR_DEF( cg_shinobiStateIcons,				"1",					NULL,					CVAR_ARCHIVE ) // JK_Shinobi: state signs over heads (stunned, bound, imprisoned, down...) with their time
 XCVAR_DEF( cg_shinobiOutline,					"0",					NULL,					CVAR_ARCHIVE ) // JK_Shinobi: anime outline on characters, 0 off / 1 thin / 2 / 3 thick
 XCVAR_DEF( cg_simpleItems,						"0",					NULL,					CVAR_ARCHIVE )
 XCVAR_DEF( cg_showMiss,							"0",					NULL,					CVAR_NONE )

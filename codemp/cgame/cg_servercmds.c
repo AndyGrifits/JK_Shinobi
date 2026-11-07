@@ -1635,6 +1635,7 @@ static serverCommand_t	commands[] = {
 	{ "sbuild",				CG_ShinobiSetBuild_f },
 	{ "scl",				CG_SiegeClassSelect_f },
 	{ "scopy",				CG_ShinobiCopy_f },
+	{ "sdm",				CG_ShinobiDamage_f },
 	{ "scores",				CG_ParseScores },
 	{ "sinfo",				CG_ShinobiEyeInfo_f },
 	{ "sjc",				CG_ShinobiChargeCancel_f },

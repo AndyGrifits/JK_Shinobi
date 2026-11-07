@@ -10887,8 +10887,18 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	}
 
+	if ( ps->forceHandExtend == HANDEXTEND_TAUNT && ps->forceDodgeAnim == BOTH_SHINOBI_KATON_INHALE )
+	{ // charging Katon: a slow walk, no jumps
+		pm->cmd.forwardmove = (signed char)( pm->cmd.forwardmove * SHINOBI_KATON_WALK );
+		pm->cmd.rightmove = (signed char)( pm->cmd.rightmove * SHINOBI_KATON_WALK );
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
+		}
+	}
+
 	if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_ROOTED )
-	{ // charging an Earthquake: feet planted
+	{ // charging an Earthquake / Chidori: feet planted
 		pm->cmd.forwardmove = pm->cmd.rightmove = 0;
 		if ( pm->cmd.upmove > 0 )
 		{

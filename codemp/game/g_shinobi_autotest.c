@@ -2142,6 +2142,67 @@ static atResult_t T_BotNav( int t ) {
 	return ATR_RUN;
 }
 
+/*
+blade_reach: A cuts at a still B with single clicks (a press every 0.75 s) from 30, 48 and 66 u
+(centre to centre), five cuts the blade alone (shinobi_bladereach 0), five with the reach -
+how many cuts landed each way.
+*/
+#define BR_CUTS   5
+#define BR_MS     ( BR_CUTS * 750 + 300 )
+static const float brDist[3] = { 30, 48, 66 };
+static void BR_Place( int k ) {
+	vec3_t p;
+	AT_Spot( brDist[k / 2], 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	B->client->shinobi.flinchEnd = 0;
+	shinobi_bladereach.integer = k % 2;
+	at.v[8] = level.time;
+	at.v[9] = A->client->shinobi.bladeSwing;
+}
+static void T_BladeReach_Setup( void ) {
+	G_SetSaber( A, 0, "shinobi_katana", qfalse );
+	G_SetSaber( A, 1, "none", qfalse );
+	G_SaberModelSetup( A );
+	AT_Weapon( 0, WP_SABER );
+	A->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( A );
+	at.drive[0].aimAt = qtrue;
+	at.v[10] = shinobi_bladereach.integer;
+	at.v[11] = 0;
+	BR_Place( 0 );
+}
+static atResult_t T_BladeReach( int t ) {
+	const int k = at.v[11], since = level.time - at.v[8];
+	if ( B->health < 200 )
+		B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	B->client->ps.eFlags &= ~EF_INVULNERABLE;
+	AT_Drive( 0, 0, 0, 0, ( since > 150 && since < BR_CUTS * 750 && since % 750 < 80 ) ? BUTTON_ATTACK : 0 );
+	if ( since >= BR_MS ) {
+		int hits = 0, j;
+		for ( j = 0; j < SHINOBI_TEST_DMGLOG; j++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[j];
+			if ( d->time >= at.v[8] && d->targ == at.b && d->attacker == at.a && d->mod == MOD_SABER )
+				hits++;
+		}
+		at.v[k] = hits * 100 + ( A->client->shinobi.bladeSwing - at.v[9] );
+		AT_Print( "[autotest]     %2.0f u, %s: %i of %i cuts landed\n", brDist[k / 2], k % 2 ? "with the reach" : "the blade alone",
+			hits, A->client->shinobi.bladeSwing - at.v[9] );
+		if ( ++at.v[11] >= 6 ) {
+			int ok = 1;
+			shinobi_bladereach.integer = at.v[10];
+			for ( j = 1; j < 6; j += 2 )
+				if ( at.v[j] / 100 * 10 < ( at.v[j] % 100 ) * 8 )
+					ok = 0; // with the reach: 80 % of the cuts or better at every distance
+			AT_Msg( "cuts landed, blade alone / with reach: 30u %i/%i of %i, 48u %i/%i of %i, 66u %i/%i of %i",
+				at.v[0] / 100, at.v[1] / 100, at.v[1] % 100, at.v[2] / 100, at.v[3] / 100, at.v[3] % 100,
+				at.v[4] / 100, at.v[5] / 100, at.v[5] % 100 );
+			return ok ? ATR_PASS : ATR_FAIL;
+		}
+		BR_Place( at.v[11] );
+	}
+	return ATR_RUN;
+}
+
 static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
@@ -2179,6 +2240,7 @@ static atTest_t atTests[] = {
 	{ "bot_interrupt","a bot breaks seals formed close by and far off",           T_BotInterrupt_Setup, T_BotInterrupt, 9500 },
 	{ "bot_dodge",    "a bot steps away from fireballs",                          T_BotDodge_Setup, T_BotDodge, 9000 },
 	{ "bot_keepoff",  "a bot keeps off a spinning Kaiten",                        T_BotKeepOff_Setup, T_BotKeepOff, 4000 },
+	{ "blade_reach",  "plain cuts at 30 / 48 / 66 u: the blade alone and with the reach", T_BladeReach_Setup, T_BladeReach, 6 * BR_MS + 1000 },
 	{ "bot_nav",      "on a map without bot routes a bot hunts instead of hopping", T_BotNav_Setup, T_BotNav, 6000 },
 };
 #define AT_COUNT ( (int)ARRAY_LEN( atTests ) )

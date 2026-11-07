@@ -138,6 +138,35 @@ SHOULDER_REST = {
 }
 SHOULDER_REST_IN = dict(SHOULDER_REST, pelvis=(0.0, 0.0, -1.2), spine_bend=5.0, head=(0.0, 4.0))
 
+# Chidori charging (the full charge, rooted): a wide low stance, the chest turned a little to the
+# right so the left arm can go down and forward, its hand open like a claw - the lightning
+# gathers there - and the right hand gripping the left forearm to steady it; the head up
+# watching the target. First a seal (tiger) at the chest, then down into it.
+CHIDORI = {
+    "body_yaw": -18.0, "pelvis": (0.0, 2.0, -7.0),
+    "spine_bend": 14.0, "head": (16.0, -10.0),
+    "lfoot": (4.0, -6.0, 0.0), "lknee": (10.0, -18.0, 0.0), "lfoot_yaw": 15.0,
+    "rfoot": (-4.0, 6.0, 0.0), "rknee": (-10.0, -14.0, 0.0), "rfoot_yaw": -25.0,
+    "larm": ((0.05, -0.62, -0.78), 0.97), "lelbow": (8.0, 4.0, -6.0),
+    "lpalm": ((0.05, -0.62, -0.78), (0.0, -0.6, 0.8)), "lcurl": (0.35, 0.35),
+    "rhand_at": (4.5, -11.0, 14.5), "relbow": (-14.0, 4.0, -10.0),
+    "rpalm": ((0.95, -0.1, -0.2), (0.0, 0.3, -0.95)), "rcurl": (0.8, 0.9),
+}
+CHIDORI_IN = dict(CHIDORI, pelvis=(0.0, 2.5, -8.5), spine_bend=17.0)
+
+# Katon (the great fireball) charging - walkable, slowly: the tiger seal at the chest, then the
+# right hand up to the mouth, its fingers curled into a ring at the lips, the left arm down, and
+# a deep breath in - the chest up and back, the head tipped back.
+KATON_MOUTH = {
+    "head": (0.0, -4.0), "spine_bend": -2.0,
+    "rhand_at": (-4.5, -8.5, 28.5), "relbow": (-16.0, 0.0, -12.0),
+    "rpalm": ((0.6, 0.75, 0.15), (0.0, 0.2, -1.0)), "rcurl": (1.0, 1.0),
+    "larm": ((0.3, 0.05, -1.0), 0.95), "lelbow": (8.0, 6.0, -10.0),
+    "lpalm": ((0.1, 0.0, -1.0), (-1.0, 0.0, 0.0)), "lcurl": (0.5, 0.6),
+}
+KATON_INHALE = dict(KATON_MOUTH, spine_bend=-11.0, head=(0.0, -16.0), pelvis=(0.0, 0.5, 0.8),
+                    rhand_at=(-4.0, -7.5, 30.5))
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
@@ -159,6 +188,15 @@ ANIMS = {
                                        keys=[(0.0, SHOULDER_REST), (0.5, SHOULDER_REST_IN), (1.0, SHOULDER_REST)]),
     "BOTH_SHINOBI_STRAIGHT": dict(ref=STAND, frames=2, fps=20, loop=-1,
                                   keys=[(0.0, STRAIGHT), (1.0, STRAIGHT)]),
+    # 1.4 s, held: a seal, down into the stance, the lightning gathering in the left hand
+    "BOTH_SHINOBI_CHIDORI_CHARGE": dict(ref=STAND, frames=29, fps=20, loop=-1,
+                                        keys=[(0.0, SEAL_TIGER), (0.15, SEAL_TIGER), (0.38, CHIDORI, "fast"),
+                                              (0.7, CHIDORI_IN), (1.0, CHIDORI_IN)]),
+    # 1.4 s, held: the tiger seal, the hand to the mouth, the long breath in
+    "BOTH_SHINOBI_KATON_INHALE": dict(ref=STAND, frames=29, fps=20, loop=-1,
+                                      keys=[(0.0, SEAL_TIGER), (0.2, SEAL_TIGER), (0.38, KATON_MOUTH, "fast"),
+                                            (1.0, KATON_INHALE, "slow")],
+                                      lag={"head": 1}),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,
                                  keys=[(0.0, {}), (0.28, CROUCH), (0.44, COIL, "slow"),
                                        (0.62, KICK_UP, "snap"), (1.0, KICK_UP)],

@@ -154,8 +154,11 @@ static const int shinobiJutsuCost[SJ_COUNT][SHINOBI_MAX_LEVEL] = {
 #define SHINOBI_JUTSU_PASSIVE(j)   ( (j) == SJ_SKYSTEP )
 // jutsu that last while the key is held, without levels
 #define SHINOBI_JUTSU_HOLD(j)      ( (j) == SJ_SUIRO || (j) == SJ_FLAME || (j) == SJ_SHADOW || (j) == SJ_BURROW || (j) == SJ_SHADOWHIDE || (j) == SJ_RAIDASH || (j) == SJ_HEAL || (j) == SJ_KAITEN || (j) == SJ_PALMS )
-// the lowest level a jutsu can be cast at (the great fireball needs a long charge)
-#define SHINOBI_JUTSU_MIN_LEVEL(j) ( (j) == SJ_KATON ? 2 : 1 )
+// the lowest level a jutsu can be cast at: Katon (the great fireball) and Chidori only at the full
+// charge - one long bar, no Shift quick cast; Chidori charges rooted, Katon at a slow walk
+#define SHINOBI_JUTSU_MIN_LEVEL(j) ( ( (j) == SJ_KATON || (j) == SJ_CHIDORI ) ? SHINOBI_MAX_LEVEL : 1 )
+#define SHINOBI_JUTSU_FULL(j)      ( SHINOBI_JUTSU_MIN_LEVEL( j ) >= SHINOBI_MAX_LEVEL )
+#define SHINOBI_KATON_WALK         0.4f  // charging Katon: this much of the walk (no jumps)
 
 // when each bar is full; Shunshin charges faster than the big jutsu
 static QINLINE int Shinobi_BarEnd( int jutsu, int bar ) {
@@ -806,6 +809,9 @@ static const char * const shinobiSwordFinisherNames[SBF_COUNT] = { "none", "drai
 #define SHINOBI_PAIR_FAST_SCALE    1.2f  // a pair played this much faster (animSpeedScale) fights as a fast stance, else as a medium one
 #define SHINOBI_THRUST_MS          650   // a thrusting blade's thrust (shinobiThrust): about this long
 #define SHINOBI_THRUST_DASH        620   // its own finisher: the thrust with a dash forward, this fast
+#define SHINOBI_SWING_REACH_AT     0.45f // a plain cut that by this much of the swing cut no one (shinobi_bladereach)...
+#define SHINOBI_SWING_REACH_PAD    36    // ... lands on whoever stands within its blade + this (centre to centre; 56-90)...
+#define SHINOBI_SWING_REACH_CONE   0.3f  // ... in front (cosine: about 70 degrees each side) - the blade alone missed half the cuts up close
 #define SHINOBI_THRUST_REACH_AT    0.4f  // a thrust that by this much of it cut no one lands on whoever is straight ahead
 #define SHINOBI_THRUST_CONE        0.9f  // (cosine: about 25 degrees each side), within its blade + 24 (centre to centre)
 #define SHINOBI_THRUST_DASH_PART   0.35f // ... for this much of the move
@@ -1186,6 +1192,12 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 #define SHINOBI_PFRAME_GATE_MASK       7
 #define SHINOBI_PFRAME_WEIGHTS         8
 #define SHINOBI_PFRAME_LOTUS           16   // Reverse Lotus up there / coming down: drawn head down, spinning
+#define SHINOBI_PFRAME_STATE_SHIFT     5    // bits 5-8: the state everyone sees a sign of over the head (SHINOBI_PST_*)
+#define SHINOBI_PFRAME_LEFT_SHIFT      9    // bits 9-15: its time left, tenths of a second (0: while it lasts)
+#define SHINOBI_PFRAME_STATE(f)        ( ( (f) >> SHINOBI_PFRAME_STATE_SHIFT ) & 15 )
+#define SHINOBI_PFRAME_LEFT(f)         ( ( ( (f) >> SHINOBI_PFRAME_LEFT_SHIFT ) & 127 ) * 100 )
+enum { SHINOBI_PST_NONE, SHINOBI_PST_PRISON, SHINOBI_PST_BOUND, SHINOBI_PST_STUN, SHINOBI_PST_LAUNCH, SHINOBI_PST_DOWN,
+	SHINOBI_PST_STAGGER, SHINOBI_PST_FLINCH, SHINOBI_PST_IMMUNE, SHINOBI_PST_COUNT };
 // both spin about the held one's axis: the way they face at a time (deg) - the server puts the
 // caster SHINOBI_LOTUS_BEHIND behind him along it, the cgame turns both models to it
 #define SHINOBI_LOTUS_SPIN_MS          450  // one turn

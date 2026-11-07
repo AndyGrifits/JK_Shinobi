@@ -295,7 +295,9 @@ static void Shinobi_HandHit( gentity_t *ent, gentity_t *victim, vec3_t fwd, vec3
 	shinobiJutsuDamage = 1; // a jutsu, not a punch: no taijutsu bonus
 	shinobiGuardBreaker = ( li == SHINOBI_MAX_LEVEL - 1 ); // a full one smashes through any guard
 	shinobiBlockResult = SBR_NONE;
+	shinobiDamageSource = chidori ? "Chidori" : "Rasengan";
 	G_Damage( victim, ent, ent, dir, point, damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+	shinobiDamageSource = NULL;
 	shinobiGuardBreaker = 0;
 	shinobiJutsuDamage = 0;
 	shinobiHitElement = SE_NONE;
@@ -625,7 +627,7 @@ void Cmd_JutsuBegin_f( gentity_t *ent ) {
 	}
 	if ( jutsu == SJ_DOTON && !client->shinobi.prisonCaster && Shinobi_PushWall( ent ) )
 		return; // our wall was right in front: F shoves it forward instead of raising a new one
-	if ( SHINOBI_MODIFIER( &client->pers.cmd ) && !SHINOBI_JUTSU_HOLD( jutsu ) && jutsu != SJ_SHUNSHIN ) {
+	if ( SHINOBI_MODIFIER( &client->pers.cmd ) && !SHINOBI_JUTSU_HOLD( jutsu ) && jutsu != SJ_SHUNSHIN && !SHINOBI_JUTSU_FULL( jutsu ) ) {
 		// Shift + the key: no charging - the first level at once, for the price of the top one
 		// (holding back too: its alternative form)
 		client->shinobi.castBack = client->pers.cmd.forwardmove < 0;
@@ -747,7 +749,12 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 		const qboolean oneHand = client->ps.weapon == WP_SABER && client->saber[0].model[0] && !client->saber[1].model[0]
 			&& client->saber[0].numBlades <= 1;
 		client->ps.forceHandExtend = HANDEXTEND_TAUNT;
-		client->ps.forceDodgeAnim = oneHand ? BOTH_SHINOBI_SEALS_1H : BOTH_SHINOBI_SEALS;
+		if ( client->shinobi.chargeJutsu == SJ_CHIDORI ) // a seal, then low with the lightning gathering in the hand
+			client->ps.forceDodgeAnim = BOTH_SHINOBI_CHIDORI_CHARGE;
+		else if ( client->shinobi.chargeJutsu == SJ_KATON ) // the seal, the fist to the mouth, the breath in (walking: the upper body)
+			client->ps.forceDodgeAnim = BOTH_SHINOBI_KATON_INHALE;
+		else
+			client->ps.forceDodgeAnim = oneHand ? BOTH_SHINOBI_SEALS_1H : BOTH_SHINOBI_SEALS;
 		client->ps.forceHandExtendTime = level.time + 150;
 	}
 

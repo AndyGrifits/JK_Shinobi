@@ -89,7 +89,8 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_FLINCH;
 	else
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_FLINCH;
-	if ( ( client->shinobi.chargeJutsu == SJ_QUAKE || client->shinobi.palmsStart ) && ent->health > 0 )
+	if ( ( client->shinobi.chargeJutsu == SJ_QUAKE || client->shinobi.chargeJutsu == SJ_CHIDORI || client->shinobi.palmsStart )
+		&& ent->health > 0 ) // (Chidori too: the lightning gathers standing)
 		client->ps.stats[STAT_SHINOBI2] |= SHINOBI_STAT2_ROOTED; // the Earthquake charges standing still (and the 64 Palms' field grows)
 	else
 		client->ps.stats[STAT_SHINOBI2] &= ~SHINOBI_STAT2_ROOTED;
@@ -203,6 +204,7 @@ extern void G_Knockdown( gentity_t *victim );
 void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, float *dmg );
 static void Shinobi_FinisherReach( gentity_t *ent );
 static void Shinobi_ThrustReach( gentity_t *ent );
+static void Shinobi_SwingReach( gentity_t *ent );
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 
 // the stance whose numbers a blade fights by (shinobiSword*): its own, but a pair (the two-blade
@@ -294,6 +296,13 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 			const int style = Shinobi_BladeStyle( c );
 			c->shinobi.bladeSwing++;
 			c->shinobi.thrustSwing = 0;
+			c->shinobi.reachSwing = 0;
+			if ( BG_SaberInAttack( ps->saberMove ) && !BG_SaberInSpecial( ps->saberMove ) && !BG_SaberInKata( ps->saberMove )
+				&& ent->s.number < MAX_CLIENTS ) { // a plain cut: its reach by mid-swing (Shinobi_SwingReach)
+				c->shinobi.reachSwing = c->shinobi.bladeSwing;
+				c->shinobi.reachStart = level.time;
+				c->shinobi.reachDur = ps->torsoTimer > 0 ? ps->torsoTimer : 400;
+			}
 			if ( c->saber[0].shinobiThrust && ps->torsoAnim == BOTH_PULL_IMPALE_STAB && ent->s.number < MAX_CLIENTS ) {
 				c->shinobi.thrustSwing = c->shinobi.bladeSwing; // a thrust: its reach is checked part way (Shinobi_ThrustReach)
 				c->shinobi.thrustStart = level.time;
@@ -325,6 +334,14 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 		&& level.time - c->shinobi.thrustStart >= c->shinobi.thrustDur * SHINOBI_THRUST_REACH_AT ) {
 		c->shinobi.thrustSwing = 0; // (tried once)
 		Shinobi_ThrustReach( ent );
+	}
+	if ( c->shinobi.reachSwing == c->shinobi.bladeSwing && c->shinobi.swingBlow != c->shinobi.bladeSwing
+		&& c->shinobi.thrustSwing != c->shinobi.bladeSwing && c->shinobi.finisherSwing != c->shinobi.bladeSwing
+		&& c->shinobi.bladeReachSwing != c->shinobi.bladeSwing
+		&& BG_SaberInAttack( ps->saberMove ) && ps->weapon == WP_SABER && shinobi_bladereach.integer
+		&& level.time - c->shinobi.reachStart >= c->shinobi.reachDur * SHINOBI_SWING_REACH_AT ) {
+		c->shinobi.reachSwing = 0; // (tried once)
+		Shinobi_SwingReach( ent );
 	}
 	if ( c->shinobi.finisherKind && c->shinobi.finisherSwing == c->shinobi.bladeSwing && !c->shinobi.finisherHit
 		&& ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) && ps->weapon == WP_SABER
@@ -480,6 +497,61 @@ static void Shinobi_ThrustReach( gentity_t *ent ) {
 		Shinobi_Debug( "thrust %i -> %i by reach (%.0f u): %.0f", ent->s.number, best->s.number, bestDist, dmg );
 		if ( dmg > 0 ) {
 			shinobiTest.thrustReach++;
+			G_Damage( best, ent, ent, bestDir, best->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC, MOD_SABER );
+		}
+	}
+}
+
+/*
+A plain cut that by mid-swing hasn't cut anyone: it lands on whoever stands in its reach in front
+(the nearest). The blade's own trace runs on the model's mesh frame by frame and at fighting
+range missed about half of the cuts that plainly went through him. A blow like the blade's own
+(combo, flinch, guard).
+*/
+static void Shinobi_SwingReach( gentity_t *ent ) {
+	gclient_t  *c = ent->client;
+	const float len = c->saber[0].blade[0].lengthMax > 0 ? c->saber[0].blade[0].lengthMax : 40;
+	const float reach = Com_Clamp( 56, 90, len + SHINOBI_SWING_REACH_PAD );
+	gentity_t  *best = NULL;
+	float       bestDist = reach + 1;
+	vec3_t      fwd, yaw, bestDir;
+	int         i;
+
+	VectorSet( yaw, 0, c->ps.viewangles[YAW], 0 );
+	AngleVectors( yaw, fwd, NULL, NULL );
+	for ( i = 0; i < level.num_entities; i++ ) {
+		gentity_t *v = &g_entities[i];
+		vec3_t     d;
+		float      dist;
+		trace_t    tr;
+		if ( !Shinobi_ComboTarget( ent, v ) )
+			continue;
+		VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, d );
+		if ( fabs( d[2] ) > 56 )
+			continue;
+		d[2] = 0;
+		dist = VectorNormalize( d );
+		if ( dist > reach || dist >= bestDist || ( dist > 16 && DotProduct( d, fwd ) < SHINOBI_SWING_REACH_CONE ) )
+			continue;
+		trap->Trace( &tr, ent->r.currentOrigin, NULL, NULL, v->r.currentOrigin, ent->s.number, MASK_SOLID, qfalse, 0, 0 );
+		if ( tr.fraction < 1.0f && tr.entityNum != v->s.number )
+			continue; // a wall between
+		best = v;
+		bestDist = dist;
+		VectorCopy( d, bestDir );
+	}
+	if ( !best ) {
+		shinobiTest.swingReachMissed++;
+		return;
+	}
+	if ( Shinobi_SaberGuardUp( best ) && Shinobi_FacingHit( best, ent->r.currentOrigin )
+		&& Shinobi_SaberGuard( best, ent, shinobiSwordDamage[Shinobi_BladeStyle( c )], best->r.currentOrigin ) )
+		return; // his blade held it (it counts for the combo there)
+	{
+		const float dmg = Shinobi_BladeDamage( ent, best, 0 );
+		Shinobi_Debug( "cut %i -> %i by reach (%.0f u of %.0f): %.0f", ent->s.number, best->s.number, bestDist, reach, dmg );
+		if ( dmg > 0 ) {
+			shinobiTest.swingReach++;
 			G_Damage( best, ent, ent, bestDir, best->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC, MOD_SABER );
 		}
 	}

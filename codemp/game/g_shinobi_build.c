@@ -451,6 +451,7 @@ static void Shinobi_OpenGates( gentity_t *ent ) {
 	}
 }
 
+static int Shinobi_StateBits( gentity_t *ent );
 static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
 	gclient_t *client = ent->client;
 	vec3_t     up = { 0, 0, 1 };
@@ -514,7 +515,7 @@ static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
 	frame = client->shinobi.gate & SHINOBI_PFRAME_GATE_MASK;
 	if ( alive && perk == SP_GATES && !client->shinobi.weightsOff )
 		frame |= SHINOBI_PFRAME_WEIGHTS;
-	ent->s.frame = frame;
+	ent->s.frame = frame | Shinobi_StateBits( ent );
 }
 
 void Cmd_Perk_f( gentity_t *ent ) {
@@ -789,6 +790,98 @@ void Shinobi_HitText( gentity_t *targ, int kind, int value ) {
 	trap->SendServerCommand( -1, va( "stx %i %i %i", targ->s.number, kind, value ) );
 }
 
+/*
+What a blow came from, in words, for the "sdm" event (the hit flash, the hit marker, the log of
+the last blows taken in the cgame): the jutsu's own entity, else what the attacker is doing, else
+the means of death.
+*/
+extern char *modNames[MOD_MAX];
+const char *shinobiDamageSource; // set around a G_Damage whose source can't be told below (else NULL)
+static const char *Shinobi_DamageSource( gentity_t *targ, gentity_t *attacker, gentity_t *inflictor, int mod ) {
+	static const char * const byClass[][2] = {
+		{ "shinobi_fireball", "Katon" }, { "shinobi_flame", "Fire Breath" }, { "shinobi_waterball", "Water Bullets" },
+		{ "shinobi_wave", "Water Wave" }, { "shinobi_blade", "Wind Blade" }, { "shinobi_windslash", "Wind Edge" },
+		{ "shinobi_kunai", "Kunai" }, { "shinobi_exkunai", "Explosive Tag" }, { "shinobi_tag", "Explosive Tag" },
+		{ "shinobi_shuriken", "Shuriken" }, { "shinobi_star", "Fuma Shuriken" }, { "shinobi_quake", "Earthquake" },
+		{ "shinobi_rockpillar_ctrl", "Rock Pillar" }, { "shinobi_pillarcast", "Rock Pillar" }, { "shinobi_earthwall", "Doton" },
+		{ "shinobi_earthwall_ctrl", "Doton" }, { "shinobi_rainet", "Lightning Trap" }, { "shinobi_palms", "64 Seals" },
+		{ "shinobi_finisher", "Finisher" }, { "shinobi_weight", "Weights" }, { "shinobi_zone", "Ash Cloud" },
+		{ "shinobi_smokebomb", "Smoke Bomb" }, { "shinobi_shadowtrap", "Shadow Trap" }, { "shinobi_shadow", "Shadow Bind" },
+		{ "shinobi_log", "Kawarimi" },
+	};
+	gclient_t *ac = ( attacker && attacker->client ) ? attacker->client : NULL;
+	int        i;
+
+	if ( shinobiDamageSource )
+		return shinobiDamageSource;
+	if ( inflictor && inflictor != attacker && inflictor->classname ) {
+		for ( i = 0; i < (int)ARRAY_LEN( byClass ); i++ )
+			if ( !Q_stricmp( inflictor->classname, byClass[i][0] ) )
+				return byClass[i][1];
+		if ( !Q_strncmp( inflictor->classname, "shinobi_", 8 ) )
+			return inflictor->classname + 8;
+	}
+	switch ( mod ) {
+	case MOD_FALLING:       return "Fall";
+	case MOD_WATER:         return ( targ && targ->client && targ->client->shinobi.prisonCaster ) ? "Water Prison" : "Water";
+	case MOD_LAVA:          return "Burning";
+	case MOD_SLIME:         return "Poison";
+	case MOD_CRUSH:         return "Crushed";
+	case MOD_ROCKET:
+	case MOD_ROCKET_SPLASH: return "Katon";
+	case MOD_FORCE_DARK:
+	case MOD_DEMP2:         return "Lightning";
+	default:                break;
+	}
+	if ( ac ) {
+		if ( ac->shinobi.lotusPhase )
+			return "Reverse Lotus";
+		if ( ac->shinobi.entryEnd > level.time )
+			return "Dynamic Entry";
+		if ( ac->shinobi.kaitenStart )
+			return "Kaiten";
+		if ( mod == MOD_SABER )
+			return ac->saber[0].fullName[0] ? ac->saber[0].fullName : "Blade";
+		if ( mod == MOD_MELEE )
+			return shinobiJutsuDamage ? "Jutsu" : "Taijutsu";
+	}
+	return ( mod > 0 && mod < MOD_MAX && modNames[mod] ) ? modNames[mod] + 4 : "?";
+}
+
+/*
+A player's state for everyone to see (the cgame draws its sign over the head): bits 5-8 of s.frame
+(SHINOBI_PST_*), the time left in tenths of a second in bits 9-15 (0: as long as it lasts).
+*/
+static int Shinobi_StateBits( gentity_t *ent ) {
+	gclient_t *c = ent->client;
+	int        st = SHINOBI_PST_NONE, left = 0;
+
+	if ( ent->health <= 0 || SHINOBI_UNSEEN( &c->ps ) )
+		return 0; // (a sign over a hidden one would give him away)
+	if ( c->shinobi.prisonCaster )
+		st = SHINOBI_PST_PRISON;
+	else if ( c->shinobi.shadowBy || c->shinobi.shadowTrapEnt )
+		st = SHINOBI_PST_BOUND;
+	else if ( c->shinobi.stunEnd > level.time )
+		st = SHINOBI_PST_STUN, left = c->shinobi.stunEnd - level.time;
+	else if ( c->shinobi.juggleEnd > level.time && c->shinobi.juggleBy )
+		st = SHINOBI_PST_LAUNCH, left = c->shinobi.juggleEnd - level.time;
+	else if ( c->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN )
+		st = SHINOBI_PST_DOWN, left = c->ps.forceHandExtendTime - level.time;
+	else if ( c->shinobi.staggerEnd > level.time )
+		st = SHINOBI_PST_STAGGER, left = c->shinobi.staggerEnd - level.time;
+	else if ( c->shinobi.flinchEnd > level.time )
+		st = SHINOBI_PST_FLINCH, left = c->shinobi.flinchEnd - level.time;
+	else if ( c->shinobi.ccImmuneEnd > level.time )
+		st = SHINOBI_PST_IMMUNE, left = c->shinobi.ccImmuneEnd - level.time;
+	if ( left < 0 )
+		left = 0;
+	left = ( left + 99 ) / 100;
+	if ( left > 127 )
+		left = 127;
+	return ( st << SHINOBI_PFRAME_STATE_SHIFT ) | ( left << SHINOBI_PFRAME_LEFT_SHIFT );
+}
+
 void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	gclient_t *c;
 	int        kind;
@@ -807,7 +900,9 @@ void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ) {
 	if ( take > 0 && targ && targ->client && attacker && attacker->client && targ != attacker ) {
 		if ( attacker->s.number < MAX_CLIENTS )
 			Shinobi_GateDamage( attacker, take ); // (the Inner Gates: the way to the next)
-		Shinobi_HitText( targ, STX_DAMAGE, take ); // the damage number over him
+		// the blow for everyone's cgame: the flash on him, the marker for the one hitting, his log of blows taken
+		trap->SendServerCommand( -1, va( "sdm %i %i %i \"%s\"", targ->s.number, attacker->s.number, take,
+			Shinobi_DamageSource( targ, attacker, shinobiTestInflictor, mod ) ) );
 		// the fight feeds chakra: to the one hitting, and a little to the one hit
 		Shinobi_GainChakra( attacker, take * ( ( ( mod == MOD_MELEE || mod == MOD_SABER ) && !shinobiJutsuDamage )
 			? SHINOBI_GAIN_HIT_PCT : SHINOBI_GAIN_JUTSU_PCT ) / 100.0f, qfalse );
