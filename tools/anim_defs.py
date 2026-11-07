@@ -167,6 +167,59 @@ KATON_MOUTH = {
 KATON_INHALE = dict(KATON_MOUTH, spine_bend=-11.0, head=(0.0, -16.0), pelvis=(0.0, 0.5, 0.8),
                     rhand_at=(-4.0, -7.5, 30.5))
 
+# Fencing (the thrusting needle blade, shinobiThrust - Nuibari): side-on en garde, the right foot
+# forward, knees bent, the sword arm forward with the point at the eyes, the left arm up behind;
+# the attacks are thrusts and lunges from it, back to it each time (no swinging the blade round).
+# (body_yaw + turns the chest to its left: the right side comes forward)
+EN_GARDE = {
+    "body_yaw": 62.0, "pelvis": (0.0, 0.0, -5.0), "spine_bend": 4.0, "head": (-52.0, 2.0),
+    "rfoot": (2.0, -12.0, 0.0), "rknee": (-4.0, -20.0, 0.0), "rfoot_yaw": -5.0,
+    "lfoot": (-2.0, 9.0, 0.0), "lknee": (14.0, -12.0, 0.0), "lfoot_yaw": 70.0,
+    "rarm": ((-0.1, -0.95, -0.12), 0.78), "relbow": (-6.0, 2.0, -16.0),
+    "rgrip": ((0.0, -0.97, 0.2), (0.9, 0.0, 0.35)), "rcurl": 1.0,
+    "larm": ((0.55, 0.45, 0.45), 0.62), "lelbow": (14.0, 6.0, -2.0),
+    "lpalm": ((0.1, -0.2, 1.0), (0.0, -1.0, 0.0)), "lcurl": (0.25, 0.4),
+}
+EN_GARDE_IN = dict(EN_GARDE, pelvis=(0.0, 0.5, -5.8), spine_bend=5.5)
+# the arm first: the point goes out, the feet still
+EXTEND = dict(EN_GARDE, rarm=((-0.02, -0.98, -0.12), 0.98), relbow=(-6.0, 0.0, -18.0),
+              rgrip=((0.0, -0.99, 0.1), (0.85, 0.0, 0.5)))
+# the lunge: the front foot far forward, the back leg straight, the body low, the arm and the
+# blade one line at the chest, the left arm flung down and back
+LUNGE = {
+    "body_yaw": 68.0, "pelvis": (0.0, -12.0, -12.5), "spine_bend": 8.0, "head": (-58.0, -2.0),
+    "rfoot": (2.0, -32.0, 0.0), "rknee": (-4.0, -20.0, 6.0), "rfoot_yaw": -5.0,
+    "lfoot": (-3.0, 16.0, 0.0), "lknee": (14.0, -6.0, 0.0), "lfoot_yaw": 80.0,
+    "rarm": ((-0.03, -0.99, 0.05), 1.0), "relbow": (-4.0, 0.0, -18.0),
+    "rgrip": ((0.0, -0.995, 0.04), (0.8, 0.0, 0.6)), "rcurl": 1.0,
+    "larm": ((0.35, 0.72, -0.6), 0.99), "lelbow": (8.0, 10.0, 6.0),
+    "lpalm": ((0.35, 0.72, -0.6), (1.0, 0.0, 0.0)), "lcurl": (0.0, 0.1),
+}
+# a quick thrust high (a half step, at the head), low (down at the legs)
+THRUST_HIGH = dict(EXTEND, pelvis=(0.0, -6.0, -6.0), rfoot=(2.0, -20.0, 0.0), spine_bend=6.0,
+                   rarm=((-0.03, -0.98, 0.15), 1.0), rgrip=((0.0, -0.98, 0.18), (0.85, 0.0, 0.5)),
+                   head=(-44.0, -6.0))
+THRUST_LOW = dict(EXTEND, pelvis=(0.0, -8.0, -11.0), rfoot=(2.0, -22.0, 0.0), spine_bend=18.0,
+                  rarm=((-0.05, -0.92, -0.38), 1.0), rgrip=((0.0, -0.94, -0.33), (0.85, 0.0, 0.5)),
+                  head=(-44.0, 12.0))
+# the cuts (strafing: a flick of the wrist across, the sabre's way): the point up and over to one
+# side, then across and down to the other, back to guard
+CUT_WIND_R = dict(EN_GARDE, rarm=((-0.35, -0.75, 0.2), 0.85), relbow=(-14.0, 2.0, -10.0),
+                  rgrip=((-0.45, -0.35, 0.82), (0.5, -0.6, 0.0)))
+CUT_DOWN_L = dict(EXTEND, rarm=((0.3, -0.92, -0.25), 0.98), relbow=(-8.0, 0.0, -16.0),
+                  rgrip=((0.6, -0.7, -0.38), (0.0, -0.3, -0.95)), pelvis=(0.0, -5.0, -7.0))
+CUT_WIND_L = dict(EN_GARDE, rarm=((0.25, -0.85, 0.3), 0.8), relbow=(-10.0, 2.0, -14.0),
+                  rgrip=((0.4, -0.4, 0.82), (0.6, 0.0, -0.8)))
+CUT_DOWN_R = dict(EXTEND, rarm=((-0.4, -0.88, -0.25), 0.98), relbow=(-12.0, 0.0, -14.0),
+                  rgrip=((-0.65, -0.65, -0.38), (0.0, -0.3, 0.95)), pelvis=(0.0, -5.0, -7.0))
+# the fleche (its own finisher, with a dash): thrown forward off the front foot, the back leg
+# coming through, everything behind the point
+FLECHE = dict(LUNGE, body_pitch=14.0, pelvis=(0.0, -16.0, -6.0), spine_bend=6.0,
+              lfoot=(-1.0, -6.0, 8.0), lknee=(6.0, -20.0, 6.0), rfoot=(2.0, -26.0, 0.0),
+              rarm=((-0.03, -0.97, 0.22), 1.0), rgrip=((0.0, -0.97, 0.22), (0.8, 0.0, 0.6)))
+# a feint: the point dips and comes back (the moves between the thrusts)
+FEINT = dict(EN_GARDE, rarm=((-0.08, -0.9, -0.45), 0.78), rgrip=((0.05, -0.9, -0.05), (0.9, 0.0, 0.35)))
+
 ANIMS = {
     "BOTH_SHINOBI_STANCE_HYUGA": dict(ref=STAND, frames=11, fps=20, loop=-1,
                                       keys=[(0.0, {}), (1.0, HYUGA)]),
@@ -197,6 +250,31 @@ ANIMS = {
                                       keys=[(0.0, SEAL_TIGER), (0.2, SEAL_TIGER), (0.38, KATON_MOUTH, "fast"),
                                             (1.0, KATON_INHALE, "slow")],
                                       lag={"head": 1}),
+    # the needle blade's fencing (all from and back to the en garde; the attack moves' times)
+    "BOTH_SHINOBI_FENCE_STANCE": dict(ref=STAND, frames=41, fps=20, loop=0,
+                                      keys=[(0.0, EN_GARDE), (0.5, EN_GARDE_IN), (1.0, EN_GARDE)]),
+    "BOTH_SHINOBI_FENCE_LUNGE": dict(ref=STAND, frames=21, fps=30, loop=-1,
+                                     keys=[(0.0, EN_GARDE), (0.18, EXTEND, "fast"), (0.42, LUNGE, "snap"),
+                                           (0.6, LUNGE), (1.0, EN_GARDE)],
+                                     lag={"larm": 2, "lleg": 1}),
+    "BOTH_SHINOBI_FENCE_HIGH": dict(ref=STAND, frames=15, fps=30, loop=-1,
+                                    keys=[(0.0, EN_GARDE), (0.35, THRUST_HIGH, "snap"), (0.55, THRUST_HIGH),
+                                          (1.0, EN_GARDE)]),
+    "BOTH_SHINOBI_FENCE_LOW": dict(ref=STAND, frames=15, fps=30, loop=-1,
+                                   keys=[(0.0, EN_GARDE), (0.35, THRUST_LOW, "snap"), (0.55, THRUST_LOW),
+                                         (1.0, EN_GARDE)]),
+    "BOTH_SHINOBI_FENCE_CUT_L": dict(ref=STAND, frames=15, fps=30, loop=-1,
+                                     keys=[(0.0, EN_GARDE), (0.25, CUT_WIND_R, "slow"), (0.55, CUT_DOWN_L, "fast"),
+                                           (1.0, EN_GARDE)]),
+    "BOTH_SHINOBI_FENCE_CUT_R": dict(ref=STAND, frames=15, fps=30, loop=-1,
+                                     keys=[(0.0, EN_GARDE), (0.25, CUT_WIND_L, "slow"), (0.55, CUT_DOWN_R, "fast"),
+                                           (1.0, EN_GARDE)]),
+    "BOTH_SHINOBI_FENCE_FLECHE": dict(ref=STAND, frames=24, fps=30, loop=-1,
+                                      keys=[(0.0, EN_GARDE), (0.15, EXTEND, "fast"), (0.45, FLECHE, "snap"),
+                                            (0.65, LUNGE), (1.0, EN_GARDE)],
+                                      lag={"larm": 2, "lleg": 2}),
+    "BOTH_SHINOBI_FENCE_FEINT": dict(ref=STAND, frames=6, fps=30, loop=-1,
+                                     keys=[(0.0, EN_GARDE), (0.45, FEINT), (1.0, EN_GARDE)]),
     "BOTH_SHINOBI_KICK_UP": dict(ref=STAND, frames=25, fps=30, loop=-1,
                                  keys=[(0.0, {}), (0.28, CROUCH), (0.44, COIL, "slow"),
                                        (0.62, KICK_UP, "snap"), (1.0, KICK_UP)],

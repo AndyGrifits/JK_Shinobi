@@ -3872,16 +3872,37 @@ void PM_SetSaberMove(short newMove)
 		anim += (pm->ps->fd.saberAnimLevel-FORCE_LEVEL_1) * SABER_ANIM_GROUP_SIZE;
 	}
 
-	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) thrusts instead of cutting - a straight
-	// stab for every cut but the plain side ones (strafing: its own stock cut), and for its own
-	// finisher (the lunge move): the stab with a dash forward (PM_ShinobiThrustDash)
-	if ( ( ( newMove >= LS_A_TL2BR && newMove <= LS_A_T2B && newMove != LS_A_L2R && newMove != LS_A_R2L )
-			|| newMove == LS_A_LUNGE ) && pm->ps->clientNum < MAX_CLIENTS )
+	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) fences - side-on en garde, and every
+	// attack a thrust or a lunge from it and back (our own anims, tools/anim_defs.py): the overhead
+	// a lunge, the high diagonals a thrust high, the low ones low, the side ones a flick cut across;
+	// the moves between (starts, transitions, returns) a feint of the point; its own finisher (the
+	// lunge move) the fleche, with a dash forward (PM_ShinobiSwordDive)
+	if ( pm->ps->clientNum < MAX_CLIENTS && pm->ps->weapon == WP_SABER )
 	{
 		const saberInfo_t *s0 = BG_MySaber( pm->ps->clientNum, 0 );
+		int fence = -1;
 		if ( s0 && s0->shinobiThrust )
 		{
-			anim = BOTH_PULL_IMPALE_STAB;
+			switch ( newMove )
+			{
+			case LS_A_T2B:   fence = BOTH_SHINOBI_FENCE_LUNGE; break;
+			case LS_A_TL2BR:
+			case LS_A_TR2BL: fence = BOTH_SHINOBI_FENCE_HIGH; break;
+			case LS_A_BL2TR:
+			case LS_A_BR2TL: fence = BOTH_SHINOBI_FENCE_LOW; break;
+			case LS_A_R2L:   fence = BOTH_SHINOBI_FENCE_CUT_L; break;
+			case LS_A_L2R:   fence = BOTH_SHINOBI_FENCE_CUT_R; break;
+			case LS_A_LUNGE: fence = BOTH_SHINOBI_FENCE_FLECHE; break;
+			default:
+				if ( ( newMove >= LS_S_TL2BR && newMove <= LS_S_T2B ) || ( newMove >= LS_R_TL2BR && newMove <= LS_R_T2B )
+					|| PM_SaberInTransition( newMove ) )
+					fence = BOTH_SHINOBI_FENCE_FEINT;
+				break;
+			}
+		}
+		if ( fence >= 0 )
+		{
+			anim = fence;
 			setflags |= SETANIM_FLAG_RESTART;
 			if ( newMove == LS_A_LUNGE )
 			{

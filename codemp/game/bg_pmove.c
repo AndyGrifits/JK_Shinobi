@@ -333,6 +333,10 @@ int PM_GetSaberStance(void)
 	case SS_DESANN:
 	default:
 		anim = BOTH_STAND2;
+		if ( saber1 && !saber2 && saber1->shinobiThrust )
+		{ // JK_Shinobi: the needle blade fences: side-on en garde
+			anim = BOTH_SHINOBI_FENCE_STANCE;
+		}
 		break;
 	}
 	return anim;
@@ -4908,6 +4912,7 @@ qboolean PM_AdjustStandAnimForSlope( void )
 	case BOTH_SABERFAST_STANCE:
 	case BOTH_SABERSLOW_STANCE:
 	case BOTH_SHINOBI_SHOULDER_REST:
+	case BOTH_SHINOBI_FENCE_STANCE:
 	case BOTH_CROUCH1IDLE:
 	case BOTH_CROUCH1:
 	case LEGS_LEFTUP1:			//# On a slope with left foot 4 higher than right
@@ -5044,6 +5049,7 @@ qboolean PM_AdjustStandAnimForSlope( void )
 		case BOTH_SABERFAST_STANCE:
 		case BOTH_SABERSLOW_STANCE:
 		case BOTH_SHINOBI_SHOULDER_REST:
+		case BOTH_SHINOBI_FENCE_STANCE:
 		case BOTH_CROUCH1IDLE:
 			if ( destAnim >= LEGS_LEFTUP1 && destAnim <= LEGS_LEFTUP5 )
 			{//going into left side up
@@ -5215,6 +5221,7 @@ static void PM_Footsteps( void ) {
 		|| (pm->ps->legsAnim) == BOTH_SABERFAST_STANCE
 		|| (pm->ps->legsAnim) == BOTH_SABERSLOW_STANCE
 		|| (pm->ps->legsAnim) == BOTH_SHINOBI_SHOULDER_REST
+		|| (pm->ps->legsAnim) == BOTH_SHINOBI_FENCE_STANCE
 		|| (pm->ps->legsAnim) == BOTH_BUTTON_HOLD
 		|| (pm->ps->legsAnim) == BOTH_BUTTON_RELEASE
 		|| PM_LandingAnim( (pm->ps->legsAnim) )
@@ -10389,12 +10396,12 @@ static void PM_ShinobiSwordDive( qboolean attackNew )
 		ps->stats[STAT_SHINOBI_COMBO] &= ~SHINOBI_COMBO_AIR; // (the Shunshin up after the rising cut: down again)
 
 	// a thrusting blade's own finisher: the dash forward goes on for the first part of the thrust
-	if ( ps->saberMove == LS_A_LUNGE && ps->torsoAnim == BOTH_PULL_IMPALE_STAB && s0 && s0->shinobiThrust && ps->torsoTimer > 0
+	if ( ps->saberMove == LS_A_LUNGE && ps->torsoAnim == BOTH_SHINOBI_FENCE_FLECHE && s0 && s0->shinobiThrust && ps->torsoTimer > 0
 		&& pm->animations )
 	{
-		const animation_t *a = &pm->animations[BOTH_PULL_IMPALE_STAB];
+		const animation_t *a = &pm->animations[BOTH_SHINOBI_FENCE_FLECHE];
 		float speed = 1.0f, start;
-		BG_SaberStartTransAnim( ps->clientNum, ps->fd.saberAnimLevel, ps->weapon, BOTH_PULL_IMPALE_STAB, &speed, ps->brokenLimbs );
+		BG_SaberStartTransAnim( ps->clientNum, ps->fd.saberAnimLevel, ps->weapon, BOTH_SHINOBI_FENCE_FLECHE, &speed, ps->brokenLimbs );
 		start = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp ) * ( 2.0f - speed ); // (the move's timer at its start)
 		if ( ps->torsoTimer > start * ( 1.0f - SHINOBI_THRUST_DASH_PART ) )
 		{

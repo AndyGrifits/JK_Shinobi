@@ -58,6 +58,7 @@ qboolean BG_SaberStanceAnim( int anim )
 	case BOTH_SABERFAST_STANCE://single-saber, fast style
 	case BOTH_SABERSLOW_STANCE://single-saber, strong style
 	case BOTH_SHINOBI_SHOULDER_REST://JK_Shinobi: a heavy single blade at rest
+	case BOTH_SHINOBI_FENCE_STANCE://JK_Shinobi: the needle blade's en garde
 	case BOTH_SABERSTAFF_STANCE://saber staff style
 	case BOTH_SABERDUAL_STANCE://dual saber style
 		return qtrue;
@@ -159,6 +160,7 @@ qboolean BG_InSaberStandAnim( int anim )
 	case BOTH_STAND2:
 	case BOTH_SABERSLOW_STANCE:
 	case BOTH_SHINOBI_SHOULDER_REST:
+	case BOTH_SHINOBI_FENCE_STANCE:
 	case BOTH_SABERDUAL_STANCE:
 	case BOTH_SABERSTAFF_STANCE:
 		return qtrue;

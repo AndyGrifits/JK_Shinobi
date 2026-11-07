@@ -314,7 +314,7 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 				c->shinobi.reachStart = level.time;
 				c->shinobi.reachDur = ps->torsoTimer > 0 ? ps->torsoTimer : 400;
 			}
-			if ( c->saber[0].shinobiThrust && ps->torsoAnim == BOTH_PULL_IMPALE_STAB && ent->s.number < MAX_CLIENTS ) {
+			if ( c->saber[0].shinobiThrust && SHINOBI_FENCE_THRUST( ps->torsoAnim ) && ent->s.number < MAX_CLIENTS ) {
 				c->shinobi.thrustSwing = c->shinobi.bladeSwing; // a thrust: its reach is checked part way (Shinobi_ThrustReach)
 				c->shinobi.thrustStart = level.time;
 				c->shinobi.thrustDur = ps->torsoTimer > 0 ? ps->torsoTimer : 400;

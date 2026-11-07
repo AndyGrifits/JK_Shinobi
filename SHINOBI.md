@@ -338,7 +338,7 @@ entry at the end of `anims.h` and `cgame/animtable.h`. Re-running replaces the e
 a GIF) to check them without the game. The stock `_humanoid.gla` / `animation.cfg` came
 out of `base/assets1.pk3` (`JK_Shinobi_ExtractSkeleton.bat` copies them to
 `shinobi\src\`). Now: `BOTH_SHINOBI_STANCE_HYUGA` (the 64 Seals stance,
-`shinobi_stanceAnim`).
+`shinobi_stanceAnim`), the needle blade's fencing set `BOTH_SHINOBI_FENCE_*` (en garde stance, lunge, thrusts high / low, flick cuts, the fleche finisher, a feint for the moves between; `bg_saber.c` PM_SetSaberMove maps the attack moves onto them for a `shinobiThrust` blade; autotest `fence`).
 
 ## Package for friends
 

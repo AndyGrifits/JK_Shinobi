@@ -1816,6 +1816,14 @@ typedef enum //# animNumber_e
 	BOTH_SHINOBI_SHOULDER_REST,	//# a heavy single blade at rest: on the shoulders behind the head
 	BOTH_SHINOBI_CHIDORI_CHARGE,//# Chidori charging: a seal, then low, the left hand down forward gathering lightning
 	BOTH_SHINOBI_KATON_INHALE,	//# Katon charging: the tiger seal, the fist to the mouth, a long breath in
+	BOTH_SHINOBI_FENCE_STANCE,	//# the needle blade's en garde (side-on, point at the eyes, left arm up behind; breathes)
+	BOTH_SHINOBI_FENCE_LUNGE,	//# its lunge (the plain overhead): arm, then the front foot far out, back to guard
+	BOTH_SHINOBI_FENCE_HIGH,	//# a quick thrust high (a half step)
+	BOTH_SHINOBI_FENCE_LOW,	//# a quick thrust low
+	BOTH_SHINOBI_FENCE_CUT_L,	//# a flick cut across, from its right to its left
+	BOTH_SHINOBI_FENCE_CUT_R,	//# a flick cut across, from its left to its right
+	BOTH_SHINOBI_FENCE_FLECHE,	//# its own finisher: the fleche (with the dash)
+	BOTH_SHINOBI_FENCE_FEINT,	//# a feint: the point dips (the moves between thrusts)
 
 	//# #eol
 	MAX_ANIMATIONS,
