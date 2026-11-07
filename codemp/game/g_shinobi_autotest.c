@@ -2186,6 +2186,38 @@ static void BR_Place( int k ) {
 	at.v[8] = level.time;
 	at.v[9] = A->client->shinobi.bladeSwing;
 }
+/*
+blade_hold: the katana (medium), attack and forward held into B for 5 s - the held attack chains
+swings (the same move again too): every swing that reaches him is a blow
+*/
+static void T_BladeHold_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 44, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	G_SetSaber( A, 0, "shinobi_katana", qfalse );
+	G_SetSaber( A, 1, "none", qfalse );
+	G_SaberModelSetup( A );
+	AT_Weapon( 0, WP_SABER );
+	A->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( A );
+	at.drive[0].aimAt = qtrue;
+	at.v[0] = shinobiSwingStarts[at.a];
+}
+static atResult_t T_BladeHold( int t ) {
+	if ( B->health < 200 )
+		B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	B->client->ps.eFlags &= ~EF_INVULNERABLE;
+	AT_Drive( 0, t > 300 && t < 5300 ? 127 : 0, 0, 0, t > 300 && t < 5300 ? BUTTON_ATTACK : 0 );
+	if ( t >= 6200 ) {
+		int hits = 0;
+		const int swings = shinobiSwingStarts[at.a] - at.v[0];
+		AT_DamageTo( B, at.start, NULL, MOD_SABER, &hits, NULL );
+		AT_Msg( "attack + forward held 5 s: %i swings begun, %i blows on B", swings, hits );
+		return ( swings >= 4 && hits >= swings - 1 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static void T_BladeReach_Setup( void ) {
 	G_SetSaber( A, 0, "shinobi_katana", qfalse );
 	G_SetSaber( A, 1, "none", qfalse );
@@ -2427,6 +2459,7 @@ static atTest_t atTests[] = {
 	{ "bot_interrupt","a bot breaks seals formed close by and far off",           T_BotInterrupt_Setup, T_BotInterrupt, 9500 },
 	{ "bot_dodge",    "a bot steps away from fireballs",                          T_BotDodge_Setup, T_BotDodge, 9000 },
 	{ "bot_keepoff",  "a bot keeps off a spinning Kaiten",                        T_BotKeepOff_Setup, T_BotKeepOff, 4000 },
+	{ "blade_hold",   "a held attack running in: every swing that reaches him is a blow", T_BladeHold_Setup, T_BladeHold, 7000 },
 	{ "blade_reach",  "plain cuts at 30 / 48 / 66 u: the blade alone and with the reach", T_BladeReach_Setup, T_BladeReach, 6 * BR_MS + 1000 },
 	{ "bot_nav",      "on a map without bot routes a bot hunts instead of hopping", T_BotNav_Setup, T_BotNav, 6000 },
 };

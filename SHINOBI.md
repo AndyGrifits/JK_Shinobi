@@ -424,7 +424,7 @@ A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`).
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
-style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts,
+style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts (a swing: every attack move Pmove begins - a held attack chaining the same cut again is a new swing each time; `blade_hold`),
 for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 8 -
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the

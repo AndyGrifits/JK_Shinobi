@@ -3768,6 +3768,13 @@ void PM_SetSaberMove(short newMove)
 	{//continuing with a kata, increment attack counter
 		pm->ps->saberAttackChainCount++;
 	}
+#if defined(_GAME)
+	if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )
+	{ // JK_Shinobi: every swing begun - the same move again too (g_shinobi_block.c: one blow per swing)
+		extern int shinobiSwingStarts[MAX_CLIENTS];
+		shinobiSwingStarts[pm->ps->clientNum]++;
+	}
+#endif
 
 	if (pm->ps->saberAttackChainCount > 16)
 	{ //for the sake of being able to send the value over the net within a reasonable bit count

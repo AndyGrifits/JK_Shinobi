@@ -837,6 +837,7 @@ struct gclient_s {
 		// one blade hit per swing (Shinobi_BladeDamage)
 		int		bladeSwing;		// swings started so far (a new attack move / its anim restarted)
 		int		bladeMove, bladeAnim, bladeTimer; // what the last look saw
+		int		bladeStarts, bladeSwingReal; // Pmove's swing starts last seen (shinobiSwingStarts); the last swing begun by one
 		int		bladeHitBy[4], bladeHitSwing[4], bladeHitTime[4]; // victim side: the last blades that hit him
 		int		bladeChain, bladeChainVictim, bladeChainTime; // the blade combo: hits landed, on whom (+1), when
 		int		fistChain, fistChainVictim, fistChainTime, fistComboSeen; // the fist combo, the same way (+ the combo stat last seen)
@@ -1604,6 +1605,7 @@ void     Cmd_Chakra_f( gentity_t *ent );
 qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
+extern int shinobiSwingStarts[MAX_CLIENTS]; // bg_saber.c PM_SetSaberMove: attack moves begun, per client
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 #define SBR_NONE    0
 #define SBR_BLOCKED 1

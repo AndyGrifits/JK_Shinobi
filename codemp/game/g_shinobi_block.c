@@ -11,6 +11,7 @@ extern qboolean BG_SabersOff( playerState_t *ps );
 
 int shinobiGuardBreaker = 0;
 int shinobiBlockResult = SBR_NONE;
+int shinobiSwingStarts[MAX_CLIENTS];
 
 void Shinobi_Stagger( gentity_t *ent, int ms ) {
 	gclient_t *client = ent->client;
@@ -296,10 +297,15 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 	}
 
 	if ( BG_SaberInAttack( ps->saberMove ) || BG_SaberInSpecial( ps->saberMove ) ) {
-		if ( ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim ) {
+		// a new swing: Pmove began an attack move (the same one again too - a held attack chains
+		// them, the anim restarted) or the move / its anim changed some other way
+		const qboolean begun = ent->s.number < MAX_CLIENTS && shinobiSwingStarts[ent->s.number] != c->shinobi.bladeStarts;
+		if ( begun || ps->saberMove != c->shinobi.bladeMove || ps->torsoAnim != c->shinobi.bladeAnim ) {
 			const int kind = Shinobi_FinisherKindOfMove( ps->saberMove );
 			const int style = Shinobi_BladeStyle( c );
 			c->shinobi.bladeSwing++;
+			if ( begun )
+				c->shinobi.bladeSwingReal = c->shinobi.bladeSwing;
 			c->shinobi.thrustSwing = 0;
 			c->shinobi.reachSwing = 0;
 			if ( BG_SaberInAttack( ps->saberMove ) && !BG_SaberInSpecial( ps->saberMove ) && !BG_SaberInKata( ps->saberMove )
@@ -356,6 +362,8 @@ void Shinobi_BladeSwingUpdate( gentity_t *ent ) {
 	}
 	c->shinobi.bladeMove = ps->saberMove;
 	c->shinobi.bladeAnim = ps->torsoAnim;
+	if ( ent->s.number < MAX_CLIENTS )
+		c->shinobi.bladeStarts = shinobiSwingStarts[ent->s.number];
 	c->shinobi.bladeTimer = ps->torsoTimer;
 }
 
@@ -378,8 +386,10 @@ static qboolean Shinobi_BladeNewBlow( gentity_t *attacker, gentity_t *victim, qb
 		if ( vc->shinobi.bladeHitSwing[slot] == ac->shinobi.bladeSwing
 			&& ( !special || finisher || since < SHINOBI_BLADE_SPECIAL_MS ) )
 			return qfalse; // this swing cut him already (a kata again after a while)
-		if ( since < shinobiSwordRehitMs[ac->ps.fd.saberAnimLevel == SS_DUAL ? SS_DUAL : style] && !finisher )
-			return qfalse; // (a cut seen as two swings: still one blow)
+		if ( since < shinobiSwordRehitMs[ac->ps.fd.saberAnimLevel == SS_DUAL ? SS_DUAL : style] && !finisher
+			&& ac->shinobi.bladeSwingReal != ac->shinobi.bladeSwing )
+			return qfalse; // (a cut seen as two swings - the anim changed mid-cut: still one blow; a swing
+		                   // Pmove really began always cuts anew)
 	}
 	if ( slot < 0 )
 		slot = oldest;
