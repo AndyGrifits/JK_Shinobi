@@ -2760,6 +2760,13 @@ void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int 
 		}
 	}
 
+	// JK_Shinobi: the medium stance's cuts, slower than the fast stance's (SHINOBI_MEDIUM_CUT_SPEED)
+	if ( weapon == WP_SABER && saberAnimLevel == SS_MEDIUM && clientNum < MAX_CLIENTS
+		&& anim >= BOTH_A2_T__B_ && anim <= BOTH_A2_TR_BL && *animSpeed > 0.0f )
+	{
+		*animSpeed *= SHINOBI_MEDIUM_CUT_SPEED;
+	}
+
 	// JK_Shinobi: a thrusting blade's stab (shinobiThrust) takes about SHINOBI_THRUST_MS
 	if ( weapon == WP_SABER && anim == BOTH_PULL_IMPALE_STAB && *animSpeed > 0.0f )
 	{

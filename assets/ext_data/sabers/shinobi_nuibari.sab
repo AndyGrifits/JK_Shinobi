@@ -37,8 +37,8 @@ shinobi_nuibari
 	soundLoop		sound/weapons/shinobi/silence.wav
 	spinSound		sound/weapons/shinobi/silence.wav
 	soundOff		sound/weapons/sword/catch.mp3
-	damageScale		1.2
-	damageScale2		1.2
+	damageScale		1.4
+	damageScale2		1.4
 	swingSound1		sound/weapons/sword/swing1.mp3
 	swingSound2		sound/weapons/sword/swing2.mp3
 	swingSound3		sound/weapons/sword/swing3.mp3

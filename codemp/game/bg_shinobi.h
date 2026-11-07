@@ -1219,8 +1219,12 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 // used to. The medium stance's own cuts are as short as the fast one's (stock: its long returns and
 // transitions made it slower) - so its return runs longer before a click may cut it
 //                                                   -   fast medium strong desann tavion dual staff
-static const int shinobiReturnCutMs[8] =          {  150, 150,  320,   150,   150,   150,  150, 150 };
+static const int shinobiReturnCutMs[8] =          {  150, 150,  150,   150,   150,   150,  150, 150 }; // (the medium's 320 did nothing: its time goes into the cut itself, see SHINOBI_MEDIUM_CUT_SPEED)
 #define SHINOBI_RETURN_CUT_MS          150   // (the fast stance's; shinobiReturnCutMs)
+// the medium stance's cuts (BOTH_A2_*) are played this much slower: by click_dps its cuts took as
+// long as the fast stance's (~325 ms each, 533 ms a blow with the move between) - medium is the
+// slower, harder-hitting one
+#define SHINOBI_MEDIUM_CUT_SPEED       0.72f
 qboolean BG_ShinobiReturnCuttable( const playerState_t *ps, const animation_t *anims ); // bg_pmove.c
 static QINLINE int Shinobi_OwnFrame( const playerState_t *ps ) {
 	return ( ( ps->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_GATE_SHIFT ) & SHINOBI_PFRAME_GATE_MASK )
