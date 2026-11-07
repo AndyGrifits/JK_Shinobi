@@ -3618,7 +3618,9 @@ void WP_SaberApplyDamage( gentity_t *self )
 				continue;
 			dflags |= DAMAGE_NO_HIT_LOC; // a set amount: not doubled on the head, halved on a foot
 		}
+		shinobiBlockResult = SBR_NONE;
 		G_Damage( victim, self, self, dmgDir[i], dmgSpot[i], totalDmg[i], dflags, MOD_SABER );
+		Shinobi_BladeHitResolve( self, victim ); // JK_Shinobi: the finisher's effect / the flinch - unless his guard held it
 	}
 }
 

@@ -464,8 +464,10 @@ static void Shinobi_FinisherReach( gentity_t *ent ) {
 			continue; // his blade held it
 		Shinobi_Debug( "blade %i -> %i: FINISHER kind %i by reach (%.0f u)", ent->s.number, v->s.number, kind, dist );
 		shinobiTest.bladeFinisherReach++;
-		Shinobi_BladeFinisher( ent, v, kind, &dmg );
+		shinobiBlockResult = SBR_NONE;
 		G_Damage( v, ent, ent, d, v->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC | DAMAGE_NO_KNOCKBACK, MOD_SABER );
+		if ( v->inuse && v->health > 0 && shinobiBlockResult != SBR_BLOCKED && shinobiBlockResult != SBR_PARRIED )
+			Shinobi_BladeFinisher( ent, v, kind, &dmg ); // (his guard held it: just the blow on it)
 	}
 }
 
@@ -512,6 +514,7 @@ static void Shinobi_ThrustReach( gentity_t *ent ) {
 		if ( dmg > 0 ) {
 			shinobiTest.thrustReach++;
 			G_Damage( best, ent, ent, bestDir, best->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC, MOD_SABER );
+			Shinobi_BladeHitResolve( ent, best );
 		}
 	}
 }
@@ -567,6 +570,7 @@ static void Shinobi_SwingReach( gentity_t *ent ) {
 		if ( dmg > 0 ) {
 			shinobiTest.swingReach++;
 			G_Damage( best, ent, ent, bestDir, best->r.currentOrigin, (int)( dmg + 0.5f ), DAMAGE_NO_HIT_LOC, MOD_SABER );
+			Shinobi_BladeHitResolve( ent, best );
 		}
 	}
 }
@@ -600,14 +604,50 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 		if ( ac->shinobi.finisherKind != SFK_SPIN ) // (the spin cuts all round, easy to land: no bonus)
 			dmg *= SHINOBI_SWORD_FINISH;
 		ac->shinobi.finisherHit = 1;
-		Shinobi_BladeFinisher( attacker, victim, ac->shinobi.finisherKind, &dmg );
+		ac->shinobi.bladePendVictim = victim->s.number + 1; // (its throw / knock / stun: once his guard has had its say)
+		ac->shinobi.bladePendKind = ac->shinobi.finisherKind;
+		ac->shinobi.bladePendDmg = dmg;
 		return dmg;
 	}
 	if ( special ) {
 		ac->shinobi.bladeChain = 0; // (another special move stands on its own)
+		ac->shinobi.bladePendVictim = 0;
 		return dmg * SHINOBI_BLADE_SPECIAL;
 	}
 
+	ac->shinobi.bladePendVictim = victim->s.number + 1; // (the combo and the flinch: once his guard has had its say)
+	ac->shinobi.bladePendKind = 0;
+	ac->shinobi.bladePendDmg = dmg;
+	return dmg;
+}
+
+/*
+After G_Damage of a blade blow (Shinobi_BladeDamage's): what his guard did decides the rest. Held
+(any guard - a blade's, a fist guard, its side and facing as Shinobi_BlockDamage judged them) or
+parried: no finisher throw / knock / stun, no flinch - a plain blow still counts for the combo,
+as every blow on a guard does. Through (or broken): the finisher's effect, the flinch.
+*/
+void Shinobi_BladeHitResolve( gentity_t *attacker, gentity_t *victim ) {
+	gclient_t *ac = attacker && attacker->client ? attacker->client : NULL;
+	int        kind;
+	float      dmg;
+
+	if ( !ac || !victim || ac->shinobi.bladePendVictim != victim->s.number + 1 )
+		return;
+	kind = ac->shinobi.bladePendKind;
+	dmg = ac->shinobi.bladePendDmg;
+	ac->shinobi.bladePendVictim = 0;
+	if ( !victim->inuse || !victim->client || victim->health <= 0 )
+		return;
+	if ( shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED ) {
+		if ( !kind && shinobiBlockResult == SBR_BLOCKED )
+			Shinobi_BladeChainAdd( attacker, victim, "blocked blow" );
+		return;
+	}
+	if ( kind ) {
+		Shinobi_BladeFinisher( attacker, victim, kind, &dmg );
+		return;
+	}
 	Shinobi_BladeChainAdd( attacker, victim, "blow" );
 	if ( attacker->s.number < MAX_CLIENTS ) { // held until the next blow can land, as with fists
 		int ms = ac->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
@@ -617,7 +657,6 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 			ms = SHINOBI_COMBO_FLINCH_MAX;
 		Shinobi_Flinch( victim, ms );
 	}
-	return dmg;
 }
 
 /*

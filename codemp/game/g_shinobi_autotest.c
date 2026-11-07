@@ -901,6 +901,135 @@ static atResult_t T_SaberDps( int t ) {
 }
 
 /*
+click_dps: every weapon in turn, fists first (each taijutsu style), on a still target (no guard)
+with the fastest single clicks there are - attack pressed one frame, let go the next: how many
+blows begin a second (blades: swings Pmove began; fists: combo steps), how many land, the
+damage a second (combo finishers included). A measurement for balancing (passes if every case hit).
+*/
+#define CDPS_MS     8000
+#define CDPS_GAP    700
+#define CDPS_FIRST  1500
+typedef struct { const char *s1, *s2; int fist; const char *name; } cdpsCase_t;
+static const cdpsCase_t cdpsCases[] = {
+	{ NULL, NULL, SFS_FAST + 1, "fists: fast" }, { NULL, NULL, SFS_MEDIUM + 1, "fists: medium" },
+	{ NULL, NULL, SFS_STRONG + 1, "fists: strong" },
+	{ "shinobi_katana", "none", 0, "katana" }, { "shinobi_kurosawa", "none", 0, "kurosawa" },
+	{ "shinobi_kubikiribocho", "none", 0, "kubikiribocho" }, { "shinobi_samehada", "none", 0, "samehada" },
+	{ "shinobi_shibuki", "none", 0, "shibuki" }, { "shinobi_nuibari", "none", 0, "nuibari" },
+	{ "shinobi_knife", "shinobi_knife_l", 0, "trench knives (pair)" },
+	{ "shinobi_uchiha_blade", "shinobi_uchiha_blade", 0, "uchiha blades (pair)" },
+	{ "shinobi_cloud_tanto", "shinobi_cloud_tanto", 0, "cloud swords (pair)" },
+};
+#define CDPS_COUNT ( (int)( sizeof( cdpsCases ) / sizeof( cdpsCases[0] ) ) )
+static struct {
+	int    idx, phaseStart, starts0, steps, lastCombo, presses, wasDown, hits[CDPS_COUNT];
+	vec3_t spot;
+} cdps;
+
+static void CDPS_Arm( void ) {
+	const cdpsCase_t *c = &cdpsCases[cdps.idx];
+	gentity_t        *e = A;
+	if ( c->fist ) {
+		AT_Weapon( 0, WP_MELEE );
+		e->client->pers.shinobiFistStyle = c->fist - 1;
+		e->client->ps.stats[STAT_SHINOBI2] = ( e->client->ps.stats[STAT_SHINOBI2] & ~( 3 << SHINOBI_STAT2_FIST_SHIFT ) )
+			| ( ( c->fist - 1 ) << SHINOBI_STAT2_FIST_SHIFT );
+		e->client->shinobi.fistChain = 0;
+	}
+	else {
+		G_SetSaber( e, 0, (char *)c->s1, qfalse );
+		G_SetSaber( e, 1, (char *)c->s2, qfalse );
+		G_SaberModelSetup( e );
+		AT_Weapon( 0, WP_SABER );
+		e->client->ps.saberHolstered = 0;
+		Shinobi_BladeStance( e );
+		e->client->shinobi.bladeChain = 0;
+	}
+}
+static void T_ClickDps_Setup( void ) {
+	memset( &cdps, 0, sizeof( cdps ) );
+	AT_Spot( 44, 0, cdps.spot );
+	AT_Place( B, cdps.spot, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	CDPS_Arm();
+	cdps.phaseStart = level.time;
+	A->client->pers.shinobiBuild.stats[SST_TAIJUTSU] = 0; // (the weapon's own numbers)
+	AT_Print( "[autotest]   %-22s %-7s %7s %8s %6s %6s %7s %7s\n", "weapon", "stance", "blows/s", "interval", "landed", "dealt", "dmg/s", "clicks" );
+}
+static atResult_t T_ClickDps( int t ) {
+	gclient_t *ac = A->client, *bc = B->client;
+	const cdpsCase_t *c = &cdpsCases[cdps.idx];
+	const int  since = level.time - cdps.phaseStart, lead = cdps.idx ? CDPS_GAP : CDPS_FIRST;
+	int        i;
+
+	if ( Distance( B->client->ps.origin, cdps.spot ) > 6 )
+		AT_Place( B, cdps.spot, at.baseYaw + 180 );
+	VectorClear( bc->ps.velocity );
+	bc->ps.eFlags &= ~EF_INVULNERABLE;
+	bc->invulnerableTimer = 0;
+	if ( B->health < 200 )
+		B->health = bc->ps.stats[STAT_HEALTH] = 500;
+	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
+		bc->ps.forceHandExtend = HANDEXTEND_NONE;
+		bc->ps.forceHandExtendTime = 0;
+	}
+	bc->shinobi.juggleEnd = bc->shinobi.juggleBy = 0;
+	bc->shinobi.staggerEnd = bc->shinobi.stunEnd = 0;
+	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax;
+	if ( Distance( A->client->ps.origin, at.base ) > 24 && ac->ps.groundEntityNum != ENTITYNUM_NONE )
+		AT_Place( A, at.base, at.baseYaw ); // (a sweep or a dash moves him: back to the spot)
+
+	if ( since < lead ) {
+		AT_Drive( 0, 0, 0, 0, 0 );
+		return ATR_RUN;
+	}
+	if ( since < lead + CDPS_MS ) {
+		const qboolean down = ( level.framenum & 1 ) == 0; // the fastest clicks: pressed a frame, let go a frame
+		AT_Drive( 0, 0, 0, 0, down ? BUTTON_ATTACK : 0 );
+		if ( down && !cdps.wasDown )
+			cdps.presses++;
+		cdps.wasDown = down;
+		if ( !cdps.starts0 )
+			cdps.starts0 = shinobiSwingStarts[at.a] + 1;
+		if ( c->fist ) { // a combo step began: the combo stat changed to a step
+			const int cs = ac->ps.stats[STAT_SHINOBI_COMBO];
+			if ( cs != cdps.lastCombo && SHINOBI_COMBO_KIND( &ac->ps ) != SCK_NONE )
+				cdps.steps++;
+			cdps.lastCombo = cs;
+		}
+		return ATR_RUN;
+	}
+	{ // the case is over
+		const int from = cdps.phaseStart + lead;
+		const int blows = c->fist ? cdps.steps : shinobiSwingStarts[at.a] + 1 - cdps.starts0;
+		int k, hits = 0, dealt = 0;
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
+			if ( !d->time || d->time < from || d->targ != at.b || d->attacker != at.a )
+				continue;
+			hits++;
+			dealt += d->take;
+		}
+		cdps.hits[cdps.idx] = hits;
+		AT_Print( "[autotest]   %-22s %-7s %7.2f %6.0fms %6i %6i %7.1f %7i\n", c->name,
+			c->fist ? shinobiFistStyleNames[c->fist - 1] : sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7],
+			blows * 1000.0f / CDPS_MS, blows ? CDPS_MS / (float)blows : 0.0f, hits, dealt, dealt * 1000.0f / CDPS_MS, cdps.presses );
+	}
+	AT_Drive( 0, 0, 0, 0, 0 );
+	if ( ++cdps.idx >= CDPS_COUNT ) {
+		int bad = 0;
+		for ( i = 0; i < CDPS_COUNT; i++ )
+			bad += !cdps.hits[i];
+		AT_Msg( "%i weapons measured with the fastest single clicks, %i never hit", CDPS_COUNT, bad );
+		return bad ? ATR_FAIL : ATR_PASS;
+	}
+	cdps.starts0 = cdps.steps = cdps.lastCombo = cdps.presses = cdps.wasDown = 0;
+	cdps.phaseStart = level.time;
+	CDPS_Arm();
+	return ATR_RUN;
+}
+
+/*
 blade_combo: each weapon's own finisher (forward held) and the three common ones (katana,
 back / side / nothing held): the chain lands, the finisher comes, its effect shows.
 */
@@ -2601,6 +2730,7 @@ static atTest_t atTests[] = {
 	{ "rainet",       "Lightning Trap: one mark fizzles, two make a stunning line, self too", T_RaiNet_Setup, T_RaiNet, 5000 },
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
+	{ "click_dps",    "every weapon, fists first, with the fastest single clicks: blows/s, landed, dmg/s", T_ClickDps_Setup, T_ClickDps, ( CDPS_MS + CDPS_GAP ) * CDPS_COUNT + CDPS_FIRST + 3000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "palms",        "64 Seals: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },

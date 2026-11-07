@@ -845,6 +845,7 @@ struct gclient_s {
 		int		finisherSwing, finisherKind; // the finisher swing (bladeSwing) and which (SFK_*)
 		int		bladeLenSwing;		// the finisher swing whose blades were lengthened (0: none)
 		int		swingBlow;			// the last swing (bladeSwing) that landed a blow
+		int		bladePendVictim, bladePendKind; float bladePendDmg; // a blow's effects, once G_Damage told what his guard did (Shinobi_BladeHitResolve)
 		int		thrustSwing, thrustStart, thrustDur; // a thrusting blade's swing: which, when, how long (its reach, once)
 		int		reachSwing, reachStart, reachDur; // a plain cut: which, when, how long (its reach by mid-swing, once)
 		int		finisherStart, finisherDur, finisherHit; // the finisher swing: when, how long; landed (or tried by reach)
@@ -1625,6 +1626,7 @@ void Shinobi_HitText( gentity_t *targ, int kind, int value );
 void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ); // g_shinobi_build.c
 qboolean Shinobi_SaberGuardUp( gentity_t *ent ); // g_shinobi_block.c
 qboolean Shinobi_CCImmune( gentity_t *e ); // g_shinobi.c: Stone Skin, a Kaiten (and CC immunity, shinobi_ccimmune)
+void Shinobi_BladeHitResolve( gentity_t *attacker, gentity_t *victim ); // g_shinobi_block.c: after G_Damage of a blade blow
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 void     Shinobi_BladeSwingUpdate( gentity_t *ent );
 void     Shinobi_BladeStance( gentity_t *ent );

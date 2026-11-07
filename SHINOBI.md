@@ -437,7 +437,7 @@ for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, 
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
 blade spent inside the body gave anything from 1 to 120 for one swing. A touch outside
-a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `blade_clicks`, `blade_combo`, `saber_dps`)
+a swing does nothing. `JK_Shinobi_SaberDps.bat` (autotests `blade_clicks`, `blade_combo`, `saber_dps`); `JK_Shinobi_ClickDps.bat` (`click_dps`: every weapon, fists first, with the fastest single clicks - blows a second, landed, damage a second)
 measures every blade on a still target and tries every finisher.
 
 **Blade combo.** Blows that land on the same one, each soon after the last (1.3 s fast,
@@ -640,7 +640,7 @@ jumping, no attacks, no jutsu (raising it lets go of fire breath / shadow bind).
 The guard is the shield bar (200); an empty guard breaks: 1 s stagger. A full (level 3)
 Rasengan or Chidori breaks any guard at once; lower levels are just blocked (half damage, no
 knockdown). Perfect parry: a hit within 0.2 s of pressing block - any hit, jutsu and the full
-Rasengan / Chidori too - does nothing (costs nothing), and an attacker within reach staggers for 1.5 s (spamming block gives no window; his reeling blade neither cuts nor clashes). With a blade the parrier plays no stock knockaway: free to strike at once. Blade on blade with the guard up follows the same guard rules. A blow the guard holds always ends the same: the guard turns its blade to it (the parry pose, a look only), the swing bounces off - none of the stock outcomes of stance strengths, swing speed and dice (no knockaway, no crushed parry); no saber locks at all for players (WP_SabersCheckLock2); only breaking the guard or a perfect parry makes anyone reel. Combat events (guard broken, parried, caught, blinded) show over the target only, no centre print. The guard
+Rasengan / Chidori too - does nothing (costs nothing), and an attacker within reach staggers for 1.5 s (spamming block gives no window; his reeling blade neither cuts nor clashes). With a blade the parrier plays no stock knockaway: free to strike at once. Blade on blade with the guard up follows the same guard rules. A blow the guard holds always ends the same: the guard turns its blade to it (the parry pose, a look only), the swing bounces off - none of the stock outcomes of stance strengths, swing speed and dice (no knockaway, no crushed parry); no saber locks at all for players (WP_SabersCheckLock2); only breaking the guard or a perfect parry makes anyone reel. A blade blow's after-effects (a finisher's throw / knock / stun, the flinch) come only once G_Damage has said what his guard did - held (a blade guard or a fist guard, as Shinobi_BlockDamage judged it): none (`Shinobi_BladeHitResolve`). Combat events (guard broken, parried, caught, blinded) show over the target only, no centre print. The guard
 refills slowly, ~12/s from 1.5 s after the last blocked hit (empty to full ~16 s). With the
 Byakugan open (Gentle Fist) fists burn guard twice as fast. Burning, drowning, ash and zones
 ignore the guard. The shield no longer soaks damage on its own.
