@@ -2524,8 +2524,11 @@ saberMoveName_t PM_SaberAttackForMovement(saberMoveName_t curmove)
 				newmove = saberMoveData[curmove].chain_attack;
 			}
 		}
-		else if ( curmove == LS_READY )
+		else if ( curmove == LS_READY
+			|| ( pm->ps->clientNum < MAX_CLIENTS && BG_SaberInAttack( curmove ) && !BG_SaberInSpecial( curmove ) ) )
 		{//Not moving at all, shouldn't have gotten here...?
+		 // JK_Shinobi: also straight out of a cut, standing: the next overhead through a transition, as
+		 // when moving - the stock chain went back to ready first (return + start: twice the pause)
 			//for now, just pick a random attack
 			//newmove = Q_irand( LS_A_TL2BR, LS_A_T2B );
 			//rww - If we don't seed with a "common" value, the client and server will get mismatched
@@ -3718,8 +3721,11 @@ weapChecks:
 			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
 				&& ( pm->cmd.buttons & BUTTON_ATTACK ) // (not the return after a swing: that comes this way too, without attack)
 				&& Shinobi_BladeFinisherReady( pm->ps )
-				&& pm->ps->groundEntityNum != ENTITYNUM_NONE )
-			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher
+				&& pm->ps->groundEntityNum != ENTITYNUM_NONE
+				&& !( BG_SaberInAttack( curmove ) && PM_SaberInTransition( newmove ) ) )
+			{ // JK_Shinobi: the blade combo stands one blow short - this swing is its finisher (not straight
+			  // out of the last cut: the move between two cuts plays first, as between any two - you see
+			  // the last cut end before the finisher starts)
 				newmove = Shinobi_FinisherMove( Shinobi_FinisherKindFor( &pm->cmd ),
 					pm->ps->fd.saberAnimLevel == SS_DUAL ? qtrue : qfalse );
 				anim = saberMoveData[newmove].animToUse;

@@ -1076,12 +1076,12 @@ while your own sight is spoiled: blinded by a Flash, inside a Hidden Mist or an 
 #define SHINOBI_AIR_GRAVITY        0.45f // hanging in the air while the combo goes on
 #define SHINOBI_AIR_HITS           2     // punches up there before the slam
 #define SHINOBI_AIR_LIFT           220   // each air punch keeps him this high up (speed)
-#define SHINOBI_SLAM_DAMAGE        18
+#define SHINOBI_SLAM_DAMAGE        13    // (-30% for all taijutsu after a play test)
 #define SHINOBI_SLAM_REACH         110
 enum { SCK_NONE, SCK_HIT, SCK_SPIN, SCK_LAUNCH, SCK_KICK, SCK_SWEEP, SCK_DIVE, SCK_GROUND };
 // combo damage grows hit by hit, the finisher hardest: the four make a bit less than four
-// blade swings (-30% after a play test) - get out of the way or raise the guard once a chain starts
-static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab (fast style)
+// blade swings (-30% after a play test, -30% more after another) - get out of the way or raise the guard once a chain starts
+static const int shinobiComboPunch[3] = { 8, 11, 15 };  // jab, cross, jab (fast style)
 // Taijutsu styles (L, like the blade stances): fast - jab, cross, jab, finisher (the above);
 // medium - jab, roundhouse kick, side kick, finisher: slower, longer reach, more per hit;
 // strong - shoulder ram, double kick, finisher: slow, few hits, eats the guard
@@ -1089,15 +1089,15 @@ enum { SFS_FAST, SFS_MEDIUM, SFS_STRONG, SFS_COUNT };
 static const char * const shinobiFistStyleNames[SFS_COUNT] = { "Fast", "Medium", "Strong" };
 static const int   shinobiFistChain[SFS_COUNT] = { 3, 3, 2 };                // chain blows landed (or blocked) before the finisher
 static const int   shinobiFistWindow[SFS_COUNT] = { 1300, 1600, 2400 };      // ... each within this of the last (as the blade's shinobiSwordWindow)
-static const int   shinobiFistHit[SFS_COUNT][3] = { { 11, 15, 21 }, { 14, 20, 26 }, { 24, 32, 0 } };
+static const int   shinobiFistHit[SFS_COUNT][3] = { { 8, 11, 15 }, { 10, 14, 18 }, { 17, 22, 0 } }; // (-30%, 7 Nov)
 static const float shinobiFistFinisher[SFS_COUNT] = { 1.0f, 1.15f, 1.3f }; // finisher damage x
 static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // guard eaten x
 #define SHINOBI_STAT2_FIST_SHIFT   13    // bits 13-14: the taijutsu style
 #define SHINOBI_FIST_STYLE(ps)     ( ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_FIST_SHIFT ) & 3 ) % SFS_COUNT )
-#define SHINOBI_COMBO_KICK_DAMAGE  35    // front kick finisher
-#define SHINOBI_COMBO_LAUNCH_DAMAGE 32   // rising kick
-#define SHINOBI_COMBO_SPIN_DAMAGE  25    // spin kick, to everyone around
-#define SHINOBI_SWEEP_DAMAGE       28    // the rolling sweep, to each one it bowls over
+#define SHINOBI_COMBO_KICK_DAMAGE  25    // front kick finisher
+#define SHINOBI_COMBO_LAUNCH_DAMAGE 22   // rising kick
+#define SHINOBI_COMBO_SPIN_DAMAGE  18    // spin kick, to everyone around
+#define SHINOBI_SWEEP_DAMAGE       20    // the rolling sweep, to each one it bowls over
 #define SHINOBI_SWEEP_RADIUS       44
 #define SHINOBI_COMBO_CHAIN        3     // chain hits before the finisher
 #define SHINOBI_PUNCH_RANGE        34    // a punch reaches this far past the fist's start (stock 8)
@@ -1109,7 +1109,7 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 #define SHINOBI_COMBO_FLINCH_MAX   1100  // (the strong style's blows come slowly)
 #define SHINOBI_DIVE_SPEED         650   // forward and down each (45 degrees)
 #define SHINOBI_DIVE_RADIUS        90
-#define SHINOBI_DIVE_DAMAGE        10
+#define SHINOBI_DIVE_DAMAGE        7
 // a blade in the air: attack = a plunge straight down, the blade into the ground where you land
 #define SHINOBI_SWORD_DIVE_SPEED   650
 #define SHINOBI_SWORD_DIVE_HEIGHT  140   // only this high (clear under the feet: two tall men); after the rising cut's Shunshin up, 56
@@ -1117,7 +1117,7 @@ static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // gu
 #define SHINOBI_SWORD_DIVE_RADIUS  80
 #define SHINOBI_SWORD_DIVE_SCALE   1.25f // x the stance's blow; whoever you launched, slammed: x SHINOBI_SWORD_FINISH
 #define SHINOBI_GROUND_RANGE       96    // the downward blow: how far ahead the lying enemy may be
-#define SHINOBI_GROUND_DAMAGE      21
+#define SHINOBI_GROUND_DAMAGE      15
 #define SHINOBI_STAT_PUDDLE        1     // standing in a puddle
 #define SHINOBI_STAT_CURSE         2     // Curse Seal awakened
 #define SHINOBI_STAT_CHANNEL       4     // breathing fire: slowed

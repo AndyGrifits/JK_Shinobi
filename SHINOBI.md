@@ -152,9 +152,9 @@ Three styles, switched with **L** (like the blade stances; shown over the jutsu 
 
 | style | chain | per hit | finisher | guard eaten |
 |---|---|---|---|---|
-| Fast | jab, cross, jab | 11 / 15 / 21 | x1 | x1 |
-| Medium | jab, roundhouse kick, side kick | 14 / 20 / 26 | x1.15 | x1.2 |
-| Strong | shoulder ram, double kick | 24 / 32 | x1.3 | x1.8 |
+| Fast | jab, cross, jab | 8 / 11 / 15 | x1 | x1 |
+| Medium | jab, roundhouse kick, side kick | 10 / 14 / 18 | x1.15 | x1.2 |
+| Strong | shoulder ram, double kick | 17 / 22 | x1.3 | x1.8 |
 
 Slower styles hold the victim longer per blow (the flinch follows the attacker's pace). The
 style stays over respawns.
@@ -167,12 +167,12 @@ up to 15 s), picked by the direction held at that moment:
 
 | held | finisher | what it does |
 |---|---|---|
-| nothing | front kick | 35 damage, pushed away and knocked down |
-| forward | rising kick | 32 damage, thrown up into the air |
-| back | sweep: a forward roll into his legs | 28 damage, knocked down on the spot, to each one it rolls into |
-| left / right | spin kick | 25 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
+| nothing | front kick | 25 damage, pushed away and knocked down |
+| forward | rising kick | 22 damage, thrown up into the air |
+| back | sweep: a forward roll into his legs | 20 damage, knocked down on the spot, to each one it rolls into |
+| left / right | spin kick | 18 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
 
-Each hit of the chain hits harder: punches 11 / 15 / 21, then the finisher - the four together
+Each hit of the chain hits harder: punches 8 / 11 / 15 (all taijutsu -30% after a play test), then the finisher - the four together
 a bit less than four blade swings, so a chain is worth stepping away from or guarding against.
 Punches reach ~60 u from you (stock fists: ~35, you had to be in his face). Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
 time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
@@ -183,12 +183,12 @@ The kicks keep the stock kick knockdown.
 **Air combo**: jump within ~0.45 s after the launcher (forward + attack finisher) and you
 leap after him; he is helpless until he lands (Kawarimi still works). Up there two punches
 keep him up (you hang in the air with him), the next attack is the diving kick that slams
-him down: 18 damage (x the style's finisher), knocked down, no falling damage on top. A blocked
+him down: 13 damage (x the style's finisher), knocked down, no falling damage on top. A blocked
 blow does nothing to him but counts for the combo (a blocked finisher: no effect); a parried one
 stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
-two-handed blow down at him (the saber stab-down animation, 21 damage). Attack in the air
+two-handed blow down at him (the saber stab-down animation, 15 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
-a kick forward and down at 45 degrees, steered with the view (no falling damage), 10 damage to everyone within 90 u of where you
+a kick forward and down at 45 degrees, steered with the view (no falling damage), 7 damage to everyone within 90 u of where you
 land. Block + attack: the stock grab. Grabs - the fist grab, Water Prison, Shadow Bind / Trap, Reverse Lotus - go through a guard and a parry alike. Taijutsu stat, Gates, Edges and the Gentle Fist
 apply as to any fist hit. The state is in `ps.stats[13..15]`, predicted.
 
@@ -424,7 +424,7 @@ A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`).
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
-style (one blade / two / staff). **Damage: one blow per swing** to each one the blade cuts (a swing: every attack move Pmove begins - a held attack chaining the same cut again is a new swing each time; `blade_hold`),
+style (one blade / two / staff). Held attack standing still chains overheads through the transition move, as when moving (stock went back to ready between them: twice the pause). The finisher waits for the move between two cuts, as any cut does. **Damage: one blow per swing** to each one the blade cuts (a swing: every attack move Pmove begins - a held attack chaining the same cut again is a new swing each time; `blade_hold`),
 for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 8 -
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the
