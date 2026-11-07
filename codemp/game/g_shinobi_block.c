@@ -52,6 +52,24 @@ void Shinobi_Flinch( gentity_t *ent, int ms ) {
 	Shinobi_InterruptCharge( ent );
 }
 
+/*
+A perfect parry: the riposte. Whatever the parry left the body in (the stock blade parry's own
+bounce, a held pose) is cut short, and for a moment attack drops the guard at once - block may
+still be held - so the counter lands while he reels.
+*/
+static void Shinobi_Riposte( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+	client->shinobi.riposteEnd = level.time + SHINOBI_RIPOSTE_MS;
+	client->ps.stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_RIPOSTE;
+	client->ps.weaponTime = 0;
+	if ( client->ps.weapon == WP_SABER ) {
+		client->ps.saberBlocked = BLOCKED_NONE;
+		client->ps.saberBlockTime = 0;
+		client->ps.torsoTimer = 0;
+	}
+	VectorClear( client->ps.velocity ); // (nothing of the blow pushes him)
+}
+
 static void Shinobi_GuardBreak( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 
@@ -73,6 +91,12 @@ void Shinobi_BlockThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	if ( client->shinobi.staggerEnd && client->shinobi.staggerEnd <= level.time )
 		client->shinobi.staggerEnd = 0;
+	if ( client->shinobi.riposteEnd > level.time && ent->health > 0 )
+		client->ps.stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_RIPOSTE;
+	else
+		client->ps.stats[STAT_SHINOBI_LOCK] &= ~SHINOBI_LOCK_RIPOSTE;
+	if ( client->shinobi.riposteEnd && ( ucmd->buttons & BUTTON_ATTACK ) && client->shinobi.riposteEnd > level.time )
+		client->shinobi.riposteEnd = level.time + 150; // (the riposte taken: the guard comes back soon after)
 	if ( client->shinobi.staggerEnd )
 		client->ps.stats[STAT_SHINOBI] |= SHINOBI_STAT_STAGGER;
 	else
@@ -848,6 +872,7 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
 		G_Sound( targ, CHAN_AUTO, shinobiMedia.sndParry );
 		Shinobi_HitText( targ, STX_PARRY, 0 );
+		Shinobi_Riposte( targ );
 		Shinobi_ShieldShell( targ, src, dmg );
 		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
 		shinobiTest.parries++;
@@ -949,6 +974,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 			trap->SendServerCommand( attacker - g_entities, "cp \"^3Parried!\"" );
 		}
 		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
+		Shinobi_Riposte( targ );
 		Shinobi_ShieldShell( targ, src, damage );
 		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
 		return 0;

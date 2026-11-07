@@ -10316,6 +10316,12 @@ static void PM_ShinobiWallRun( void )
 void BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd )
 {
 	if ( ( cmd->buttons & SHINOBI_BUTTON_BLOCK ) && ( cmd->buttons & BUTTON_ATTACK )
+		&& ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_RIPOSTE ) )
+	{ // just parried perfectly: block still held + attack = the quick riposte, a plain blow (not the special / the grab)
+		cmd->buttons &= ~SHINOBI_BUTTON_BLOCK;
+		return;
+	}
+	if ( ( cmd->buttons & SHINOBI_BUTTON_BLOCK ) && ( cmd->buttons & BUTTON_ATTACK )
 		&& ( ps->weapon == WP_SABER || ps->weapon == WP_MELEE ) ) // fists: the stock grab
 	{
 		cmd->buttons |= BUTTON_ALT_ATTACK;
@@ -10686,6 +10692,9 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 {
 	if ( !( buttons & SHINOBI_BUTTON_BLOCK ) || ps->pm_type != PM_NORMAL || ps->clientNum >= MAX_CLIENTS )
 		return qfalse;
+	if ( ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_RIPOSTE ) && ( buttons & BUTTON_ATTACK ) )
+		return qfalse; // just parried: attack drops the guard at once - the riposte
+
 	if ( ps->stats[STAT_ARMOR] <= 0 || ps->stats[STAT_HEALTH] <= 0 )
 		return qfalse;
 	if ( ps->stats[STAT_SHINOBI] & ( SHINOBI_STAT_STAGGER | SHINOBI_STAT_BOUND | SHINOBI_STAT_CHANNEL ) )
@@ -10779,7 +10788,7 @@ pitch). Predicted: the target's position comes from its entity state.
 static void PM_ShinobiLockOn( void )
 {
 	playerState_t *ps = pm->ps;
-	const int n = ps->stats[STAT_SHINOBI_LOCK] - 1;
+	const int n = SHINOBI_LOCK_TARGET( ps );
 	bgEntity_t *t;
 	vec3_t eye, want, ang, now;
 	float step, d;

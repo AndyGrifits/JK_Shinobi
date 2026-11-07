@@ -2214,7 +2214,7 @@ static void CG_ShinobiDrawBladeCombo( void ) {
 
 // lock-on (T): red brackets round the target, turning slowly
 static void CG_ShinobiDrawLock( void ) {
-	const int n = cg.predictedPlayerState.stats[STAT_SHINOBI_LOCK] - 1;
+	const int n = SHINOBI_LOCK_TARGET( &cg.predictedPlayerState );
 	centity_t *t;
 	vec3_t     at;
 	float      x, y, r;

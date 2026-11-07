@@ -2204,10 +2204,110 @@ static atResult_t T_BladeReach( int t ) {
 	return ATR_RUN;
 }
 
+/*
+guard_edges: what a guard and a perfect parry must stop. 1) B holds his guard (fists): A's whole
+chain with the launcher finisher - B not thrown up, not knocked down, hardly moved. 2) B parries
+every blow perfectly: A reels, B isn't pushed; with block still held B attacks - the riposte must
+land on the reeling A. 3) The same with blades.
+*/
+static void GE_Stage( int stage ) {
+	vec3_t p;
+	AT_Reset( A );
+	AT_Reset( B );
+	AT_Weapon( 0, stage == 2 ? WP_SABER : WP_MELEE );
+	AT_Weapon( 1, stage == 2 ? WP_SABER : WP_MELEE );
+	if ( stage == 2 ) {
+		A->client->ps.saberHolstered = B->client->ps.saberHolstered = 0;
+	}
+	AT_Spot( 46, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	VectorCopy( B->client->ps.origin, at.vec[0] );
+	at.drive[0].aimAt = at.drive[1].aimAt = qtrue;
+	at.v[0] = shinobiTest.launches;
+	at.v[1] = shinobiTest.parries;
+	at.v[2] = level.time;
+	at.v[3] = 0;          // max push of B (u)
+	at.v[4] = -1;         // riposte landed after (ms)
+	at.v[5] = 0;          // when A began to reel
+}
+static void T_GuardEdges_Setup( void ) {
+	at.v[10] = at.v[11] = at.v[12] = 0;
+	GE_Stage( 0 );
+}
+static atResult_t T_GuardEdges( int t ) {
+	const int stage = at.stage, since = level.time - at.v[2];
+	vec3_t    d;
+	int       push;
+
+	if ( B->health < 200 )
+		B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	if ( A->health < 200 )
+		A->health = A->client->ps.stats[STAT_HEALTH] = 500;
+	B->client->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX; // (the guard itself holds: what it lets through is the question)
+	VectorSubtract( B->client->ps.origin, at.vec[0], d );
+	d[2] = 0;
+	push = (int)VectorLength( d );
+	if ( push > at.v[3] && !at.v[5] )
+		at.v[3] = push; // (until the riposte: then B steps in)
+
+	if ( stage == 0 ) {
+		AT_Drive( 0, SHINOBI_COMBO_HIT( &A->client->ps ) >= shinobiFistChain[SFS_FAST] - 1 ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
+		if ( since >= 3000 ) {
+			const int launched = shinobiTest.launches - at.v[0];
+			const qboolean down = B->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || B->client->shinobi.juggleEnd > level.time;
+			AT_Print( "[autotest]     guard held, fists: launched %i, down / up in the air %i, pushed %i u\n", launched, down, at.v[3] );
+			at.v[10] = !launched && !down && at.v[3] < 30;
+			AT_Drive( 0, 0, 0, 0, 0 );
+			AT_Drive( 1, 0, 0, 0, 0 );
+			NEXT();
+			GE_Stage( 1 );
+		}
+		return ATR_RUN;
+	}
+	// 1, 2: every blow parried perfectly; once A reels, B attacks with block still held
+	if ( !at.v[5] ) {
+		B->client->shinobi.blockPrevPress = level.time - 3000;
+		B->client->shinobi.blockPress = level.time - 50;
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
+		if ( A->client->shinobi.staggerEnd > level.time && shinobiTest.parries > at.v[1] ) {
+			at.v[5] = level.time;
+			AT_Drive( 0, 0, 0, 0, 0 );
+		}
+	}
+	else {
+		int k;
+		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK | BUTTON_ATTACK );
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG && at.v[4] < 0; k++ ) {
+			const shinobiTestDamage_t *dm = &shinobiTest.dmg[k];
+			if ( dm->time >= at.v[5] && dm->targ == at.a && dm->attacker == at.b )
+				at.v[4] = dm->time - at.v[5];
+		}
+	}
+	if ( since >= 3500 || ( at.v[5] && level.time - at.v[5] >= 1200 ) ) {
+		const qboolean ok = at.v[5] && at.v[4] >= 0 && at.v[3] < 30;
+		AT_Print( "[autotest]     %s: parried %i, A reels %s, B pushed %i u, riposte landed after %i ms (-1: not)\n",
+			stage == 1 ? "fists" : "blades", shinobiTest.parries - at.v[1], at.v[5] ? "yes" : "NO", at.v[3], at.v[4] );
+		at.v[10 + stage] = ok;
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Drive( 1, 0, 0, 0, 0 );
+		if ( stage == 2 ) {
+			AT_Msg( "guard vs fists' launcher %s, parry + riposte with fists %s, with blades %s",
+				at.v[10] ? "ok" : "FAILED", at.v[11] ? "ok" : "FAILED", at.v[12] ? "ok" : "FAILED" );
+			return ( at.v[10] && at.v[11] && at.v[12] ) ? ATR_PASS : ATR_FAIL;
+		}
+		NEXT();
+		GE_Stage( 2 );
+	}
+	return ATR_RUN;
+}
+
 static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
 	{ "parry",        "perfect parry: free, attacker staggered long",              T_Parry_Setup, T_Parry, 1000 },
+	{ "guard_edges",  "a guard stops the launcher, a parry the push; the riposte lands", T_GuardEdges_Setup, T_GuardEdges, 12000 },
 	{ "fuma",         "fuma shuriken: speed, two equal hits, leaves the hand, caught", T_Fuma_Setup, T_Fuma, 7000 },
 	{ "kawa_combo",   "Kawarimi with attack held mid-combo hides",                 T_KawaCombo_Setup, T_KawaCombo, 3000 },
 	{ "kawa_floor",   "Kawarimi from the floor and out of flinch / juggle",       T_KawaFloor_Setup, T_KawaFloor, 3000 },

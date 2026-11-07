@@ -561,7 +561,7 @@ static qboolean Shinobi_EyeTarget( gentity_t *viewer, gentity_t *e ) {
 static void Shinobi_SendEyeInfo( gentity_t *ent ) {
 	gclient_t *client = ent->client;
 	const int  eyes = client->shinobi.eyes;
-	const int  lock = client->ps.stats[STAT_SHINOBI_LOCK] - 1;
+	const int  lock = SHINOBI_LOCK_TARGET( &client->ps );
 	char       buf[MAX_STRING_CHARS - 64];
 	int        i, len, n = 0;
 	vec3_t     eye;
@@ -709,7 +709,7 @@ void Shinobi_PerkThink( gentity_t *ent ) {
 				client->ps.fd.forcePower--;
 		}
 	}
-	if ( ( client->shinobi.eyes || ( alive && client->ps.stats[STAT_SHINOBI_LOCK] ) ) && client->shinobi.eyesInfo <= level.time
+	if ( ( client->shinobi.eyes || ( alive && SHINOBI_LOCK_TARGET( &client->ps ) >= 0 ) ) && client->shinobi.eyesInfo <= level.time
 		&& ent->s.number < MAX_CLIENTS && !( ent->r.svFlags & SVF_BOT ) ) { // the eyes, or a lock-on: health over his head
 		client->shinobi.eyesInfo = level.time + SHINOBI_PERK_INFO_MS;
 		Shinobi_SendEyeInfo( ent );

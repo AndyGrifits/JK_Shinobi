@@ -72,6 +72,14 @@ Katon at a slow walk (40 %, no jumps) - the tiger seal, the fist to the lips, a 
   our own under the crosshair. The server puts the state and its time left in the player's
   `s.frame` (bits 5-15, `Shinobi_StateBits`); none over a hidden one. The floating words for
   these went (Parry!, Guard break!, Interrupted, Finisher! stay).
+- A perfect parry opens a riposte (`SHINOBI_RIPOSTE_MS`): whatever the parry left the body in is
+  cut short, and attack - block may still be held - is a plain blow at once (not the special /
+  the grab block + attack is otherwise); nothing of the parried blow pushes. A kick the guard
+  caught throws nobody (it used to toss even a guarded / parried target).
+- The input buffer: attack tapped while the body can't swing yet (a swing or a parry running out,
+  a flinch ending) is pressed for you the moment it can, within `SHINOBI_INPUT_BUFFER_MS`.
+- `JK_Shinobi_FightTest.bat`: the fight rules tests (`guard_edges` - the launcher on a guard, the
+  push on a parry, the riposte with fists and blades - and the guard, flinch, combo ones).
 - Blade cuts land where they look like they should: a plain cut the blade's own trace missed
   lands by mid-swing on whoever stands within its blade + 36 in front (`shinobi_bladereach`;
   autotest `blade_reach` counts both ways). Bots circle less and trade blows more.

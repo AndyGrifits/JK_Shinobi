@@ -7634,6 +7634,7 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 					hitEnt->client->ps.otherKillerTime = level.time + 10000;
 				}
 
+				shinobiBlockResult = SBR_NONE; // JK_Shinobi: (what the guard did with this kick, below)
 				if ( Shinobi_ComboKickDamage( ent ) )
 				{ // JK_Shinobi: a combo finisher - the hardest hit of the chain
 					G_Damage( hitEnt, ent, ent, kickDir, trace.endpos, Shinobi_ComboKickDamage( ent ), DAMAGE_NO_KNOCKBACK, MOD_MELEE );
@@ -7659,8 +7660,8 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 				//	G_ThrownDeathAnimForDeathAnim( hitEnt, trace.endpos );
 					G_TossTheMofo(hitEnt, kickDir, kickPush*4.0f);
 				}
-				else if ( Shinobi_ComboPlainKick( ent ) )
-				{ // JK_Shinobi: the spin kick finisher is just damage
+				else if ( Shinobi_ComboPlainKick( ent ) || shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED )
+				{ // JK_Shinobi: the spin kick finisher is just damage; a kick the guard caught throws nobody
 					Shinobi_ComboHit( ent, hitEnt );
 				}
 				else

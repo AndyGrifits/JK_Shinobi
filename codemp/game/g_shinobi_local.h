@@ -180,10 +180,6 @@ void      Shinobi_Stagger( gentity_t *ent, int ms );
 void      Shinobi_Flinch( gentity_t *ent, int ms );
 void      Shinobi_HitText( gentity_t *targ, int kind, int value );
 void      Shinobi_TaijutsuThink( gentity_t *ent );
-#define SBR_NONE    0
-#define SBR_BLOCKED 1
-#define SBR_PARRIED 2
-#define SBR_BROKEN  3
 qboolean  Shinobi_CastMist( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastQuake( gentity_t *ent, int lvl );
 qboolean  Shinobi_CastWindWall( gentity_t *ent, int lvl );

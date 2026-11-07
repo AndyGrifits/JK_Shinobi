@@ -712,6 +712,22 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( client->shinobi.kaitenStart ) // Kaiten: no blows, no guard while spinning
 		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
+	{ // the input buffer: a tap of attack while the body can't swing yet (a swing or a parry running out, a flinch
+	  // ending) is kept a moment and pressed for you the moment it can - no blow lost to an animation's last frames
+		const qboolean held = ( ucmd->buttons & BUTTON_ATTACK ) != 0;
+		const qboolean busy = client->ps.weaponTime > 0 || client->shinobi.flinchEnd > level.time
+			|| client->shinobi.staggerEnd > level.time;
+		if ( held && !( client->buttons & BUTTON_ATTACK ) )
+			client->shinobi.attackTap = busy ? level.time : 0;
+		else if ( !held && client->shinobi.attackTap ) {
+			if ( level.time - client->shinobi.attackTap > SHINOBI_INPUT_BUFFER_MS )
+				client->shinobi.attackTap = 0;
+			else if ( !busy && ( client->ps.weapon == WP_SABER || client->ps.weapon == WP_MELEE ) ) {
+				ucmd->buttons |= BUTTON_ATTACK;
+				client->shinobi.attackTap = 0;
+			}
+		}
+	}
 	BG_ShinobiBlockAttack( &client->ps, ucmd ); // block + attack = the blade's special attack, not a guard
 	Shinobi_TaijutsuThink( ent ); // the diving kick's landing
 	Shinobi_BladeSwingUpdate( ent ); // blades: one blow per swing
@@ -1309,7 +1325,8 @@ static int Shinobi_LockCandidates( gentity_t *ent, gentity_t **list, float *yaw,
 }
 
 static void Shinobi_LockSet( gentity_t *ent, gentity_t *t ) {
-	ent->client->ps.stats[STAT_SHINOBI_LOCK] = t ? t->s.number + 1 : 0;
+	ent->client->ps.stats[STAT_SHINOBI_LOCK] = ( ent->client->ps.stats[STAT_SHINOBI_LOCK] & ~SHINOBI_LOCK_MASK )
+		| ( t ? t->s.number + 1 : 0 );
 	ent->client->shinobi.lockSeen = level.time;
 }
 
@@ -1318,7 +1335,7 @@ void Cmd_LockOn_f( gentity_t *ent ) {
 	gclient_t *c = ent->client;
 	gentity_t *list[MAX_CLIENTS], *pick = NULL;
 	float      yaw[MAX_CLIENTS], curYaw = 0, bestGap = 999;
-	const int  cur = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
+	const int  cur = SHINOBI_LOCK_TARGET( &c->ps );
 	int        i, n;
 
 	if ( !Shinobi_LockHands( ent ) ) {
@@ -1352,7 +1369,7 @@ void Cmd_LockOn_f( gentity_t *ent ) {
 
 void Shinobi_LockThink( gentity_t *ent ) {
 	gclient_t *c = ent->client;
-	const int  n = c->ps.stats[STAT_SHINOBI_LOCK] - 1;
+	const int  n = SHINOBI_LOCK_TARGET( &c->ps );
 	gentity_t *t;
 
 	if ( n >= 0 ) {

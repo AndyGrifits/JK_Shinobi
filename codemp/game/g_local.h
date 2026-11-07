@@ -945,6 +945,8 @@ struct gclient_s {
 		int		botRollUntil;	// rolling the flames out
 		int		botHoldStart, botHoldHealth, botQuietSince; // a held jutsu: since, health then; nothing near since
 		int		botPunishTarget;	// punishing this one (num + 1) - in to him (0: whoever reels in front)
+		int		riposteEnd;		// a perfect parry: attack drops the guard at once until (SHINOBI_LOCK_RIPOSTE)
+		int		attackTap;		// attack pressed then while the body couldn't swing yet (the input buffer)
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)
@@ -1603,6 +1605,10 @@ qboolean Shinobi_Armored( gentity_t *ent );
 int   Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, int damage, int *dflags, int mod );
 extern int shinobiGuardBreaker; // set around a full Rasengan / Chidori hit
 extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
+#define SBR_NONE    0
+#define SBR_BLOCKED 1
+#define SBR_PARRIED 2
+#define SBR_BROKEN  3
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
 qboolean Shinobi_ComboPlainKick( gentity_t *ent );
 void Shinobi_CycleFistStyle( gentity_t *ent ); // g_shinobi_taijutsu.c
