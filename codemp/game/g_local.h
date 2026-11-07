@@ -944,6 +944,7 @@ struct gclient_s {
 		int		botRushUntil, botRushTarget, botRushSeen; // going for someone forming seals (num + 1); the charge seen
 		int		botRollUntil;	// rolling the flames out
 		int		botHoldStart, botHoldHealth, botQuietSince; // a held jutsu: since, health then; nothing near since
+		int		botPunishTarget;	// punishing this one (num + 1) - in to him (0: whoever reels in front)
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)

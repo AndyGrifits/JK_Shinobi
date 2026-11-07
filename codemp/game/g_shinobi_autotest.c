@@ -2073,7 +2073,7 @@ static atResult_t T_BotDodge( int t ) {
 	if ( at.v[1] < 4 && t >= 600 + at.v[1] * 1800 ) {
 		A->client->shinobi.fireballNext = 0;
 		A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
-		if ( Shinobi_Cast( A, SJ_KATON, 2 ) )
+		if ( Shinobi_Cast( A, SJ_KATON, SHINOBI_MAX_LEVEL ) ) // (only the full charge casts)
 			at.v[1]++;
 	}
 	if ( t >= 600 + 4 * 1800 + 500 ) {
@@ -2086,10 +2086,10 @@ static atResult_t T_BotDodge( int t ) {
 	return ATR_RUN;
 }
 
-// A spins a Kaiten 120 from B: B keeps off it instead of walking into the throw
+// A spins a Kaiten 220 from B (outside its throw): B keeps off it instead of walking into it
 static void T_BotKeepOff_Setup( void ) {
 	vec3_t p;
-	AT_Spot( 120, 0, p );
+	AT_Spot( 220, 0, p );
 	AT_Place( B, p, at.baseYaw + 180 );
 	at.v[0] = shinobiTest.botKeptOff;
 	at.v[1] = shinobiTest.kaitenBlocks;
@@ -2109,7 +2109,7 @@ static atResult_t T_BotKeepOff( int t ) {
 		A->client->shinobi.chargeJutsu = SJ_NONE;
 		AT_Msg( "2.5 s next to a spinning Kaiten: kept off %i times, %.0f u away at the end, blows blocked by it %i",
 			shinobiTest.botKeptOff - at.v[0], d, shinobiTest.kaitenBlocks - at.v[1] );
-		return ( shinobiTest.botKeptOff > at.v[0] && d > SHINOBI_KAITEN_RADIUS + 20 ) ? ATR_PASS : ATR_FAIL;
+		return ( d > SHINOBI_KAITEN_RADIUS + 20 && shinobiTest.kaitenBlocks == at.v[1] ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }

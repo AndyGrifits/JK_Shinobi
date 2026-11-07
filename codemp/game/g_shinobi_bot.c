@@ -295,6 +295,10 @@ qboolean Shinobi_BotForce( gentity_t *ent, int forcePower ) {
 		client->shinobi.botJutsuNext = level.time + 400;
 		return qtrue;
 	}
+	if ( BotSmart() > 0 && jutsu == SJ_KAWARIMI ) { // kept for the way out of traps and blows (the tactics): not at random
+		client->shinobi.botJutsuNext = level.time + 400;
+		return qtrue;
+	}
 	if ( BotSmart() > 0 ) {
 		gentity_t *foe = Shinobi_BotEnemyOf( ent->s.number );
 		gentity_t *close = BotNearest( ent, 140, NULL, NULL );
@@ -730,9 +734,10 @@ static qboolean BotHeld( gentity_t *ent, usercmd_t *ucmd ) {
 		Shinobi_Debug( "bot %i: lets go of %s after %i ms", ent->s.number, shinobiJutsuTitles[held], ms );
 		Cmd_JutsuRelease_f( ent );
 		c->shinobi.botHoldStart = 0;
-		if ( victim && BotIsEnemy( ent, victim ) ) { // gasping / just let go: hit him now
+		if ( victim && BotIsEnemy( ent, victim ) ) { // gasping / just let go: go in and hit him now
 			Shinobi_BotFocus( ent->s.number, victim );
-			c->shinobi.botPunishUntil = level.time + SHINOBI_PRISON_STUN_MS + 100;
+			c->shinobi.botPunishUntil = level.time + SHINOBI_PRISON_STUN_MS + 300;
+			c->shinobi.botPunishTarget = victim->s.number + 1;
 		}
 		return qfalse;
 	}
@@ -971,8 +976,8 @@ static void BotOpenings( gentity_t *ent ) {
 	float      d, dz;
 
 	if ( c->shinobi.botTacticNext > level.time || c->shinobi.botJutsuNext > level.time || c->shinobi.chargeJutsu != SJ_NONE
-		|| c->shinobi.kawarimiEnd || SHINOBI_HAND_ANY( &c->ps ) )
-		return;
+		|| c->shinobi.kawarimiEnd || SHINOBI_HAND_ANY( &c->ps ) || c->shinobi.botPunishUntil > level.time )
+		return; // (punishing: blows, not a new jutsu)
 	c->shinobi.botTacticNext = level.time + 450;
 
 	// hurt and alone: heal
@@ -1120,8 +1125,22 @@ void Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( reeling && !threat ) {
 		client->shinobi.botPunishUntil = level.time + 400;
 	}
-	if ( client->shinobi.botPunishUntil > level.time )
+	if ( client->shinobi.botPunishUntil > level.time ) {
 		ucmd->buttons |= BUTTON_ATTACK;
+		if ( client->shinobi.botPunishTarget ) { // a set victim (gasping after our prison): in to him, facing him
+			gentity_t *v = &g_entities[client->shinobi.botPunishTarget - 1];
+			if ( BotIsEnemy( ent, v ) ) {
+				vec3_t dir;
+				VectorSubtract( v->client->ps.origin, client->ps.origin, dir );
+				if ( VectorLength( dir ) > 36 )
+					BotSteer( ent, ucmd, dir, 127 );
+				BotFace( ent, v, 20 );
+			}
+		}
+	}
+	else {
+		client->shinobi.botPunishTarget = 0;
+	}
 
 	Shinobi_BotFists( ent, ucmd );
 }
