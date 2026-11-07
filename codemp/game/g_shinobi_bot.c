@@ -447,6 +447,8 @@ static qboolean BotIsEnemy( gentity_t *ent, gentity_t *e ) {
 		return qfalse;
 	if ( level.gametype >= GT_TEAM && OnSameTeam( ent, e ) )
 		return qfalse;
+	if ( SHINOBI_UNSEEN( &e->client->ps ) && !ent->client->shinobi.eyes )
+		return qfalse; // substituted away, in the shadow, under the ground: gone (open eyes still see him)
 	return qtrue;
 }
 

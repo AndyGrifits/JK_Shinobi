@@ -23,6 +23,7 @@ shinobiTest_t shinobiTest;
 gentity_t    *shinobiTestInflictor;
 
 extern void G_Knockdown( gentity_t *victim );
+gentity_t *Shinobi_BotEnemyOf( int clientNum ); // ai_main.c
 extern stringID_table_t animTable[MAX_ANIMATIONS + 1];
 void Shinobi_BotRandomBuildPublic( shinobiBuild_t *b );
 qboolean G_SetSaber( gentity_t *ent, int saberNum, char *saberName, qboolean siegeOverride );
@@ -1896,6 +1897,37 @@ static atResult_t T_BotDefend( int t ) {
 	return ATR_RUN;
 }
 
+// a bot (its own AI) fighting A loses him the moment he substitutes away: no chasing the hidden
+static void T_BotLose_Setup( void ) {
+	vec3_t p;
+	AT_Weapon( 0, WP_MELEE );
+	AT_Spot( 140, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	B->client->shinobi.eyes = 0;
+	at.v[0] = at.v[1] = at.v[2] = 0;
+	at.f[0] = 99999;
+}
+static atResult_t T_BotLose( int t ) {
+	gentity_t *focus = Shinobi_BotEnemyOf( at.b );
+	A->health = A->client->ps.stats[STAT_HEALTH] = A->client->ps.stats[STAT_MAX_HEALTH];
+	if ( t >= 2500 && !at.v[2] ) {
+		at.v[2] = t;
+		Shinobi_Cast( A, SJ_KAWARIMI, 1 ); // gone: hidden, somewhere else
+	}
+	if ( at.v[2] && t > at.v[2] + 300 && SHINOBI_HIDDEN( &A->client->ps ) ) {
+		at.v[0]++; // frames he is hidden
+		if ( focus == A )
+			at.v[1]++; // ... and the bot still on him
+		AT_Drive( 0, 0, 127, 0, 0 ); // stepping aside, unseen
+	}
+	if ( t >= 6000 ) {
+		AT_Drive( 0, 0, 0, 0, 0 );
+		AT_Msg( "A substituted at 2.5 s: hidden %i frames, the bot still on him in %i of them", at.v[0], at.v[1] );
+		return ( at.v[0] > 5 && at.v[1] * 10 <= at.v[0] ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 // a bot on a bare-handed life (its own AI) comes and fights with the combo
 static void T_BotFists_Setup( void ) {
 	vec3_t p;
@@ -2576,6 +2608,7 @@ static atTest_t atTests[] = {
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
+	{ "bot_lose",     "a bot loses a target that substituted away (no chasing the hidden)", T_BotLose_Setup, T_BotLose, 6500 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
 	{ "bot_escape",   "a bot Kawarimis out of a Water Prison (tactics)",          T_BotEscape_Setup, T_BotEscape, 16000 },
 	{ "bot_prison",   "a bot holds its Water Prison, then hits the gasping victim", T_BotPrison_Setup, T_BotPrison, 12000 },

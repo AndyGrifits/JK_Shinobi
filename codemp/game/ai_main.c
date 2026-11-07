@@ -1796,6 +1796,12 @@ int PassStandardEnemyChecks(bot_state_t *bs, gentity_t *en)
 		return 0;
 	}
 
+	if ( en->s.number < MAX_CLIENTS && SHINOBI_UNSEEN( &en->client->ps ) && !g_entities[bs->client].client->shinobi.eyes )
+	{ // JK_Shinobi: substituted away (Kawarimi), in the shadow, under the ground: gone from sight - the
+	  // bot loses him (it goes where he vanished, Shinobi_BotDirectNav; open eyes still see him)
+		return 0;
+	}
+
 	if (bs->doingFallback &&
 		(gLevelFlags & LEVELFLAG_IGNOREINFALLBACK))
 	{ //we screwed up in our nav routines somewhere and we've reverted to a fallback state to
@@ -6026,8 +6032,9 @@ void Shinobi_BotDirectNav( bot_state_t *bs ) {
 			gentity_t *e = &g_entities[i];
 			float      dist;
 			if ( e == self || !e->inuse || !e->client || e->health <= 0 || e->client->sess.sessionTeam == TEAM_SPECTATOR
-				|| e->client->tempSpectate >= level.time || ( level.gametype >= GT_TEAM && OnSameTeam( self, e ) ) )
-				continue;
+				|| e->client->tempSpectate >= level.time || ( level.gametype >= GT_TEAM && OnSameTeam( self, e ) )
+				|| ( SHINOBI_UNSEEN( &e->client->ps ) && !self->client->shinobi.eyes ) )
+				continue; // (not one that vanished: no running straight at the hidden)
 			dist = Distance( e->client->ps.origin, bs->origin );
 			if ( dist < bestDist ) {
 				bestDist = dist;
@@ -7805,6 +7812,8 @@ void Shinobi_BotFocus( int clientNum, gentity_t *enemy ) {
 	bot_state_t *bs = ( clientNum >= 0 && clientNum < MAX_CLIENTS ) ? botstates[clientNum] : NULL;
 	if ( !bs || !bs->inuse || !enemy || !enemy->client )
 		return;
+	if ( !PassStandardEnemyChecks( bs, enemy ) )
+		return; // (hidden from it: not this one)
 	bs->currentEnemy = enemy;
 	bs->enemySeenTime = level.time + ENEMY_FORGET_MS;
 }
