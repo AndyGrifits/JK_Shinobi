@@ -3121,6 +3121,7 @@ void ClientSpawn(gentity_t *ent) {
 
 	//first we want the userinfo so we can see if we should update this client's saber -rww
 	trap->GetUserinfo( index, userinfo, sizeof( userinfo ) );
+	Shinobi_SpawnUserinfo( ent, userinfo ); // JK_Shinobi: the weapon / build as the userinfo has them now (a change the engine didn't pass on)
 
 	for ( i=0; i<MAX_SABERS; i++ )
 	{

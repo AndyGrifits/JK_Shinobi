@@ -1581,6 +1581,7 @@ int   Shinobi_ModelSize( const char *model );            // g_shinobi.c: models/
 void  Shinobi_SetSize( gentity_t *ent, int pct );
 void  Shinobi_ApplySize( gentity_t *ent, const char *model );
 void  Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo );
+void  Shinobi_SpawnUserinfo( gentity_t *ent, const char *userinfo );
 void  Shinobi_ApplyBuild( gentity_t *ent );
 int   Shinobi_BuildDamage( gentity_t *targ, gentity_t *attacker, int damage, int mod );
 float Shinobi_RegenScale( gentity_t *ent );

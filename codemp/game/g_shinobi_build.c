@@ -8,6 +8,7 @@ Stats and perks take effect here; the parsing lives in bg_shinobi.c.
 #include "g_shinobi_local.h"
 
 int shinobiJutsuDamage = 0; // set while a jutsu deals damage (not taijutsu)
+static qboolean shinobiUserinfoQuiet;
 
 void Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo ) {
 	gclient_t     *client = ent->client;
@@ -16,7 +17,7 @@ void Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo ) {
 
 	Shinobi_BuildParse( str, &next );
 	Shinobi_BuildFix( &next );
-	if ( client->pers.connected == CON_CONNECTED && client->pers.shinobiBuildSet
+	if ( client->pers.connected == CON_CONNECTED && client->pers.shinobiBuildSet && !shinobiUserinfoQuiet
 		&& memcmp( &next, &client->pers.shinobiBuildNext, sizeof( next ) ) ) {
 		trap->SendServerCommand( ent - g_entities, "cp \"^5Build saved^7 - it takes effect when you respawn\"" );
 	}
@@ -31,7 +32,8 @@ void Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo ) {
 			style = Shinobi_BotWeaponStyle( ent, NULL );
 		else
 			style = Shinobi_WeaponStyleParse( w );
-		if ( client->pers.connected == CON_CONNECTED && client->pers.shinobiWeaponSet && style != client->pers.shinobiWeaponNext )
+		if ( client->pers.connected == CON_CONNECTED && client->pers.shinobiWeaponSet && style != client->pers.shinobiWeaponNext
+			&& !shinobiUserinfoQuiet )
 			trap->SendServerCommand( ent - g_entities, va( "cp \"^5%s^7 - from your next spawn\"", shinobiWeaponStyleTitles[style] ) );
 		client->pers.shinobiWeaponNext = style;
 		if ( !client->pers.shinobiWeaponSet )
@@ -44,6 +46,18 @@ void Shinobi_BuildUserinfo( gentity_t *ent, const char *userinfo ) {
 		client->pers.maxHealth = 100 + 15 * client->pers.shinobiBuild.stats[SST_HEALTH];
 		client->ps.stats[STAT_MAX_HEALTH] = client->pers.maxHealth;
 	}
+}
+
+/*
+At each spawn: the build and weapon from the userinfo as the server holds it now. The engine
+(OpenJK sv_client.cpp, SV_UpdateUserinfo_f) stores every userinfo the client sends, but tells the
+game of no more than 3 changes in 6 s - a few clicks in the menu and the last choice never reached
+ClientUserinfoChanged, so the weapon or build stayed the old one however often you respawned.
+*/
+void Shinobi_SpawnUserinfo( gentity_t *ent, const char *userinfo ) {
+	shinobiUserinfoQuiet = qtrue;
+	Shinobi_BuildUserinfo( ent, userinfo );
+	shinobiUserinfoQuiet = qfalse;
 }
 
 void Shinobi_ApplyBuild( gentity_t *ent ) {
