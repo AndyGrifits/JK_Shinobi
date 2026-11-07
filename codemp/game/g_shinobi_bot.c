@@ -999,7 +999,7 @@ static void BotOpenings( gentity_t *ent ) {
 	dz = fabs( e->client->ps.origin[2] - c->ps.origin[2] );
 
 	if ( Shinobi_HasJutsu( ent, SJ_LOTUS ) && d < SHINOBI_LOTUS_BLINK + SHINOBI_LOTUS_REACH - 10 && dz < 48
-		&& c->ps.fd.forcePower >= Shinobi_JutsuCost( SJ_LOTUS, 1 ) && !e->client->shinobi.blocking && BotChance( 45 ) ) {
+		&& c->ps.fd.forcePower >= Shinobi_JutsuCost( SJ_LOTUS, 1 ) && BotChance( e->client->shinobi.blocking ? 75 : 45 ) ) { // (a grab: best on a guard)
 		BotFace( ent, e, 0 );
 		if ( Shinobi_Cast( ent, SJ_LOTUS, 1 ) ) {
 			c->shinobi.botJutsuNext = level.time + 2500;

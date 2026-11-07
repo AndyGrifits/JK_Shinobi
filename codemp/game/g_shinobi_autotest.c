@@ -1409,6 +1409,32 @@ static atResult_t T_Lotus( int t ) {
 	return ATR_RUN;
 }
 
+// Reverse Lotus into a raised guard: a grab - the guard doesn't stop it
+static void T_LotusGuard_Setup( void ) {
+	T_Lotus_Setup();
+	AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
+}
+static atResult_t T_LotusGuard( int t ) {
+	if ( STAGE( 0 ) && t >= 400 ) {
+		at.v[3] = B->client->shinobi.blocking;
+		at.v[1] = Shinobi_Cast( A, SJ_LOTUS, 1 );
+		NEXT();
+	}
+	if ( STAGE( 1 ) ) {
+		if ( shinobiTest.lotusSlams > at.v[0] || SINCE() >= 3000 ) {
+			at.v[2] = shinobiTest.lotusSlams > at.v[0];
+			NEXT();
+		}
+	}
+	if ( STAGE( 2 ) && SINCE() >= 300 ) {
+		const int dmg = AT_DamageTo( B, at.start, NULL, MOD_MELEE, NULL, NULL );
+		AT_Msg( "B guarding: %s, cast: %s, caught and slammed: %s, damage %i", at.v[3] ? "yes" : "NO",
+			at.v[1] ? "yes" : "NO", at.v[2] ? "yes" : "NO", dmg );
+		return ( at.v[3] && at.v[1] && at.v[2] && dmg >= SHINOBI_LOTUS_DAMAGE * 7 / 10 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 // Reverse Lotus, logged: B holds a blade and swings all along; every 100 ms where both are, how fast
 // they fall, their health and pose, then every blow either of them took. A must take nothing.
 static int at_lotusLast;
@@ -2327,6 +2353,7 @@ static atTest_t atTests[] = {
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "palms",        "64 Seals: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },
 	{ "lotus",        "Reverse Lotus: blink, carried up, slammed down (damage, knockdown)", T_Lotus_Setup, T_Lotus, 5000 },
+	{ "lotus_guard",  "Reverse Lotus into a raised guard: a grab, the guard doesn't stop it", T_LotusGuard_Setup, T_LotusGuard, 5000 },
 	{ "lotus_log",    "Reverse Lotus, logged step by step, B swinging a blade: A must take nothing", T_LotusLog_Setup, T_LotusLog, 6000 },
 	{ "entry",        "Dynamic Entry: flies to him, hurts and knocks him down",   T_Entry_Setup, T_Entry, 3000 },
 	{ "gates",        "Inner Gates: weights, speed and drain, damage readies the next, heal, Lotus, +20%", T_Gates_Setup, T_Gates, 6000 },

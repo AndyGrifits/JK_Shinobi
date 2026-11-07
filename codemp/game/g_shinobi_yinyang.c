@@ -665,20 +665,6 @@ static qboolean Shinobi_TaiTarget( gentity_t *ent, gentity_t *v ) {
 	return Shinobi_ComboTarget( ent, v ) && v->client ? qtrue : qfalse;
 }
 
-// is v guarding a blow that comes from src?
-static qboolean Shinobi_GuardsFrom( gentity_t *v, const vec3_t src ) {
-	vec3_t d, fwd, yaw;
-	if ( !v->client || v->s.number >= MAX_CLIENTS || !v->client->shinobi.blocking )
-		return qfalse;
-	VectorSubtract( src, v->client->ps.origin, d );
-	d[2] = 0;
-	if ( VectorNormalize( d ) < 1.0f )
-		return qtrue;
-	VectorSet( yaw, 0, v->client->ps.viewangles[YAW], 0 );
-	AngleVectors( yaw, fwd, NULL, NULL );
-	return DotProduct( d, fwd ) >= SHINOBI_BLOCK_ARC;
-}
-
 /*
 ---------------------------------------------------------------------------
 64 Seals (held; "palms" in the code): rooted in the stance, the field
@@ -887,7 +873,7 @@ static void Shinobi_LotusEnd( gentity_t *ent ) {
 
 qboolean Shinobi_CastLotus( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	vec3_t     yaw, fwd, end, eye;
+	vec3_t     yaw, fwd, end;
 	trace_t    tr;
 	gentity_t *best = NULL;
 	float      bestDist = SHINOBI_LOTUS_REACH + 1;
@@ -935,9 +921,9 @@ qboolean Shinobi_CastLotus( gentity_t *ent ) {
 
 	if ( !best || Distance( best->r.currentOrigin, client->ps.origin ) > SHINOBI_LOTUS_REACH + 8 )
 		return qtrue; // the kick goes into the air
-	VectorCopy( client->ps.origin, eye );
-	if ( Shinobi_GuardsFrom( best, eye ) || Shinobi_CCImmune( best ) || best->client->shinobi.lotusBy ) {
-		G_Damage( best, ent, ent, fwd, best->r.currentOrigin, 12, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // (the guard takes it)
+	// a grab: a guard or a parry doesn't stop it (as with every grab - Water Prison, Shadow Bind, the stock grab)
+	if ( Shinobi_CCImmune( best ) || best->client->shinobi.lotusBy ) {
+		G_Damage( best, ent, ent, fwd, best->r.currentOrigin, 12, DAMAGE_NO_KNOCKBACK, MOD_MELEE ); // (immune: just the kick)
 		return qtrue;
 	}
 	// caught: he stands stunned while the kick comes up (Shinobi_LotusThink launches you both)
