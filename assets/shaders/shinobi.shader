@@ -613,3 +613,16 @@ gfx/shinobi/hitflash
 		rgbGen entity
 	}
 }
+
+// a star circling over a stunned head (cg_shinobi.c CG_ShinobiStunStars)
+gfx/shinobi/stunstar
+{
+	nopicmip
+	cull none
+	{
+		map gfx/shinobi/stunstar
+		blendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+		rgbGen vertex
+		alphaGen vertex
+	}
+}

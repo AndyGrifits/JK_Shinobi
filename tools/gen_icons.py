@@ -107,7 +107,24 @@ def immune():   # a shield
     done(im, "st_immune")
 
 
+def stunstar():  # one star of those circling over a stunned head (a sprite: no disc)
+    im = Image.new("RGBA", (S * 4, S * 4), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    star(d, C, C + 2, 27)
+    im2 = Image.new("RGBA", (S * 4, S * 4), (0, 0, 0, 0))
+    d2 = ImageDraw.Draw(im2)
+    pts = []
+    for i in range(10):
+        a = math.radians(-90 + i * 36)
+        rr = 27 if i % 2 == 0 else 27 * 0.45
+        pts.append(((C + rr * math.cos(a)) * 4, (C + 2 + rr * math.sin(a)) * 4))
+    d2.polygon(pts, fill=(255, 215, 40, 255))
+    d2.line(pts + [pts[0]], fill=K, width=14, joint="curve")
+    done(im2, "stunstar")
+
+
 if __name__ == "__main__":
+    stunstar()
     prison(); bound(); stun(); arrow(True, (240, 120, 30), "st_launch"); arrow(False, (200, 40, 40), "st_down")
     stagger(); flinch(); immune()
     print("wrote", os.path.normpath(OUT))

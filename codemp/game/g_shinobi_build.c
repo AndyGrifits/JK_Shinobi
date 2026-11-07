@@ -858,22 +858,20 @@ static int Shinobi_StateBits( gentity_t *ent ) {
 
 	if ( ent->health <= 0 || SHINOBI_UNSEEN( &c->ps ) )
 		return 0; // (a sign over a hidden one would give him away)
+	// only what the body doesn't already show (a prison, flying up, lying down speak for themselves):
+	// bound, stunned (out of a prison or reeling - the cgame draws stars going round his head), the combo's hold
 	if ( c->shinobi.prisonCaster )
-		st = SHINOBI_PST_PRISON;
+		st = SHINOBI_PST_NONE;
 	else if ( c->shinobi.shadowBy || c->shinobi.shadowTrapEnt )
 		st = SHINOBI_PST_BOUND;
-	else if ( c->shinobi.stunEnd > level.time )
-		st = SHINOBI_PST_STUN, left = c->shinobi.stunEnd - level.time;
+	else if ( c->shinobi.stunEnd > level.time || c->shinobi.staggerEnd > level.time )
+		st = SHINOBI_PST_STUN, left = ( c->shinobi.stunEnd > c->shinobi.staggerEnd ? c->shinobi.stunEnd : c->shinobi.staggerEnd ) - level.time;
 	else if ( c->shinobi.juggleEnd > level.time && c->shinobi.juggleBy )
-		st = SHINOBI_PST_LAUNCH, left = c->shinobi.juggleEnd - level.time;
+		st = SHINOBI_PST_NONE;
 	else if ( c->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN )
-		st = SHINOBI_PST_DOWN, left = c->ps.forceHandExtendTime - level.time;
-	else if ( c->shinobi.staggerEnd > level.time )
-		st = SHINOBI_PST_STAGGER, left = c->shinobi.staggerEnd - level.time;
+		st = SHINOBI_PST_NONE;
 	else if ( c->shinobi.flinchEnd > level.time )
 		st = SHINOBI_PST_FLINCH, left = c->shinobi.flinchEnd - level.time;
-	else if ( c->shinobi.ccImmuneEnd > level.time )
-		st = SHINOBI_PST_IMMUNE, left = c->shinobi.ccImmuneEnd - level.time;
 	if ( left < 0 )
 		left = 0;
 	left = ( left + 99 ) / 100;

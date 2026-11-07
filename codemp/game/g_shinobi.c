@@ -92,7 +92,7 @@ qboolean Shinobi_CCImmune( gentity_t *e ) {
 		return qtrue; // Stone Skin: nothing knocks you over
 	if ( Shinobi_KaitenSpinning( e ) )
 		return qtrue; // Kaiten: nothing takes hold
-	return ( e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.ccImmuneEnd > level.time ) ? qtrue : qfalse;
+	return ( shinobi_ccimmune.integer && e && e->client && e->s.number < MAX_CLIENTS && e->client->shinobi.ccImmuneEnd > level.time ) ? qtrue : qfalse;
 }
 
 // lightning paralysis: rooted, no attacks, crackling (players: Shinobi_StatusThink holds them)
@@ -117,8 +117,8 @@ void Shinobi_Paralyse( gentity_t *v, int ms ) {
 }
 
 void Shinobi_CCGrant( gentity_t *e, int ccEnds ) {
-	if ( !e || !e->client || e->s.number >= MAX_CLIENTS )
-		return;
+	if ( !e || !e->client || e->s.number >= MAX_CLIENTS || !shinobi_ccimmune.integer )
+		return; // (shinobi_ccimmune 0: no immunity after control - a test)
 	if ( e->client->shinobi.ccImmuneEnd < ccEnds + SHINOBI_CC_IMMUNE_MS )
 		e->client->shinobi.ccImmuneEnd = ccEnds + SHINOBI_CC_IMMUNE_MS;
 }

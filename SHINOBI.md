@@ -67,9 +67,11 @@ Katon at a slow walk (40 %, no jumps) - the tiger seal, the fist to the lips, a 
   numbers are off (`cg_shinobiDamageNumbers 1` brings them back).
 - The last blows taken, bottom left: how much, with what, by whom (ticks of the same thing run
   together), fading after 7 s.
-- State signs over heads (`cg_shinobiStateIcons`): imprisoned, bound, stunned, launched, down,
-  reeling, caught in a combo, immune to control - with the time left running down under them;
-  our own under the crosshair. The server puts the state and its time left in the player's
+- State signs over heads (`cg_shinobiStateIcons`), only for what the body doesn't show by itself:
+  bound (shadow) and caught in a combo - a sign with the time left running down under it (our own
+  under the crosshair); stunned (out of a Water Prison, or reeling) - three stars going round over
+  the head. A prison, flying up, lying down: no sign. CC immunity is off for now (`shinobi_ccimmune 0`,
+  a test: control can follow control). The server puts the state and its time left in the player's
   `s.frame` (bits 5-15, `Shinobi_StateBits`); none over a hidden one. The floating words for
   these went (Parry!, Guard break!, Interrupted, Finisher! stay).
 - One rule for every defence: an attack (block let go) cuts short your own parry / reflect /

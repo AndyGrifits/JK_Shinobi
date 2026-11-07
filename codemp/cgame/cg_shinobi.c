@@ -32,6 +32,7 @@ static struct {
 	qhandle_t sand, puddleWater, stoneShell, ice, iceFloe, guardShell, vignette, tomoe, sharinganRim, outline[3], kaitenShell, gateShell, legWeight, hakkeSeal;
 	sfxHandle_t chargeSnd[SHINOBI_MAX_LEVEL]; // a level bar of the charge filled (your ears only)
 	sfxHandle_t inhaleSnd, chidoriChargeSnd;   // Katon's breath in, Chidori gathering (everyone near)
+	qhandle_t   stunStar;
 	qhandle_t   hitFlash, stIcon[SHINOBI_PST_COUNT]; // a body lit white by a blow; the state signs over heads
 	sfxHandle_t hitSnd[2];                     // a blow of ours landed: light, heavy (our ears)
 } shinobiShaders;
@@ -221,6 +222,7 @@ void CG_ShinobiRegisterMedia( void ) {
 	shinobiShaders.hitSnd[0] = trap->S_RegisterSound( "sound/shinobi/hit_light.wav" );
 	shinobiShaders.hitSnd[1] = trap->S_RegisterSound( "sound/shinobi/hit_heavy.wav" );
 	shinobiShaders.hitFlash = trap->R_RegisterShader( "gfx/shinobi/hitflash" );
+	shinobiShaders.stunStar = trap->R_RegisterShader( "gfx/shinobi/stunstar" );
 	{
 		static const char * const st[SHINOBI_PST_COUNT] = { NULL, "prison", "bound", "stun", "launch", "down", "stagger", "flinch", "immune" };
 		int k;
@@ -849,6 +851,37 @@ static void CG_ShinobiChidoriTrail( centity_t *cent, const vec3_t org, float rad
 	cent->shinobiTrailTime = cg.time;
 }
 
+/*
+Stunned (out of a Water Prison, or reeling - a parried blow, a broken guard): three stars going
+round over the head, for everyone to see (cg_shinobiStateIcons 0: none).
+*/
+static void CG_ShinobiStunStars( centity_t *cent ) {
+	const qboolean me = cent->currentState.number == cg.snap->ps.clientNum;
+	qboolean       stunned;
+	vec3_t         org, at;
+	int            k;
+
+	if ( !shinobiShaders.stunStar || !cg_shinobiStateIcons.integer )
+		return;
+	if ( me ) {
+		const playerState_t *ps = &cg.predictedPlayerState;
+		stunned = ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) || SHINOBI_STUNNED( ps );
+	}
+	else
+		stunned = SHINOBI_PFRAME_STATE( cent->currentState.frame ) == SHINOBI_PST_STUN;
+	if ( !stunned )
+		return;
+	VectorCopy( cent->lerpOrigin, org );
+	org[2] += 46;
+	for ( k = 0; k < 3; k++ ) {
+		const float a = cg.time * 0.0055f + k * ( 2.0f * M_PI / 3.0f );
+		at[0] = org[0] + cosf( a ) * 10.0f;
+		at[1] = org[1] + sinf( a ) * 10.0f;
+		at[2] = org[2] + sinf( a * 2.0f + k ) * 1.5f;
+		CG_ShinobiSpriteA( at, 3.2f, cg.time * 0.2f + k * 40, shinobiShaders.stunStar, 1, 1, 1, 1 );
+	}
+}
+
 void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 	entityState_t *s = &cent->currentState;
 	vec3_t org, up = { 0, 0, 1 };
@@ -859,6 +892,7 @@ void CG_ShinobiPlayerEffects( centity_t *cent, clientInfo_t *ci ) {
 	}
 
 	CG_ShinobiDrawEyes( cent, ci );
+	CG_ShinobiStunStars( cent );
 
 	if ( s->eFlags & SHINOBI_EF_RAIDASH )
 		CG_ShinobiRaiDashForm( cent );
@@ -3189,10 +3223,10 @@ static void CG_ShinobiDrawStates( void ) {
 			left = 0;
 			if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_BOUND || ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_SHADOWTRAP )
 				code = SHINOBI_PST_BOUND;
-			else if ( ps->forceHandExtend == HANDEXTEND_KNOCKDOWN )
-				code = SHINOBI_PST_DOWN, left = ps->forceHandExtendTime - cg.time;
-			else if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
-				code = SHINOBI_PST_STAGGER;
+			else if ( SHINOBI_IMPRISONED( ps ) || ps->forceHandExtend == HANDEXTEND_KNOCKDOWN )
+				code = SHINOBI_PST_NONE; // (seen: the body shows it)
+			else if ( ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) || SHINOBI_STUNNED( ps ) )
+				code = SHINOBI_PST_STUN; // (stars over the head: CG_ShinobiStunStars)
 			else if ( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
 				code = SHINOBI_PST_FLINCH;
 			else
@@ -3203,6 +3237,9 @@ static void CG_ShinobiDrawStates( void ) {
 				code = SHINOBI_PST_NONE;
 		}
 
+		if ( code == SHINOBI_PST_STUN || code == SHINOBI_PST_PRISON || code == SHINOBI_PST_LAUNCH || code == SHINOBI_PST_DOWN
+			|| code == SHINOBI_PST_STAGGER || code == SHINOBI_PST_IMMUNE )
+			code = SHINOBI_PST_NONE; // no sign for these: stunned - the stars round the head; the rest the body shows
 		if ( ( !cent->currentValid && !me ) || code <= SHINOBI_PST_NONE || code >= SHINOBI_PST_COUNT
 			|| ( !me && ( cent->currentState.eFlags & ( EF_DEAD | EF_NODRAW ) ) ) ) {
 			cent->shinobiStateCode = 0;
