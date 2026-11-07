@@ -116,6 +116,7 @@ void CG_SetInitialSnapshot( snapshot_t *snap ) {
 		}
 	}
 	BG_PlayerStateToEntityState( &snap->ps, &cg_entities[ snap->ps.clientNum ].currentState, qfalse );
+	cg_entities[ snap->ps.clientNum ].currentState.frame = Shinobi_OwnFrame( &snap->ps ); // JK_Shinobi
 
 	// sort out solid entities
 	CG_BuildSolidList();
@@ -183,6 +184,7 @@ static void CG_TransitionSnapshot( void ) {
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg_entities[cg.snap->ps.clientNum]);
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg.predictedPlayerEntity);
 	BG_PlayerStateToEntityState( &cg.snap->ps, &cg_entities[ cg.snap->ps.clientNum ].currentState, qfalse );
+	cg_entities[ cg.snap->ps.clientNum ].currentState.frame = Shinobi_OwnFrame( &cg.snap->ps ); // JK_Shinobi
 	cg_entities[ cg.snap->ps.clientNum ].interpolate = qfalse;
 
 	for ( i = 0 ; i < cg.snap->numEntities ; i++ ) {
@@ -234,6 +236,7 @@ static void CG_SetNextSnap( snapshot_t *snap ) {
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg_entities[cg.snap->ps.clientNum]);
 	//CG_CheckPlayerG2Weapons(&cg.snap->ps, &cg.predictedPlayerEntity);
 	BG_PlayerStateToEntityState( &snap->ps, &cg_entities[ snap->ps.clientNum ].nextState, qfalse );
+	cg_entities[ snap->ps.clientNum ].nextState.frame = Shinobi_OwnFrame( &snap->ps ); // JK_Shinobi
 	//cg_entities[ cg.snap->ps.clientNum ].interpolate = qtrue;
 	//No longer want to do this, as the cg_entities[clnum] and cg.predictedPlayerEntity are one in the same.
 

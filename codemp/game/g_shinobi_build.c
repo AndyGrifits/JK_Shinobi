@@ -530,6 +530,8 @@ static void Shinobi_GatesThink( gentity_t *ent, qboolean alive, int perk ) {
 	if ( alive && perk == SP_GATES && !client->shinobi.weightsOff )
 		frame |= SHINOBI_PFRAME_WEIGHTS;
 	ent->s.frame = frame | Shinobi_StateBits( ent );
+	client->ps.stats[STAT_SHINOBI_LOCK] = ( client->ps.stats[STAT_SHINOBI_LOCK] & ~( SHINOBI_LOCK_WEIGHTS | SHINOBI_LOCK_LOTUS ) )
+		| ( ( frame & SHINOBI_PFRAME_WEIGHTS ) ? SHINOBI_LOCK_WEIGHTS : 0 ); // (for our own cgame: Shinobi_OwnFrame)
 }
 
 void Cmd_Perk_f( gentity_t *ent ) {

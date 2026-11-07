@@ -3458,6 +3458,7 @@ void CG_AddPacketEntities( qboolean isPortal ) {
 
 	CG_CheckPlayerG2Weapons(ps, &cg_entities[cg.predictedPlayerState.clientNum]);
 	BG_PlayerStateToEntityState( ps, &cg_entities[cg.predictedPlayerState.clientNum].currentState, qfalse );
+	cg_entities[cg.predictedPlayerState.clientNum].currentState.frame = Shinobi_OwnFrame( ps ); // JK_Shinobi: the gate's look etc. on our own body
 
 	if (cg.predictedPlayerState.m_iVehicleNum)
 	{ //add the vehicle I'm riding first

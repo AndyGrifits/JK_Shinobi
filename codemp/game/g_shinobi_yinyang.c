@@ -1029,6 +1029,7 @@ static void Shinobi_LotusThink( gentity_t *ent, usercmd_t *ucmd ) {
 	// up there and coming down: both head down (the cgame turns them over: SHINOBI_PFRAME_LOTUS),
 	// spinning about his axis - you held at his back, the way he faces turning with the spin
 	ent->s.frame |= SHINOBI_PFRAME_LOTUS;
+	ent->client->ps.stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_LOTUS;
 	Shinobi_LotusStraight( ent );
 	{
 		vec3_t  ang = { 0, 0, 0 }, dir, spot;
@@ -1102,7 +1103,8 @@ static void Shinobi_LotusHeld( gentity_t *ent, usercmd_t *ucmd ) {
 		client->ps.velocity[0] = client->ps.velocity[1] = 0;
 		return;
 	}
-	ent->s.frame |= SHINOBI_PFRAME_LOTUS; // head down, spinning (the cgame)
+	ent->s.frame |= SHINOBI_PFRAME_LOTUS;
+	ent->client->ps.stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_LOTUS; // head down, spinning (the cgame)
 	Shinobi_LotusStraight( ent );
 	client->ps.velocity[0] = client->ps.velocity[1] = 0;
 	if ( a->client->shinobi.lotusPhase == 2 ) {

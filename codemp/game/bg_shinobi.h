@@ -1204,6 +1204,16 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 #define SHINOBI_PFRAME_STATE_SHIFT     5    // bits 5-8: the state everyone sees a sign of over the head (SHINOBI_PST_*)
 #define SHINOBI_PFRAME_LEFT_SHIFT      9    // bits 9-15: its time left, tenths of a second (0: while it lasts)
 #define SHINOBI_PFRAME_STATE(f)        ( ( (f) >> SHINOBI_PFRAME_STATE_SHIFT ) & 15 )
+// our own entity never comes in a snapshot (the cgame makes it from the player state): what of
+// s.frame the body drawing needs, mirrored in STAT_SHINOBI_LOCK's free upper bits (the gate: in
+// STAT_SHINOBI_BLADECOMBO)
+#define SHINOBI_LOCK_WEIGHTS           ( 1 << 11 )
+#define SHINOBI_LOCK_LOTUS             ( 1 << 12 )
+static QINLINE int Shinobi_OwnFrame( const playerState_t *ps ) {
+	return ( ( ps->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_GATE_SHIFT ) & SHINOBI_PFRAME_GATE_MASK )
+		| ( ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_WEIGHTS ) ? SHINOBI_PFRAME_WEIGHTS : 0 )
+		| ( ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_LOTUS ) ? SHINOBI_PFRAME_LOTUS : 0 );
+}
 #define SHINOBI_PFRAME_LEFT(f)         ( ( ( (f) >> SHINOBI_PFRAME_LEFT_SHIFT ) & 127 ) * 100 )
 enum { SHINOBI_PST_NONE, SHINOBI_PST_PRISON, SHINOBI_PST_BOUND, SHINOBI_PST_STUN, SHINOBI_PST_LAUNCH, SHINOBI_PST_DOWN,
 	SHINOBI_PST_STAGGER, SHINOBI_PST_FLINCH, SHINOBI_PST_IMMUNE, SHINOBI_PST_COUNT };
