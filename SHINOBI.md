@@ -376,6 +376,12 @@ Doton leaves loose earth (a sandy patch, 40 s): the Earthquake over its whole ar
 Burrow along its trail, broken earth walls / Rock Pillar blocks where they stood.
 Water on dust or dust on water makes mud (slows), whichever comes first.
 
+Zones lie on the real floor: scorch, mud, ice, sand and ash are cut onto the surfaces under them
+by the stock mark clipper (R_MarkFragments, in 40-unit slabs down a slope's reach), a puddle's
+points each sit on the floor under them and its rim draws in where the floor drops away (a
+ledge); both worked out once per zone. On the server one stands in a zone down or up a ramp
+too (as steep as ~40 degrees, the floor going on from its middle to him - not below a ledge).
+
 Puddles are a low dome of rippling water, the Water Wave a rolling breaker of the same
 water (the game's Bespin water texture when installed, otherwise our own); the wave leaves
 pools as wide as itself. The game lists the stock water shaders once

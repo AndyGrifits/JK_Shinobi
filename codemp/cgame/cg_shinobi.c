@@ -637,14 +637,179 @@ static void CG_ShinobiGroundDecal( const vec3_t org, float radius, float rotatio
 }
 
 /*
-A puddle: a low dome of water over a ragged outline (rim at the floor, the
-middle a few units up), so it reads as water lying on the ground.
+Zone decals laid on the real floor (a ramp, steps), not a flat square at the middle's height: the
+stock mark clipper (R_MarkFragments, as for blaster marks) cuts the square into the world's
+surfaces under it. Its clip volume reaches only 20 units above and below the square, so it is
+run in 40-unit slabs from a ramp's height above the zone down to as far under it (a slope's
+worth for that size - a floor much lower is another level). Zones stay put: worked out once,
+kept by entity. Nothing found (no world under it): the flat square.
 */
-static void CG_ShinobiPuddle( const vec3_t org, float R, int seed, float a, float bright ) {
-	enum { N = 18 };
+#define SZM_SLOTS  64
+#define SZM_POINTS 384
+#define SZM_FRAGS  96
+typedef struct {
+	int    ent, time, nFrag, nPts;
+	float  R, rot;
+	vec3_t org;
+	short  first[SZM_FRAGS], num[SZM_FRAGS];
+	vec3_t xyz[SZM_POINTS];
+	float  st[SZM_POINTS][2];
+} shinobiZoneMark_t;
+static shinobiZoneMark_t shinobiZoneMarks[SZM_SLOTS];
+
+static float CG_ShinobiSlopeReach( float R ) {
+	return Com_Clamp( 12, 80, R * 0.6f + 8 ); // (about a 30-degree ramp across the zone)
+}
+
+static const shinobiZoneMark_t *CG_ShinobiZoneMark( int ent, int time, const vec3_t org, float R, float rot ) {
+	shinobiZoneMark_t *m = &shinobiZoneMarks[ent % SZM_SLOTS];
+	vec3_t             ax1, ax2, pts[4], projection = { 0, 0, -40 };
+	const float        reach = CG_ShinobiSlopeReach( R );
+	float              top;
+	int                c;
+
+	if ( m->ent == ent + 1 && m->time == time && m->R == R && m->rot == rot && VectorCompare( m->org, org ) )
+		return m;
+	m->ent = ent + 1;
+	m->time = time;
+	m->R = R;
+	m->rot = rot;
+	VectorCopy( org, m->org );
+	m->nFrag = m->nPts = 0;
+	VectorSet( ax1, cosf( DEG2RAD( rot ) ), sinf( DEG2RAD( rot ) ), 0 );
+	VectorSet( ax2, -ax1[1], ax1[0], 0 );
+	for ( top = org[2] + reach; top > org[2] - reach - 1.0f; top -= 40 ) {
+		markFragment_t frags[SZM_FRAGS];
+		vec3_t         mp[SZM_POINTS];
+		int            n, i, j;
+		for ( c = 0; c < 4; c++ ) {
+			const float sx = ( c == 1 || c == 2 ) ? R : -R, sy = c >= 2 ? R : -R;
+			pts[c][0] = org[0] + sx * ax1[0] + sy * ax2[0];
+			pts[c][1] = org[1] + sx * ax1[1] + sy * ax2[1];
+			pts[c][2] = top - 20; // (this slab: top - 40 .. top)
+		}
+		if ( m->nPts >= SZM_POINTS - 3 || m->nFrag >= SZM_FRAGS )
+			break;
+		n = trap->R_MarkFragments( 4, (const vec3_t *)pts, projection, SZM_POINTS - m->nPts, mp[0], SZM_FRAGS - m->nFrag, frags );
+		for ( i = 0; i < n; i++ ) {
+			if ( frags[i].numPoints < 3 || frags[i].numPoints > MAX_VERTS_ON_POLY || m->nPts + frags[i].numPoints > SZM_POINTS
+				|| m->nFrag >= SZM_FRAGS )
+				continue;
+			m->first[m->nFrag] = (short)m->nPts;
+			m->num[m->nFrag] = (short)frags[i].numPoints;
+			m->nFrag++;
+			for ( j = 0; j < frags[i].numPoints; j++ ) {
+				vec3_t d;
+				VectorCopy( mp[frags[i].firstPoint + j], m->xyz[m->nPts] );
+				VectorSubtract( m->xyz[m->nPts], org, d );
+				m->st[m->nPts][0] = 0.5f + DotProduct( d, ax1 ) * 0.5f / R;
+				m->st[m->nPts][1] = 0.5f + DotProduct( d, ax2 ) * 0.5f / R;
+				m->nPts++;
+			}
+		}
+	}
+	return m;
+}
+
+static void CG_ShinobiZoneDecal( centity_t *cent, const vec3_t org, float R, float rot, qhandle_t shader,
+	float r, float g, float b, float a ) {
+	const shinobiZoneMark_t *m;
+	polyVert_t               v[MAX_VERTS_ON_POLY];
+	int                      f, j;
+
+	if ( !shader || R <= 0 || a <= 0 )
+		return;
+	m = CG_ShinobiZoneMark( cent->currentState.number, cent->currentState.time, org, R, rot );
+	if ( !m->nFrag ) {
+		CG_ShinobiGroundDecal( org, R, rot, shader, r, g, b, a );
+		return;
+	}
+	for ( f = 0; f < m->nFrag; f++ ) {
+		for ( j = 0; j < m->num[f]; j++ ) {
+			const int k = m->first[f] + j;
+			VectorCopy( m->xyz[k], v[j].xyz );
+			v[j].st[0] = m->st[k][0];
+			v[j].st[1] = m->st[k][1];
+			v[j].modulate[0] = (byte)( Com_Clamp( 0, 1, r ) * 255 );
+			v[j].modulate[1] = (byte)( Com_Clamp( 0, 1, g ) * 255 );
+			v[j].modulate[2] = (byte)( Com_Clamp( 0, 1, b ) * 255 );
+			v[j].modulate[3] = (byte)( Com_Clamp( 0, 1, a ) * 255 );
+		}
+		trap->R_AddPolysToScene( shader, m->num[f], v, 1 );
+	}
+}
+
+/*
+A puddle: a low dome of water over a ragged outline (rim at the floor, the
+middle a few units up), so it reads as water lying on the ground. Each point sits on the floor
+under it (a ramp: the puddle lies along it); where the floor drops away (a ledge, a box's edge)
+the rim draws in until it stands on something. Worked out once per puddle.
+*/
+#define SPD_N 18
+typedef struct {
+	int    ent, time;
+	float  R;
+	vec3_t org, rim[SPD_N], mid[SPD_N], top;
+} shinobiPuddleShape_t;
+static shinobiPuddleShape_t shinobiPuddles[SZM_SLOTS];
+
+// the floor under (x, y) near the zone's height (water surfaces count); qfalse: none in a slope's reach
+static qboolean CG_ShinobiFloorAt( float x, float y, const vec3_t org, float reach, float *z ) {
+	trace_t tr;
+	vec3_t  a, b;
+	VectorSet( a, x, y, org[2] + reach );
+	VectorSet( b, x, y, org[2] - reach );
+	CG_Trace( &tr, a, NULL, NULL, b, ENTITYNUM_NONE, MASK_SOLID | CONTENTS_WATER | CONTENTS_SLIME | CONTENTS_LAVA );
+	if ( tr.startsolid ) { // (under a low ceiling: from just above the zone instead)
+		a[2] = org[2] + 8;
+		CG_Trace( &tr, a, NULL, NULL, b, ENTITYNUM_NONE, MASK_SOLID | CONTENTS_WATER | CONTENTS_SLIME | CONTENTS_LAVA );
+	}
+	if ( tr.startsolid || tr.allsolid || tr.fraction >= 1.0f || tr.plane.normal[2] < 0.5f )
+		return qfalse;
+	*z = tr.endpos[2];
+	return qtrue;
+}
+
+static const shinobiPuddleShape_t *CG_ShinobiPuddleShape( int ent, int time, const vec3_t org, float R, int seed ) {
+	shinobiPuddleShape_t *p = &shinobiPuddles[ent % SZM_SLOTS];
+	const float           reach = CG_ShinobiSlopeReach( R );
+	float                 z;
+	int                   i;
+
+	if ( p->ent == ent + 1 && p->time == time && p->R == R && VectorCompare( p->org, org ) )
+		return p;
+	p->ent = ent + 1;
+	p->time = time;
+	p->R = R;
+	VectorCopy( org, p->org );
+	for ( i = 0; i < SPD_N; i++ ) {
+		const float ang = 2 * M_PI * i / SPD_N, c = cosf( ang ), s = sinf( ang );
+		const int   h = ( seed * 7919 + i * 104729 ) & 1023;
+		float       r = R * ( 0.82f + 0.18f * ( h / 1023.0f ) ), k;
+		for ( k = 1.0f; k > 0.2f; k -= 0.2f ) { // the rim in until it stands on the floor
+			if ( CG_ShinobiFloorAt( org[0] + c * r * k, org[1] + s * r * k, org, reach * k, &z ) )
+				break;
+		}
+		if ( k <= 0.2f ) {
+			k = 0.2f;
+			z = org[2];
+		}
+		r *= k;
+		VectorSet( p->rim[i], org[0] + c * r, org[1] + s * r, z + 0.8f );
+		if ( !CG_ShinobiFloorAt( org[0] + c * r * 0.6f, org[1] + s * r * 0.6f, org, reach, &z ) )
+			z = ( p->rim[i][2] - 0.8f + org[2] ) * 0.5f;
+		VectorSet( p->mid[i], org[0] + c * r * 0.6f, org[1] + s * r * 0.6f, z + 2.6f );
+	}
+	if ( !CG_ShinobiFloorAt( org[0], org[1], org, reach, &z ) )
+		z = org[2];
+	VectorSet( p->top, org[0], org[1], z + 3.4f );
+	return p;
+}
+
+static void CG_ShinobiPuddle( centity_t *cent, const vec3_t org, float R, int seed, float a, float bright ) {
+	enum { N = SPD_N };
 	polyVert_t  fan[N * 3], ring[N * 4];
-	vec3_t      rim[N], mid[N], top;
-	float       rimR[N];
+	const shinobiPuddleShape_t *sh;
 	int         i, k;
 	const byte  ca = (byte)( Com_Clamp( 0, 1, a * 0.85f ) * 255 );
 	const byte  ea = (byte)( Com_Clamp( 0, 1, a * 0.35f ) * 255 );
@@ -652,14 +817,10 @@ static void CG_ShinobiPuddle( const vec3_t org, float R, int seed, float a, floa
 
 	if ( R <= 0 || a <= 0 || !shinobiShaders.puddleWater )
 		return;
-	for ( i = 0; i < N; i++ ) {
-		const float ang = 2 * M_PI * i / N;
-		const int   h = ( seed * 7919 + i * 104729 ) & 1023;
-		rimR[i] = R * ( 0.82f + 0.18f * ( h / 1023.0f ) );
-		VectorSet( rim[i], org[0] + cosf( ang ) * rimR[i], org[1] + sinf( ang ) * rimR[i], org[2] + 0.8f );
-		VectorSet( mid[i], org[0] + cosf( ang ) * rimR[i] * 0.6f, org[1] + sinf( ang ) * rimR[i] * 0.6f, org[2] + 2.6f );
-	}
-	VectorSet( top, org[0], org[1], org[2] + 3.4f );
+	sh = CG_ShinobiPuddleShape( cent->currentState.number, cent->currentState.time, org, R, seed );
+#define rim ( sh->rim )
+#define mid ( sh->mid )
+#define top ( sh->top )
 
 #define PV( v, p, alpha ) do { VectorCopy( p, (v).xyz ); (v).st[0] = (p)[0] / 96.0f; (v).st[1] = (p)[1] / 96.0f; \
 	(v).modulate[0] = (v).modulate[1] = (v).modulate[2] = shine; (v).modulate[3] = alpha; } while ( 0 )
@@ -679,6 +840,9 @@ static void CG_ShinobiPuddle( const vec3_t org, float R, int seed, float a, floa
 	}
 	trap->R_AddPolysToScene( shinobiShaders.puddleWater, 4, ring, N );
 #undef PV
+#undef rim
+#undef mid
+#undef top
 }
 
 /*
@@ -1614,7 +1778,7 @@ static void CG_ShinobiZone( centity_t *cent ) {
 	switch ( type ) {
 	case SZ_FIRE: {
 		const float f = 0.75f + 0.25f * flrand( 0, 1 );
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.scorch, 1, 1, 1, a );
+		CG_ShinobiZoneDecal( cent, org, R, rot, shinobiShaders.scorch, 1, 1, 1, a );
 		p[0] = org[0]; p[1] = org[1]; p[2] = org[2] + 24;
 		trap->R_AddLightToScene( p, R * 1.6f * f * a, 1.0f, 0.5f, 0.15f );
 		fx = shinobiFx.fireGround;
@@ -1622,11 +1786,11 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		break;
 	}
 	case SZ_WATER:
-		CG_ShinobiPuddle( org, R, s->number, a, 0.6f );
+		CG_ShinobiPuddle( cent, org, R, s->number, a, 0.6f );
 		break;
 	case SZ_ELECTRIC: {
 		const float f = flrand( 0.5f, 1.0f );
-		CG_ShinobiPuddle( org, R, s->number, a, 1.0f );
+		CG_ShinobiPuddle( cent, org, R, s->number, a, 1.0f );
 		p[0] = org[0]; p[1] = org[1]; p[2] = org[2] + 16;
 		trap->R_AddLightToScene( p, R * 1.4f * f * a, 0.5f, 0.7f, 1.0f );
 		fx = shinobiFx.zoneSpark;
@@ -1634,7 +1798,7 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		break;
 	}
 	case SZ_MUD:
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
+		CG_ShinobiZoneDecal( cent, org, R, rot, shinobiShaders.mud, 1, 1, 1, a );
 		break;
 	case SZ_ICE: // a frozen puddle: pale, glinting
 		VectorSet( p, org[0], org[1], org[2] - 4 );
@@ -1645,7 +1809,7 @@ static void CG_ShinobiZone( centity_t *cent ) {
 			CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.iceFloe, 0.85f, 0.95f, 1.0f, 0.95f * a );
 		}
 		else
-			CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.ice, 0.85f, 0.95f, 1.0f, 0.95f * a );
+			CG_ShinobiZoneDecal( cent, org, R, rot, shinobiShaders.ice, 0.85f, 0.95f, 1.0f, 0.95f * a );
 		{ // a few glints that come and go
 			int k;
 			for ( k = 0; k < 4; k++ ) {
@@ -1658,7 +1822,7 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		}
 		break;
 	case SZ_DUST: // loose earth: sand on the floor, a puff of dust now and then
-		CG_ShinobiGroundDecal( org, R, rot, shinobiShaders.sand, 1, 1, 1, 0.9f * a );
+		CG_ShinobiZoneDecal( cent, org, R, rot, shinobiShaders.sand, 1, 1, 1, 0.9f * a );
 		fx = shinobiFx.quakeDust;
 		interval = (int)( 900 / ( area < 0.3f ? 0.3f : area ) );
 		if ( interval < 160 )
@@ -1673,12 +1837,12 @@ static void CG_ShinobiZone( centity_t *cent ) {
 		interval = (int)( 400 / area );
 		break;
 	case SZ_ASH:
-		CG_ShinobiGroundDecal( org, R * 0.8f, rot, shinobiShaders.scorch, 1, 1, 1, 0.5f * a );
+		CG_ShinobiZoneDecal( cent, org, R * 0.8f, rot, shinobiShaders.scorch, 1, 1, 1, 0.5f * a );
 		fx = shinobiFx.ash;
 		interval = (int)( 45 / ( area < 0.4f ? 0.4f : area ) );
 		break;
 	case SZ_POISON: // a tall, thick dark violet cloud (no fog on the screen: it hurts, it doesn't hide)
-		CG_ShinobiGroundDecal( org, R * 0.85f, rot, shinobiShaders.mud, 0.35f, 0.2f, 0.45f, 0.5f * a );
+		CG_ShinobiZoneDecal( cent, org, R * 0.85f, rot, shinobiShaders.mud, 0.35f, 0.2f, 0.45f, 0.5f * a );
 		fx = shinobiFx.poison;
 		interval = (int)( 28 / ( area < 0.4f ? 0.4f : area ) );
 		break;

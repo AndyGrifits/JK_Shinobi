@@ -195,13 +195,30 @@ static qboolean Shinobi_ZonesOverlap( gentity_t *z, vec3_t origin, float radius 
 #define ZONE_ON_MAPWATER 1   // spawnflags: on a lake's surface (reaches the swimmers below)
 
 static qboolean Shinobi_InZone( gentity_t *z, vec3_t feet ) {
-	vec3_t d;
+	vec3_t        d, a, b;
+	float         flat;
+	trace_t       tr;
+	const float   top = ZONE_TYPE( z ) == SZ_POISON ? SHINOBI_POISON_HEIGHT : SHINOBI_ZONE_HEIGHT;
+
 	VectorSubtract( feet, z->r.currentOrigin, d );
-	if ( d[2] < ( ( z->spawnflags & ZONE_ON_MAPWATER ) ? -160 : -16 )
-		|| d[2] > ( ZONE_TYPE( z ) == SZ_POISON ? SHINOBI_POISON_HEIGHT : SHINOBI_ZONE_HEIGHT ) )
+	flat = sqrtf( d[0] * d[0] + d[1] * d[1] );
+	if ( flat > ZONE_RADIUS( z ) )
 		return qfalse;
-	d[2] = 0;
-	return VectorLength( d ) <= ZONE_RADIUS( z ) ? qtrue : qfalse;
+	if ( d[2] >= ( ( z->spawnflags & ZONE_ON_MAPWATER ) ? -160 : -16 ) && d[2] <= top )
+		return qtrue;
+	if ( z->spawnflags & ZONE_ON_MAPWATER )
+		return qfalse;
+	// not level with its middle: on a ramp the zone lies along the floor (the cgame lays it there), so
+	// one standing down or up the slope is in it - as steep as a ramp, no steeper (another level), and
+	// the floor going on from the middle to him (not a platform's edge with him below it)
+	if ( d[2] < -( flat * 0.9f + 16 ) || d[2] > top + flat * 0.9f )
+		return qfalse;
+	VectorCopy( z->r.currentOrigin, a );
+	a[2] += 10;
+	VectorCopy( feet, b );
+	b[2] += 10;
+	trap->Trace( &tr, a, NULL, NULL, b, ENTITYNUM_NONE, MASK_SOLID, qfalse, 0, 0 );
+	return ( tr.fraction >= 1.0f && !tr.startsolid ) ? qtrue : qfalse;
 }
 
 static void Shinobi_ZoneFree( gentity_t *z ) {
