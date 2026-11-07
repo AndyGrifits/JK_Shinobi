@@ -2207,8 +2207,8 @@ static atResult_t T_BladeReach( int t ) {
 /*
 guard_edges: what a guard and a perfect parry must stop. 1) B holds his guard (fists): A's whole
 chain with the launcher finisher - B not thrown up, not knocked down, hardly moved. 2) B parries
-every blow perfectly: A reels, B isn't pushed; with block still held B attacks - the riposte must
-land on the reeling A. 3) The same with blades.
+every blow perfectly: A reels, B isn't pushed; B lets go of block and attacks - out of the parry
+at once (an attack cuts a defence short), it must land on the reeling A. 3) The same with blades.
 */
 static void GE_Stage( int stage ) {
 	vec3_t p;
@@ -2278,7 +2278,7 @@ static atResult_t T_GuardEdges( int t ) {
 	}
 	else {
 		int k;
-		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK | BUTTON_ATTACK );
+		AT_Drive( 1, 0, 0, 0, BUTTON_ATTACK );
 		for ( k = 0; k < SHINOBI_TEST_DMGLOG && at.v[4] < 0; k++ ) {
 			const shinobiTestDamage_t *dm = &shinobiTest.dmg[k];
 			if ( dm->time >= at.v[5] && dm->targ == at.a && dm->attacker == at.b )
@@ -2307,7 +2307,7 @@ static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
 	{ "parry",        "perfect parry: free, attacker staggered long",              T_Parry_Setup, T_Parry, 1000 },
-	{ "guard_edges",  "a guard stops the launcher, a parry the push; the riposte lands", T_GuardEdges_Setup, T_GuardEdges, 12000 },
+	{ "guard_edges",  "a guard stops the launcher, a parry the push; the counter out of a parry lands", T_GuardEdges_Setup, T_GuardEdges, 12000 },
 	{ "fuma",         "fuma shuriken: speed, two equal hits, leaves the hand, caught", T_Fuma_Setup, T_Fuma, 7000 },
 	{ "kawa_combo",   "Kawarimi with attack held mid-combo hides",                 T_KawaCombo_Setup, T_KawaCombo, 3000 },
 	{ "kawa_floor",   "Kawarimi from the floor and out of flinch / juggle",       T_KawaFloor_Setup, T_KawaFloor, 3000 },

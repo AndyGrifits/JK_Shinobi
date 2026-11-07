@@ -1049,11 +1049,9 @@ It lets go past SHINOBI_LOCK_KEEP, out of sight, with a tool in hand, the moment
 while your own sight is spoiled: blinded by a Flash, inside a Hidden Mist or an Ash Cloud
 (the Byakugan sees through mist and ash).
 */
-#define STAT_SHINOBI_LOCK          11    // the target's entity number + 1 (0 = free) in bits 0-10; bit 12: riposte
+#define STAT_SHINOBI_LOCK          11    // the target's entity number + 1 (0 = free) in bits 0-10 (the rest free)
 #define SHINOBI_LOCK_MASK          0x7ff
 #define SHINOBI_LOCK_TARGET(ps)    ( ( (ps)->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_MASK ) - 1 )
-#define SHINOBI_LOCK_RIPOSTE       0x1000 // just parried perfectly: attack drops the guard at once (block still held)
-#define SHINOBI_RIPOSTE_MS         700
 #define SHINOBI_INPUT_BUFFER_MS    220   // attack tapped while the body can't swing yet: pressed for you the moment it can
 #define SHINOBI_LOCK_RANGE         250   // locks on within this (halved after a play test)
 #define SHINOBI_LOCK_KEEP          350   // lets go past this

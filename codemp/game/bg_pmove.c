@@ -10316,12 +10316,6 @@ static void PM_ShinobiWallRun( void )
 void BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd )
 {
 	if ( ( cmd->buttons & SHINOBI_BUTTON_BLOCK ) && ( cmd->buttons & BUTTON_ATTACK )
-		&& ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_RIPOSTE ) )
-	{ // just parried perfectly: block still held + attack = the quick riposte, a plain blow (not the special / the grab)
-		cmd->buttons &= ~SHINOBI_BUTTON_BLOCK;
-		return;
-	}
-	if ( ( cmd->buttons & SHINOBI_BUTTON_BLOCK ) && ( cmd->buttons & BUTTON_ATTACK )
 		&& ( ps->weapon == WP_SABER || ps->weapon == WP_MELEE ) ) // fists: the stock grab
 	{
 		cmd->buttons |= BUTTON_ALT_ATTACK;
@@ -10692,8 +10686,6 @@ qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons )
 {
 	if ( !( buttons & SHINOBI_BUTTON_BLOCK ) || ps->pm_type != PM_NORMAL || ps->clientNum >= MAX_CLIENTS )
 		return qfalse;
-	if ( ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_RIPOSTE ) && ( buttons & BUTTON_ATTACK ) )
-		return qfalse; // just parried: attack drops the guard at once - the riposte
 
 	if ( ps->stats[STAT_ARMOR] <= 0 || ps->stats[STAT_HEALTH] <= 0 )
 		return qfalse;
@@ -10943,6 +10935,21 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
 			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | SHINOBI_BUTTON_BLOCK );
 		ps->velocity[0] = ps->velocity[1] = 0;
+	}
+
+	// One rule for every defensive move: an attack cuts short your own parry / reflect / knock-away
+	// (and the block reaction still pending) - attacking out of a defence is never slower than out
+	// of standing. Penalties are not defences: a bounce off his guard, reeling, a flinch run out.
+	if ( ( pm->cmd.buttons & BUTTON_ATTACK ) && !( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK ) && ps->weapon == WP_SABER
+		&& ps->clientNum < MAX_CLIENTS
+		&& !( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) && !( ps->stats[STAT_SHINOBI2] & SHINOBI_STAT2_FLINCH )
+		&& ( PM_SaberInParry( ps->saberMove ) || PM_SaberInReflect( ps->saberMove ) || PM_SaberInKnockaway( ps->saberMove )
+			|| ( ps->saberBlocked >= BLOCKED_UPPER_RIGHT && ps->saberBlocked <= BLOCKED_TOP_PROJ ) ) )
+	{
+		ps->saberBlocked = BLOCKED_NONE;
+		ps->saberMove = LS_READY;
+		ps->weaponTime = 0;
+		ps->torsoTimer = 0;
 	}
 
 	if ( ps->stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER )
