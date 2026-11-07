@@ -712,11 +712,13 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	if ( client->shinobi.kaitenStart ) // Kaiten: no blows, no guard while spinning
 		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
+	if ( ( ent->r.svFlags & SVF_BOT ) && ( ucmd->buttons & BUTTON_ATTACK ) && ( client->ps.stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_ATTACKUSED ) )
+		ucmd->buttons &= ~BUTTON_ATTACK; // bots (test bots too) hold attack: one press per blow, so they let go a frame - a tap
 	{ // the input buffer: a tap of attack while the body can't swing yet (a swing or a parry running out, a flinch
 	  // ending) is kept a moment and pressed for you the moment it can - no blow lost to an animation's last frames
 		const qboolean held = ( ucmd->buttons & BUTTON_ATTACK ) != 0;
-		const qboolean busy = client->ps.weaponTime > 0 || client->shinobi.flinchEnd > level.time
-			|| client->shinobi.staggerEnd > level.time;
+		const qboolean busy = ( client->ps.weaponTime > 0 && !BG_ShinobiReturnCuttable( &client->ps, bgAllAnims[ent->localAnimIndex].anims ) )
+			|| client->shinobi.flinchEnd > level.time || client->shinobi.staggerEnd > level.time;
 		if ( held && !( client->buttons & BUTTON_ATTACK ) )
 			client->shinobi.attackTap = busy ? level.time : 0;
 		else if ( !held && client->shinobi.attackTap ) {

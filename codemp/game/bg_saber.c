@@ -3718,6 +3718,11 @@ weapChecks:
 				newmove = LS_READY;
 			}
 
+			if ( newmove >= LS_S_TL2BR && newmove <= LS_S_T2B && pm->ps->clientNum < MAX_CLIENTS )
+			{ // JK_Shinobi: no wind-up out of guard - straight into the cut (a click as quick as a chain)
+				newmove = LS_A_TL2BR + ( newmove - LS_S_TL2BR );
+				anim = saberMoveData[newmove].animToUse;
+			}
 			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
 				&& ( pm->cmd.buttons & BUTTON_ATTACK ) // (not the return after a swing: that comes this way too, without attack)
 				&& Shinobi_BladeFinisherReady( pm->ps )
@@ -3773,6 +3778,10 @@ void PM_SetSaberMove(short newMove)
 	else if ( BG_SaberInAttack( newMove ) )
 	{//continuing with a kata, increment attack counter
 		pm->ps->saberAttackChainCount++;
+	}
+	if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )
+	{ // JK_Shinobi: one press, one swing - this press is spent (bg_pmove.c PM_ShinobiPreMove)
+		pm->ps->stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_ATTACKUSED;
 	}
 #if defined(_GAME)
 	if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )

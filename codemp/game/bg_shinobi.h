@@ -1029,7 +1029,7 @@ SHINOBI_ENTRY_MS; everyone it meets is hurt, thrown along and knocked down (each
 #define SHINOBI_SHUN_CHARGES(ps)   ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_SHUN_SHIFT ) & 3 )
 
 /*
-Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab... It counts
+Taijutsu combo (fists): press attack for each blow (one press, one blow) - jab, cross, jab... It counts
 like the blade's: blows that land on the same one, or on his guard, each within
 shinobiFistWindow of the last (a miss counts nothing, a parry stops it); with
 shinobiFistChain of them (the HUD's gold pip lit) the next attack is a finisher
@@ -1209,6 +1209,13 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 // STAT_SHINOBI_BLADECOMBO)
 #define SHINOBI_LOCK_WEIGHTS           ( 1 << 11 )
 #define SHINOBI_LOCK_LOTUS             ( 1 << 12 )
+// one press, one blow (blades and fists): the press that began a swing is used up - held on it does
+// nothing more (no chain from holding attack); let go and press again for the next
+#define SHINOBI_LOCK_ATTACKUSED        ( 1 << 13 )
+// a blade's return to guard (the move after a swing nobody followed up) may be cut by the next
+// press once it has played this long: clicked cuts come as fast as a held chain used to
+#define SHINOBI_RETURN_CUT_MS          150
+qboolean BG_ShinobiReturnCuttable( const playerState_t *ps, const animation_t *anims ); // bg_pmove.c
 static QINLINE int Shinobi_OwnFrame( const playerState_t *ps ) {
 	return ( ( ps->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_GATE_SHIFT ) & SHINOBI_PFRAME_GATE_MASK )
 		| ( ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_WEIGHTS ) ? SHINOBI_PFRAME_WEIGHTS : 0 )

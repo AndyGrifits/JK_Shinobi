@@ -161,7 +161,7 @@ Three styles, switched with **L** (like the blade stances; shown over the jutsu 
 Slower styles hold the victim longer per blow (the flinch follows the attacker's pace). The
 style stays over respawns.
 
-Hold attack (or keep pressing it): jab - cross - jab... The combo counts like the blade's: a
+Press attack for each blow (holding does nothing more: one press, one blow): jab - cross - jab... The combo counts like the blade's: a
 chain blow that lands on the same one, or on his guard, each within the style's window of the
 last (1.3 / 1.6 / 2.4 s); a miss counts nothing, a parry stops it. The same pips under the
 crosshair; with 3 (strong: 2) the gold one lights and the next attack is a finisher (it waits
@@ -432,7 +432,7 @@ A weapon over 1000 vertices is slimmed by weapon2glm (glm_slim.py; `max_verts`).
 `<name>_l` copy (the trench knife has one) is what the left hand holds.
 
 Only the reach differs between weapons; speed and knockback are the stock ones of the
-style (one blade / two / staff). Held attack standing still chains overheads through the transition move, as when moving (stock went back to ready between them: twice the pause). The finisher waits for the move between two cuts, as any cut does. **Damage: one blow per swing** to each one the blade cuts (a swing: every attack move Pmove begins - a held attack chaining the same cut again is a new swing each time; `blade_hold`),
+style (one blade / two / staff). **One press, one blow** (blades and fists): attack held from the press that began a swing does nothing - let go and press again (`SHINOBI_LOCK_ATTACKUSED`; bots tap). A click is as quick as a held chain was: no wind-up out of guard (straight into the cut), and a press while the blade returns to guard cuts the return once it has played 0.15 s (`SHINOBI_RETURN_CUT_MS`; a click during a swing is kept by the input buffer). A swing chained into the next through the transition move, as when moving (stock went back to ready between them: twice the pause). The finisher waits for the move between two cuts, as any cut does. **Damage: one blow per swing** to each one the blade cuts (a swing: every attack move Pmove begins - a held attack chaining the same cut again is a new swing each time; `blade_hold`),
 for a set amount by stance (`shinobiSwordDamage`: fast 8, medium 14, strong 24, dual 8 -
 about 10 a second at their swing rates (30% of the first numbers after a play test); no hit-location multipliers; special moves and katas x1.6, again every 0.35 s while they last; times the
 weapon's damageScale, then taijutsu and the rest) - the stock sum of every frame the

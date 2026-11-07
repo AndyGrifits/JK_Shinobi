@@ -10615,6 +10615,7 @@ static qboolean PM_ShinobiMeleeCombo( void )
 
 	if ( ps->clientNum >= MAX_CLIENTS )
 		return qfalse;
+	ps->stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_ATTACKUSED; // (this press is spent: one step per press)
 	if ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
 	{ // up in the air after him: punches (the slam is the diving kick, PM_ShinobiComboPre)
 		anim = ( hit & 1 ) ? BOTH_MELEE2 : BOTH_MELEE1;
@@ -10805,6 +10806,19 @@ static void PM_ShinobiLockOn( void )
 	PM_SetPMViewAngle( ps, now, &pm->cmd );
 }
 
+// a blade's return to guard that the next press may cut short (SHINOBI_RETURN_CUT_MS played)
+qboolean BG_ShinobiReturnCuttable( const playerState_t *ps, const animation_t *anims )
+{
+	const animation_t *a;
+	float              len;
+	if ( !anims || ps->clientNum >= MAX_CLIENTS || ps->weapon != WP_SABER || ps->weaponTime <= 0
+		|| ps->saberMove < LS_R_TL2BR || ps->saberMove > LS_R_T2B || ps->torsoAnim < 0 || ps->torsoAnim >= MAX_ANIMATIONS )
+		return qfalse;
+	a = &anims[ps->torsoAnim];
+	len = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp );
+	return ( len - ps->torsoTimer >= SHINOBI_RETURN_CUT_MS || ps->torsoTimer <= 0 ) ? qtrue : qfalse;
+}
+
 static void PM_ShinobiPreMove( void )
 {
 	playerState_t *ps = pm->ps;
@@ -10930,6 +10944,24 @@ static void PM_ShinobiPreMove( void )
 		pm->cmd.buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE | BUTTON_FORCEPOWER
 			| BUTTON_FORCEGRIP | BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_USE_HOLDABLE | SHINOBI_BUTTON_BLOCK );
 		ps->velocity[0] = ps->velocity[1] = 0;
+	}
+
+	// One press, one blow: attack still held from the press that began the last swing (or fist step)
+	// does nothing - no chaining by holding; let go and press again. (Bots tap: Shinobi_ClientThink.)
+	if ( !( pm->cmd.buttons & BUTTON_ATTACK ) )
+		ps->stats[STAT_SHINOBI_LOCK] &= ~SHINOBI_LOCK_ATTACKUSED;
+	else if ( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_ATTACKUSED )
+		pm->cmd.buttons &= ~BUTTON_ATTACK;
+	// a new press while the blade returns to guard (once it has played a moment): the return is cut
+	// and the next cut starts at once - one click is as quick as a held chain was (no wind-up either:
+	// bg_saber.c goes from guard straight into the cut)
+	if ( ( pm->cmd.buttons & BUTTON_ATTACK ) && !( pm->cmd.buttons & SHINOBI_BUTTON_BLOCK ) && ps->weapon == WP_SABER
+		&& BG_ShinobiReturnCuttable( ps, pm->animations ) )
+	{
+		ps->saberMove = LS_READY;
+		ps->saberBlocked = BLOCKED_NONE;
+		ps->weaponTime = 0;
+		ps->torsoTimer = 0;
 	}
 
 	// One rule for every defensive move: an attack cuts short your own parry / reflect / knock-away
