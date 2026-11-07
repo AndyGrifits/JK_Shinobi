@@ -1157,7 +1157,8 @@ static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd ) {
 	gentity_t *target = NULL;
 	float      best = SHINOBI_PUNCH_RANGE + 46;
 	vec3_t     fwd, yaw = { 0, 0, 0 };
-	int        i, hit, chain;
+	int        i;
+	qboolean   ready;
 
 	if ( !client->shinobi.botFists || ent->health <= 0 || !Shinobi_CanAct( ent ) )
 		return;
@@ -1209,11 +1210,10 @@ static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd ) {
 	// hold attack: the chain goes on by itself
 	ucmd->buttons |= BUTTON_ATTACK;
 	ucmd->buttons &= ~BUTTON_ALT_ATTACK;
-	hit = SHINOBI_COMBO_HIT( &client->ps );
-	chain = shinobiFistChain[SHINOBI_FIST_STYLE( &client->ps )];
-	if ( hit == 0 && client->ps.stats[STAT_SHINOBI_COMBOT] <= 0 )
+	ready = Shinobi_BladeFinisherReady( &client->ps ); // (fists count as the blade: blows landed or blocked)
+	if ( !ready )
 		client->shinobi.botFinisher = -1;
-	if ( hit >= chain - 1 ) { // the next blow is the finisher: its direction
+	if ( ready ) { // the next blow is the finisher: its direction
 		if ( client->shinobi.botFinisher < 0 ) {
 			const int r = Q_irand( 0, 99 );
 			client->shinobi.botFinisher = r < 30 ? 0 : r < 60 ? 1 : r < 80 ? 2 : 3;

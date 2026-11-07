@@ -793,6 +793,11 @@ void Shinobi_SwordThink( gentity_t *ent ) {
 		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->ps.stats[STAT_SHINOBI_BLADECOMBO] & ~SHINOBI_BC_LOW )
 			| ( c->shinobi.bladeChain & 7 ) | ( ( need & 7 ) << 3 ); // (the upper bits: the Gates, Dynamic Entry)
 	}
+	else if ( c->ps.weapon == WP_MELEE && Shinobi_FistChainLive( c ) ) { // fists: the same pips (and Pmove's finisher)
+		const int need = shinobiFistChain[SHINOBI_FIST_STYLE( &c->ps )] + 1;
+		c->ps.stats[STAT_SHINOBI_BLADECOMBO] = ( c->ps.stats[STAT_SHINOBI_BLADECOMBO] & ~SHINOBI_BC_LOW )
+			| ( c->shinobi.fistChain & 7 ) | ( ( need & 7 ) << 3 );
+	}
 	else
 		c->ps.stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_LOW;
 

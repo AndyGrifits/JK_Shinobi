@@ -34,6 +34,47 @@ static void Shinobi_ComboPush( gentity_t *v, const vec3_t dir, float speed, floa
 	v->client->ps.groundEntityNum = ENTITYNUM_NONE;
 }
 
+/*
+The fist combo counts as the blade's does (Shinobi_BladeChainAdd): each chain blow that lands
+on the same one - or on his guard - within shinobiFistWindow of the last; a miss counts
+nothing, a parry stops it (he staggers you). With shinobiFistChain of them the finisher is
+ready (the HUD's gold pip, STAT_SHINOBI_BLADECOMBO) and waits SHINOBI_SWORD_READY_MS for it.
+*/
+qboolean Shinobi_FistChainLive( gclient_t *c ) {
+	const int  style = SHINOBI_FIST_STYLE( &c->ps );
+	gentity_t *v;
+	if ( !c->shinobi.fistChain || !c->shinobi.fistChainVictim )
+		return qfalse;
+	if ( level.time - c->shinobi.fistChainTime > ( c->shinobi.fistChain >= shinobiFistChain[style]
+		? SHINOBI_SWORD_READY_MS : shinobiFistWindow[style] ) )
+		return qfalse;
+	v = &g_entities[c->shinobi.fistChainVictim - 1];
+	return v->inuse && v->client && v->health > 0;
+}
+
+static void Shinobi_FistChainAdd( gentity_t *ent, gentity_t *v, const char *how ) {
+	gclient_t *c = ent->client;
+	const int  style = SHINOBI_FIST_STYLE( &c->ps );
+	if ( c->shinobi.fistChainVictim == v->s.number + 1 && Shinobi_FistChainLive( c ) )
+		c->shinobi.fistChain++;
+	else
+		c->shinobi.fistChain = 1;
+	if ( c->shinobi.fistChain > shinobiFistChain[style] )
+		c->shinobi.fistChain = shinobiFistChain[style]; // (ready: the next attack is the finisher)
+	c->shinobi.fistChainVictim = v->s.number + 1;
+	c->shinobi.fistChainTime = level.time;
+	Shinobi_Debug( "fists %i -> %i: %s %i of %i", ent->s.number, v->s.number, how, c->shinobi.fistChain, shinobiFistChain[style] );
+}
+
+// every frame: a finisher begun (Pmove) uses the combo up, as the blade's finisher swing does
+static void Shinobi_FistChainSpent( gclient_t *c ) {
+	const int cs = c->ps.stats[STAT_SHINOBI_COMBO], kind = ( cs >> 3 ) & 7;
+	if ( cs != c->shinobi.fistComboSeen && !( cs & SHINOBI_COMBO_AIR )
+		&& ( kind == SCK_KICK || kind == SCK_LAUNCH || kind == SCK_SPIN || kind == SCK_SWEEP ) )
+		c->shinobi.fistChain = 0;
+	c->shinobi.fistComboSeen = cs;
+}
+
 // after a combo hit landed on v (damage already dealt)
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	gclient_t *client = ent->client;
@@ -44,12 +85,18 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 		return;
 	if ( !Shinobi_ComboTarget( ent, v ) )
 		return;
-	if ( shinobiBlockResult == SBR_BLOCKED || shinobiBlockResult == SBR_PARRIED ) {
-		client->ps.stats[STAT_SHINOBI_COMBO] = 0; // the guard stops the chain
+	kind = SHINOBI_COMBO_KIND( &client->ps );
+	if ( shinobiBlockResult == SBR_PARRIED ) {
+		client->ps.stats[STAT_SHINOBI_COMBO] = 0; // a parry stops the chain (and staggers you)
 		client->ps.stats[STAT_SHINOBI_COMBOT] = 0;
+		client->shinobi.fistChain = 0;
 		return;
 	}
-	kind = SHINOBI_COMBO_KIND( &client->ps );
+	if ( shinobiBlockResult == SBR_BLOCKED ) { // the guard held: no effect, but it counts for the combo (as with a blade)
+		if ( kind == SCK_HIT && !( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) )
+			Shinobi_FistChainAdd( ent, v, "blocked blow" );
+		return;
+	}
 	VectorSubtract( v->r.currentOrigin, ent->r.currentOrigin, dir );
 	v->client->ps.otherKiller = ent->s.number;
 	v->client->ps.otherKillerTime = level.time + 5000;
@@ -58,6 +105,8 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	switch ( kind ) {
 	case SCK_HIT: { // a chain punch: held until the next one can land (the finisher has none)
 		int ms = client->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
+		if ( !( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) )
+			Shinobi_FistChainAdd( ent, v, "blow" );
 		if ( ( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) && v->client->shinobi.juggleEnd > level.time ) {
 			shinobiTest.airHits++;
 			// up in the air: the punch keeps him up there
@@ -266,6 +315,8 @@ static void Shinobi_AirSlam( gentity_t *ent ) {
 // every client frame, before Pmove
 void Shinobi_TaijutsuThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;
+
+	Shinobi_FistChainSpent( client );
 
 	// launched: helpless until we land (a flinch that lasts); the air combo's slam
 	if ( client->shinobi.juggleEnd ) {

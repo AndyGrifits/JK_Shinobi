@@ -839,6 +839,7 @@ struct gclient_s {
 		int		bladeMove, bladeAnim, bladeTimer; // what the last look saw
 		int		bladeHitBy[4], bladeHitSwing[4], bladeHitTime[4]; // victim side: the last blades that hit him
 		int		bladeChain, bladeChainVictim, bladeChainTime; // the blade combo: hits landed, on whom (+1), when
+		int		fistChain, fistChainVictim, fistChainTime, fistComboSeen; // the fist combo, the same way (+ the combo stat last seen)
 		int		bladeReachSwing;	// the swing a "reach" finisher was thrown with (its own blow doesn't count)
 		int		finisherSwing, finisherKind; // the finisher swing (bladeSwing) and which (SFK_*)
 		int		bladeLenSwing;		// the finisher swing whose blades were lengthened (0: none)
@@ -1609,6 +1610,7 @@ extern int shinobiBlockResult;  // what the last G_Damage's block did (SBR_*)
 #define SBR_PARRIED 2
 #define SBR_BROKEN  3
 void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ); // g_shinobi_taijutsu.c
+qboolean Shinobi_FistChainLive( gclient_t *c ); // g_shinobi_taijutsu.c
 qboolean Shinobi_ComboPlainKick( gentity_t *ent );
 void Shinobi_CycleFistStyle( gentity_t *ent ); // g_shinobi_taijutsu.c
 int Shinobi_ComboPunchDamage( gentity_t *ent );

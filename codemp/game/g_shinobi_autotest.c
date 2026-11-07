@@ -1252,7 +1252,7 @@ static void T_AirCombo_Setup( void ) {
 static atResult_t T_AirCombo( int t ) {
 	const int launches = shinobiTest.launches - at.v[0], air = shinobiTest.airHits - at.v[1], slams = shinobiTest.slams - at.v[2];
 	if ( STAGE( 0 ) ) { // the chain, forward held for the finisher
-		AT_Drive( 0, SHINOBI_COMBO_HIT( &A->client->ps ) >= shinobiFistChain[SFS_FAST] - 1 ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 0, Shinobi_BladeFinisherReady( &A->client->ps ) ? 127 : 0, 0, 0, BUTTON_ATTACK );
 		if ( launches ) {
 			AT_Drive( 0, 0, 0, 0, 0 );
 			at.v[3] = t;
@@ -2236,6 +2236,64 @@ chain with the launcher finisher - B not thrown up, not knocked down, hardly mov
 every blow perfectly: A reels, B isn't pushed; B lets go of block and attacks - out of the parry
 at once (an attack cuts a defence short), it must land on the reeling A. 3) The same with blades.
 */
+/*
+fist_count: the fist combo counts as the blade's. 1) B guards: A's chain blows on the guard
+count - the finisher gets ready (and the guard holds it). 2) B far off: A punches the air -
+nothing counts, no finisher.
+*/
+static void FC_Stage( int stage ) {
+	vec3_t p;
+	AT_Reset( A );
+	AT_Reset( B );
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	AT_Spot( stage ? 400 : 46, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = stage ? qfalse : qtrue;
+	at.drive[1].aimAt = qtrue;
+	A->client->shinobi.fistChain = 0;
+	at.v[0] = shinobiTest.launches;
+	at.v[2] = level.time;
+	at.v[3] = 0; // the most counted
+	at.v[4] = -1; // ready after (ms)
+}
+static void T_FistCount_Setup( void ) {
+	at.v[10] = at.v[11] = 0;
+	FC_Stage( 0 );
+}
+static atResult_t T_FistCount( int t ) {
+	const int since = level.time - at.v[2];
+	const qboolean ready = Shinobi_BladeFinisherReady( &A->client->ps );
+	if ( B->health < 200 )
+		B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	B->client->ps.stats[STAT_ARMOR] = SHINOBI_GUARD_MAX;
+	if ( A->client->shinobi.fistChain > at.v[3] )
+		at.v[3] = A->client->shinobi.fistChain;
+	if ( ready && at.v[4] < 0 )
+		at.v[4] = since;
+	if ( at.stage == 0 ) {
+		AT_Drive( 0, ready ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
+		if ( since >= 3000 ) {
+			const int launched = shinobiTest.launches - at.v[0];
+			AT_Print( "[autotest]     guard held: blows counted %i, finisher ready after %i ms, launched %i\n", at.v[3], at.v[4], launched );
+			at.v[10] = at.v[4] >= 0 && !launched;
+			NEXT();
+			FC_Stage( 1 );
+		}
+		return ATR_RUN;
+	}
+	AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK );
+	AT_Drive( 1, 0, 0, 0, 0 );
+	if ( since >= 2000 ) {
+		AT_Print( "[autotest]     punches into the air: counted %i, ready %s\n", at.v[3], at.v[4] >= 0 ? "YES" : "no" );
+		at.v[11] = at.v[3] == 0 && at.v[4] < 0;
+		AT_Msg( "blocked blows count: %s, misses don't: %s", at.v[10] ? "yes" : "NO", at.v[11] ? "yes" : "NO" );
+		return ( at.v[10] && at.v[11] ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static void GE_Stage( int stage ) {
 	vec3_t p;
 	AT_Reset( A );
@@ -2277,7 +2335,7 @@ static atResult_t T_GuardEdges( int t ) {
 		at.v[3] = push; // (until the riposte: then B steps in)
 
 	if ( stage == 0 ) {
-		AT_Drive( 0, SHINOBI_COMBO_HIT( &A->client->ps ) >= shinobiFistChain[SFS_FAST] - 1 ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 0, Shinobi_BladeFinisherReady( &A->client->ps ) ? 127 : 0, 0, 0, BUTTON_ATTACK );
 		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
 		if ( since >= 3000 ) {
 			const int launched = shinobiTest.launches - at.v[0];
@@ -2333,6 +2391,7 @@ static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
 	{ "parry",        "perfect parry: free, attacker staggered long",              T_Parry_Setup, T_Parry, 1000 },
+	{ "fist_count",   "the fist combo counts blows on the guard, not misses (as the blade)", T_FistCount_Setup, T_FistCount, 7000 },
 	{ "guard_edges",  "a guard stops the launcher, a parry the push; the counter out of a parry lands", T_GuardEdges_Setup, T_GuardEdges, 12000 },
 	{ "fuma",         "fuma shuriken: speed, two equal hits, leaves the hand, caught", T_Fuma_Setup, T_Fuma, 7000 },
 	{ "kawa_combo",   "Kawarimi with attack held mid-combo hides",                 T_KawaCombo_Setup, T_KawaCombo, 3000 },

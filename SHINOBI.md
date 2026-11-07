@@ -159,8 +159,11 @@ Three styles, switched with **L** (like the blade stances; shown over the jutsu 
 Slower styles hold the victim longer per blow (the flinch follows the attacker's pace). The
 style stays over respawns.
 
-Hold attack (or keep pressing it): jab - cross - jab, each next one within ~0.45 s of the
-last move's end, then a finisher picked by the direction held at that moment:
+Hold attack (or keep pressing it): jab - cross - jab... The combo counts like the blade's: a
+chain blow that lands on the same one, or on his guard, each within the style's window of the
+last (1.3 / 1.6 / 2.4 s); a miss counts nothing, a parry stops it. The same pips under the
+crosshair; with 3 (strong: 2) the gold one lights and the next attack is a finisher (it waits
+up to 15 s), picked by the direction held at that moment:
 
 | held | finisher | what it does |
 |---|---|---|
@@ -173,15 +176,16 @@ Each hit of the chain hits harder: punches 11 / 15 / 21, then the finisher - the
 a bit less than four blade swings, so a chain is worth stepping away from or guarding against.
 Punches reach ~60 u from you (stock fists: ~35, you had to be in his face). Each chain punch makes the victim flinch until the attacker's next hit can land (his weapon
 time + 0.25 s, 0.4-0.9 s): rooted, no jumping, attacks, throws or jutsu (a blade swing in
-progress bounces, a charge is dropped); only raising the guard (which breaks the chain) or
+progress bounces, a charge is dropped); only raising the guard (the blows on it still count) or
 Kawarimi gets him out. The finisher has no flinch.
 The kicks keep the stock kick knockdown.
 
 **Air combo**: jump within ~0.45 s after the launcher (forward + attack finisher) and you
 leap after him; he is helpless until he lands (Kawarimi still works). Up there two punches
 keep him up (you hang in the air with him), the next attack is the diving kick that slams
-him down: 18 damage (x the style's finisher), knocked down, no falling damage on top. A blocked or parried
-hit breaks the chain; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
+him down: 18 damage (x the style's finisher), knocked down, no falling damage on top. A blocked
+blow does nothing to him but counts for the combo (a blocked finisher: no effect); a parried one
+stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
 two-handed blow down at him (the saber stab-down animation, 21 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
 a kick forward and down at 45 degrees, steered with the view (no falling damage), 10 damage to everyone within 90 u of where you

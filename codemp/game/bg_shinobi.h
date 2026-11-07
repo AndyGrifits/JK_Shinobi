@@ -1026,9 +1026,11 @@ SHINOBI_ENTRY_MS; everyone it meets is hurt, thrown along and knocked down (each
 #define SHINOBI_SHUN_CHARGES(ps)   ( ( (ps)->stats[STAT_SHINOBI2] >> SHINOBI_STAT2_SHUN_SHIFT ) & 3 )
 
 /*
-Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab, each
-step within SHINOBI_COMBO_WINDOW of the last - then a finisher picked by the
-direction held at that moment:
+Taijutsu combo (fists): hold (or keep pressing) attack - jab, cross, jab... It counts
+like the blade's: blows that land on the same one, or on his guard, each within
+shinobiFistWindow of the last (a miss counts nothing, a parry stops it); with
+shinobiFistChain of them (the HUD's gold pip lit) the next attack is a finisher
+picked by the direction held at that moment:
   nothing   front kick: pushed away and knocked down
   forward   launcher: thrown up into the air
   back      sweep: a forward roll into his legs, knocked down on the spot
@@ -1085,7 +1087,8 @@ static const int shinobiComboPunch[3] = { 11, 15, 21 };  // jab, cross, jab (fas
 // strong - shoulder ram, double kick, finisher: slow, few hits, eats the guard
 enum { SFS_FAST, SFS_MEDIUM, SFS_STRONG, SFS_COUNT };
 static const char * const shinobiFistStyleNames[SFS_COUNT] = { "Fast", "Medium", "Strong" };
-static const int   shinobiFistChain[SFS_COUNT] = { 3, 3, 2 };                // chain hits before the finisher
+static const int   shinobiFistChain[SFS_COUNT] = { 3, 3, 2 };                // chain blows landed (or blocked) before the finisher
+static const int   shinobiFistWindow[SFS_COUNT] = { 1300, 1600, 2400 };      // ... each within this of the last (as the blade's shinobiSwordWindow)
 static const int   shinobiFistHit[SFS_COUNT][3] = { { 11, 15, 21 }, { 14, 20, 26 }, { 24, 32, 0 } };
 static const float shinobiFistFinisher[SFS_COUNT] = { 1.0f, 1.15f, 1.3f }; // finisher damage x
 static const float shinobiFistGuard[SFS_COUNT] = { 1.0f, 1.2f, 1.8f };     // guard eaten x

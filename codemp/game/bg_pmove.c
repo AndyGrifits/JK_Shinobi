@@ -10619,7 +10619,7 @@ static void PM_ShinobiComboPre( void )
 static qboolean PM_ShinobiMeleeCombo( void )
 {
 	playerState_t *ps = pm->ps;
-	const int      hit = ps->stats[STAT_SHINOBI_COMBOT] > 0 ? SHINOBI_COMBO_HIT( ps ) : 0;
+	int            hit = ps->stats[STAT_SHINOBI_COMBOT] > 0 ? SHINOBI_COMBO_HIT( ps ) : 0;
 	int            anim;
 
 	if ( ps->clientNum >= MAX_CLIENTS )
@@ -10644,8 +10644,8 @@ static qboolean PM_ShinobiMeleeCombo( void )
 			return qtrue;
 		}
 	}
-	if ( hit >= shinobiFistChain[SHINOBI_FIST_STYLE( ps )] )
-	{ // the finisher, by the direction held
+	if ( Shinobi_BladeFinisherReady( ps ) )
+	{ // the finisher, by the direction held (the combo counts blows landed or blocked, as the blade's: the server)
 		qboolean ok;
 		if ( pm->cmd.forwardmove > 0 )
 			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, hit + 1, SCK_LAUNCH, qtrue );
@@ -10660,7 +10660,9 @@ static qboolean PM_ShinobiMeleeCombo( void )
 		return ok;
 	}
 
-	// the chain by the style: kicks and rams go through the kick traces (no punch event)
+	// the chain by the style: kicks and rams go through the kick traces (no punch event); the moves
+	// go round (a miss counts nothing - the finisher waits for the blows that landed)
+	hit %= shinobiFistChain[SHINOBI_FIST_STYLE( ps )];
 	if ( SHINOBI_FIST_STYLE( ps ) == SFS_MEDIUM && hit >= 1 )
 		return PM_ShinobiComboKick( hit == 1 ? BOTH_A7_KICK_R : BOTH_A7_KICK_L, hit + 1, SCK_HIT, qtrue );
 	if ( SHINOBI_FIST_STYLE( ps ) == SFS_STRONG )
