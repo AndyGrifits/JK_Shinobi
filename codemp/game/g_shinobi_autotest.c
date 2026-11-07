@@ -936,6 +936,7 @@ static const cdpsCase_t cdpsCases[] = {
 #define CDPS_COUNT ( (int)( sizeof( cdpsCases ) / sizeof( cdpsCases[0] ) ) )
 static struct {
 	int    idx, phaseStart, starts0, steps, lastCombo, presses, wasDown, hits[CDPS_COUNT];
+	int    tAtk, tTrans, tRet, tStart, tReady, tOther, lastT; // blades: where the time went (ms)
 	vec3_t spot;
 } cdps;
 
@@ -1001,6 +1002,16 @@ static atResult_t T_ClickDps( int t ) {
 		cdps.wasDown = down;
 		if ( !cdps.starts0 )
 			cdps.starts0 = shinobiSwingStarts[at.a] + 1;
+		if ( !c->fist && cdps.lastT ) { // where a blade's time goes, by the move it is in
+			const int dt = level.time - cdps.lastT, m = ac->ps.saberMove;
+			if ( BG_SaberInAttack( m ) || BG_SaberInSpecial( m ) ) cdps.tAtk += dt;
+			else if ( m >= LS_T1_BR__R && m <= LS_T1_BL_TL ) cdps.tTrans += dt;
+			else if ( m >= LS_R_TL2BR && m <= LS_R_T2B ) cdps.tRet += dt;
+			else if ( m >= LS_S_TL2BR && m <= LS_S_T2B ) cdps.tStart += dt;
+			else if ( m == LS_READY ) cdps.tReady += dt;
+			else cdps.tOther += dt;
+		}
+		cdps.lastT = level.time;
 		if ( c->fist ) { // a combo step began: the combo stat changed to a step
 			const int cs = ac->ps.stats[STAT_SHINOBI_COMBO];
 			if ( cs != cdps.lastCombo && SHINOBI_COMBO_KIND( &ac->ps ) != SCK_NONE )
@@ -1012,18 +1023,24 @@ static atResult_t T_ClickDps( int t ) {
 	{ // the case is over
 		const int from = cdps.phaseStart + lead;
 		const int blows = c->fist ? cdps.steps : shinobiSwingStarts[at.a] + 1 - cdps.starts0;
-		int k, hits = 0, dealt = 0;
+		int k, hits = 0, dealt = 0, mn = 99999, mx = 0;
 		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
 			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
 			if ( !d->time || d->time < from || d->targ != at.b || d->attacker != at.a )
 				continue;
 			hits++;
 			dealt += d->take;
+			if ( d->take < mn ) mn = d->take;
+			if ( d->take > mx ) mx = d->take;
 		}
 		cdps.hits[cdps.idx] = hits;
 		AT_Print( "[autotest]   %-22s %-7s %7.2f %6.0fms %6i %6i %7.1f %7i\n", c->name,
 			c->fist ? shinobiFistStyleNames[c->fist - 1] : sdpsStyleNames[ac->ps.fd.saberAnimLevel & 7],
 			blows * 1000.0f / CDPS_MS, blows ? CDPS_MS / (float)blows : 0.0f, hits, dealt, dealt * 1000.0f / CDPS_MS, cdps.presses );
+		if ( !c->fist && blows )
+			AT_Print( "[autotest]       per blow: attack %i ms, transition %i, return %i, wind-up %i, ready %i, other %i; a hit %i-%i\n",
+				cdps.tAtk / blows, cdps.tTrans / blows, cdps.tRet / blows, cdps.tStart / blows, cdps.tReady / blows, cdps.tOther / blows,
+				hits ? mn : 0, mx );
 	}
 	AT_Drive( 0, 0, 0, 0, 0 );
 	if ( ++cdps.idx >= CDPS_COUNT ) {
@@ -1034,6 +1051,7 @@ static atResult_t T_ClickDps( int t ) {
 		return bad ? ATR_FAIL : ATR_PASS;
 	}
 	cdps.starts0 = cdps.steps = cdps.lastCombo = cdps.presses = cdps.wasDown = 0;
+	cdps.tAtk = cdps.tTrans = cdps.tRet = cdps.tStart = cdps.tReady = cdps.tOther = cdps.lastT = 0;
 	cdps.phaseStart = level.time;
 	CDPS_Arm();
 	return ATR_RUN;
