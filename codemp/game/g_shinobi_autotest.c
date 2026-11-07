@@ -786,6 +786,21 @@ static atResult_t T_WindEdge( int t ) {
 	return ATR_RUN;
 }
 
+// a measuring target that was knocked over: up at once (the knockdown off, and its lying / getting-up
+// legs too - clearing the knockdown alone left the body lying there for good)
+static void AT_StandUp( gentity_t *e ) {
+	playerState_t *ps = &e->client->ps;
+	if ( ps->forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
+		ps->forceHandExtend = HANDEXTEND_NONE;
+		ps->forceHandExtendTime = 0;
+	}
+	if ( BG_InKnockDown( ps->legsAnim ) || BG_InKnockDown( ps->torsoAnim ) ) {
+		ps->legsTimer = ps->torsoTimer = 0;
+		G_SetAnim( e, NULL, SETANIM_BOTH, BOTH_STAND1, SETANIM_FLAG_OVERRIDE, 0 );
+		ps->legsTimer = ps->torsoTimer = 0;
+	}
+}
+
 /*
 saber_dps: every blade and stance swings at a still target (fists in hand, no guard) for
 SDPS_MS holding attack: damage, hits, swings, the spread of one hit, damage a second.
@@ -847,11 +862,9 @@ static atResult_t T_SaberDps( int t ) {
 	bc->invulnerableTimer = 0;
 	if ( B->health < 200 )
 		B->health = bc->ps.stats[STAT_HEALTH] = 500;
-	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
+	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN )
 		sdps.knocked++;
-		bc->ps.forceHandExtend = HANDEXTEND_NONE;
-		bc->ps.forceHandExtendTime = 0;
-	}
+	AT_StandUp( B );
 	bc->shinobi.flinchEnd = bc->shinobi.staggerEnd = 0;
 	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax; // (specials and kata cost force)
 
@@ -969,10 +982,7 @@ static atResult_t T_ClickDps( int t ) {
 	bc->invulnerableTimer = 0;
 	if ( B->health < 200 )
 		B->health = bc->ps.stats[STAT_HEALTH] = 500;
-	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN ) {
-		bc->ps.forceHandExtend = HANDEXTEND_NONE;
-		bc->ps.forceHandExtendTime = 0;
-	}
+	AT_StandUp( B );
 	bc->shinobi.juggleEnd = bc->shinobi.juggleBy = 0;
 	bc->shinobi.staggerEnd = bc->shinobi.stunEnd = 0;
 	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax;
