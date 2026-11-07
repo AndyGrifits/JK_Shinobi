@@ -1223,6 +1223,13 @@ static QINLINE qboolean WP_SabersCheckLock2( gentity_t *attacker, gentity_t *def
 	float	diff = 0;
 	trace_t trace;
 
+	// JK_Shinobi: no saber locks for players (the stock clinch minigame): a blow on a guard and a
+	// clash of two swings end in bounces, the same every time
+	if ( attacker->s.number < MAX_CLIENTS || defender->s.number < MAX_CLIENTS )
+	{
+		return qfalse;
+	}
+
 	//MATCH ANIMS
 	if ( lockMode == LOCK_RANDOM )
 	{
