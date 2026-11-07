@@ -798,7 +798,7 @@ static qboolean BotDodge( gentity_t *ent, usercmd_t *ucmd ) {
 	c->shinobi.botDodgeNext = level.time + 450;
 	if ( t * 1000 < BotReact( 60, 300 ) || !BotChance( BotBigMissile( m ) ? 90 : 50 ) )
 		return qfalse; // didn't see it in time
-	if ( t < 0.22f && BotBigMissile( m ) && BotCharges( c->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) >= 2
+	if ( t < 0.3f && BotBigMissile( m ) && BotCharges( c->shinobi.kawarimiReady, SHINOBI_KAWARIMI_CHARGES ) >= 2
 		&& Shinobi_Cast( ent, SJ_KAWARIMI, 1 ) ) { // (one charge kept for traps)
 		shinobiTest.botDodges++;
 		Shinobi_Debug( "bot %i: Kawarimi from a %s", ent->s.number, m->classname );
@@ -814,7 +814,7 @@ static qboolean BotDodge( gentity_t *ent, usercmd_t *ucmd ) {
 		c->shinobi.botDodgeRight = DotProduct( away, right ) >= 0 ? 1 : -1;
 	if ( BotBigMissile( m ) )
 		c->shinobi.botDodgeRight |= 2; // and a jump
-	c->shinobi.botDodgeUntil = level.time + 420;
+	c->shinobi.botDodgeUntil = level.time + ( BotBigMissile( m ) ? 750 : 420 ); // (a big ball: far aside, its blast is wide)
 	shinobiTest.botDodges++;
 	Shinobi_Debug( "bot %i: sidestep from a %s (%.2f s off)", ent->s.number, m->classname, t );
 	return qfalse;

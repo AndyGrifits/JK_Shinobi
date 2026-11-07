@@ -1935,10 +1935,11 @@ static void T_BotEscape_Setup( void ) {
 static atResult_t T_BotEscape( int t ) {
 	if ( AT_SmartOff() )
 		return ATR_FAIL;
-	if ( !at.v[5] && level.time - at.v[4] >= 300 ) { // in the water
+	if ( !at.v[5] && level.time - at.v[4] >= 300 && B->client->ps.weaponTime <= 0 ) { // in the water (not mid-swing: a blow on A bursts it)
 		if ( Shinobi_Cast( A, SJ_SUIRO, 1 ) && A->client->shinobi.prisonTarget == at.b + 1 ) {
 			A->client->shinobi.chargeJutsu = SJ_SUIRO;
 			at.v[5] = level.time;
+			at.v[7] = shinobiTest.botEscapes;
 			at.v[1]++;
 		}
 		else {
@@ -1947,7 +1948,7 @@ static atResult_t T_BotEscape( int t ) {
 	}
 	if ( at.v[5] > 0 && !B->client->shinobi.prisonCaster ) { // out
 		const int ms = level.time - at.v[5];
-		if ( ms < 2500 ) {
+		if ( ms < 2500 && shinobiTest.botEscapes > at.v[7] ) { // (by its own Kawarimi)
 			at.v[2]++;
 			at.v[3] += ms;
 		}
