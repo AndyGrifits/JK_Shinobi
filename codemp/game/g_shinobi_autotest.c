@@ -2732,7 +2732,7 @@ void Shinobi_AutotestFrame( void ) {
 			AT_Print( "[autotest] %s: %s\n", atTests[at.queue[0]].name, atTests[at.queue[0]].what );
 		}
 		else if ( level.time - at.phaseStart > 20000 ) {
-			AT_Print( "[autotest] FAIL setup: the bots %s / %s never joined (bot_enable? a map with bot routes?)\n", AT_BOT_A, AT_BOT_B );
+			AT_Print( "[autotest] FAIL setup: the bots %s / %s never joined (sv_maxclients too low - the test cfg sets 8; bot_enable?)\n", AT_BOT_A, AT_BOT_B );
 			at.fail++;
 			AT_Finish();
 		}
