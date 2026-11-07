@@ -2114,6 +2114,34 @@ static atResult_t T_BotKeepOff( int t ) {
 	return ATR_RUN;
 }
 
+// a map without bot routes (as all of ours): B hunts A down instead of hopping in place
+extern int gWPNum;
+static void T_BotNav_Setup( void ) {
+	vec3_t p;
+	AT_Spot( 480, 0, p );
+	AT_Place( B, p, at.baseYaw ); // facing away
+	at.v[0] = gWPNum; // the routes of this map, back after the test
+	at.v[1] = at.v[2] = 0;
+	at.v[3] = -1;
+	gWPNum = 0;
+}
+static atResult_t T_BotNav( int t ) {
+	const float d = Distance( A->client->ps.origin, B->client->ps.origin );
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+	at.v[1]++;
+	if ( B->client->ps.groundEntityNum == ENTITYNUM_NONE )
+		at.v[2]++;
+	if ( d < 150 && at.v[3] < 0 )
+		at.v[3] = t;
+	if ( t >= 5000 ) {
+		gWPNum = at.v[0];
+		AT_Msg( "no routes: B (480 u off, facing away) reached A after %i ms (-1: never), in the air %i%% of the time",
+			at.v[3], at.v[1] ? at.v[2] * 100 / at.v[1] : 0 );
+		return ( at.v[3] > 0 && at.v[3] < 4000 && at.v[2] * 100 < at.v[1] * 45 ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
@@ -2151,6 +2179,7 @@ static atTest_t atTests[] = {
 	{ "bot_interrupt","a bot breaks seals formed close by and far off",           T_BotInterrupt_Setup, T_BotInterrupt, 9500 },
 	{ "bot_dodge",    "a bot steps away from fireballs",                          T_BotDodge_Setup, T_BotDodge, 9000 },
 	{ "bot_keepoff",  "a bot keeps off a spinning Kaiten",                        T_BotKeepOff_Setup, T_BotKeepOff, 4000 },
+	{ "bot_nav",      "on a map without bot routes a bot hunts instead of hopping", T_BotNav_Setup, T_BotNav, 6000 },
 };
 #define AT_COUNT ( (int)ARRAY_LEN( atTests ) )
 

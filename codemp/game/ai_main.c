@@ -5963,6 +5963,122 @@ void Bot_SetForcedMovement(int bot, int forward, int right, int up)
 
 //the main AI loop.
 //please don't be too frightened.
+/*
+JK_Shinobi: a map without bot routes (botroutes/<map>.wnt - none of our own maps has one)
+leaves the stock AI nowhere to go: it "falls back", standing still with an enemy in sight and
+hopping in place the whole time. Here it hunts instead: straight at an enemy it sees (the combat
+code takes over up close), otherwise to where it last saw one, or toward the nearest one (as if
+heard); around walls and pits by probing for a free way; up to a ledge he is on with a jump.
+*/
+static qboolean ShinobiNav_Free( bot_state_t *bs, float yaw, float dist ) {
+	vec3_t  ang, fwd, to, down, mins = { -15, -15, -6 }, maxs = { 15, 15, 32 }; // (feet off the floor: steps pass)
+	trace_t tr;
+
+	VectorSet( ang, 0, yaw, 0 );
+	AngleVectors( ang, fwd, NULL, NULL );
+	VectorMA( bs->origin, dist, fwd, to );
+	trap->Trace( &tr, bs->origin, mins, maxs, to, bs->client, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	if ( tr.fraction < 1.0f && ( tr.entityNum >= MAX_CLIENTS || tr.startsolid ) )
+		return qfalse; // a wall (a player in the way is no wall)
+	VectorCopy( to, down );
+	down[2] -= 200;
+	trap->Trace( &tr, to, NULL, NULL, down, bs->client, MASK_PLAYERSOLID, qfalse, 0, 0 );
+	if ( tr.fraction >= 1.0f || ( tr.contents & ( CONTENTS_LAVA | CONTENTS_SLIME ) ) )
+		return qfalse; // a pit
+	return qtrue;
+}
+
+void Shinobi_BotDirectNav( bot_state_t *bs ) {
+	gentity_t *self = &g_entities[bs->client];
+	vec3_t     target, d, ang, fwd;
+	float      flat, yaw;
+	int        i;
+
+	if ( !self->client || self->health <= 0 )
+		return;
+	// no "no idea where I am going": no random wandering, no hopping in place
+	bs->iHaveNoIdeaWhereIAmGoing = 0;
+	bs->lastSignificantChangeTime = level.time + 25000;
+	bs->doingFallback = qfalse;
+	bs->wpCurrent = NULL;
+	if ( bs->jumpHoldTime > level.time + 1000 ) // (the fallback's 1.5 s hops)
+		bs->jumpHoldTime = bs->jumpTime = 0;
+
+	if ( bs->currentEnemy && bs->currentEnemy->client && bs->currentEnemy->health > 0 && bs->frame_Enemy_Vis ) {
+		VectorCopy( bs->currentEnemy->client->ps.origin, bs->shinobiChasePos );
+		bs->shinobiChaseTime = level.time + 8000;
+		if ( bs->frame_Enemy_Len < 110 )
+			return; // up close the combat code moves us
+		VectorCopy( bs->currentEnemy->client->ps.origin, target );
+	}
+	else if ( bs->shinobiChaseTime > level.time && Distance( bs->origin, bs->shinobiChasePos ) > 64 ) {
+		VectorCopy( bs->shinobiChasePos, target );
+	}
+	else { // nobody seen lately: toward the nearest one
+		gentity_t *best = NULL;
+		float      bestDist = 1e9f;
+		bs->shinobiChaseTime = 0;
+		for ( i = 0; i < MAX_CLIENTS; i++ ) {
+			gentity_t *e = &g_entities[i];
+			float      dist;
+			if ( e == self || !e->inuse || !e->client || e->health <= 0 || e->client->sess.sessionTeam == TEAM_SPECTATOR
+				|| e->client->tempSpectate >= level.time || ( level.gametype >= GT_TEAM && OnSameTeam( self, e ) ) )
+				continue;
+			dist = Distance( e->client->ps.origin, bs->origin );
+			if ( dist < bestDist ) {
+				bestDist = dist;
+				best = e;
+			}
+		}
+		if ( !best ) {
+			VectorCopy( bs->origin, bs->goalPosition );
+			return;
+		}
+		VectorCopy( best->client->ps.origin, target );
+	}
+
+	VectorSubtract( target, bs->origin, d );
+	flat = sqrtf( d[0] * d[0] + d[1] * d[1] );
+	yaw = vectoyaw( d );
+
+	// stuck (a corner the probes don't see): a new way for a moment
+	if ( bs->shinobiStuckNext <= level.time ) {
+		if ( Distance( bs->origin, bs->shinobiStuckOrg ) < 24 && flat > 64 ) {
+			bs->shinobiDetourYaw = yaw + ( Q_irand( 0, 1 ) ? 1 : -1 ) * Q_irand( 70, 150 );
+			bs->shinobiDetourUntil = level.time + 900;
+			bs->jumpTime = level.time + 150; // and a hop over whatever it is
+		}
+		VectorCopy( bs->origin, bs->shinobiStuckOrg );
+		bs->shinobiStuckNext = level.time + 1000;
+	}
+
+	if ( bs->shinobiDetourUntil > level.time ) {
+		yaw = bs->shinobiDetourYaw;
+	}
+	else if ( !ShinobiNav_Free( bs, yaw, flat < 96 ? flat : 96 ) ) { // the straight way is shut: the nearest free one
+		static const float tries[] = { 35, -35, 70, -70, 105, -105, 140, -140 };
+		for ( i = 0; i < (int)ARRAY_LEN( tries ); i++ ) {
+			if ( ShinobiNav_Free( bs, yaw + tries[i], 96 ) ) {
+				bs->shinobiDetourYaw = yaw + tries[i];
+				bs->shinobiDetourUntil = level.time + 500;
+				yaw = bs->shinobiDetourYaw;
+				break;
+			}
+		}
+	}
+
+	VectorSet( ang, 0, yaw, 0 );
+	AngleVectors( ang, fwd, NULL, NULL );
+	VectorMA( bs->origin, 128, fwd, bs->goalPosition );
+
+	// he is up on something close by: jump up to him
+	if ( d[2] > 56 && flat < 380 && self->client->ps.groundEntityNum != ENTITYNUM_NONE ) {
+		bs->jumpTime = level.time + 200;
+		bs->jumpHoldTime = level.time + 450;
+		bs->jDelay = 0;
+	}
+}
+
 void StandardBotAI(bot_state_t *bs, float thinktime)
 {
 	int wp, enemy;
@@ -7085,8 +7201,8 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 		}
 	}
 
-	if (doingFallback && bs->currentEnemy) //just stand and fire if we have no idea where we are
-	{
+	if (doingFallback && bs->currentEnemy && gWPNum > 1) //just stand and fire if we have no idea where we are
+	{ // (JK_Shinobi: not on a map without routes - Shinobi_BotDirectNav hunts there)
 		VectorCopy(bs->origin, bs->goalPosition);
 	}
 
@@ -7235,6 +7351,9 @@ void StandardBotAI(bot_state_t *bs, float thinktime)
 			}
 		}
 	}
+
+	if ( gWPNum < 2 && !RMG.integer )
+		Shinobi_BotDirectNav( bs ); // JK_Shinobi: no routes on this map - hunt instead of hopping in place
 
 	if (bs->beStill < level.time && !WaitingForNow(bs, bs->goalPosition) && !fjHalt)
 	{

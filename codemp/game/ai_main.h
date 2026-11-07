@@ -353,6 +353,14 @@ typedef struct bot_state_s
 	int					forceMove_Right;
 	int					forceMove_Up;
 	//end rww
+
+	// JK_Shinobi: hunting on a map without bot routes (Shinobi_BotDirectNav)
+	vec3_t				shinobiChasePos;	// where an enemy was last seen
+	int					shinobiChaseTime;	// ... remembered until
+	int					shinobiDetourUntil;	// going around something that way until
+	float				shinobiDetourYaw;
+	vec3_t				shinobiStuckOrg;	// where we were at the last stuck check
+	int					shinobiStuckNext;
 } bot_state_t;
 
 void *B_TempAlloc(int size);
