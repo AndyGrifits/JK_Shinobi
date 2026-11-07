@@ -187,7 +187,7 @@ on the finisher; until ~0.45 s after the kick) - a Shunshin up to him, as after 
 keep him up (you hang in the air with him), the next attack is the diving kick that slams
 him down: 13 damage (x the style's finisher), knocked down, no falling damage on top. A blocked
 blow does nothing to him but counts for the combo (a blocked finisher: no effect); a parried one
-stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u; really lying, not already getting up): he stays down until it lands, then a
+stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u; really lying, not already getting up): he stays down until it lands (then not again for 2 s - till then attack there is a plain punch; shown nowhere), then a
 two-handed blow down at him (the saber stab-down animation, 15 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
 a kick forward and down at 45 degrees, steered with the view (no falling damage), 7 damage to everyone within 90 u of where you

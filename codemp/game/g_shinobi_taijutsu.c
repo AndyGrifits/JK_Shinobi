@@ -72,7 +72,13 @@ static void Shinobi_FistChainSpent( gclient_t *c ) {
 	if ( cs != c->shinobi.fistComboSeen && !( cs & SHINOBI_COMBO_AIR )
 		&& ( kind == SCK_KICK || kind == SCK_LAUNCH || kind == SCK_SPIN || kind == SCK_SWEEP ) )
 		c->shinobi.fistChain = 0;
+	if ( cs != c->shinobi.fistComboSeen && kind == SCK_GROUND )
+		c->shinobi.groundNext = level.time + SHINOBI_GROUND_COOLDOWN; // a downward blow began: not again for a while
 	c->shinobi.fistComboSeen = cs;
+	if ( c->shinobi.groundNext > level.time ) // (Pmove reads it: a plain punch till then; shown nowhere)
+		c->ps.stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_GROUNDCD;
+	else
+		c->ps.stats[STAT_SHINOBI_LOCK] &= ~SHINOBI_LOCK_GROUNDCD;
 }
 
 // after a combo hit landed on v (damage already dealt)

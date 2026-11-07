@@ -853,6 +853,7 @@ struct gclient_s {
 		int		bladeAirUntil, bladeAirVictim, bladeAirFrom; // after the rising cut (or the fists' launcher): jump (pressed since From) to Shunshin up to him
 		int		jumpPressAt, jumpHeld; // the last new press of jump
 		int		groundVictim;	// fists: the one the downward blow is coming at (+1)
+		int		groundNext;		// fists: the downward blow again from then (SHINOBI_GROUND_COOLDOWN)
 		int		flurryVictim, flurryNext, flurryLeft, flurryDmg; // Kurosawa's extra cuts
 		int		bleedEnd, bleedNext, bleedBy; // a wound: bleeding until, next tick, who opened it (+1)
 		int		lockSeen;		// lock-on: the target was last in sight then

@@ -1212,6 +1212,8 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 // one press, one blow (blades and fists): the press that began a swing is used up - held on it does
 // nothing more (no chain from holding attack); let go and press again for the next
 #define SHINOBI_LOCK_ATTACKUSED        ( 1 << 13 )
+#define SHINOBI_LOCK_GROUNDCD          ( 1 << 14 ) // the downward blow (fists) not yet again (SHINOBI_GROUND_COOLDOWN; not shown anywhere)
+#define SHINOBI_GROUND_COOLDOWN        2000  // ms: no pinning one down with blow after blow
 // a blade's return to guard (the move after a swing nobody followed up) may be cut by the next
 // press once it has played this long: clicked cuts come as fast as a held chain used to
 #define SHINOBI_RETURN_CUT_MS          150

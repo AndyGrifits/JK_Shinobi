@@ -10625,8 +10625,8 @@ static qboolean PM_ShinobiMeleeCombo( void )
 		PM_ShinobiComboSet( hit + 1, SCK_HIT, ps->weaponTime + SHINOBI_COMBO_WINDOW * 2 );
 		return qfalse;
 	}
-	if ( PM_ShinobiLyingAhead() )
-	{ // someone lying in front: a two-handed blow down at him
+	if ( !( ps->stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_GROUNDCD ) && PM_ShinobiLyingAhead() )
+	{ // someone lying in front: a two-handed blow down at him (not again within SHINOBI_GROUND_COOLDOWN)
 		PM_SetAnim( SETANIM_BOTH, BOTH_STABDOWN, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 		if ( ps->legsAnim == BOTH_STABDOWN )
 		{
