@@ -165,7 +165,6 @@ qboolean Shinobi_CastFlash( gentity_t *ent ) {
 			continue; // looking away
 		if ( v->s.number < MAX_CLIENTS && !( v->r.svFlags & SVF_BOT ) ) {
 			v->client->shinobi.blindEnd = level.time + SHINOBI_FLASH_BLIND_MS;
-			trap->SendServerCommand( v - g_entities, "cp \"^7Blinded!\"" );
 		}
 		else if ( !Shinobi_CCImmune( v ) ) { // bots and NPCs just reel
 			Shinobi_Stagger( v, 900 );

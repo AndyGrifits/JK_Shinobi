@@ -68,7 +68,6 @@ static void Shinobi_GuardBreak( gentity_t *ent ) {
 	Shinobi_Stagger( ent, SHINOBI_GUARD_BREAK_MS );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndGuardBreak );
 	Shinobi_HitText( ent, STX_GUARDBREAK, 0 );
-	trap->SendServerCommand( ent - g_entities, "cp \"^1Guard broken!\"" );
 }
 
 // every client frame, before Pmove
@@ -640,6 +639,13 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 	Shinobi_GainChakra( attacker, SHINOBI_GAIN_COMBO, qtrue );
 	Shinobi_HitText( victim, STX_FINISHER, 0 );
 
+	if ( Shinobi_CCImmune( victim ) && ( kind == SFK_RISE || kind == SFK_SWEEP ) ) {
+		// Stone Skin / a Kaiten: a finisher only hurts - no launch, no push, no knockdown (as every
+		// throw and knock: Shinobi_CCImmune)
+		shinobiTest.bladeFinishers[0]++;
+		Shinobi_FinisherFx( attacker, victim, kind == SFK_RISE ? SFX_LAUNCH : SFX_SWEEP );
+		return;
+	}
 	if ( kind == SFK_RISE ) { // up he goes
 		shinobiTest.bladeFinishers[0]++;
 		vc->shinobi.juggleStart = level.time;
@@ -693,8 +699,9 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		vc->shinobi.bleedBy = attacker->s.number + 1;
 		Shinobi_FinisherFx( attacker, victim, SFX_BLEED );
 		break;
-	case SBF_IAI: // a clean draw-cut: he reels
-		Shinobi_Stagger( victim, SHINOBI_SWORD_IAI_MS );
+	case SBF_IAI: // a clean draw-cut: he reels (not in Stone Skin / a Kaiten)
+		if ( !Shinobi_CCImmune( victim ) )
+			Shinobi_Stagger( victim, SHINOBI_SWORD_IAI_MS );
 		Shinobi_FinisherFx( attacker, victim, SFX_IAI );
 		break;
 	case SBF_FLURRY: // two more cuts right after
@@ -872,9 +879,7 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		if ( attacker && attacker->client && attacker->s.number < MAX_CLIENTS
 			&& Distance( attacker->r.currentOrigin, targ->r.currentOrigin ) <= SHINOBI_PARRY_REACH ) {
 			Shinobi_Stagger( attacker, SHINOBI_PARRY_STAGGER_MS );
-			trap->SendServerCommand( attacker - g_entities, "cp \"^3Parried!\"" );
 		}
-		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
 		G_Sound( targ, CHAN_AUTO, shinobiMedia.sndParry );
 		Shinobi_HitText( targ, STX_PARRY, 0 );
 		Shinobi_ParryHold( targ );
@@ -977,9 +982,7 @@ int Shinobi_BlockDamage( gentity_t *targ, gentity_t *inflictor, gentity_t *attac
 		if ( attacker->client && attacker->s.number < MAX_CLIENTS
 			&& Distance( attacker->r.currentOrigin, targ->r.currentOrigin ) <= SHINOBI_PARRY_REACH ) {
 			Shinobi_Stagger( attacker, SHINOBI_PARRY_STAGGER_MS );
-			trap->SendServerCommand( attacker - g_entities, "cp \"^3Parried!\"" );
 		}
-		trap->SendServerCommand( targ - g_entities, "cp \"^2Perfect parry!\"" );
 		Shinobi_ParryHold( targ );
 		Shinobi_ShieldShell( targ, src, damage );
 		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );

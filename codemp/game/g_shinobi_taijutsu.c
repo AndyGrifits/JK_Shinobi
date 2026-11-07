@@ -102,6 +102,12 @@ void Shinobi_ComboHit( gentity_t *ent, gentity_t *v ) {
 	v->client->ps.otherKillerTime = level.time + 5000;
 	v->client->ps.otherKillerDebounceTime = level.time + 100;
 
+	if ( Shinobi_CCImmune( v ) && ( kind == SCK_LAUNCH || kind == SCK_KICK ) ) {
+		// Stone Skin / a Kaiten: the finisher only hurts - no launch, no push, no knockdown
+		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
+		G_Sound( v, CHAN_AUTO, G_SoundIndex( va( "sound/weapons/melee/punch%d", Q_irand( 1, 4 ) ) ) );
+		return;
+	}
 	switch ( kind ) {
 	case SCK_HIT: { // a chain punch: held until the next one can land (the finisher has none)
 		int ms = client->ps.weaponTime + SHINOBI_COMBO_FLINCH_MS;
@@ -364,7 +370,8 @@ static void Shinobi_AirSlam( gentity_t *ent ) {
 		v->client->ps.velocity[0] = dir[0] * 120;
 		v->client->ps.velocity[1] = dir[1] * 120;
 		v->client->ps.velocity[2] = -900;
-		G_Knockdown( v );
+		if ( !Shinobi_CCImmune( v ) )
+			G_Knockdown( v );
 		Shinobi_GainChakra( ent, SHINOBI_GAIN_COMBO, qtrue );
 		G_Sound( v, CHAN_AUTO, shinobiMedia.sndWallBreak );
 	}

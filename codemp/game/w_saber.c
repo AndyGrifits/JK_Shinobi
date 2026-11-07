@@ -4619,7 +4619,7 @@ static QINLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int rBl
 			VectorCopy( tr.plane.normal, saberClashNorm );
 			saberClashEventParm = 1;
 
-			if (dmg > SABER_NONATTACK_DAMAGE)
+			if (dmg > SABER_NONATTACK_DAMAGE && !Shinobi_SaberGuardUp( &g_entities[tr.entityNum] )) // JK_Shinobi: no locks out of our guard
 			{
 				int lockFactor = g_saberLockFactor.integer;
 
@@ -4887,6 +4887,21 @@ blockStuff:
 				dps->torsoTimer = 0;
 			}
 			shinobiBlockResult = SBR_NONE;
+			return didHit;
+		}
+		// JK_Shinobi: a blow on our guard (it held: Shinobi_SaberGuard paid for it) - always the same: he
+		// turns his blade to it (the parry pose, just a look), the swing bounces off. None of the stock
+		// outcomes of strengths and dice - no knockaway, no crushed parry, no lock: what a guard costs
+		// is the guard bar's business, and only breaking it (or a perfect parry) makes anyone reel
+		if ( otherOwner && otherOwner->client && otherOwner->s.number < MAX_CLIENTS && self->s.number < MAX_CLIENTS
+			&& Shinobi_SaberGuardUp( otherOwner ) )
+		{
+			if ( !PM_SaberInParry( otherOwner->client->ps.saberMove ) )
+				WP_SaberBlockNonRandom( otherOwner, tr.endpos, qfalse );
+			otherOwner->client->ps.saberEventFlags |= SEF_PARRIED;
+			self->client->ps.saberEventFlags |= SEF_BLOCKED;
+			if ( dmg > SABER_NONATTACK_DAMAGE && BG_SaberInAttack( self->client->ps.saberMove ) && !BG_SaberInSpecial( self->client->ps.saberMove ) )
+				self->client->ps.saberBlocked = BLOCKED_ATK_BOUNCE;
 			return didHit;
 		}
 
@@ -7582,6 +7597,10 @@ static void G_TossTheMofo(gentity_t *ent, vec3_t tossDir, float tossStr)
 	{ //no, silly
 		return;
 	}
+	if ( Shinobi_CCImmune( ent ) )
+	{ // JK_Shinobi: Stone Skin / a Kaiten - a kick throws him nowhere, knocks him down never
+		return;
+	}
 
 	VectorMA(ent->client->ps.velocity, tossStr, tossDir, ent->client->ps.velocity);
 	ent->client->ps.velocity[2] = 200;
@@ -7705,14 +7724,7 @@ static gentity_t *G_KickTrace( gentity_t *ent, vec3_t kickDir, float kickDist, v
 						G_Knockdown( hitEnt, ent, kickDir, kickPush, qtrue );
 					}
 					*/
-					if ( kickPush >= 75.0f && !Q_irand( 0, 2 ) )
-					{
-						G_TossTheMofo(hitEnt, kickDir, 300.0f);
-					}
-					else
-					{
-						G_TossTheMofo(hitEnt, kickDir, kickPush);
-					}
+					G_TossTheMofo(hitEnt, kickDir, kickPush); // JK_Shinobi: (not a random one in three thrown 300 hard)
 					Shinobi_ComboHit( ent, hitEnt ); // JK_Shinobi: the combo's kicks decide what happens
 				}
 			}

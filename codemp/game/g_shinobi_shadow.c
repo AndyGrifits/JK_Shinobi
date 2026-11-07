@@ -192,8 +192,6 @@ static void Shinobi_ShadowThink( gentity_t *sh ) {
 				G_Sound( v, CHAN_AUTO, shinobiMedia.sndShadow );
 				Shinobi_HitText( v, STX_BOUND, 0 );
 				G_LogPrintf( "[shinobi] Shadow Bind: %i caught %i\n", binder->s.number, v->s.number );
-				trap->SendServerCommand( v - g_entities, "cp \"^0Shadow Bind!^7\nyou move as he moves - Kawarimi gets you out\"" );
-				trap->SendServerCommand( binder - g_entities, "cp \"Caught! They copy your every move\"" );
 			}
 		}
 		// else: blocked by a wall or a gap - it stops growing there

@@ -1623,6 +1623,7 @@ void Shinobi_DpsLog( gentity_t *targ, gentity_t *attacker, int take, int mod ); 
 void Shinobi_HitText( gentity_t *targ, int kind, int value );
 void Shinobi_GainChakra( gentity_t *ent, float amount, qboolean show ); // g_shinobi_build.c
 qboolean Shinobi_SaberGuardUp( gentity_t *ent ); // g_shinobi_block.c
+qboolean Shinobi_CCImmune( gentity_t *e ); // g_shinobi.c: Stone Skin, a Kaiten (and CC immunity, shinobi_ccimmune)
 qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, const vec3_t at );
 void     Shinobi_BladeSwingUpdate( gentity_t *ent );
 void     Shinobi_BladeStance( gentity_t *ent );

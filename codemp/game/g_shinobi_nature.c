@@ -1520,7 +1520,6 @@ qboolean Shinobi_CastSuiro( gentity_t *ent, int lvl ) {
 	G_PlayEffectID( shinobiMedia.fxWaterImpact, target->r.currentOrigin, up );
 	G_Sound( target, CHAN_AUTO, shinobiMedia.sndPrison );
 	G_Sound( ent, CHAN_AUTO, shinobiMedia.sndWaterCast );
-	trap->SendServerCommand( target - g_entities, "cp \"^4Water Prison!^7\nKawarimi gets you out\"" );
 	Shinobi_Debug( "Water Prison by %i caught %i", ent->s.number, target->s.number );
 	return qtrue;
 }
