@@ -1031,10 +1031,10 @@ like the blade's: blows that land on the same one, or on his guard, each within
 shinobiFistWindow of the last (a miss counts nothing, a parry stops it); with
 shinobiFistChain of them (the HUD's gold pip lit) the next attack is a finisher
 picked by the direction held at that moment:
-  nothing   front kick: pushed away and knocked down
-  forward   launcher: thrown up into the air
+  nothing   launcher: thrown up into the air (jump: Shunshin up to him - the air combo)
+  forward   front kick: pushed away and knocked down
   back      sweep: a forward roll into his legs, knocked down on the spot
-  left / right  spin kick all around: just damage (a second chance to land one)
+  left / right (forward + side too)  spin kick all around: just damage (a second chance to land one)
 Chain hits are plain damage; kicks keep the stock kick knockdown. Attack next to
 someone lying in front of you: a downward blow (the saber stab-down animation).
 Attack in the air (anywhere, combo or not): a kick forward and down (45 degrees) that hits

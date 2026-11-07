@@ -1236,7 +1236,7 @@ static atResult_t T_SwordAir( int t ) {
 	return ATR_RUN;
 }
 
-// the air combo: launcher (forward on the finisher) -> jump after him -> two blows -> the slam
+// the air combo: launcher (nothing held on the finisher) -> jump: Shunshin up to him -> two blows -> the slam
 static void T_AirCombo_Setup( void ) {
 	vec3_t p;
 	AT_Weapon( 0, WP_MELEE );
@@ -1251,8 +1251,8 @@ static void T_AirCombo_Setup( void ) {
 }
 static atResult_t T_AirCombo( int t ) {
 	const int launches = shinobiTest.launches - at.v[0], air = shinobiTest.airHits - at.v[1], slams = shinobiTest.slams - at.v[2];
-	if ( STAGE( 0 ) ) { // the chain, forward held for the finisher
-		AT_Drive( 0, Shinobi_BladeFinisherReady( &A->client->ps ) ? 127 : 0, 0, 0, BUTTON_ATTACK );
+	if ( STAGE( 0 ) ) { // the chain, nothing held for the finisher (the launcher)
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK ); // (the launcher: nothing held)
 		if ( launches ) {
 			AT_Drive( 0, 0, 0, 0, 0 );
 			at.v[3] = t;
@@ -2304,7 +2304,7 @@ static atResult_t T_FistCount( int t ) {
 	if ( ready && at.v[4] < 0 )
 		at.v[4] = since;
 	if ( at.stage == 0 ) {
-		AT_Drive( 0, ready ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK ); // (the launcher: nothing held)
 		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
 		if ( since >= 3000 ) {
 			const int launched = shinobiTest.launches - at.v[0];
@@ -2322,6 +2322,89 @@ static atResult_t T_FistCount( int t ) {
 		at.v[11] = at.v[3] == 0 && at.v[4] < 0;
 		AT_Msg( "blocked blows count: %s, misses don't: %s", at.v[10] ? "yes" : "NO", at.v[11] ? "yes" : "NO" );
 		return ( at.v[10] && at.v[11] ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
+/*
+fist_finishers: the fists' finishers as the blade's - 0) forward + side: the spin; 1) forward: the
+push (knocked down); 2) nothing: the launcher, then jump: a Shunshin up to him; 3) B knocked down,
+A strikes late in it: the downward blow holds him down and lands
+*/
+static void FF_Stage( int stage ) {
+	vec3_t p;
+	AT_Reset( A );
+	AT_Reset( B );
+	AT_Weapon( 0, WP_MELEE );
+	AT_Weapon( 1, WP_MELEE );
+	B->client->ps.forceHandExtend = HANDEXTEND_NONE;
+	B->client->ps.forceHandExtendTime = 0;
+	A->client->shinobi.fistChain = 0;
+	AT_Spot( stage == 3 ? 56 : 46, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	at.drive[1].aimAt = qfalse;
+	at.v[2] = level.time;
+	at.v[5] = 0; // the finisher kind seen
+	at.v[6] = shinobiTest.bladeFinishers[SHINOBI_BLADE_SHUNSHIN_STAT];
+	at.v[7] = shinobiTest.groundBlows;
+	at.v[8] = 0; // B down seen / A up in the air
+	if ( stage == 3 )
+		G_Knockdown( B );
+}
+static void T_FistFinishers_Setup( void ) {
+	at.v[9] = at.v[10] = at.v[11] = at.v[12] = at.v[13] = 0;
+	FF_Stage( 0 );
+}
+static atResult_t T_FistFinishers( int t ) {
+	const int since = level.time - at.v[2], stage = at.stage;
+	const int kind = SHINOBI_COMBO_KIND( &A->client->ps );
+	const qboolean ready = Shinobi_BladeFinisherReady( &A->client->ps );
+	if ( B->health < 200 )
+		B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	if ( kind == SCK_SPIN || kind == SCK_KICK || kind == SCK_LAUNCH || kind == SCK_SWEEP )
+		at.v[5] = kind;
+	if ( stage <= 1 ) {
+		AT_Drive( 0, ready ? 127 : 0, ready && stage == 0 ? 127 : 0, 0, BUTTON_ATTACK );
+		if ( stage == 1 && ( B->client->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( B->client->ps.legsAnim ) ) )
+			at.v[8] = 1;
+		if ( since >= 3500 ) {
+			if ( stage == 0 ) {
+				at.v[10] = at.v[5] == SCK_SPIN;
+				AT_Print( "[autotest]     forward + side: finisher kind %i (spin %i)\n", at.v[5], SCK_SPIN );
+			} else {
+				at.v[11] = at.v[5] == SCK_KICK && at.v[8];
+				AT_Print( "[autotest]     forward: finisher kind %i (push %i), B down %i\n", at.v[5], SCK_KICK, at.v[8] );
+			}
+			NEXT();
+			FF_Stage( stage + 1 );
+		}
+		return ATR_RUN;
+	}
+	if ( stage == 2 ) {
+		const qboolean launched = at.v[5] == SCK_LAUNCH;
+		if ( !at.v[9] && launched )
+			at.v[9] = since; // when the launcher came
+		AT_Drive( 0, 0, 0, at.v[9] && since - at.v[9] >= 150 && since - at.v[9] < 300 ? 127 : 0,
+			at.v[9] ? 0 : BUTTON_ATTACK );
+		if ( shinobiTest.bladeFinishers[SHINOBI_BLADE_SHUNSHIN_STAT] > at.v[6] && A->client->ps.groundEntityNum == ENTITYNUM_NONE )
+			at.v[8] = 1;
+		if ( since >= 4500 ) {
+			at.v[12] = launched && at.v[8];
+			AT_Print( "[autotest]     nothing held: launcher %i, jump - Shunshin up to him %i\n", launched, at.v[8] );
+			at.v[9] = 0;
+			NEXT();
+			FF_Stage( 3 );
+		}
+		return ATR_RUN;
+	}
+	AT_Drive( 0, 0, 0, 0, since >= SHINOBI_KNOCKDOWN_MS - 300 && since < SHINOBI_KNOCKDOWN_MS - 150 ? BUTTON_ATTACK : 0 );
+	if ( since >= 2500 ) {
+		at.v[13] = shinobiTest.groundBlows > at.v[7];
+		AT_Print( "[autotest]     downward blow struck late in his knockdown: landed %i\n", at.v[13] );
+		AT_Msg( "spin (fwd+side) %s, push (fwd) %s, launcher + Shunshin %s, downward blow %s", at.v[10] ? "ok" : "NO",
+			at.v[11] ? "ok" : "NO", at.v[12] ? "ok" : "NO", at.v[13] ? "ok" : "NO" );
+		return ( at.v[10] && at.v[11] && at.v[12] && at.v[13] ) ? ATR_PASS : ATR_FAIL;
 	}
 	return ATR_RUN;
 }
@@ -2367,7 +2450,7 @@ static atResult_t T_GuardEdges( int t ) {
 		at.v[3] = push; // (until the riposte: then B steps in)
 
 	if ( stage == 0 ) {
-		AT_Drive( 0, Shinobi_BladeFinisherReady( &A->client->ps ) ? 127 : 0, 0, 0, BUTTON_ATTACK );
+		AT_Drive( 0, 0, 0, 0, BUTTON_ATTACK ); // (the launcher: nothing held)
 		AT_Drive( 1, 0, 0, 0, SHINOBI_BUTTON_BLOCK );
 		if ( since >= 3000 ) {
 			const int launched = shinobiTest.launches - at.v[0];
@@ -2423,6 +2506,7 @@ static atTest_t atTests[] = {
 	{ "guard_swing",  "blade swings on a blade guard cost by style and break it", T_GuardSwing_Setup, T_GuardSwing, 8000 },
 	{ "guard_break",  "the emptying swing breaks the guard: 1 s stagger",        T_GuardBreak_Setup, T_GuardBreak, 1000 },
 	{ "parry",        "perfect parry: free, attacker staggered long",              T_Parry_Setup, T_Parry, 1000 },
+	{ "fist_finishers", "fist finishers as the blade's: spin / push / launcher + Shunshin; the downward blow lands", T_FistFinishers_Setup, T_FistFinishers, 17000 },
 	{ "fist_count",   "the fist combo counts blows on the guard, not misses (as the blade)", T_FistCount_Setup, T_FistCount, 7000 },
 	{ "guard_edges",  "a guard stops the launcher, a parry the push; the counter out of a parry lands", T_GuardEdges_Setup, T_GuardEdges, 12000 },
 	{ "fuma",         "fuma shuriken: speed, two equal hits, leaves the hand, caught", T_Fuma_Setup, T_Fuma, 7000 },

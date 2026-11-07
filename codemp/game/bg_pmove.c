@@ -10370,7 +10370,9 @@ static qboolean PM_ShinobiLyingAhead( void )
 	if ( tr.entityNum >= ENTITYNUM_WORLD )
 		return qfalse;
 	ent = PM_BGEntForNum( tr.entityNum );
-	return ( ent && ( ent->s.eType == ET_PLAYER || ent->s.eType == ET_NPC ) && BG_InKnockDown( ent->s.legsAnim ) ) ? qtrue : qfalse;
+	// really lying (not already getting up or rolling away: the blow would come down on nothing)
+	return ( ent && ( ent->s.eType == ET_PLAYER || ent->s.eType == ET_NPC )
+		&& ent->s.legsAnim >= BOTH_KNOCKDOWN1 && ent->s.legsAnim <= BOTH_KNOCKDOWN5 ) ? qtrue : qfalse;
 }
 
 // a blade in the air: a fresh attack, high enough = a plunge straight down (lands: the server's
@@ -10546,26 +10548,8 @@ static void PM_ShinobiComboPre( void )
 		return;
 	}
 
-	// the air combo: jump right after the launcher - you fly after him
-	if ( SHINOBI_COMBO_KIND( ps ) == SCK_LAUNCH && ps->stats[STAT_SHINOBI_COMBOT] > 0 && pm->cmd.upmove > 0
-		&& ps->groundEntityNum != ENTITYNUM_NONE && !( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
-		&& !BG_KickingAnim( ps->legsAnim ) )
-	{
-		vec3_t fwd, ang;
-		VectorSet( ang, 0, ps->viewangles[YAW], 0 );
-		AngleVectors( ang, fwd, NULL, NULL );
-		ps->velocity[0] = fwd[0] * SHINOBI_AIR_JUMP_FWD;
-		ps->velocity[1] = fwd[1] * SHINOBI_AIR_JUMP_FWD;
-		ps->velocity[2] = SHINOBI_AIR_JUMP;
-		ps->groundEntityNum = ENTITYNUM_NONE;
-		ps->pm_flags |= PMF_JUMP_HELD;
-		PM_SetAnim( SETANIM_BOTH, BOTH_FORCEJUMP1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
-		ps->weaponTime = 0;
-		ps->stats[STAT_SHINOBI_COMBO] = SHINOBI_COMBO_AIR | ( SCK_HIT << 3 ); // hit 0 of the air part
-		ps->stats[STAT_SHINOBI_COMBOT] = 1500;
-		pm->cmd.upmove = 0;
-		return;
-	}
+	// the air combo: jump right after the launcher - a Shunshin up to him, as after the blade's
+	// rising cut (the server: Shinobi_BladeAirShunshin)
 	if ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR )
 	{
 		if ( ps->groundEntityNum != ENTITYNUM_NONE && ps->velocity[2] <= 0 )
@@ -10646,15 +10630,17 @@ static qboolean PM_ShinobiMeleeCombo( void )
 	}
 	if ( Shinobi_BladeFinisherReady( ps ) )
 	{ // the finisher, by the direction held (the combo counts blows landed or blocked, as the blade's: the server)
+		// as the blade's (Shinobi_FinisherKindFor): a side first (forward + side too) - the spin; forward -
+		// the push (front kick, knocked down); back - the sweep; nothing - up he goes (the launcher)
 		qboolean ok;
-		if ( pm->cmd.forwardmove > 0 )
-			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, hit + 1, SCK_LAUNCH, qtrue );
+		if ( pm->cmd.rightmove )
+			ok = PM_ShinobiComboKick( BOTH_A7_KICK_S, hit + 1, SCK_SPIN, qfalse );
+		else if ( pm->cmd.forwardmove > 0 )
+			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F, hit + 1, SCK_KICK, qtrue );
 		else if ( pm->cmd.forwardmove < 0 && ps->groundEntityNum != ENTITYNUM_NONE && ( ps->stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR ) == 0 )
 			ok = PM_ShinobiComboKick( BOTH_ROLL_F, hit + 1, SCK_SWEEP, qfalse ); // a roll into his legs (the stock roll moves us)
-		else if ( pm->cmd.rightmove )
-			ok = PM_ShinobiComboKick( BOTH_A7_KICK_S, hit + 1, SCK_SPIN, qfalse );
 		else
-			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F, hit + 1, SCK_KICK, qtrue );
+			ok = PM_ShinobiComboKick( BOTH_A7_KICK_F_AIR, hit + 1, SCK_LAUNCH, qtrue );
 		// the chain is over (after the launcher: a moment to jump after him)
 		ps->stats[STAT_SHINOBI_COMBOT] = ( ok && SHINOBI_COMBO_KIND( ps ) == SCK_LAUNCH ) ? ps->legsTimer + SHINOBI_AIR_WINDOW : 0;
 		return ok;

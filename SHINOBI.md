@@ -167,10 +167,10 @@ up to 15 s), picked by the direction held at that moment:
 
 | held | finisher | what it does |
 |---|---|---|
-| nothing | front kick | 25 damage, pushed away and knocked down |
-| forward | rising kick | 22 damage, thrown up into the air |
+| nothing | rising kick | 22 damage, thrown up into the air (jump: Shunshin up to him) |
+| forward | front kick | 25 damage, pushed away and knocked down |
 | back | sweep: a forward roll into his legs | 20 damage, knocked down on the spot, to each one it rolls into |
-| left / right | spin kick | 18 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
+| left / right (forward + side too) | spin kick | 18 damage all around you, nothing more (no push, no knockdown): a second chance to land a hit |
 
 Each hit of the chain hits harder: punches 8 / 11 / 15 (all taijutsu -30% after a play test), then the finisher - the four together
 a bit less than four blade swings, so a chain is worth stepping away from or guarding against.
@@ -180,12 +180,12 @@ progress bounces, a charge is dropped); only raising the guard (the blows on it 
 Kawarimi gets him out. The finisher has no flinch.
 The kicks keep the stock kick knockdown.
 
-**Air combo**: jump within ~0.45 s after the launcher (forward + attack finisher) and you
-leap after him; he is helpless until he lands (Kawarimi still works). Up there two punches
+Same keys as the blade's finishers. **Air combo**: jump right after the launcher (nothing held
+on the finisher; until ~0.45 s after the kick) - a Shunshin up to him, as after the blade's rising cut; he is helpless until he lands (Kawarimi still works). Up there two punches
 keep him up (you hang in the air with him), the next attack is the diving kick that slams
 him down: 13 damage (x the style's finisher), knocked down, no falling damage on top. A blocked
 blow does nothing to him but counts for the combo (a blocked finisher: no effect); a parried one
-stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u): a
+stops the combo; block held from before doesn't come up until a kick, a grab or a blade's special attack is over. Attack with someone lying right in front of you (up to ~96 u; really lying, not already getting up): he stays down until it lands, then a
 two-handed blow down at him (the saber stab-down animation, 15 damage). Attack in the air
 (at least ~1 m up; also off a wall run or a flip - pressed early, it waits until it can):
 a kick forward and down at 45 degrees, steered with the view (no falling damage), 7 damage to everyone within 90 u of where you

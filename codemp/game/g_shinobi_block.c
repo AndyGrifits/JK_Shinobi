@@ -786,6 +786,14 @@ static void Shinobi_BladeAirShunshin( gentity_t *ent ) {
 	VectorCopy( v->client->ps.velocity, c->ps.velocity ); // (rising with him)
 	c->ps.groundEntityNum = ENTITYNUM_NONE;
 	c->ps.stats[STAT_SHINOBI_COMBO] |= SHINOBI_COMBO_AIR; // up with him: the plunge from any height (PM_ShinobiSwordDive)
+	if ( c->ps.weapon == WP_MELEE ) { // fists: the air combo - two punches up there, then the slam
+		c->ps.stats[STAT_SHINOBI_COMBO] = SHINOBI_COMBO_AIR | ( SCK_HIT << 3 ); // hit 0 of the air part
+		c->ps.stats[STAT_SHINOBI_COMBOT] = 1500;
+		c->ps.weaponTime = 0;
+		c->ps.legsTimer = c->ps.torsoTimer = 0; // (the kick is over)
+		if ( c->ps.velocity[2] < 120 )
+			c->ps.velocity[2] = 120;
+	}
 	VectorSet( ang, 0, vectoyaw( d ), 0 );
 	SetClientViewAngle( ent, ang );
 	Shinobi_EffectDir( shinobiMedia.fxShunshin, c->ps.origin, d );

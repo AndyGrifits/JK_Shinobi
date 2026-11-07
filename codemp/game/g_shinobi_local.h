@@ -134,7 +134,7 @@ typedef struct {
 } shinobiTestDamage_t;
 typedef struct {
 	int guardHits, guardCost, guardBreaks, parries, botGuards;
-	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage, thrustReach;
+	int kawarimiHides, launches, airHits, slams, stuns, swordDives, smokeBursts, poisonTicks, arcHits, arcDamage, thrustReach, groundBlows;
 	int gatesOpened, weightQuakes, palmsHits, lotusSlams, entryHits, lotusShielded;
 	int kaitenBlocks, kaitenDeflects;
 	int botEscapes, botDodges, botInterrupts, botKunaiInterrupts, botPrisonHeldMs, botKeptOff, botRolls; // bot tactics
