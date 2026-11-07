@@ -371,6 +371,7 @@
       ]
     },
     "finisher": "stun",
+    "damage": 1.2,
     "thrust": 1
   },
   "uchiha_blade": {

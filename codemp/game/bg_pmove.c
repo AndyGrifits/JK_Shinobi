@@ -10816,7 +10816,7 @@ qboolean BG_ShinobiReturnCuttable( const playerState_t *ps, const animation_t *a
 		return qfalse;
 	a = &anims[ps->torsoAnim];
 	len = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp );
-	return ( len - ps->torsoTimer >= SHINOBI_RETURN_CUT_MS || ps->torsoTimer <= 0 ) ? qtrue : qfalse;
+	return ( len - ps->torsoTimer >= shinobiReturnCutMs[ps->fd.saberAnimLevel & 7] || ps->torsoTimer <= 0 ) ? qtrue : qfalse;
 }
 
 static void PM_ShinobiPreMove( void )

@@ -768,7 +768,7 @@ SHINOBI_BLADE_SPECIAL_MS while they last. A touch outside a swing does nothing.
 // dual 0.875 - so fast, medium and dual do ~10 a second, strong ~9 in rare heavier blows;
 // cut to 30% after a play test - half the health a blow was too much)
 //                                           -   fast medium strong desann tavion dual staff
-static const int shinobiSwordDamage[8] = {   0,  8,   14,    24,    24,    9,     8,   12 }; // (dual: the knives, a fast pair)
+static const int shinobiSwordDamage[8] = {   0,  8,   14,    20,    20,    9,     8,   12 }; // (dual: the knives, a fast pair; strong 24 -> 20: 49 -> ~41 dmg/s by click_dps)
 /*
 Blade combo: swings that land on the same one, each soon after the last (shinobiSwordWindow),
 hold him flinching like the fist combo; the shinobiSwordChain-th is the finisher (x1.5),
@@ -1215,8 +1215,12 @@ static const int shinobiGateDamage[5] = { 0, 50, 80, 110, 150 }; // [gate open n
 #define SHINOBI_LOCK_GROUNDCD          ( 1 << 14 ) // the downward blow (fists) not yet again (SHINOBI_GROUND_COOLDOWN; not shown anywhere)
 #define SHINOBI_GROUND_COOLDOWN        2000  // ms: no pinning one down with blow after blow
 // a blade's return to guard (the move after a swing nobody followed up) may be cut by the next
-// press once it has played this long: clicked cuts come as fast as a held chain used to
-#define SHINOBI_RETURN_CUT_MS          150
+// press once it has played this long (by stance): clicked cuts come about as fast as a held chain
+// used to. The medium stance's own cuts are as short as the fast one's (stock: its long returns and
+// transitions made it slower) - so its return runs longer before a click may cut it
+//                                                   -   fast medium strong desann tavion dual staff
+static const int shinobiReturnCutMs[8] =          {  150, 150,  320,   150,   150,   150,  150, 150 };
+#define SHINOBI_RETURN_CUT_MS          150   // (the fast stance's; shinobiReturnCutMs)
 qboolean BG_ShinobiReturnCuttable( const playerState_t *ps, const animation_t *anims ); // bg_pmove.c
 static QINLINE int Shinobi_OwnFrame( const playerState_t *ps ) {
 	return ( ( ps->stats[STAT_SHINOBI_BLADECOMBO] >> SHINOBI_BC_GATE_SHIFT ) & SHINOBI_PFRAME_GATE_MASK )
