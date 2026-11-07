@@ -841,6 +841,7 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 	vec3_t     src;
 	int        guard;
 
+	shinobiBlockResult = SBR_NONE;
 	if ( !targ || !targ->client || targ->s.number >= MAX_CLIENTS )
 		return qtrue; // NPCs: the stock block as it is
 	client = targ->client;
@@ -862,6 +863,7 @@ qboolean Shinobi_SaberGuard( gentity_t *targ, gentity_t *attacker, int dmg, cons
 		Shinobi_ShieldShell( targ, src, dmg );
 		Shinobi_GainChakra( targ, SHINOBI_GAIN_PARRY, qtrue );
 		shinobiTest.parries++;
+		shinobiBlockResult = SBR_PARRIED; // (w_saber.c: no stock knockaway for him - he stays free to strike)
 		return qtrue;
 	}
 	guard = client->ps.stats[STAT_ARMOR];

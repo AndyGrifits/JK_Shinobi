@@ -3892,6 +3892,11 @@ static QINLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int rBl
 	{
 		return qfalse;
 	}
+	if ( self->s.number < MAX_CLIENTS && ( self->client->ps.stats[STAT_SHINOBI] & SHINOBI_STAT_STAGGER ) )
+	{ // JK_Shinobi: a reeling one's blade (a parried swing bouncing off) neither cuts nor clashes
+		return qfalse;
+	}
+	shinobiBlockResult = SBR_NONE; // JK_Shinobi: (what a guard does with this blade, below)
 
 	selfSaberLevel = G_SaberAttackPower(self, SaberAttacking(self));
 
@@ -4861,6 +4866,29 @@ static QINLINE qboolean CheckSaberDamage(gentity_t *self, int rSaberNum, int rBl
 
 blockStuff:
 		otherUnblockable = qfalse;
+
+		// JK_Shinobi: blade on blade with his guard up - the guard's rules as for a blow on him (cost, perfect parry)
+		if ( sabersClashed && self->s.number < MAX_CLIENTS && otherOwner && Shinobi_SaberGuardUp( otherOwner )
+			&& !Shinobi_SaberGuard( otherOwner, self, dmg, tr.endpos ) )
+		{
+			return didHit; // the guard gave (he reels)
+		}
+		// JK_Shinobi: a perfect parry - the attacker reels (Shinobi_Stagger); the parrier plays no stock
+		// knockaway or parry pose to sit out: free to strike at once
+		if ( shinobiBlockResult == SBR_PARRIED && otherOwner && otherOwner->client && otherOwner->s.number < MAX_CLIENTS )
+		{
+			playerState_t *dps = &otherOwner->client->ps;
+			dps->saberBlocked = BLOCKED_NONE;
+			if ( PM_SaberInParry( dps->saberMove ) || PM_SaberInKnockaway( dps->saberMove )
+				|| PM_SaberInReflect( dps->saberMove ) || PM_SaberInBrokenParry( dps->saberMove ) )
+			{
+				dps->saberMove = LS_READY;
+				dps->weaponTime = 0;
+				dps->torsoTimer = 0;
+			}
+			shinobiBlockResult = SBR_NONE;
+			return didHit;
+		}
 
 		if (otherOwner && otherOwner->client && otherOwner->client->ps.saberInFlight)
 		{
