@@ -773,6 +773,20 @@ static void Shinobi_CloneSupervise( gentity_t *clone, gentity_t *owner ) {
 			G_SetEnemy( clone, enemy );
 		}
 	}
+	// an enemy in sight: go and fight him (the stock follow-the-leader AI kept the clone at its
+	// owner's side, swinging where it stood - an earth clone, slow, never got to anyone); none:
+	// back to following the owner
+	if ( clone->NPC ) {
+		if ( clone->enemy ) {
+			clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_DEFAULT;
+			clone->NPC->goalEntity = clone->enemy;
+			clone->NPC->goalRadius = 32;
+		}
+		else if ( clone->NPC->behaviorState != BS_FOLLOW_LEADER ) {
+			clone->NPC->behaviorState = clone->NPC->defaultBehavior = BS_FOLLOW_LEADER;
+			clone->NPC->goalEntity = NULL;
+		}
+	}
 }
 
 // living clones slowly drain their owner's chakra (and stop its natural regen);
