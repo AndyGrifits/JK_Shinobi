@@ -2782,6 +2782,36 @@ qboolean PM_SwimmingAnim( int anim );
 int PM_SaberBounceForAttack( int move );
 qboolean BG_SuperBreakLoseAnim( int anim );
 qboolean BG_SuperBreakWinAnim( int anim );
+/*
+JK_Shinobi combat 2 (bg_shinobi.h): the move a click plays - the chain's next step (blows landed so
+far, from the server: STAT_SHINOBI_BLADECOMBO), light or heavy (+button15); on the ground with
+enough steps, the finisher. Marks the swing heavy or not (SHINOBI_BC_HEAVY: the server's damage,
+PM_SetSaberMove's anims).
+*/
+static int PM_ShinobiC2Move( void )
+{
+	const int          have = pm->ps->stats[STAT_SHINOBI_BLADECOMBO] & 7;
+	const qboolean     heavy = ( pm->cmd.buttons & SHINOBI_BUTTON_HEAVY ) ? qtrue : qfalse;
+	const qboolean     dual = pm->ps->fd.saberAnimLevel == SS_DUAL ? qtrue : qfalse;
+	const saberInfo_t *s0 = BG_MySaber( pm->ps->clientNum, 0 );
+	const qboolean     fence = ( s0 && s0->shinobiThrust ) ? qtrue : qfalse;
+
+	if ( heavy )
+		pm->ps->stats[STAT_SHINOBI_BLADECOMBO] |= SHINOBI_BC_HEAVY;
+	else
+		pm->ps->stats[STAT_SHINOBI_BLADECOMBO] &= ~SHINOBI_BC_HEAVY;
+	if ( pm->ps->groundEntityNum != ENTITYNUM_NONE )
+	{
+		if ( heavy && have >= SHINOBI_C2_HEAVY_FROM )
+			return Shinobi_FinisherMove( Shinobi_FinisherKindFor( &pm->cmd ), dual );
+		if ( !heavy && have >= SHINOBI_C2_CHAIN - 1 )
+			return fence ? LS_A_LUNGE : LS_KICK_F; // the push (the needle: the fleche)
+	}
+	if ( fence && heavy )
+		return LS_A_T2B; // (its lunge)
+	return ( fence ? shinobiC2Fence : shinobiC2Steps )[have & 3];
+}
+
 void PM_WeaponLightsaber(void)
 {
 	int			addTime;
@@ -3723,7 +3753,17 @@ weapChecks:
 				newmove = LS_A_TL2BR + ( newmove - LS_S_TL2BR );
 				anim = saberMoveData[newmove].animToUse;
 			}
-			if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
+			if ( bgShinobiCombat2 && newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
+				&& ( pm->cmd.buttons & BUTTON_ATTACK ) )
+			{ // JK_Shinobi combat 2: the chain's step (bg_shinobi.h) - not the direction held
+				newmove = PM_ShinobiC2Move();
+				anim = saberMoveData[newmove].animToUse;
+				if ( BG_SaberInSpecial( newmove ) )
+				{
+					both = qtrue;
+				}
+			}
+			else if ( newmove != LS_READY && newmove != LS_NONE && pm->ps->clientNum < MAX_CLIENTS
 				&& ( pm->cmd.buttons & BUTTON_ATTACK ) // (not the return after a swing: that comes this way too, without attack)
 				&& Shinobi_BladeFinisherReady( pm->ps )
 				&& pm->ps->groundEntityNum != ENTITYNUM_NONE
@@ -3879,6 +3919,18 @@ void PM_SetSaberMove(short newMove)
 		 !BG_SaberInIdle( newMove ) && !PM_SaberInParry( newMove ) && !PM_SaberInKnockaway( newMove ) && !PM_SaberInBrokenParry( newMove ) && !PM_SaberInReflect( newMove ) && !BG_SaberInSpecial(newMove))
 	{//readies, parries and reflections have only 1 level
 		anim += (pm->ps->fd.saberAnimLevel-FORCE_LEVEL_1) * SABER_ANIM_GROUP_SIZE;
+	}
+
+	// JK_Shinobi combat 2: a single blade's light cuts are the medium stance's, the heavy ones the
+	// strong stance's (a pair: its own light, the strong stance's heavy) - whatever the blade's stance
+	if ( bgShinobiCombat2 && pm->ps->clientNum < MAX_CLIENTS && pm->ps->weapon == WP_SABER
+		&& newMove >= LS_A_TL2BR && newMove <= LS_A_T2B && pm->ps->fd.saberAnimLevel != SS_STAFF )
+	{
+		const qboolean heavy = ( pm->ps->stats[STAT_SHINOBI_BLADECOMBO] & SHINOBI_BC_HEAVY ) ? qtrue : qfalse;
+		if ( heavy || pm->ps->fd.saberAnimLevel != SS_DUAL )
+		{
+			anim = saberMoveData[newMove].animToUse + ( heavy ? 2 : 1 ) * SABER_ANIM_GROUP_SIZE;
+		}
 	}
 
 	// JK_Shinobi: a thrusting blade (shinobiThrust: Nuibari) fences - side-on en garde, and every
@@ -4043,6 +4095,15 @@ void PM_SetSaberMove(short newMove)
 		}
 
 		PM_SetAnim(parts, anim, setflags);
+		if ( pm->ps->weapon == WP_SABER && pm->ps->clientNum < MAX_CLIENTS && pm->ps->torsoAnim == anim
+			&& Shinobi_C2AnimMs( anim ) )
+		{ // JK_Shinobi combat 2: it plays (BG_SaberStartTransAnim) and holds exactly this long
+			pm->ps->torsoTimer = Shinobi_C2AnimMs( anim );
+			if ( pm->ps->legsAnim == anim )
+			{
+				pm->ps->legsTimer = pm->ps->torsoTimer;
+			}
+		}
 		if (parts != SETANIM_LEGS &&
 			(pm->ps->legsAnim == BOTH_ARIAL_LEFT ||
 			pm->ps->legsAnim == BOTH_ARIAL_RIGHT))

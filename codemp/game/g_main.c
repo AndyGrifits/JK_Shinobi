@@ -208,6 +208,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	trap->SetConfigstring(CS_LEGACY_FIXES, "0");
 
 	G_RegisterCvars();
+	bgShinobiCombat2 = shinobi_combat2.integer; // JK_Shinobi: combat 2 (bg_shinobi.h)
 
 	G_ProcessIPBans();
 
@@ -2939,6 +2940,8 @@ void G_RunFrame( int levelTime ) {
 	void		*timer_GameChecks;
 	void		*timer_Queues;
 #endif
+
+	bgShinobiCombat2 = shinobi_combat2.integer; // JK_Shinobi: combat 2 (bg_shinobi.h)
 
 	if (level.gametype == GT_SIEGE &&
 		g_siegeRespawn.integer &&

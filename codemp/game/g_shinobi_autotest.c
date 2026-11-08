@@ -1058,6 +1058,183 @@ static atResult_t T_ClickDps( int t ) {
 }
 
 /*
+combat2 (shinobi_combat2 1: JK_Shinobi_Combat2Test.bat): every blade through the same script of
+single clicks on a still target (no guard): 5 light (4 steps, the 5th the push - thrown back, on his
+feet), 3 light + heavy forward (the heavy finisher: shoved down), a heavy alone, then 2 light, a miss
+(he stands away), and the next light starts the chain over. Logs each swing: the step it was, its
+anim, the damage; the light and heavy click rates. Every blade should come out the same.
+*/
+#define C2T_WAIT   1500
+static const char c2tSeq[] = "LLLLLWLLLFWHWLLALBLW";
+static const int  c2tHave[] = { 0, 1, 2, 3, 4,  0, 1, 2, 3,  0,  0, 1, 2, 0 }; // the step each swing should be
+static const int  c2tDmg[]  = { SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_PUSH,
+	SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_FINISH, SHINOBI_C2_DMG_HEAVY,
+	SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, 0, SHINOBI_C2_DMG_LIGHT };
+#define C2T_SWINGS ( (int)( sizeof( c2tHave ) / sizeof( c2tHave[0] ) ) )
+static struct {
+	int    idx, pos, waitUntil, lastStarts, n, fails, cases, measure;
+	int    at[C2T_SWINGS + 1], have[C2T_SWINGS], anim[C2T_SWINGS], move[C2T_SWINGS];
+	float  pushDist;
+	qboolean downPush, downShove, sawDown;
+	vec3_t spot;
+} c2t;
+
+static void C2T_Arm( void ) {
+	const cdpsCase_t *c = &cdpsCases[c2t.idx];
+	gentity_t        *e = A;
+	G_SetSaber( e, 0, (char *)c->s1, qfalse );
+	G_SetSaber( e, 1, (char *)c->s2, qfalse );
+	G_SaberModelSetup( e );
+	AT_Weapon( 0, WP_SABER );
+	e->client->ps.saberHolstered = 0;
+	Shinobi_BladeStance( e );
+	e->client->shinobi.bladeChain = 0;
+	c2t.pos = c2t.n = 0;
+	c2t.waitUntil = level.time + C2T_WAIT;
+	c2t.lastStarts = shinobiSwingStarts[at.a];
+	c2t.pushDist = 0;
+	c2t.downPush = c2t.downShove = c2t.sawDown = qfalse;
+}
+static void T_Combat2_Setup( void ) {
+	memset( &c2t, 0, sizeof( c2t ) );
+	c2t.idx = 3; // (the blades of click_dps's list)
+	AT_Spot( 44, 0, c2t.spot );
+	AT_Place( B, c2t.spot, at.baseYaw + 180 );
+	at.drive[0].aimAt = qtrue;
+	A->client->pers.shinobiBuild.stats[SST_TAIJUTSU] = 0;
+	C2T_Arm();
+}
+static void C2T_Report( void ) {
+	const cdpsCase_t *c = &cdpsCases[c2t.idx];
+	char  line[1024];
+	int   i, bad = 0, li = 0, ln = 0, hi = 0, hn = 0;
+	line[0] = 0;
+	for ( i = 0; i < c2t.n && i < C2T_SWINGS; i++ ) {
+		int k, dmg = 0;
+		const int to = i + 1 < c2t.n ? c2t.at[i + 1] : c2t.at[i] + 900;
+		for ( k = 0; k < SHINOBI_TEST_DMGLOG; k++ ) {
+			const shinobiTestDamage_t *d = &shinobiTest.dmg[k];
+			if ( d->time && d->time >= c2t.at[i] && d->time < to && d->targ == at.b && d->attacker == at.a )
+				dmg += d->take;
+		}
+		if ( i < C2T_SWINGS && ( c2t.have[i] != c2tHave[i] || ( c2tDmg[i] ? abs( dmg - c2tDmg[i] ) > c2tDmg[i] / 3 : dmg > 0 ) ) )
+			bad++;
+		Q_strcat( line, sizeof( line ), va( " %c%i:%i%s", i < C2T_SWINGS && ( c2t.have[i] != c2tHave[i]
+			|| ( c2tDmg[i] ? abs( dmg - c2tDmg[i] ) > c2tDmg[i] / 3 : dmg > 0 ) ) ? '!' : ' ', c2t.have[i], dmg,
+			c2t.move[i] == LS_KICK_F ? "k" : c2t.move[i] == LS_A_LUNGE ? "l" : ( c2t.anim[i] >= BOTH_A3_T__B_ && c2t.anim[i] <= BOTH_A3_TR_BL )
+				|| c2t.anim[i] == BOTH_SHINOBI_FENCE_LUNGE ? "h" : BG_SaberInSpecial( c2t.move[i] ) ? "f" : "" ) );
+		if ( i > 0 && i < 4 ) { li += c2t.at[i] - c2t.at[i - 1]; ln++; }
+	}
+	if ( c2t.n > 10 ) { hi = c2t.at[10] - c2t.at[9]; hn = 1; } // (the heavy alone, then the next click - after the wait: not a rate)
+	if ( c2t.n < C2T_SWINGS )
+		bad++;
+	if ( c2t.pushDist < 60 || c2t.downPush || !c2t.downShove )
+		bad++;
+	AT_Print( "[autotest]   %-22s step:dmg%s\n", c->name, line );
+	AT_Print( "[autotest]       light every %i ms; push %.0f u%s; shoved %s; %i swings%s\n", ln ? li / ln : 0, c2t.pushDist,
+		c2t.downPush ? " (KNOCKED DOWN)" : "", c2t.downShove ? "down" : "NOT DOWN", c2t.n, bad ? " - WRONG" : "" );
+	(void)hi; (void)hn;
+	if ( bad )
+		c2t.fails++;
+	c2t.cases++;
+}
+static atResult_t T_Combat2( int t ) {
+	gclient_t *ac = A->client, *bc = B->client;
+	char       tok;
+
+	if ( !bgShinobiCombat2 ) {
+		AT_Msg( "shinobi_combat2 is 0 (JK_Shinobi_Combat2Test.bat sets it)" );
+		return ATR_FAIL;
+	}
+	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax;
+	bc->ps.eFlags &= ~EF_INVULNERABLE;
+	bc->invulnerableTimer = 0;
+	bc->ps.stats[STAT_ARMOR] = 0;
+	if ( B->health < 200 )
+		B->health = bc->ps.stats[STAT_HEALTH] = 500;
+	if ( bc->ps.forceHandExtend == HANDEXTEND_KNOCKDOWN || BG_InKnockDown( bc->ps.legsAnim ) )
+		c2t.sawDown = qtrue;
+	if ( shinobiSwingStarts[at.a] != c2t.lastStarts ) { // a swing began
+		c2t.lastStarts = shinobiSwingStarts[at.a];
+		if ( c2t.n < C2T_SWINGS ) {
+			c2t.at[c2t.n] = level.time;
+			c2t.have[c2t.n] = ac->ps.stats[STAT_SHINOBI_BLADECOMBO] & 7;
+			c2t.anim[c2t.n] = ac->ps.torsoAnim;
+			c2t.move[c2t.n] = ac->ps.saberMove;
+			if ( c2t.n == 4 || c2t.n == 8 )
+				c2t.sawDown = qfalse; // (watching the finishers)
+			c2t.n++;
+		}
+		c2t.pos++;
+	}
+	if ( c2t.waitUntil ) {
+		AT_Drive( 0, 0, 0, 0, 0 );
+		if ( level.time < c2t.waitUntil )
+			return ATR_RUN;
+		c2t.waitUntil = 0;
+		if ( c2t.measure == 5 ) { // the push: how far, on his feet?
+			c2t.pushDist = Distance( bc->ps.origin, c2t.spot );
+			c2t.downPush = c2t.sawDown;
+		}
+		else if ( c2t.measure == 9 )
+			c2t.downShove = c2t.sawDown;
+		c2t.measure = 0;
+		AT_StandUp( B );
+		bc->shinobi.juggleEnd = bc->shinobi.juggleBy = bc->shinobi.staggerEnd = bc->shinobi.stunEnd = 0;
+		bc->shinobi.bleedEnd = 0;
+		AT_Place( B, c2t.spot, at.baseYaw + 180 );
+		AT_Place( A, at.base, at.baseYaw );
+		if ( c2t.pos > 0 && c2tSeq[c2t.pos] == 'W' )
+			c2t.pos++;
+	}
+	tok = c2tSeq[c2t.pos];
+	if ( !tok ) {
+		C2T_Report();
+		if ( ++c2t.idx >= CDPS_COUNT ) {
+			AT_Msg( "%i blades through the combat 2 script, %i wrong", c2t.cases, c2t.fails );
+			return c2t.fails ? ATR_FAIL : ATR_PASS;
+		}
+		C2T_Arm();
+		return ATR_RUN;
+	}
+	switch ( tok ) {
+	case 'W': // let the finisher play out, measure it, then a clean start
+		c2t.measure = c2t.n;
+		c2t.waitUntil = level.time + C2T_WAIT;
+		AT_Drive( 0, 0, 0, 0, 0 );
+		return ATR_RUN;
+	case 'A': { // he stands out of reach: the next swing misses
+		vec3_t far;
+		AT_Spot( 300, 0, far );
+		AT_Place( B, far, at.baseYaw + 180 );
+		at.drive[0].aimAt = qfalse;
+		c2t.pos++;
+		return ATR_RUN;
+	}
+	case 'B':
+		if ( BG_SaberInAttack( ac->ps.saberMove ) )
+			return ATR_RUN; // (the miss plays out first)
+		AT_Place( B, c2t.spot, at.baseYaw + 180 );
+		at.drive[0].aimAt = qtrue;
+		c2t.pos++;
+		return ATR_RUN;
+	default: { // a click: pressed a frame, let go a frame, till its swing begins
+		const qboolean down = ( level.framenum & 1 ) == 0;
+		int buttons = 0;
+		if ( down )
+			buttons = BUTTON_ATTACK | ( tok == 'H' || tok == 'F' ? SHINOBI_BUTTON_HEAVY : 0 );
+		AT_Drive( 0, tok == 'F' ? 127 : 0, 0, 0, buttons );
+		if ( Distance( bc->ps.origin, c2t.spot ) > 6 )
+			AT_Place( B, c2t.spot, at.baseYaw + 180 ); // (the plain blows: he stays put)
+		if ( Distance( A->client->ps.origin, at.base ) > 24 && ac->ps.groundEntityNum != ENTITYNUM_NONE && tok != 'F' )
+			AT_Place( A, at.base, at.baseYaw );
+		return ATR_RUN;
+	}
+	}
+}
+
+
+/*
 blade_combo: each weapon's own finisher (forward held) and the three common ones (katana,
 back / side / nothing held): the chain lands, the finisher comes, its effect shows.
 */
@@ -2843,6 +3020,7 @@ static atTest_t atTests[] = {
 	{ "gentle_fist",  "Byakugan fists burn more chakra than the hits give back",   T_Gentle_Setup, T_Gentle, 4000 },
 	{ "wind_edge",    "Wind Edge: a swing's air slash cuts someone 120 units away", T_WindEdge_Setup, T_WindEdge, 3000 },
 	{ "click_dps",    "every weapon, fists first, with the fastest single clicks: blows/s, landed, dmg/s", T_ClickDps_Setup, T_ClickDps, ( CDPS_MS + CDPS_GAP ) * CDPS_COUNT + CDPS_FIRST + 3000 },
+	{ "combat2",      "combat 2: every blade through the same clicks - the light chain, the push, the heavy finisher, a miss", T_Combat2_Setup, T_Combat2, 9 * 16000 },
 	{ "saber_dps",    "every blade and stance on a still target: damage, hits, swings, dmg/s", T_SaberDps_Setup, T_SaberDps, ( SDPS_MS + SDPS_GAP ) * SDPS_COUNT + SDPS_FIRST + 3000 },
 	{ "blade_combo",  "blade finishers: each weapon's own (forward) and back sweep / side spin / rising cut (nothing held)", T_BladeCombo_Setup, T_BladeCombo, BC_COUNT * ( BC_MS + 1500 ) },
 	{ "palms",        "64 Seals: rooted in the pose, full: the palm strikes and throws; held, the field strikes again", T_Palms_Setup, T_Palms, 5500 },

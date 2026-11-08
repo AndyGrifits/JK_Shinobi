@@ -161,6 +161,7 @@ qboolean  Shinobi_KaitenBlocks( gentity_t *targ, gentity_t *attacker, int mod );
 void      Shinobi_KaitenInterrupt( gentity_t *ent );           // hit while winding up: broken
 void      Shinobi_ChargesToStats( gclient_t *client );
 void      Shinobi_BotDefend( gentity_t *ent, usercmd_t *ucmd );
+void      Shinobi_BotC2( gentity_t *ent, usercmd_t *ucmd ); // combat 2
 void      Shinobi_ShadowTrapRelease( gentity_t *victim );
 void      Shinobi_ShadowTrapVictimThink( gentity_t *ent, usercmd_t *ucmd );
 void      Shinobi_InfuseThink( gentity_t *ent, usercmd_t *ucmd );

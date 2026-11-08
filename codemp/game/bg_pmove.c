@@ -10319,6 +10319,19 @@ static void PM_ShinobiWallRun( void )
 	}
 }
 
+// combat 2 (bg_shinobi.h): the heavy button is attack, marked heavy; outside it, nothing
+void BG_ShinobiHeavy( const playerState_t *ps, usercmd_t *cmd )
+{
+	if ( bgShinobiCombat2 && ps->clientNum < MAX_CLIENTS && ( cmd->buttons & SHINOBI_BUTTON_HEAVY ) )
+	{
+		cmd->buttons |= BUTTON_ATTACK;
+	}
+	else
+	{
+		cmd->buttons &= ~SHINOBI_BUTTON_HEAVY;
+	}
+}
+
 // guard up and attack: stock attack + alt attack - the blade's special attack ("kata"), the fists' grab
 void BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd )
 {
@@ -11167,6 +11180,7 @@ void PmoveSingle (pmove_t *pmove) {
 
 	pm = pmove;
 
+	BG_ShinobiHeavy( pm->ps, &pm->cmd ); // JK_Shinobi combat 2: the heavy blow is an attack too
 	BG_ShinobiBlockAttack( pm->ps, &pm->cmd ); // JK_Shinobi: block + attack = special attack
 	PM_ShinobiComboPre(); // JK_Shinobi: taijutsu combo timers, finishers on block, the diving kick
 	PM_ShinobiEntry(); // JK_Shinobi: Dynamic Entry - the flying kick

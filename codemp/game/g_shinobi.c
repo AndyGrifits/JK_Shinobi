@@ -708,24 +708,36 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	qboolean   attackPressed;
 
 	Shinobi_AutotestDrive( ent, ucmd ); // a test bot: the test's keys, not its AI's
+	{ // combat 2: a new press of jump in the air (not the follow-up of a launch) - Shunshin, once Pmove has had its say
+		const qboolean jump = ucmd->upmove > 0;
+		client->shinobi.c2Shunshin = bgShinobiCombat2 && jump && !client->shinobi.c2JumpHeld
+			&& client->ps.groundEntityNum == ENTITYNUM_NONE && client->ps.pm_type == PM_NORMAL
+			&& client->shinobi.bladeAirUntil <= level.time && !( client->ps.stats[STAT_SHINOBI_COMBO] & SHINOBI_COMBO_AIR );
+		client->shinobi.c2JumpHeld = jump;
+		client->shinobi.c2LegsBefore = client->ps.legsAnim;
+	}
+	BG_ShinobiHeavy( &client->ps, ucmd ); // combat 2: the heavy blow is an attack too (the buffer below keeps which)
 	Shinobi_StripGuns( ent ); // no blasters for anyone
 	if ( client->shinobi.kaitenStart ) // Kaiten: no blows, no guard while spinning
 		ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK );
 	Shinobi_BotDefend( ent, ucmd ); // bots: guard, parry, Kawarimi out of combos
+	Shinobi_BotC2( ent, ucmd ); // combat 2: bots' heavy finishers
 	if ( ( ent->r.svFlags & SVF_BOT ) && ( ucmd->buttons & BUTTON_ATTACK ) && ( client->ps.stats[STAT_SHINOBI_LOCK] & SHINOBI_LOCK_ATTACKUSED ) )
-		ucmd->buttons &= ~BUTTON_ATTACK; // bots (test bots too) hold attack: one press per blow, so they let go a frame - a tap
+		ucmd->buttons &= ~( BUTTON_ATTACK | SHINOBI_BUTTON_HEAVY ); // bots (test bots too) hold attack: one press per blow, so they let go a frame - a tap
 	{ // the input buffer: a tap of attack while the body can't swing yet (a swing or a parry running out, a flinch
 	  // ending) is kept a moment and pressed for you the moment it can - no blow lost to an animation's last frames
 		const qboolean held = ( ucmd->buttons & BUTTON_ATTACK ) != 0;
 		const qboolean busy = ( client->ps.weaponTime > 0 && !BG_ShinobiReturnCuttable( &client->ps, bgAllAnims[ent->localAnimIndex].anims ) )
 			|| client->shinobi.flinchEnd > level.time || client->shinobi.staggerEnd > level.time;
-		if ( held && !( client->buttons & BUTTON_ATTACK ) )
+		if ( held && !( client->buttons & BUTTON_ATTACK ) ) {
 			client->shinobi.attackTap = busy ? level.time : 0;
+			client->shinobi.attackTapHeavy = ( ucmd->buttons & SHINOBI_BUTTON_HEAVY ) ? qtrue : qfalse;
+		}
 		else if ( !held && client->shinobi.attackTap ) {
 			if ( level.time - client->shinobi.attackTap > SHINOBI_INPUT_BUFFER_MS )
 				client->shinobi.attackTap = 0;
 			else if ( !busy && ( client->ps.weapon == WP_SABER || client->ps.weapon == WP_MELEE ) ) {
-				ucmd->buttons |= BUTTON_ATTACK;
+				ucmd->buttons |= BUTTON_ATTACK | ( client->shinobi.attackTapHeavy ? SHINOBI_BUTTON_HEAVY : 0 );
 				client->shinobi.attackTap = 0;
 			}
 		}
@@ -808,6 +820,27 @@ void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 
 	Shinobi_HandThink( ent, attackPressed );
+}
+
+/*
+After Pmove (g_active.c). Combat 2 (bg_shinobi.h): the new press of jump in the air noted before it
+blinks you where you look - Shunshin's middle distance, S held: backward - unless that press made
+a wall move (a wall run, a flip off it: those come first) or you landed.
+*/
+void Shinobi_AfterPmove( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	const int  legs = client->ps.legsAnim;
+
+	if ( !client->shinobi.c2Shunshin )
+		return;
+	client->shinobi.c2Shunshin = qfalse;
+	if ( client->ps.groundEntityNum != ENTITYNUM_NONE )
+		return;
+	if ( legs != client->shinobi.c2LegsBefore && ( legs == BOTH_WALL_RUN_RIGHT || legs == BOTH_WALL_RUN_LEFT
+		|| BG_FlippingAnim( legs ) || BG_InSpecialJump( legs ) ) )
+		return; // the press ran up / along / off a wall
+	client->shinobi.shunshinBack = ucmd->forwardmove < 0;
+	Shinobi_Cast( ent, SJ_SHUNSHIN, 2 );
 }
 
 /*

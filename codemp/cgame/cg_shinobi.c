@@ -2386,8 +2386,8 @@ static void CG_ShinobiDrawBladeCombo( void ) {
 	float x;
 	int   k;
 
-	if ( !have || need < 2 || cg.snap->ps.pm_type == PM_SPECTATOR )
-		return;
+	if ( !have || need < 2 || cg.snap->ps.pm_type == PM_SPECTATOR || bgShinobiCombat2 )
+		return; // (combat 2: no pips - the chain is felt, not counted)
 	x = SCREEN_WIDTH * 0.5f - ( need * 14 - 4 ) * 0.5f;
 	for ( k = 0; k < need - 1; k++ ) { // white: lit for each blow landed, empty (a dark box with a white rim) for those to come
 		if ( k < have )

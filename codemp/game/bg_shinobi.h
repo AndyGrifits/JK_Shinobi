@@ -234,6 +234,8 @@ static QINLINE void Shinobi_SetRawBit( float *f, int on ) {
 
 // Shift is the chakra modifier (it no longer walks): Shift + jump = Shunshin.
 // The engine reports a held Shift as BUTTON_WALKING (with cl_run 1).
+extern int bgShinobiCombat2; // combat 2 on (the experiment: see SHINOBI_C2_CHAIN)
+
 #define SHINOBI_MODIFIER(cmd)      ( ( (cmd)->buttons & BUTTON_WALKING ) != 0 )
 
 // Wall run: also from the air, from a little further away, and kept going
@@ -583,6 +585,7 @@ The shield no longer soaks damage on its own.
 #define SHINOBI_STAGGER_ANIM       BOTH_H1_S1_T_
 
 void     BG_ShinobiBlockAttack( const playerState_t *ps, usercmd_t *cmd );
+void     BG_ShinobiHeavy( const playerState_t *ps, usercmd_t *cmd ); // bg_pmove.c (combat 2)
 qboolean BG_ShinobiCanBlock( const playerState_t *ps, int buttons ); // bg_pmove.c
 
 // Player size (models/players/<model>/scale.cfg, "scale 85" = 85 %): the model, the hitbox
@@ -833,7 +836,7 @@ lights), the next attack plays a finisher move picked by what you hold as you sw
 (Pmove: bg_saber.c) - and its blow is the finisher.
 */
 #define STAT_SHINOBI_BLADECOMBO    10    // the blade combo for the HUD and Pmove: blows landed (bits 0-2), the finisher's number (bits 3-5)
-enum { SFK_NONE, SFK_OWN, SFK_SWEEP, SFK_SPIN, SFK_RISE };
+enum { SFK_NONE, SFK_OWN, SFK_SWEEP, SFK_SPIN, SFK_RISE, SFK_PUSH, SFK_SHOVE }; // (the last two: combat 2's)
 static QINLINE qboolean Shinobi_BladeFinisherReady( const playerState_t *ps ) {
 	const int v = ps->stats[STAT_SHINOBI_BLADECOMBO], have = v & 7, need = ( v >> 3 ) & 7;
 	return have > 0 && have == need - 1;
@@ -863,8 +866,57 @@ static QINLINE int Shinobi_FinisherKindOfMove( int move ) {
 	case LS_SPINATTACK_DUAL: case LS_SPINATTACK_ALORA: return SFK_SPIN;
 	case LS_PULL_ATTACK_SWING: return SFK_RISE;
 	case LS_A_LUNGE: case LS_DUAL_FB: return SFK_OWN;
+	case LS_KICK_F: return bgShinobiCombat2 ? SFK_PUSH : SFK_NONE; // (combat 2: the light finisher)
 	default: return SFK_NONE;
 	}
+}
+/*
+Combat 2 (shinobi_combat2, an experiment with its own launcher - JK_Shinobi_Combat2.bat):
+Shift blocks (+button13), LMB the light blow, RMB the heavy one (+button15). Every blade alike: the
+same speed, damage and reach. The light blows go in a fixed order (each step its own cut; the
+direction held no longer picks it); 4 of them landing on the same one (a blow on his guard counts,
+a miss or his perfect parry breaks it, the next within SHINOBI_C2_WINDOW_MS of the last) - the 5th
+click is the push finisher. A heavy blow is a step of the chain too, slower and harder; after the
+3rd or the 4th step it is the heavy finisher, by the direction held (nothing: up he goes - jump:
+Shunshin after him; forward: shoved down; back: the sweep; a side: the spin), each with the
+weapon's own bonus (its shinobiFinisher). bgShinobiCombat2: the server's cvar (CVAR_SYSTEMINFO),
+the same on both sides of Pmove.
+*/
+#define SHINOBI_BUTTON_HEAVY       (1<<15) // usercmd bit: the heavy blow (combat 2: right mouse button = "+button15")
+#define SHINOBI_BC_HEAVY           ( 1 << 15 ) // STAT_SHINOBI_BLADECOMBO: the swing going is a heavy one (Pmove sets it)
+#define SHINOBI_C2_CHAIN           5     // the 5th light click: the push finisher
+#define SHINOBI_C2_HEAVY_FROM      3     // the heavy finisher from this many steps on
+#define SHINOBI_C2_WINDOW_MS       1100  // the next step within this of the last blow (~0.8 s after the swing ends)
+#define SHINOBI_C2_LIGHT_MS        250   // a light cut plays this long (+ the return cut short: ~0.4 s a click)
+#define SHINOBI_C2_HEAVY_MS        450   // a heavy one (~0.6 s a click: x1.5)
+#define SHINOBI_C2_KICK_MS         450   // the push finisher's kick
+#define SHINOBI_C2_DMG_LIGHT       10
+#define SHINOBI_C2_DMG_HEAVY       20
+#define SHINOBI_C2_DMG_PUSH        15
+#define SHINOBI_C2_DMG_FINISH      30
+#define SHINOBI_C2_GUARD_LIGHT     30    // what a light blow costs a blade guard (a heavy one, a finisher: x2)
+#define SHINOBI_C2_REACH           40    // every blade reaches as far as the katana (blade length)
+#define SHINOBI_C2_PUSH            380   // the push finisher throws him back this fast
+#define SHINOBI_C2_SHOVE           520   // the heavy forward finisher: this, and down he goes
+// the light steps, in order (a pair: its own cuts of the same moves; the needle blade: thrust high,
+// thrust low, cut to the left, cut to the right - bg_saber.c's fencing)
+static const int shinobiC2Steps[4] = { LS_A_TR2BL, LS_A_TL2BR, LS_A_R2L, LS_A_T2B };
+static const int shinobiC2Fence[4] = { LS_A_TR2BL, LS_A_BL2TR, LS_A_R2L, LS_A_L2R };
+// how long a combat 2 swing plays (0: not one of them) - by its anim alone, so every side (the
+// server's blade traces, the cgame drawing others) plays it alike: the light cuts are the medium
+// stance's (a pair: its own), the heavy ones the strong stance's (the needle: its lunge)
+static QINLINE int Shinobi_C2AnimMs( int anim ) {
+	if ( !bgShinobiCombat2 )
+		return 0;
+	if ( ( anim >= BOTH_A2_T__B_ && anim <= BOTH_A2_TR_BL ) || ( anim >= BOTH_A6_T__B_ && anim <= BOTH_A6_TR_BL )
+		|| anim == BOTH_SHINOBI_FENCE_HIGH || anim == BOTH_SHINOBI_FENCE_LOW
+		|| anim == BOTH_SHINOBI_FENCE_CUT_L || anim == BOTH_SHINOBI_FENCE_CUT_R )
+		return SHINOBI_C2_LIGHT_MS;
+	if ( ( anim >= BOTH_A3_T__B_ && anim <= BOTH_A3_TR_BL ) || anim == BOTH_SHINOBI_FENCE_LUNGE )
+		return SHINOBI_C2_HEAVY_MS;
+	if ( anim == BOTH_A7_KICK_F )
+		return SHINOBI_C2_KICK_MS;
+	return 0;
 }
 // the finisher moves wind up long: played faster, so they land in a fight (both sides of Pmove use it)
 #define SHINOBI_FINISHER_ANIM_SPEED 1.45f

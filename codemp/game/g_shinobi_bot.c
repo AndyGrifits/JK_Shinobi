@@ -1237,6 +1237,44 @@ static void Shinobi_BotFists( gentity_t *ent, usercmd_t *ucmd ) {
 		client->shinobi.botAirUntil = level.time + 1800;
 }
 
+/*
+Combat 2 (bg_shinobi.h), a bot with a blade: the stock AI's clicks are the light chain; with 3
+steps landed it goes heavy half the time (the heavy finisher), with 4 most of the time (else the
+light push) - the direction picked per chain as with fists.
+*/
+void Shinobi_BotC2( gentity_t *ent, usercmd_t *ucmd ) {
+	gclient_t *client = ent->client;
+	const int  have = client->ps.stats[STAT_SHINOBI_BLADECOMBO] & 7;
+
+	if ( !bgShinobiCombat2 || !( ent->r.svFlags & SVF_BOT ) || client->ps.weapon != WP_SABER || Shinobi_AutotestControls( ent ) )
+		return;
+	if ( have < SHINOBI_C2_HEAVY_FROM ) {
+		client->shinobi.botC2Step = 0;
+		client->shinobi.botFinisher = -1;
+		return;
+	}
+	if ( !( ucmd->buttons & BUTTON_ATTACK ) || ( ucmd->buttons & SHINOBI_BUTTON_BLOCK ) )
+		return;
+	if ( client->shinobi.botC2Step != have + 1 ) {
+		client->shinobi.botC2Step = have + 1;
+		client->shinobi.botC2Heavy = Q_irand( 0, 99 ) < ( have >= SHINOBI_C2_CHAIN - 1 ? 70 : 50 );
+	}
+	if ( !client->shinobi.botC2Heavy )
+		return;
+	if ( client->shinobi.botFinisher < 0 ) {
+		const int r = Q_irand( 0, 99 );
+		client->shinobi.botFinisher = r < 30 ? 0 : r < 60 ? 1 : r < 80 ? 2 : 3;
+	}
+	ucmd->buttons |= SHINOBI_BUTTON_HEAVY;
+	ucmd->forwardmove = ucmd->rightmove = 0;
+	switch ( client->shinobi.botFinisher ) {
+	case 1: ucmd->forwardmove = 127; break;  // shoved down
+	case 2: ucmd->forwardmove = -127; break; // the sweep
+	case 3: ucmd->rightmove = Q_irand( 0, 1 ) ? 127 : -127; break; // the spin
+	default: break;                          // up he goes
+	}
+}
+
 // every frame for bots: let go of held jutsu in time
 void Shinobi_BotThink( gentity_t *ent ) {
 	gclient_t *client = ent->client;

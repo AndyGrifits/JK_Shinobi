@@ -8242,7 +8242,10 @@ void WP_SaberPositionUpdate( gentity_t *self, usercmd_t *ucmd )
 
 	if (BG_KickingAnim(self->client->ps.legsAnim))
 	{ //do some kick traces and stuff if we're in the appropriate anim
-		G_KickSomeMofos(self);
+		if ( !bgShinobiCombat2 || self->s.number >= MAX_CLIENTS || self->client->ps.weapon != WP_SABER )
+		{ // JK_Shinobi combat 2: a blade's kick is the push finisher - its blow is the finisher's (g_shinobi_block.c)
+			G_KickSomeMofos(self);
+		}
 	}
 	else if (self->client->ps.torsoAnim == BOTH_KYLE_GRAB)
 	{ //try to grab someone

@@ -755,6 +755,36 @@ Everyone has Force Jump 2 (wall runs) and fists. Extended melee is on (`g_debugM
 so clones and doubles can't be told apart from the real ninja by name.
 Console: `rasengan 3`, `katon 2`, `shunshin 2 back`, `kawarimi`... cast instantly (used by the self-test).
 
+## Combat 2 (experiment: JK_Shinobi_Combat2.bat)
+
+Its own launcher, the usual one untouched (`shinobi_combat2 1`, a server cvar the clients get;
+`shinobi_binds_c2.cfg` rebinds, `JK_Shinobi.bat` puts the usual keys back). The Chunin arena with
+the two punching bags.
+
+- **Shift** blocks (+button13; a tap right before a hit is the perfect parry). Shift + F (the quick
+  cast) is gone. **Shift + LMB**: the grab (fists) / the blade's special attack.
+- **LMB, the light blow**: every blade alike - one reach (the katana's), ~0.4 s a click, 10 damage.
+  The blows go in a fixed order, each step its own cut (the direction held no longer picks it):
+  a single blade - diagonal from the right, from the left, across, overhead; a pair - its own cuts
+  of the same; Nuibari - thrust high, thrust low, cut to the left, to the right. 4 landing on the
+  same one (a blow on his guard counts; a miss or his perfect parry breaks the chain; the next
+  within ~0.8 s of the last swing's end) - the 5th click is the **push**: a kick (Nuibari: the
+  fleche), 15 damage, thrown back on his feet. No pips: the chain is felt, not counted.
+- **RMB, the heavy blow**: 1.5x slower, 20 damage, twice the guard. A step of the chain like a
+  light one. After the 3rd or 4th step it is the **heavy finisher** (30), by what is held: nothing -
+  up he goes (Space: Shunshin after him); W - shoved hard and down; S - the sweep; A / D - the spin;
+  each with the weapon's bonus: katana a stagger, Kurosawa two more cuts, Kubikiribocho and the
+  Cloud swords a bleeding wound, Samehada eats chakra, Shibuki blows up, Nuibari stuns, the trench
+  knives' arc flies on ahead, the Uchiha blades set him alight. Stone Skin / a Kaiten: only the
+  blow; a guard holds the whole finisher.
+- **Space in the air** (a new press): Shunshin where you look, always the middle distance (360);
+  S + Space: backward. A wall run off the press comes first; clinging and the high jump are holds.
+- **Z**: the marked kunai only (a tool in hand: the tool).
+- Bots: the stock clicks are the light chain; with 3-4 steps they go heavy into a finisher.
+- `JK_Shinobi_Combat2Test.bat`: the `combat2` autotest - every blade through the same clicks.
+
+Not yet: fists' own chain (jab, cross, hook, uppercut, push kick).
+
 ## Automatic tests
 
 `exec shinobi_autotest` (main menu console): a map with cheats, you as a spectator, two bots

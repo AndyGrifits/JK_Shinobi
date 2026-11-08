@@ -2699,6 +2699,16 @@ void BG_SaberStartTransAnim( int clientNum, int saberAnimLevel, int weapon, int 
 	// JK_Shinobi: blade finishers, quicker - that alone: on top of a weapon's own speed-up the
 	// move's timer (dur x (2 - speed) for a saber move, HOLDLESS) would come to nothing
 	const float shinobiFinisher = weapon == WP_SABER ? Shinobi_FinisherAnimSpeed( anim ) : 1.0f;
+	if ( weapon == WP_SABER && clientNum < MAX_CLIENTS && Shinobi_C2AnimMs( anim ) && *animSpeed > 0.0f )
+	{ // JK_Shinobi combat 2: every blade's cut plays in the same time (PM_SetSaberMove holds it as long)
+		const animation_t *a = &bgHumanoidAnimations[anim];
+		const float        len = ( a->numFrames - 1 ) * fabs( (float)a->frameLerp );
+		if ( len > 0.0f )
+		{
+			*animSpeed = len / Shinobi_C2AnimMs( anim );
+			return;
+		}
+	}
 	if ( shinobiFinisher != 1.0f )
 		*animSpeed *= shinobiFinisher;
 	else if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_ROLL_STAB )

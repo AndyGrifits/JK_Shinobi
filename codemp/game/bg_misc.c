@@ -163,6 +163,8 @@ char *forceMasteryLevels[NUM_FORCE_MASTERY_LEVELS] =
 	"MASTERY7",	//"Jedi Master"		// FORCE_MASTERY_JEDI_MASTER,
 };
 
+int bgShinobiCombat2 = 0; // JK_Shinobi: combat 2 on (bg_shinobi.h; the game and the cgame set it from shinobi_combat2)
+
 int forceMasteryPoints[NUM_FORCE_MASTERY_LEVELS] =
 {
 	0,		// FORCE_MASTERY_UNINITIATED,

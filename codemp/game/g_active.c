@@ -3062,6 +3062,11 @@ void ClientThink_real( gentity_t *ent ) {
 
 	Pmove (&pmove);
 
+	if ( ent->s.number < MAX_CLIENTS )
+	{ // JK_Shinobi: what waits on Pmove (combat 2: the air Shunshin)
+		Shinobi_AfterPmove( ent, ucmd );
+	}
+
 	if (ent->client->solidHack)
 	{
 		if (ent->client->solidHack > level.time)

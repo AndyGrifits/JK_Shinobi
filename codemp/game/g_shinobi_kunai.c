@@ -123,7 +123,7 @@ static void Shinobi_KunaiThink( gentity_t *k ) {
 
 void Cmd_Kunai_f( gentity_t *ent ) {
 	gclient_t *client = ent->client;
-	const qboolean marked = SHINOBI_MODIFIER( &client->pers.cmd );
+	const qboolean marked = bgShinobiCombat2 || SHINOBI_MODIFIER( &client->pers.cmd ); // (combat 2: Z is the marked kunai only)
 	gentity_t *k;
 	vec3_t     fwd, eye, start;
 	trace_t    tr;

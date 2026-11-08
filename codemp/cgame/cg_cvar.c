@@ -102,4 +102,5 @@ void CG_UpdateCvars( void ) {
 			}
 		}
 	}
+	bgShinobiCombat2 = shinobi_combat2.integer; // JK_Shinobi: combat 2 (bg_shinobi.h)
 }

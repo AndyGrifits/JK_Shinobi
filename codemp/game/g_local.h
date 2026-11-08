@@ -941,6 +941,8 @@ struct gclient_s {
 		int		botGuardUntil, botGuardNext, botFlinches, botFlinchSeen, botPunishUntil; // bots: defence
 		qboolean botFists;		// bots: this life fights bare-handed (our combo)
 		int		botFinisher;	// the finisher picked for the combo going on: 0 kick, 1 launch, 2 sweep, 3 spin
+		int		botC2Step;		// combat 2: the chain step (+1) the bot last decided on, ...
+		qboolean botC2Heavy;	// ... and whether it goes heavy there
 		int		botAirUntil;	// launched someone: jump after him and hit until then
 		// bots: tactics (g_shinobi_bot.c, Shinobi_BotTactics)
 		int		botCaughtAt, botEscapeAt; // caught in a trap since (0: free); Kawarimi out at (0: won't)
@@ -952,6 +954,12 @@ struct gclient_s {
 		int		botHoldStart, botHoldHealth, botQuietSince; // a held jutsu: since, health then; nothing near since
 		int		botPunishTarget;	// punishing this one (num + 1) - in to him (0: whoever reels in front)
 		int		attackTap;		// attack pressed then while the body couldn't swing yet (the input buffer)
+		qboolean attackTapHeavy;	// ... the heavy blow (combat 2)
+		int		c2Swing;		// combat 2: the blade swing (bladeSwingReal) going - did it land? (a miss breaks the chain)
+		int		chainSwing;		// the swing (bladeSwingReal) that last added to the blade combo
+		qboolean c2JumpHeld;	// combat 2: jump held last frame ...
+		qboolean c2Shunshin;	// ... a new press of it in the air this frame: Shunshin after Pmove (Shinobi_AfterPmove)
+		int		c2LegsBefore;	// (the legs before Pmove: did the press start a wall move instead?)
 		int		shadowHideEnd, shadowHideTick, shadowHideNext, shadowPatch; // Shadow Hide
 		int		flashNext, blindEnd, healNext, raiDashNext;
 		int		raiDashEnd, raiDashTick, raiDashFx; // Lightning Dash (held)
@@ -1537,6 +1545,7 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 // g_shinobi.c
 void Shinobi_Init( void );
 void Shinobi_ClientThink( gentity_t *ent, usercmd_t *ucmd );
+void Shinobi_AfterPmove( gentity_t *ent, usercmd_t *ucmd ); // JK_Shinobi: what waits on Pmove (combat 2: the air Shunshin)
 void Cmd_Rasengan_f( gentity_t *ent );
 void Cmd_Chidori_f( gentity_t *ent );
 void Cmd_Katon_f( gentity_t *ent );
