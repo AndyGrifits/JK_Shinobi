@@ -2059,6 +2059,90 @@ static atResult_t T_BotDefend( int t ) {
 	return ATR_RUN;
 }
 
+/*
+earth_clone: A's Earth Clone (an NPC) goes for B and fights him - with A on fists, a katana, Nuibari
+in turn. Logged each second: where it is, its enemy, behaviour, weapon and moves.
+*/
+static gentity_t *AT_EarthClone( void ) {
+	int i;
+	for ( i = MAX_CLIENTS; i < level.num_entities; i++ ) {
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->shinobiCloneEarth && e->shinobiCloneOwner == at.a + 1 && e->client )
+			return e;
+	}
+	return NULL;
+}
+static void EC_Stage( int stage ) {
+	vec3_t p;
+	AT_Reset( A );
+	AT_Reset( B );
+	if ( stage == 0 )
+		AT_Weapon( 0, WP_MELEE );
+	else {
+		G_SetSaber( A, 0, stage == 1 ? "shinobi_katana" : "shinobi_nuibari", qfalse );
+		G_SetSaber( A, 1, "none", qfalse );
+		G_SaberModelSetup( A );
+		AT_Weapon( 0, WP_SABER );
+		A->client->ps.saberHolstered = 0;
+		Shinobi_BladeStance( A );
+	}
+	AT_Spot( 260, 0, p );
+	AT_Place( B, p, at.baseYaw + 180 );
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+	at.v[2] = level.time;
+	at.v[3] = 0; // cast
+	at.f[0] = 99999; // closest the clone came to B
+	at.f[1] = 0;     // farthest it moved from where it rose
+}
+static void T_EarthClone_Setup( void ) {
+	at.v[10] = at.v[11] = at.v[12] = 0;
+	EC_Stage( 0 );
+}
+static atResult_t T_EarthClone( int t ) {
+	const int since = level.time - at.v[2];
+	gentity_t *c;
+	B->health = B->client->ps.stats[STAT_HEALTH] = 500;
+	A->client->ps.fd.forcePower = A->client->ps.fd.forcePowerMax;
+	AT_Drive( 0, 0, 0, 0, 0 );
+	AT_Drive( 1, 0, 0, 0, 0 );
+	if ( !at.v[3] && since >= 300 ) {
+		at.v[3] = Shinobi_Cast( A, SJ_EARTHCLONE, 1 ) ? 1 : -1;
+		c = AT_EarthClone();
+		if ( c )
+			VectorCopy( c->r.currentOrigin, at.vec[0] );
+	}
+	c = AT_EarthClone();
+	if ( c && at.v[3] > 0 ) {
+		const float db = Distance( c->r.currentOrigin, B->r.currentOrigin ), dm = Distance( c->r.currentOrigin, at.vec[0] );
+		if ( db < at.f[0] ) at.f[0] = db;
+		if ( dm > at.f[1] ) at.f[1] = dm;
+		if ( ( since / 50 ) % 20 == 0 ) // about each second
+			AT_Print( "[autotest]     %s %.1fs: clone %i to B %.0f, moved %.0f, enemy %i, bState %i, weapon %i, saberMove %i, torso %i legs %i, cmd fwd %i btn %i, vel %.0f\n",
+				at.stage == 0 ? "fists" : at.stage == 1 ? "katana" : "nuibari", since / 1000.0f, c->s.number, db, dm,
+				c->enemy ? c->enemy->s.number : -1, c->NPC ? c->NPC->behaviorState : -1, c->client->ps.weapon, c->client->ps.saberMove,
+				c->client->ps.torsoAnim, c->client->ps.legsAnim, c->client->pers.cmd.forwardmove, c->client->pers.cmd.buttons,
+				VectorLength( c->client->ps.velocity ) );
+	}
+	if ( since >= 7000 ) {
+		const qboolean ok = at.v[3] > 0 && at.f[0] <= 90;
+		AT_Print( "[autotest]     %s: cast %i, the clone came within %.0f of B, moved %.0f at most\n",
+			at.stage == 0 ? "fists" : at.stage == 1 ? "katana" : "nuibari", at.v[3], at.f[0], at.f[1] );
+		at.v[10 + at.stage] = ok;
+		if ( c ) { // gone before the next one
+			c->health = 0;
+			c->shinobiCloneExpire = level.time;
+		}
+		if ( at.stage < 2 ) {
+			NEXT();
+			EC_Stage( at.stage );
+			return ATR_RUN;
+		}
+		AT_Msg( "earth clone goes for B and fights: fists %s, katana %s, nuibari %s", at.v[10] ? "ok" : "NO", at.v[11] ? "ok" : "NO", at.v[12] ? "ok" : "NO" );
+		return ( at.v[10] && at.v[11] && at.v[12] ) ? ATR_PASS : ATR_FAIL;
+	}
+	return ATR_RUN;
+}
+
 // a bot (its own AI) fighting A loses him the moment he substitutes away: no chasing the hidden
 static void T_BotLose_Setup( void ) {
 	vec3_t p;
@@ -2772,6 +2856,7 @@ static atTest_t atTests[] = {
 	{ "blade_clicks", "blade combo by clicks and held: blows counted, the finisher waits for a new swing", T_BladeClicks_Setup, T_BladeClicks, 19000 },
 	{ "copyeye",      "Copy Sharingan: copies the cast it sees (not Yin/Yang, not behind), dearer from the slot", T_CopyEye_Setup, T_CopyEye, 9000 },
 	{ "bot_defend",   "a defending bot guards / Kawarimis out of combos",         T_BotDefend_Setup, T_BotDefend, 7000 },
+	{ "earth_clone",  "A's Earth Clone goes for B and fights (fists, katana, nuibari)", T_EarthClone_Setup, T_EarthClone, 23000 },
 	{ "bot_lose",     "a bot loses a target that substituted away (no chasing the hidden)", T_BotLose_Setup, T_BotLose, 6500 },
 	{ "bot_fists",    "a bare-handed bot (its own AI) fights with the combo",     T_BotFists_Setup, T_BotFists, 13000 },
 	{ "bot_escape",   "a bot Kawarimis out of a Water Prison (tactics)",          T_BotEscape_Setup, T_BotEscape, 16000 },

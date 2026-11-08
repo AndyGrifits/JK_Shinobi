@@ -333,8 +333,8 @@ int PM_GetSaberStance(void)
 	case SS_DESANN:
 	default:
 		anim = BOTH_STAND2;
-		if ( saber1 && !saber2 && saber1->shinobiThrust )
-		{ // JK_Shinobi: the needle blade fences: side-on en garde
+		if ( saber1 && !saber2 && saber1->shinobiThrust && pm->ps->clientNum < MAX_CLIENTS )
+		{ // JK_Shinobi: the needle blade fences: side-on en garde (players: an NPC clone cuts the stock way)
 			anim = BOTH_SHINOBI_FENCE_STANCE;
 		}
 		break;
