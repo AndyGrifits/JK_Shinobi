@@ -887,9 +887,9 @@ the same on both sides of Pmove.
 #define SHINOBI_C2_CHAIN           5     // the 5th light click: the push finisher
 #define SHINOBI_C2_HEAVY_FROM      3     // the heavy finisher from this many steps on
 #define SHINOBI_C2_WINDOW_MS       1100  // the next step within this of the last blow (~0.8 s after the swing ends)
-#define SHINOBI_C2_LIGHT_MS        250   // a light cut plays this long (+ the return cut short: ~0.4 s a click)
-#define SHINOBI_C2_HEAVY_MS        450   // a heavy one (~0.6 s a click: x1.5)
-#define SHINOBI_C2_KICK_MS         450   // the push finisher's kick
+#define SHINOBI_C2_LIGHT_MS        400   // a light cut plays this long - the next click no sooner (a cut chains straight into the next: no return between)
+#define SHINOBI_C2_HEAVY_MS        600   // a heavy one (x1.5)
+#define SHINOBI_C2_KICK_MS         500   // the push finisher's kick
 #define SHINOBI_C2_DMG_LIGHT       10
 #define SHINOBI_C2_DMG_HEAVY       20
 #define SHINOBI_C2_DMG_PUSH        15

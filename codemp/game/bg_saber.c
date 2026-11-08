@@ -3819,17 +3819,6 @@ void PM_SetSaberMove(short newMove)
 	{//continuing with a kata, increment attack counter
 		pm->ps->saberAttackChainCount++;
 	}
-	if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )
-	{ // JK_Shinobi: one press, one swing - this press is spent (bg_pmove.c PM_ShinobiPreMove)
-		pm->ps->stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_ATTACKUSED;
-	}
-#if defined(_GAME)
-	if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )
-	{ // JK_Shinobi: every swing begun - the same move again too (g_shinobi_block.c: one blow per swing)
-		extern int shinobiSwingStarts[MAX_CLIENTS];
-		shinobiSwingStarts[pm->ps->clientNum]++;
-	}
-#endif
 
 	if (pm->ps->saberAttackChainCount > 16)
 	{ //for the sake of being able to send the value over the net within a reasonable bit count
@@ -4118,6 +4107,17 @@ void PM_SetSaberMove(short newMove)
 
 	if ( (pm->ps->torsoAnim) == anim )
 	{//successfully changed anims
+		if ( ( BG_SaberInAttack( newMove ) || BG_SaberInSpecial( newMove ) ) && pm->ps->clientNum < MAX_CLIENTS )
+		{ // JK_Shinobi: one press, one swing - this press is spent (bg_pmove.c PM_ShinobiPreMove); counted
+		  // only once the swing took (an anim that couldn't start - the blade still being drawn - is no swing)
+			pm->ps->stats[STAT_SHINOBI_LOCK] |= SHINOBI_LOCK_ATTACKUSED;
+#if defined(_GAME)
+			{ // every swing begun - the same move again too (g_shinobi_block.c: one blow per swing)
+				extern int shinobiSwingStarts[MAX_CLIENTS];
+				shinobiSwingStarts[pm->ps->clientNum]++;
+			}
+#endif
+		}
 	//special check for *starting* a saber swing
 		//playing at attack
 		if ( BG_SaberInAttack( newMove ) || BG_SaberInSpecialAttack( anim ) )

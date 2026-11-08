@@ -653,8 +653,8 @@ float Shinobi_BladeDamage( gentity_t *attacker, gentity_t *victim, float stockDa
 	dmg = (float)shinobiSwordDamage[style];
 	if ( ac->saber[0].damageScale > 0 )
 		dmg *= ac->saber[0].damageScale;
-	if ( bgShinobiCombat2 && attacker->s.number < MAX_CLIENTS && !special )
-		dmg = (float)Shinobi_C2Damage( ac, finisher ); // (every blade alike)
+	if ( bgShinobiCombat2 && attacker->s.number < MAX_CLIENTS && ( !special || finisher ) )
+		dmg = (float)Shinobi_C2Damage( ac, finisher ); // (every blade alike; the finishers are special moves too)
 
 	if ( finisher ) { // the finisher swing: each one it cuts
 		Shinobi_Debug( "blade %i -> %i: FINISHER kind %i (swing %i)", attacker->s.number, victim->s.number,
@@ -726,7 +726,8 @@ weapon's own does its thing.
 */
 // the weapon's own finisher effect (its shinobiFinisher) - the old forward finisher; combat 2: the
 // bonus of every heavy finisher
-static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *dmg, const vec3_t dir ) {
+// (thrown: combat 2's finisher threw him up / down already - the bonus doesn't move or hold him on top)
+static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *dmg, const vec3_t dir, qboolean thrown ) {
 	gclient_t *ac = attacker->client, *vc = victim->client;
 	shinobiTest.bladeFinishers[ac->saber[0].shinobiFinisher]++;
 	switch ( ac->saber[0].shinobiFinisher ) {
@@ -735,7 +736,7 @@ static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *d
 		vc->ps.fd.forcePower -= take;
 		if ( take > 0 )
 			Shinobi_GainChakra( attacker, (float)take, qtrue );
-		if ( !Shinobi_CCImmune( victim ) ) {
+		if ( !Shinobi_CCImmune( victim ) && !thrown ) {
 			VectorScale( dir, SHINOBI_SWORD_DRAIN_PUSH, vc->ps.velocity );
 			vc->ps.velocity[2] = 160;
 			vc->ps.groundEntityNum = ENTITYNUM_NONE;
@@ -750,7 +751,7 @@ static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *d
 		Shinobi_FinisherFx( attacker, victim, SFX_BLEED );
 		break;
 	case SBF_IAI: // a clean draw-cut: he reels (not in Stone Skin / a Kaiten)
-		if ( !Shinobi_CCImmune( victim ) )
+		if ( !Shinobi_CCImmune( victim ) && !thrown )
 			Shinobi_Stagger( victim, SHINOBI_SWORD_IAI_MS );
 		Shinobi_FinisherFx( attacker, victim, SFX_IAI );
 		break;
@@ -779,7 +780,7 @@ static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *d
 			else
 				Shinobi_IgniteAshAt( pos, SHINOBI_SWORD_BLAST_FIRE * 2, attacker->s.number + 1 );
 		}
-		if ( !Shinobi_CCImmune( victim ) ) {
+		if ( !Shinobi_CCImmune( victim ) && !thrown ) {
 			VectorScale( dir, SHINOBI_SWORD_BLAST_PUSH, vc->ps.velocity );
 			vc->ps.velocity[2] = 220;
 			vc->ps.groundEntityNum = ENTITYNUM_NONE;
@@ -790,7 +791,7 @@ static void Shinobi_BladeBonus( gentity_t *attacker, gentity_t *victim, float *d
 		break;
 	}
 	case SBF_STUN: // Nuibari: a thrust to a nerve - he stands there, helpless
-		if ( !Shinobi_CCImmune( victim ) ) {
+		if ( !Shinobi_CCImmune( victim ) && !thrown ) {
 			if ( vc->shinobi.stunEnd < level.time + SHINOBI_SWORD_STUN_MS )
 				vc->shinobi.stunEnd = level.time + SHINOBI_SWORD_STUN_MS;
 			VectorClear( vc->ps.velocity );
@@ -858,7 +859,7 @@ static void Shinobi_C2Finisher( gentity_t *attacker, gentity_t *victim, int kind
 		break;
 	}
 	if ( victim->inuse && victim->health > 0 )
-		Shinobi_BladeBonus( attacker, victim, dmg, dir );
+		Shinobi_BladeBonus( attacker, victim, dmg, dir, !immune && kind != SFK_SPIN ); // (thrown up / down: no stagger, stun or push of its own on top)
 }
 
 void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, float *dmg ) {
@@ -918,7 +919,7 @@ void Shinobi_BladeFinisher( gentity_t *attacker, gentity_t *victim, int kind, fl
 		return;
 	}
 
-	Shinobi_BladeBonus( attacker, victim, dmg, dir );
+	Shinobi_BladeBonus( attacker, victim, dmg, dir, qfalse );
 }
 
 // after the rising cut: a new jump press Shunshins you up to him (smoke where you were and where you appear)

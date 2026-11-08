@@ -1072,7 +1072,7 @@ static const int  c2tDmg[]  = { SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, SHIN
 	SHINOBI_C2_DMG_LIGHT, SHINOBI_C2_DMG_LIGHT, 0, SHINOBI_C2_DMG_LIGHT };
 #define C2T_SWINGS ( (int)( sizeof( c2tHave ) / sizeof( c2tHave[0] ) ) )
 static struct {
-	int    idx, pos, waitUntil, lastStarts, n, fails, cases, measure;
+	int    idx, pos, waitUntil, lastStarts, n, fails, cases, measure, away;
 	int    at[C2T_SWINGS + 1], have[C2T_SWINGS], anim[C2T_SWINGS], move[C2T_SWINGS];
 	float  pushDist;
 	qboolean downPush, downShove, sawDown;
@@ -1147,6 +1147,7 @@ static atResult_t T_Combat2( int t ) {
 		return ATR_FAIL;
 	}
 	ac->ps.fd.forcePower = ac->ps.fd.forcePowerMax;
+	ac->pers.shinobiBuild.stats[SST_TAIJUTSU] = 0; // (the numbers as they are)
 	bc->ps.eFlags &= ~EF_INVULNERABLE;
 	bc->invulnerableTimer = 0;
 	bc->ps.stats[STAT_ARMOR] = 0;
@@ -1167,6 +1168,8 @@ static atResult_t T_Combat2( int t ) {
 		}
 		c2t.pos++;
 	}
+	if ( c2t.waitUntil || ( c2tSeq[c2t.pos] != 'L' && c2tSeq[c2t.pos] != 'H' && c2tSeq[c2t.pos] != 'F' ) )
+		ac->shinobi.attackTap = 0; // (no click kept by the input buffer past the clicks: no extra swing)
 	if ( c2t.waitUntil ) {
 		AT_Drive( 0, 0, 0, 0, 0 );
 		if ( level.time < c2t.waitUntil )
@@ -1203,8 +1206,12 @@ static atResult_t T_Combat2( int t ) {
 		c2t.waitUntil = level.time + C2T_WAIT;
 		AT_Drive( 0, 0, 0, 0, 0 );
 		return ATR_RUN;
-	case 'A': { // he stands out of reach: the next swing misses
+	case 'A': { // he stands out of reach (once this swing is over): the next one misses
 		vec3_t far;
+		AT_Drive( 0, 0, 0, 0, 0 );
+		if ( BG_SaberInAttack( ac->ps.saberMove ) )
+			return ATR_RUN;
+		c2t.away = qtrue;
 		AT_Spot( 300, 0, far );
 		AT_Place( B, far, at.baseYaw + 180 );
 		at.drive[0].aimAt = qfalse;
@@ -1212,10 +1219,12 @@ static atResult_t T_Combat2( int t ) {
 		return ATR_RUN;
 	}
 	case 'B':
+		AT_Drive( 0, 0, 0, 0, 0 );
 		if ( BG_SaberInAttack( ac->ps.saberMove ) )
 			return ATR_RUN; // (the miss plays out first)
 		AT_Place( B, c2t.spot, at.baseYaw + 180 );
 		at.drive[0].aimAt = qtrue;
+		c2t.away = qfalse;
 		c2t.pos++;
 		return ATR_RUN;
 	default: { // a click: pressed a frame, let go a frame, till its swing begins
@@ -1224,7 +1233,7 @@ static atResult_t T_Combat2( int t ) {
 		if ( down )
 			buttons = BUTTON_ATTACK | ( tok == 'H' || tok == 'F' ? SHINOBI_BUTTON_HEAVY : 0 );
 		AT_Drive( 0, tok == 'F' ? 127 : 0, 0, 0, buttons );
-		if ( Distance( bc->ps.origin, c2t.spot ) > 6 )
+		if ( Distance( bc->ps.origin, c2t.spot ) > 6 && !c2t.away )
 			AT_Place( B, c2t.spot, at.baseYaw + 180 ); // (the plain blows: he stays put)
 		if ( Distance( A->client->ps.origin, at.base ) > 24 && ac->ps.groundEntityNum != ENTITYNUM_NONE && tok != 'F' )
 			AT_Place( A, at.base, at.baseYaw );
